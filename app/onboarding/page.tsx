@@ -25,6 +25,26 @@ const occupationOptions = [
   "Others",
 ];
 
+interface PostingDetails {
+  regular_district: string;
+  regular_block: string;
+  special_duty_district: string;
+  special_duty_block: string;
+  special_duty_place: string;
+  deputed_district: string;
+  deputed_block: string;
+}
+
+const emptyPosting: PostingDetails = {
+  regular_district: "",
+  regular_block: "",
+  special_duty_district: "",
+  special_duty_block: "",
+  special_duty_place: "",
+  deputed_district: "",
+  deputed_block: "",
+};
+
 interface UserProfile {
   name: string;
   phone: string;
@@ -32,6 +52,7 @@ interface UserProfile {
   dob: string;
   occupation: string;
   occupation_other: string;
+  posting_details: PostingDetails;
   social_links: {
     instagram: string;
     twitter: string;
@@ -46,8 +67,9 @@ export default function OnboardingPage() {
     phone: "",
     address: "",
     dob: "",
-    occupation: "",
+    occupation: "Horticultural Officer",
     occupation_other: "",
+    posting_details: emptyPosting,
     social_links: { instagram: "", twitter: "", linkedin: "" },
     status: "",
   });
@@ -247,6 +269,53 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="pt-2">
+                  <h3 className="text-sm font-medium mb-3">Posting Details</h3>
+                  <div className="space-y-4 rounded-lg border p-4 mb-4">
+                    <div>
+                      <p className="text-xs font-semibold text-primary mb-2">Regular Posting</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>District</Label>
+                          <Input value={profile.posting_details.regular_district} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_district: e.target.value } })} placeholder="District name" />
+                        </div>
+                        <div>
+                          <Label>Block</Label>
+                          <Input value={profile.posting_details.regular_block} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_block: e.target.value } })} placeholder="Block name" />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-accent mb-2">Special Duty (if applicable)</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>District</Label>
+                          <Input value={profile.posting_details.special_duty_district} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_district: e.target.value } })} placeholder="District name" />
+                        </div>
+                        <div>
+                          <Label>Block</Label>
+                          <Input value={profile.posting_details.special_duty_block} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_block: e.target.value } })} placeholder="Block name" />
+                        </div>
+                        <div className="col-span-2">
+                          <Label>Place (other than above)</Label>
+                          <Input value={profile.posting_details.special_duty_place} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_place: e.target.value } })} placeholder="Place name" />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-secondary mb-2">Deputed (if applicable)</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>District</Label>
+                          <Input value={profile.posting_details.deputed_district} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_district: e.target.value } })} placeholder="District name" />
+                        </div>
+                        <div>
+                          <Label>Block</Label>
+                          <Input value={profile.posting_details.deputed_block} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_block: e.target.value } })} placeholder="Block name" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <h3 className="text-sm font-medium mb-3">Social Links (optional)</h3>
                   <div className="space-y-3">
                     <div>

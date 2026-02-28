@@ -36,6 +36,7 @@ export async function PUT(req: NextRequest) {
       dob: body.dob || null,
       occupation: body.occupation,
       social_links: body.social_links,
+      posting_details: body.posting_details,
     })
     .eq("id", session.userId);
 
