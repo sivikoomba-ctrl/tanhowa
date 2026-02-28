@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-
 const publicPaths = ["/", "/verify", "/api/auth/send-otp", "/api/auth/verify-otp"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow public paths
-  if (publicPaths.some((p) => pathname === p) || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
+  // Allow public paths and static assets
+  if (
+    publicPaths.some((p) => pathname === p) ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.match(/\.(svg|png|jpg|ico)$/)
+  ) {
     return NextResponse.next();
   }
 
@@ -19,7 +22,14 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
+  // Verify JWT in middleware
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    return NextResponse.next();
+  }
+
   try {
+    const secret = new TextEncoder().encode(jwtSecret);
     const { payload } = await jwtVerify(token, secret);
 
     // Block admin routes for non-admin users
@@ -34,7 +44,10 @@ export async function middleware(req: NextRequest) {
 
     return NextResponse.next();
   } catch {
-    return NextResponse.redirect(new URL("/", req.url));
+    // Invalid token — redirect to login
+    const response = NextResponse.redirect(new URL("/", req.url));
+    response.cookies.delete("session");
+    return response;
   }
 }
 
