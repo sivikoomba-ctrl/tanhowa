@@ -68,7 +68,7 @@ export default function LandingPage() {
               <Flower2 className="w-10 h-10 text-primary" />
             </div>
             <h1 className="text-5xl font-extrabold tracking-tight text-primary">
-              Tanhowa
+              TANHOWA
             </h1>
             <p className="mt-2 text-lg font-medium text-accent">
               Horticulture Community
@@ -119,7 +119,7 @@ export default function LandingPage() {
 
           {/* Footer */}
           <p className="mt-8 text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} Tanhowa Horticulture Community
+            &copy; {new Date().getFullYear()} TANHOWA Horticulture Community
           </p>
         </div>
       </div>

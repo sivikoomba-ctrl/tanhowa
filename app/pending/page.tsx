@@ -22,7 +22,7 @@ export default function PendingPage() {
           </div>
           <div className="flex items-center justify-center gap-2 mb-2">
             <Flower2 className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold text-primary">Tanhowa</h1>
+            <h1 className="text-2xl font-bold text-primary">TANHOWA</h1>
           </div>
           <h2 className="text-xl font-semibold mb-2">Awaiting Approval</h2>
           <p className="text-muted-foreground mb-6">

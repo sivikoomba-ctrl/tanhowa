@@ -119,7 +119,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="p-4 border-b border-sidebar-border">
           <Link href="/dashboard" className="flex items-center gap-2">
             <Flower2 className="w-7 h-7 text-sidebar-primary" />
-            <span className="text-lg font-bold text-sidebar-foreground">Tanhowa</span>
+            <span className="text-lg font-bold text-sidebar-foreground">TANHOWA</span>
           </Link>
         </div>
 
@@ -155,7 +155,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="md:hidden flex items-center justify-between p-4 border-b bg-card">
           <Link href="/dashboard" className="flex items-center gap-2">
             <Flower2 className="w-6 h-6 text-primary" />
-            <span className="font-bold text-primary">Tanhowa</span>
+            <span className="font-bold text-primary">TANHOWA</span>
           </Link>
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
@@ -167,7 +167,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="p-4 border-b border-sidebar-border">
                 <div className="flex items-center gap-2">
                   <Flower2 className="w-7 h-7 text-sidebar-primary" />
-                  <span className="text-lg font-bold">Tanhowa</span>
+                  <span className="text-lg font-bold">TANHOWA</span>
                 </div>
               </div>
               <nav className="p-3 space-y-1">

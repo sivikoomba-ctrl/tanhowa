@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin" className="flex items-center gap-2">
             <Flower2 className="w-7 h-7 text-sidebar-primary" />
             <div>
-              <span className="text-lg font-bold text-sidebar-foreground">Tanhowa</span>
+              <span className="text-lg font-bold text-sidebar-foreground">TANHOWA</span>
               <span className="text-xs text-sidebar-foreground/60 block -mt-1">Admin Panel</span>
             </div>
           </Link>

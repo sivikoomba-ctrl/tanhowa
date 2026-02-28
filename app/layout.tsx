@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tanhowa - Horticulture Community",
+  title: "TANHOWA - Horticulture Community",
   description:
-    "Tanhowa Horticulture Community - Connecting plant enthusiasts, gardeners, and horticulture professionals.",
+    "TANHOWA Horticulture Community - Connecting plant enthusiasts, gardeners, and horticulture professionals.",
 };
 
 export default function RootLayout({
