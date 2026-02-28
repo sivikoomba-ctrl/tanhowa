@@ -96,76 +96,12 @@ export default function LandingPage() {
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 flex flex-col items-center px-4 py-12">
-        {/* Hero + Login Section */}
-        <div className="w-full max-w-md text-center mb-16">
-          {/* Logo / Brand */}
-          <div className="mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-              <Flower2 className="w-10 h-10 text-primary" />
-            </div>
-            <h1 className="text-5xl font-extrabold tracking-tight text-primary">
-              TANHOWA
-            </h1>
-            <p className="mt-2 text-lg font-medium text-accent">
-              Tamil Nadu Horticultural Officers Welfare Association
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Connecting horticultural officers across Tamil Nadu
-            </p>
-          </div>
-
-          {/* Login Card */}
-          <Card className="border-primary/20 shadow-xl shadow-primary/5">
-            <CardContent className="pt-6">
-              <h2 className="text-xl font-semibold text-foreground mb-1">
-                Welcome
-              </h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                Enter your email to sign in or create an account
-              </p>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="h-12 text-base border-primary/30 focus-visible:ring-primary"
-                />
-
-                {error && (
-                  <p className="text-sm text-destructive">{error}</p>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90"
-                >
-                  {loading ? "Sending OTP..." : "Continue with Email"}
-                </Button>
-              </form>
-
-              <p className="mt-4 text-xs text-muted-foreground">
-                We&apos;ll send a one-time verification code to your email
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Horticulture Categories Section */}
-        <div className="w-full max-w-6xl mb-16">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-primary">Our Domains</h2>
-            <p className="mt-2 text-muted-foreground">
-              Serving horticultural excellence across all major sectors
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {categories.map((cat) => (
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
+        {/* Three-column layout: images | login | images */}
+        <div className="w-full max-w-6xl flex flex-col lg:flex-row items-center lg:items-stretch gap-6 lg:gap-8 mb-8">
+          {/* Left images (first 4 categories) */}
+          <div className="hidden lg:grid grid-cols-2 gap-3 flex-1">
+            {categories.slice(0, 4).map((cat) => (
               <div
                 key={cat.name}
                 className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
@@ -176,12 +112,123 @@ export default function LandingPage() {
                     alt={cat.name}
                     fill
                     className="object-cover group-hover:scale-110 transition-transform duration-500"
-                    sizes="(max-width: 768px) 50vw, 25vw"
+                    sizes="25vw"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
-                  <h3 className="text-white font-semibold text-sm md:text-base drop-shadow-lg">
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <h3 className="text-white font-semibold text-sm drop-shadow-lg">
+                    {cat.name}
+                  </h3>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Center: Branding + Login */}
+          <div className="w-full max-w-md text-center shrink-0">
+            <div className="mb-8">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
+                <Flower2 className="w-10 h-10 text-primary" />
+              </div>
+              <h1 className="text-5xl font-extrabold tracking-tight text-primary">
+                TANHOWA
+              </h1>
+              <p className="mt-2 text-lg font-medium text-accent">
+                Tamil Nadu Horticultural Officers Welfare Association
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Connecting horticultural officers across Tamil Nadu
+              </p>
+            </div>
+
+            <Card className="border-primary/20 shadow-xl shadow-primary/5">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-semibold text-foreground mb-1">
+                  Welcome
+                </h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Enter your email to sign in or create an account
+                </p>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <Input
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12 text-base border-primary/30 focus-visible:ring-primary"
+                  />
+
+                  {error && (
+                    <p className="text-sm text-destructive">{error}</p>
+                  )}
+
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90"
+                  >
+                    {loading ? "Sending OTP..." : "Continue with Email"}
+                  </Button>
+                </form>
+
+                <p className="mt-4 text-xs text-muted-foreground">
+                  We&apos;ll send a one-time verification code to your email
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right images (last 4 categories) */}
+          <div className="hidden lg:grid grid-cols-2 gap-3 flex-1">
+            {categories.slice(4, 8).map((cat) => (
+              <div
+                key={cat.name}
+                className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+              >
+                <div className="aspect-[4/3] relative">
+                  <Image
+                    src={cat.image}
+                    alt={cat.name}
+                    fill
+                    className="object-cover group-hover:scale-110 transition-transform duration-500"
+                    sizes="25vw"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <h3 className="text-white font-semibold text-sm drop-shadow-lg">
+                    {cat.name}
+                  </h3>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mobile: show all images in a grid below */}
+        <div className="lg:hidden w-full max-w-md mb-8">
+          <h2 className="text-xl font-bold text-primary text-center mb-4">Our Domains</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {categories.map((cat) => (
+              <div
+                key={cat.name}
+                className="group relative overflow-hidden rounded-xl shadow-lg"
+              >
+                <div className="aspect-[4/3] relative">
+                  <Image
+                    src={cat.image}
+                    alt={cat.name}
+                    fill
+                    className="object-cover"
+                    sizes="50vw"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-2">
+                  <h3 className="text-white font-semibold text-xs drop-shadow-lg">
                     {cat.name}
                   </h3>
                 </div>
