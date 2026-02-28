@@ -43,10 +43,20 @@ export async function POST(req: NextRequest) {
     let isNewUser = false;
 
     if (!user) {
-      // Create new user
+      // Check if this is the very first user (auto-admin)
+      const { count } = await supabase
+        .from("users")
+        .select("*", { count: "exact", head: true });
+
+      const isFirstUser = count === 0;
+
       const { data: newUser, error: createError } = await supabase
         .from("users")
-        .insert({ email: normalizedEmail })
+        .insert({
+          email: normalizedEmail,
+          role: isFirstUser ? "admin" : "member",
+          status: isFirstUser ? "approved" : "pending",
+        })
         .select()
         .single();
 

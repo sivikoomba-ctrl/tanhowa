@@ -36,12 +36,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     fetch("/api/users/me")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Unauthorized");
+        return r.json();
+      })
       .then((d) => {
-        if (d.user?.role !== "admin") router.push("/dashboard");
+        if (!d.user) router.push("/");
+        else if (d.user.role !== "admin") router.push("/dashboard");
         else setIsAdmin(true);
       })
-      .catch(() => router.push("/dashboard"));
+      .catch(() => router.push("/"));
   }, [router]);
 
   async function handleLogout() {

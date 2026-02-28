@@ -41,14 +41,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     fetch("/api/users/me")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.user) setUser(data.user);
+      .then((res) => {
+        if (!res.ok) throw new Error("Unauthorized");
+        return res.json();
       })
-      .catch(() => {});
-  }, []);
+      .then((data) => {
+        if (data.user) {
+          if (data.user.status === "pending") {
+            router.push("/pending");
+            return;
+          }
+          setUser(data.user);
+        } else {
+          router.push("/");
+        }
+      })
+      .catch(() => router.push("/"))
+      .finally(() => setLoading(false));
+  }, [router]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -87,6 +101,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </Link>
         )}
       </>
+    );
+  }
+
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
     );
   }
 
