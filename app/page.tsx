@@ -47,17 +47,8 @@ const categories = [
   },
 ];
 
-// Organic leaf shapes - asymmetric border-radius inspired by natural forms
-const leafShapes = [
-  "62% 38% 50% 50% / 45% 55% 45% 55%",
-  "38% 62% 55% 45% / 55% 45% 55% 45%",
-  "55% 45% 38% 62% / 40% 60% 40% 60%",
-  "45% 55% 62% 38% / 60% 40% 60% 40%",
-  "58% 42% 48% 52% / 52% 48% 55% 45%",
-  "42% 58% 52% 48% / 48% 52% 48% 52%",
-  "50% 50% 40% 60% / 42% 58% 50% 50%",
-  "60% 40% 50% 50% / 50% 50% 58% 42%",
-];
+// Clean rounded corners
+const cardRadius = "16px";
 
 // Golden angle rotations for each image (subtle, like leaf phyllotaxis)
 const rotations = categories.map((_, i) => {
@@ -172,7 +163,7 @@ export default function LandingPage() {
                   key={cat.name}
                   className={`group relative overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-700 hover:-translate-y-1 ${indent}`}
                   style={{
-                    borderRadius: leafShapes[i],
+                    borderRadius: cardRadius,
                     transform: `rotate(${rotations[i]}deg)`,
                     height: `${imageSizes[i] * 0.618}px`,
                   }}
@@ -225,7 +216,7 @@ export default function LandingPage() {
             {/* Login Card - golden ratio proportioned */}
             <Card
               className="w-full max-w-sm border-primary/15 shadow-2xl shadow-primary/10 backdrop-blur-sm bg-white/85"
-              style={{ borderRadius: "24px 8px 24px 8px" }}
+              style={{ borderRadius: cardRadius }}
             >
               <CardContent className="pt-7 pb-7 px-7">
                 <h2 className="text-xl font-semibold text-foreground mb-1 text-center">
@@ -286,7 +277,7 @@ export default function LandingPage() {
                   key={cat.name}
                   className={`group relative overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-700 hover:-translate-y-1 ${indent}`}
                   style={{
-                    borderRadius: leafShapes[idx],
+                    borderRadius: cardRadius,
                     transform: `rotate(${rotations[idx]}deg)`,
                     height: `${imageSizes[idx] * 0.618}px`,
                   }}
@@ -323,7 +314,7 @@ export default function LandingPage() {
               <div
                 key={cat.name}
                 className="group relative overflow-hidden shadow-md hover:shadow-lg transition-all duration-500"
-                style={{ borderRadius: leafShapes[i] }}
+                style={{ borderRadius: cardRadius }}
               >
                 <div className="aspect-[4/3] relative">
                   <Image
