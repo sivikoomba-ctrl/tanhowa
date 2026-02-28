@@ -1,0 +1,172 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import {
+  Flower2,
+  Home,
+  User,
+  Users,
+  Megaphone,
+  Calendar,
+  FileText,
+  LogOut,
+  Menu,
+  X,
+  Shield,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+
+interface UserData {
+  name: string;
+  email: string;
+  role: string;
+}
+
+const navItems = [
+  { href: "/dashboard", label: "Overview", icon: Home },
+  { href: "/dashboard/profile", label: "Profile", icon: User },
+  { href: "/dashboard/members", label: "Members", icon: Users },
+  { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
+  { href: "/dashboard/events", label: "Events", icon: Calendar },
+  { href: "/dashboard/documents", label: "Documents", icon: FileText },
+];
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<UserData | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    fetch("/api/users/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.user) setUser(data.user);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/");
+  }
+
+  function NavLinks({ onItemClick }: { onItemClick?: () => void }) {
+    return (
+      <>
+        {navItems.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onItemClick}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+              }`}
+            >
+              <item.icon size={18} />
+              {item.label}
+            </Link>
+          );
+        })}
+        {user?.role === "admin" && (
+          <Link
+            href="/admin"
+            onClick={onItemClick}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-primary hover:bg-sidebar-accent/50 transition-colors"
+          >
+            <Shield size={18} />
+            Admin Panel
+          </Link>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex">
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+        <div className="p-4 border-b border-sidebar-border">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <Flower2 className="w-7 h-7 text-sidebar-primary" />
+            <span className="text-lg font-bold text-sidebar-foreground">Tanhowa</span>
+          </Link>
+        </div>
+
+        <nav className="flex-1 p-3 space-y-1">
+          <NavLinks />
+        </nav>
+
+        <div className="p-3 border-t border-sidebar-border">
+          <div className="flex items-center gap-3 px-3 py-2 mb-2">
+            <Avatar className="w-8 h-8">
+              <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs">
+                {user?.name?.charAt(0)?.toUpperCase() || "U"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{user?.name || "User"}</p>
+              <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email}</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+          >
+            <LogOut size={16} />
+            Logout
+          </Button>
+        </div>
+      </aside>
+
+      {/* Mobile Header + Content */}
+      <div className="flex-1 flex flex-col">
+        <header className="md:hidden flex items-center justify-between p-4 border-b bg-card">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <Flower2 className="w-6 h-6 text-primary" />
+            <span className="font-bold text-primary">Tanhowa</span>
+          </Link>
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 bg-sidebar text-sidebar-foreground p-0">
+              <div className="p-4 border-b border-sidebar-border">
+                <div className="flex items-center gap-2">
+                  <Flower2 className="w-7 h-7 text-sidebar-primary" />
+                  <span className="text-lg font-bold">Tanhowa</span>
+                </div>
+              </div>
+              <nav className="p-3 space-y-1">
+                <NavLinks onItemClick={() => setMobileOpen(false)} />
+              </nav>
+              <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-sidebar-border">
+                <Button
+                  variant="ghost"
+                  onClick={handleLogout}
+                  className="w-full justify-start gap-2 text-sidebar-foreground/70"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </header>
+
+        <main className="flex-1 p-6 bg-background overflow-auto">{children}</main>
+      </div>
+    </div>
+  );
+}
