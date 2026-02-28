@@ -10,6 +10,7 @@ import {
   Megaphone,
   Calendar,
   FileText,
+  MessageSquareWarning,
   Settings,
   LogOut,
   ArrowLeft,
@@ -25,6 +26,7 @@ const adminNavItems = [
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/events", label: "Events", icon: Calendar },
   { href: "/admin/documents", label: "Documents", icon: FileText },
+  { href: "/admin/grievances", label: "Grievances", icon: MessageSquareWarning },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

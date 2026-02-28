@@ -11,6 +11,7 @@ import {
   Megaphone,
   Calendar,
   FileText,
+  MessageSquareWarning,
   LogOut,
   Menu,
   X,
@@ -33,6 +34,7 @@ const navItems = [
   { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
   { href: "/dashboard/events", label: "Events", icon: Calendar },
   { href: "/dashboard/documents", label: "Documents", icon: FileText },
+  { href: "/dashboard/grievances", label: "Grievances", icon: MessageSquareWarning },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
