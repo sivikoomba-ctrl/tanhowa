@@ -2,10 +2,46 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Flower2, Leaf, TreePine, Sprout } from "lucide-react";
+
+const categories = [
+  {
+    name: "Fruits",
+    image: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=400&h=300&fit=crop",
+  },
+  {
+    name: "Vegetables",
+    image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop",
+  },
+  {
+    name: "Flowers",
+    image: "https://images.unsplash.com/photo-1490750967868-88aa4f44baee?w=400&h=300&fit=crop",
+  },
+  {
+    name: "Spices",
+    image: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=400&h=300&fit=crop",
+  },
+  {
+    name: "Plantation Crops",
+    image: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&h=300&fit=crop",
+  },
+  {
+    name: "Medicinal Plants",
+    image: "https://images.unsplash.com/photo-1515694346937-94d85e39f29a?w=400&h=300&fit=crop",
+  },
+  {
+    name: "Aromatic Plants",
+    image: "https://images.unsplash.com/photo-1628556270448-4d4e4148e1b1?w=400&h=300&fit=crop",
+  },
+  {
+    name: "Landscape Gardening",
+    image: "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=400&h=300&fit=crop",
+  },
+];
 
 export default function LandingPage() {
   const [email, setEmail] = useState("");
@@ -60,8 +96,9 @@ export default function LandingPage() {
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md text-center">
+      <div className="relative z-10 flex flex-col items-center px-4 py-12">
+        {/* Hero + Login Section */}
+        <div className="w-full max-w-md text-center mb-16">
           {/* Logo / Brand */}
           <div className="mb-8">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
@@ -116,12 +153,47 @@ export default function LandingPage() {
               </p>
             </CardContent>
           </Card>
-
-          {/* Footer */}
-          <p className="mt-8 text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} TANHOWA - Tamil Nadu Horticultural Officers Welfare Association
-          </p>
         </div>
+
+        {/* Horticulture Categories Section */}
+        <div className="w-full max-w-6xl mb-16">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-primary">Our Domains</h2>
+            <p className="mt-2 text-muted-foreground">
+              Serving horticultural excellence across all major sectors
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {categories.map((cat) => (
+              <div
+                key={cat.name}
+                className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+              >
+                <div className="aspect-[4/3] relative">
+                  <Image
+                    src={cat.image}
+                    alt={cat.name}
+                    fill
+                    className="object-cover group-hover:scale-110 transition-transform duration-500"
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+                  <h3 className="text-white font-semibold text-sm md:text-base drop-shadow-lg">
+                    {cat.name}
+                  </h3>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <p className="text-xs text-muted-foreground">
+          &copy; {new Date().getFullYear()} TANHOWA - Tamil Nadu Horticultural Officers Welfare Association
+        </p>
       </div>
     </div>
   );
