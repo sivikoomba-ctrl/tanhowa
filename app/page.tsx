@@ -23,7 +23,7 @@ const categories = [
   },
   {
     name: "Flowers",
-    image: "https://images.unsplash.com/photo-1490750967868-88aa4f44baee?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1487530811176-3780de880c2d?w=800&h=600&fit=crop",
   },
   {
     name: "Spices",
@@ -31,7 +31,7 @@ const categories = [
   },
   {
     name: "Plantation Crops",
-    image: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1504387103978-e4ee71416c38?w=800&h=600&fit=crop",
   },
   {
     name: "Medicinal Plants",

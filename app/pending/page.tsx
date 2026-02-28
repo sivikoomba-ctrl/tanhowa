@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock, Flower2 } from "lucide-react";
+import Image from "next/image";
 
 export default function PendingPage() {
   const router = useRouter();
@@ -14,8 +15,10 @@ export default function PendingPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[#2d6a4f]/5 via-[#fefae0] to-[#f4a261]/10">
-      <Card className="w-full max-w-md text-center border-primary/20 shadow-xl">
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+      <Image src="https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.06]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#2d6a4f]/5 via-[#fefae0]/90 to-[#f4a261]/10" />
+      <Card className="relative z-10 w-full max-w-md text-center border-primary/20 shadow-xl">
         <CardContent className="pt-8 pb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
             <Clock className="w-8 h-8 text-amber-600" />

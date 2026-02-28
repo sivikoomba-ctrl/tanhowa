@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Flower2,
   Home,
@@ -189,7 +190,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </Sheet>
         </header>
 
-        <main className="flex-1 p-6 bg-background overflow-auto">{children}</main>
+        <main className="flex-1 p-6 bg-background overflow-auto relative">
+          <Image src="https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.03] pointer-events-none" />
+          <div className="relative z-10">{children}</div>
+        </main>
       </div>
     </div>
   );
