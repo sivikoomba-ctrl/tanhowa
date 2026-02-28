@@ -87,6 +87,14 @@ export default function OnboardingPage() {
         return;
       }
 
+      // Check user status — if already approved, go to dashboard
+      const meRes = await fetch("/api/users/me");
+      const meData = await meRes.json();
+      if (meData.user?.status === "approved") {
+        router.push("/dashboard");
+        return;
+      }
+
       setSubmitted(true);
     } catch {
       setError("Something went wrong");

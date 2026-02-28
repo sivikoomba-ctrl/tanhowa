@@ -91,8 +91,12 @@ function VerifyContent() {
 
       if (data.isNewUser) {
         router.push("/onboarding");
-      } else if (data.user.status === "approved") {
+      } else if (data.user.status === "approved" && data.user.name) {
         router.push("/dashboard");
+      } else if (data.user.status === "approved" && !data.user.name) {
+        router.push("/onboarding");
+      } else if (data.user.status === "pending") {
+        router.push("/pending");
       } else {
         router.push("/onboarding");
       }
