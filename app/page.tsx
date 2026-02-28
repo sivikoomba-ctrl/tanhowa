@@ -71,10 +71,10 @@ export default function LandingPage() {
               TANHOWA
             </h1>
             <p className="mt-2 text-lg font-medium text-accent">
-              Horticulture Community
+              Tamil Nadu Horticultural Officers Welfare Association
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Connecting plant enthusiasts, gardeners & professionals
+              Connecting horticultural officers across Tamil Nadu
             </p>
           </div>
 
@@ -119,7 +119,7 @@ export default function LandingPage() {
 
           {/* Footer */}
           <p className="mt-8 text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} TANHOWA Horticulture Community
+            &copy; {new Date().getFullYear()} TANHOWA - Tamil Nadu Horticultural Officers Welfare Association
           </p>
         </div>
       </div>

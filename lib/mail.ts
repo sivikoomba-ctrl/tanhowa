@@ -21,14 +21,14 @@ function getTransporter() {
 export async function sendOTPEmail(to: string, otp: string) {
   const transporter = getTransporter();
   await transporter.sendMail({
-    from: `"TANHOWA Community" <${process.env.ZOHO_SMTP_USER}>`,
+    from: `"TANHOWA" <${process.env.ZOHO_SMTP_USER}>`,
     to,
     subject: "Your TANHOWA Login Code",
     html: `
       <div style="font-family: 'Poppins', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #fefae0; border-radius: 12px;">
         <div style="text-align: center; margin-bottom: 24px;">
           <h1 style="color: #2d6a4f; font-size: 28px; margin: 0;">TANHOWA</h1>
-          <p style="color: #40916c; font-size: 14px; margin: 4px 0 0;">Horticulture Community</p>
+          <p style="color: #40916c; font-size: 14px; margin: 4px 0 0;">Tamil Nadu Horticultural Officers Welfare Association</p>
         </div>
         <div style="background: white; border-radius: 8px; padding: 24px; text-align: center;">
           <p style="color: #333; font-size: 16px; margin: 0 0 16px;">Your verification code is:</p>

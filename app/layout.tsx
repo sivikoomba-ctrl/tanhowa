@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TANHOWA - Horticulture Community",
+  title: "TANHOWA - Tamil Nadu Horticultural Officers Welfare Association",
   description:
-    "TANHOWA Horticulture Community - Connecting plant enthusiasts, gardeners, and horticulture professionals.",
+    "TANHOWA - Tamil Nadu Horticultural Officers Welfare Association. Connecting horticultural officers and professionals.",
 };
 
 export default function RootLayout({
