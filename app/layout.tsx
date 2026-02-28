@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Poppins, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import ChatbotWidget from "@/components/chatbot-widget";
+import { ErrorBoundary, GlobalErrorCatcher } from "@/components/error-boundary";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -31,7 +32,11 @@ export default function RootLayout({
       <body
         className={`${poppins.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        {children}
+        <ErrorBoundary>
+          <GlobalErrorCatcher>
+            {children}
+          </GlobalErrorCatcher>
+        </ErrorBoundary>
         <Toaster />
         <ChatbotWidget />
       </body>

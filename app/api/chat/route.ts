@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGemini, SYSTEM_PROMPT } from "@/lib/gemini";
+import { logError } from "@/lib/error-logger";
 
 // Simple rate limiting: track requests per IP
 const rateLimit = new Map<string, { count: number; resetAt: number }>();
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("Chat error:", msg);
+    await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/chat", method: "POST", status_code: 500 });
     return NextResponse.json(
       { error: "Sorry, I'm having trouble responding. Please try again." },
       { status: 500 }

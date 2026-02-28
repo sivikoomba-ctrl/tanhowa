@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { sendOTPEmail } from "@/lib/mail";
+import { logError } from "@/lib/error-logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("Send OTP error:", msg);
+    await logError({ type: "auth", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/auth/send-otp", method: "POST", status_code: 500 });
     return NextResponse.json({ error: "Failed to send OTP. Please try again." }, { status: 500 });
   }
 }

@@ -11,6 +11,7 @@ import {
   Calendar,
   FileText,
   MessageSquareWarning,
+  AlertTriangle,
   Settings,
   LogOut,
   ArrowLeft,
@@ -27,6 +28,7 @@ const adminNavItems = [
   { href: "/admin/events", label: "Events", icon: Calendar },
   { href: "/admin/documents", label: "Documents", icon: FileText },
   { href: "/admin/grievances", label: "Grievances", icon: MessageSquareWarning },
+  { href: "/admin/error-logs", label: "Error Logs", icon: AlertTriangle },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
