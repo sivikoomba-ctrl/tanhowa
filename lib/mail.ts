@@ -1,16 +1,25 @@
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
-  host: process.env.ZOHO_SMTP_HOST,
-  port: Number(process.env.ZOHO_SMTP_PORT),
-  secure: true,
-  auth: {
-    user: process.env.ZOHO_SMTP_USER,
-    pass: process.env.ZOHO_SMTP_PASS,
-  },
-});
+function getTransporter() {
+  const host = process.env.ZOHO_SMTP_HOST;
+  const port = Number(process.env.ZOHO_SMTP_PORT);
+  const user = process.env.ZOHO_SMTP_USER;
+  const pass = process.env.ZOHO_SMTP_PASS;
+
+  if (!host || !user || !pass) {
+    throw new Error(`SMTP not configured: host=${!!host}, user=${!!user}, pass=${!!pass}`);
+  }
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: true,
+    auth: { user, pass },
+  });
+}
 
 export async function sendOTPEmail(to: string, otp: string) {
+  const transporter = getTransporter();
   await transporter.sendMail({
     from: `"Tanhowa Community" <${process.env.ZOHO_SMTP_USER}>`,
     to,
