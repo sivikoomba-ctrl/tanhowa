@@ -166,12 +166,13 @@ export default function OnboardingPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">Phone *</Label>
                     <Input
                       id="phone"
                       value={profile.phone}
                       onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                       placeholder="+91 9876543210"
+                      required
                     />
                   </div>
                   <div>

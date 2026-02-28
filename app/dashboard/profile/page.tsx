@@ -82,10 +82,11 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <Label>Phone</Label>
+                <Label>Phone *</Label>
                 <Input
                   value={profile.phone}
                   onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                  required
                 />
               </div>
               <div>
