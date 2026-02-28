@@ -7,7 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Flower2, Clock } from "lucide-react";
+
+const occupationOptions = [
+  "Horticultural Officer",
+  "Assistant Director of Horticulture",
+  "Deputy Director of Horticulture",
+  "Joint Director of Horticulture",
+  "Additional Director of Horticulture",
+  "Retd. Horticultural Officer",
+  "Retd. Assistant Director of Horticulture",
+  "Retd. Deputy Director of Horticulture",
+  "Retd. Joint Director of Horticulture",
+  "Retd. Additional Director of Horticulture",
+  "System Admin",
+  "Others",
+];
 
 interface UserProfile {
   name: string;
@@ -15,6 +31,7 @@ interface UserProfile {
   address: string;
   dob: string;
   occupation: string;
+  occupation_other: string;
   social_links: {
     instagram: string;
     twitter: string;
@@ -30,6 +47,7 @@ export default function OnboardingPage() {
     address: "",
     dob: "",
     occupation: "",
+    occupation_other: "",
     social_links: { instagram: "", twitter: "", linkedin: "" },
     status: "",
   });
@@ -76,10 +94,14 @@ export default function OnboardingPage() {
     setLoading(true);
 
     try {
+      const payload = {
+        ...profile,
+        occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation,
+      };
       const res = await fetch("/api/users/me", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -185,14 +207,33 @@ export default function OnboardingPage() {
                     />
                   </div>
                   <div className="col-span-2">
-                    <Label htmlFor="occupation">Occupation</Label>
-                    <Input
-                      id="occupation"
+                    <Label htmlFor="occupation">Designation *</Label>
+                    <Select
                       value={profile.occupation}
-                      onChange={(e) => setProfile({ ...profile, occupation: e.target.value })}
-                      placeholder="e.g. Gardener, Botanist, Landscaper"
-                    />
+                      onValueChange={(val) => setProfile({ ...profile, occupation: val, occupation_other: val !== "Others" ? "" : profile.occupation_other })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your designation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {occupationOptions.map((opt) => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                  {profile.occupation === "Others" && (
+                    <div className="col-span-2">
+                      <Label htmlFor="occupation_other">Specify Designation *</Label>
+                      <Input
+                        id="occupation_other"
+                        value={profile.occupation_other}
+                        onChange={(e) => setProfile({ ...profile, occupation_other: e.target.value })}
+                        placeholder="Enter your designation"
+                        required
+                      />
+                    </div>
+                  )}
                   <div className="col-span-2">
                     <Label htmlFor="address">Address</Label>
                     <Textarea
