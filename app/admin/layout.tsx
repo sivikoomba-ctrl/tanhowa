@@ -24,7 +24,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const adminNavItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/users", label: "Member Approval", icon: Users },
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/events", label: "Events", icon: Calendar },
   { href: "/admin/documents", label: "Documents", icon: FileText },
