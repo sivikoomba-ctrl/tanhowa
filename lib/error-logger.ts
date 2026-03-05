@@ -23,6 +23,7 @@ export async function logError(entry: ErrorLogEntry) {
       status_code: entry.status_code || 0,
       user_id: entry.user_id || null,
       metadata: entry.metadata || {},
+      status: "unresolved",
     });
   } catch {
     // Silently fail — don't let error logging break the app

@@ -34,7 +34,7 @@ const navItems = [
   { href: "/dashboard/members", label: "Members", icon: Users },
   { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
   { href: "/dashboard/events", label: "Events", icon: Calendar },
-  { href: "/dashboard/documents", label: "Documents", icon: FileText },
+  { href: "/dashboard/documents", label: "Document Vault", icon: FileText },
   { href: "/dashboard/grievances", label: "Grievances", icon: MessageSquareWarning },
 ];
 

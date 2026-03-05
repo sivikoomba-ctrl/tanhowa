@@ -37,6 +37,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [errorCount, setErrorCount] = useState(0);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -57,6 +58,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .then((r) => r.json())
       .then((d) => setPendingCount(d.users?.length || 0))
       .catch(() => {});
+
+    fetch("/api/error-logs?type=unresolved")
+      .then((r) => r.json())
+      .then((d) => setErrorCount(d.unresolvedCount || 0))
+      .catch(() => {});
   }, [router, pathname]);
 
   async function handleLogout() {
@@ -71,7 +77,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <>
         {adminNavItems.map((item) => {
           const isActive = pathname === item.href;
-          const showBadge = item.href === "/admin/users" && pendingCount > 0;
+          const showBadge = (item.href === "/admin/users" && pendingCount > 0) || (item.href === "/admin/error-logs" && errorCount > 0);
+          const badgeCount = item.href === "/admin/users" ? pendingCount : errorCount;
+          const badgeColor = item.href === "/admin/error-logs" ? "bg-red-500" : "bg-amber-500";
           return (
             <Link
               key={item.href}
@@ -86,8 +94,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <item.icon size={18} />
               <span className="flex-1">{item.label}</span>
               {showBadge && (
-                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-amber-500 text-white">
-                  {pendingCount}
+                <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full ${badgeColor} text-white`}>
+                  {badgeCount}
                 </span>
               )}
             </Link>

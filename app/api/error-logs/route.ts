@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       status_code: 0,
       user_id: null,
       metadata: body.metadata || {},
+      status: "unresolved",
     });
 
     return NextResponse.json({ message: "Logged" });
@@ -50,18 +51,47 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (type && type !== "all") {
+  if (type === "unresolved") {
+    query = query.eq("status", "unresolved");
+  } else if (type && type !== "all") {
     query = query.eq("type", type);
   }
 
-  const { data: logs, count } = await query;
+  const [{ data: logs, count }, unresolvedRes] = await Promise.all([
+    query,
+    supabase.from("error_logs").select("id", { count: "exact", head: true }).eq("status", "unresolved"),
+  ]);
 
   return NextResponse.json({
     logs: logs || [],
     total: count || 0,
+    unresolvedCount: unresolvedRes.count || 0,
     page,
     totalPages: Math.ceil((count || 0) / limit),
   });
+}
+
+// PUT: Mark error(s) as resolved
+export async function PUT(req: NextRequest) {
+  const session = await getSession();
+  if (!session || session.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id, status } = await req.json();
+  const supabase = getServiceClient();
+
+  if (id === "all") {
+    await supabase.from("error_logs")
+      .update({ status, resolved_at: status === "resolved" ? new Date().toISOString() : null })
+      .eq("status", "unresolved");
+  } else if (id) {
+    await supabase.from("error_logs")
+      .update({ status, resolved_at: status === "resolved" ? new Date().toISOString() : null })
+      .eq("id", id);
+  }
+
+  return NextResponse.json({ message: "Updated" });
 }
 
 // DELETE: Admin clears logs
