@@ -122,10 +122,12 @@ export default function ProfilePage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Full Name</Label>
+                <Label>Full Name *</Label>
                 <Input
                   value={profile.name}
-                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                  onChange={(e) => setProfile({ ...profile, name: e.target.value.toUpperCase() })}
+                  required
+                  className="uppercase"
                 />
               </div>
               <div>

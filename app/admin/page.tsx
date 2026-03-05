@@ -3,7 +3,18 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Megaphone, Calendar, FileText, UserCheck, UserX } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { Users, Megaphone, Calendar, FileText, UserCheck, UserX, Bell, Check, X, ArrowRight } from "lucide-react";
+
+interface PendingUser {
+  id: string;
+  name: string;
+  email: string;
+  occupation: string;
+  created_at: string;
+}
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -13,15 +24,36 @@ export default function AdminDashboard() {
     documents: 0,
     pending: 0,
   });
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
 
-  useEffect(() => {
+  function loadData() {
     Promise.all([
       fetch("/api/stats").then((r) => r.json()),
       fetch("/api/users?status=pending").then((r) => r.json()),
     ]).then(([s, p]) => {
-      setStats({ ...s, pending: p.users?.length || 0 });
+      const users = p.users || [];
+      setStats({ ...s, pending: users.length });
+      setPendingUsers(users);
     });
+  }
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  async function handleQuickAction(userId: string, action: "approve" | "reject") {
+    const res = await fetch("/api/admin/users", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, action }),
+    });
+    if (res.ok) {
+      toast.success(`Member ${action}d successfully`);
+      loadData();
+    } else {
+      toast.error("Action failed");
+    }
+  }
 
   const cards = [
     { label: "Approved Members", value: stats.members, icon: UserCheck, color: "text-primary", href: "/admin/users" },
@@ -35,6 +67,70 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+
+      {/* Pending Members Alert Banner */}
+      {pendingUsers.length > 0 && (
+        <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100">
+              <Bell className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-amber-900">
+                {pendingUsers.length} New Member{pendingUsers.length > 1 ? "s" : ""} Awaiting Approval
+              </h2>
+              <p className="text-sm text-amber-700">Review and approve or reject pending membership requests</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {pendingUsers.slice(0, 5).map((u) => (
+              <div key={u.id} className="flex items-center justify-between bg-white rounded-lg p-3 shadow-sm">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium truncate">{u.name || "Unnamed"}</p>
+                    <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
+                      Pending
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate">{u.email}</p>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    {u.occupation && <span className="text-xs text-muted-foreground">{u.occupation}</span>}
+                    <span className="text-xs text-muted-foreground">
+                      Joined {new Date(u.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 ml-3">
+                  <Button
+                    size="sm"
+                    onClick={() => handleQuickAction(u.id, "approve")}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    <Check size={14} className="mr-1" />
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleQuickAction(u.id, "reject")}
+                  >
+                    <X size={14} className="mr-1" />
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {pendingUsers.length > 5 && (
+            <Link href="/admin/users" className="inline-flex items-center gap-1 mt-3 text-sm font-medium text-amber-700 hover:text-amber-900">
+              View all {pendingUsers.length} pending members
+              <ArrowRight size={14} />
+            </Link>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {cards.map((c) => (

@@ -207,9 +207,10 @@ export default function OnboardingPage() {
                     <Input
                       id="name"
                       value={profile.name}
-                      onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                      onChange={(e) => setProfile({ ...profile, name: e.target.value.toUpperCase() })}
                       placeholder="Your full name"
                       required
+                      className="uppercase"
                     />
                   </div>
                   <div>

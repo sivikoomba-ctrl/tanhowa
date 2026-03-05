@@ -30,7 +30,7 @@ export async function PUT(req: NextRequest) {
   const { error } = await supabase
     .from("users")
     .update({
-      name: body.name,
+      name: typeof body.name === "string" ? body.name.toUpperCase() : body.name,
       phone: body.phone,
       address: body.address,
       dob: body.dob || null,
