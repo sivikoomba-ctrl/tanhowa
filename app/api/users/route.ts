@@ -24,7 +24,11 @@ export async function GET(req: NextRequest) {
     query = query.eq("status", "approved");
   }
 
-  const { data: users } = await query;
+  const { data: users, error } = await query;
 
-  return NextResponse.json({ users: users || [] });
+  if (error) {
+    console.error("Users query error:", error.message, { status, dbRole, userId: session.userId });
+  }
+
+  return NextResponse.json({ users: users || [], debug: { count: users?.length ?? 0, status, dbRole, error: error?.message } });
 }
