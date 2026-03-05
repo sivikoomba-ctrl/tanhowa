@@ -16,7 +16,7 @@ export default function PendingPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
-      <Image src="https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.06]" />
+      <Image src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.06]" />
       <div className="absolute inset-0 bg-gradient-to-br from-[#2d6a4f]/5 via-[#fefae0]/90 to-[#f4a261]/10" />
       <Card className="relative z-10 w-full max-w-md text-center border-primary/20 shadow-xl">
         <CardContent className="pt-8 pb-8">

@@ -163,7 +163,7 @@ export default function OnboardingPage() {
   if (submitted) {
     return (
       <div className="min-h-screen relative overflow-hidden">
-        <Image src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.06]" />
+        <Image src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.06]" />
         <div className="absolute inset-0 bg-gradient-to-br from-[#2d6a4f]/5 via-[#fefae0]/90 to-[#f4a261]/10" />
         <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
           <Card className="w-full max-w-md border-primary/20 shadow-xl">
@@ -187,7 +187,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <Image src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.06]" />
+      <Image src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.06]" />
       <div className="absolute inset-0 bg-gradient-to-br from-[#2d6a4f]/5 via-[#fefae0]/90 to-[#f4a261]/10" />
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12">
         <div className="w-full max-w-lg">

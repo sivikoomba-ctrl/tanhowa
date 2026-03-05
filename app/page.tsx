@@ -11,35 +11,35 @@ import { Flower2 } from "lucide-react";
 const categories = [
   {
     name: "Fruits",
-    image: "https://images.unsplash.com/photo-1553279768-865429fa0078?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=800&h=600&fit=crop",
   },
   {
     name: "Vegetables",
-    image: "https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&h=600&fit=crop",
   },
   {
     name: "Flowers",
-    image: "https://images.unsplash.com/photo-1745176593885-c1d466a6dff5?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1490750967868-88aa4f44baee?w=800&h=600&fit=crop",
   },
   {
     name: "Spices",
-    image: "https://images.unsplash.com/photo-1532336414038-cf19250c5757?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=800&h=600&fit=crop",
   },
   {
     name: "Plantation Crops",
-    image: "https://images.unsplash.com/photo-1742106856193-5cc3424ac450?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800&h=600&fit=crop",
   },
   {
     name: "Medicinal Plants",
-    image: "https://images.unsplash.com/photo-1748575233148-cd4851ab7409?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1515586000433-45406d8e6662?w=800&h=600&fit=crop",
   },
   {
     name: "Aromatic Plants",
-    image: "https://images.unsplash.com/photo-1702131193140-703fb886b194?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=800&h=600&fit=crop",
   },
   {
     name: "Landscape Gardening",
-    image: "https://images.unsplash.com/photo-1762442675438-6607df38ad82?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=800&h=600&fit=crop",
   },
 ];
 
