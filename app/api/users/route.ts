@@ -13,12 +13,9 @@ export async function GET(req: NextRequest) {
   const status = url.searchParams.get("status");
   const dbRole = await getDbRole(session.userId);
 
-  const fullSelect = "id, name, email, phone, occupation, address, dob, posting_details, social_links, photo_url, role, status, login_count, last_login_at, created_at";
-  const baseSelect = "id, name, email, phone, occupation, address, dob, posting_details, social_links, photo_url, role, status, created_at";
-
   let query = supabase
     .from("users")
-    .select(fullSelect)
+    .select("*")
     .order("created_at", { ascending: false });
 
   if (status) {
@@ -27,26 +24,7 @@ export async function GET(req: NextRequest) {
     query = query.eq("status", "approved");
   }
 
-  let { data: users } = await query;
-  const queryError = !users;
-
-  // Fallback if login_count/last_login_at columns don't exist yet
-  if (queryError) {
-    let fallback = supabase
-      .from("users")
-      .select(baseSelect)
-      .order("created_at", { ascending: false });
-
-    if (status) {
-      fallback = fallback.eq("status", status);
-    } else if (dbRole !== "admin") {
-      fallback = fallback.eq("status", "approved");
-    }
-
-    const result = await fallback;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    users = result.data as any;
-  }
+  const { data: users } = await query;
 
   return NextResponse.json({ users: users || [] });
 }
