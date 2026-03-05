@@ -29,7 +29,7 @@ export default function PendingPage() {
           </div>
           <h2 className="text-xl font-semibold mb-2">Awaiting Approval</h2>
           <p className="text-muted-foreground mb-6">
-            Your account has been created. An admin will review and approve your membership shortly.
+            Your account has been created and is under review. An admin will either approve or reject your membership. You&apos;ll be notified once a decision is made.
           </p>
           <Button variant="outline" onClick={handleLogout}>
             Back to Home

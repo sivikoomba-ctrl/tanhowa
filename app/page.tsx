@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,33 @@ export default function LandingPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checkingSession, setCheckingSession] = useState(true);
   const router = useRouter();
+
+  // Auto-redirect approved members who already have a valid session
+  useEffect(() => {
+    fetch("/api/users/me")
+      .then((res) => {
+        if (!res.ok) throw new Error("No session");
+        return res.json();
+      })
+      .then((data) => {
+        if (!data.user) return;
+        const { status, name, phone, occupation } = data.user;
+        if (status === "approved") {
+          // Check mandatory fields — redirect to onboarding if missing
+          if (!name || !phone || !occupation) {
+            router.push("/onboarding");
+          } else {
+            router.push("/dashboard");
+          }
+        } else if (status === "pending") {
+          router.push("/pending");
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCheckingSession(false));
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -82,6 +108,14 @@ export default function LandingPage() {
   // Bento grid heights for left and right columns (alternating tall/short)
   const leftHeights = [240, 160, 160, 240];
   const rightHeights = [160, 240, 240, 160];
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f6f9f0]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#f6f9f0]">

@@ -92,10 +92,14 @@ function VerifyContent() {
 
       if (data.isNewUser) {
         router.push("/onboarding");
-      } else if (data.user.status === "approved" && data.user.name) {
-        router.push("/dashboard");
-      } else if (data.user.status === "approved" && !data.user.name) {
-        router.push("/onboarding");
+      } else if (data.user.status === "approved") {
+        // Check mandatory fields — redirect to onboarding if missing
+        const { name, phone, occupation } = data.user;
+        if (!name || !phone || !occupation) {
+          router.push("/onboarding");
+        } else {
+          router.push("/dashboard");
+        }
       } else if (data.user.status === "pending") {
         router.push("/pending");
       } else {
