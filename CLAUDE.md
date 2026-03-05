@@ -5,7 +5,7 @@
 TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member portal for horticultural officers in Tamil Nadu, India. Members sign up via email OTP, complete their profile, get admin approval, then access announcements, events, documents, a member directory, and grievance submission. Admins manage all content and users through a separate admin panel.
 
 **Live URL:** https://tanhowa.in
-**Deployment:** Vercel (auto-deploys from `master` branch)
+**Deployment:** Vercel (auto-deploys from `main` branch)
 **Domain DNS:** Cloudflare
 
 ## Tech Stack
@@ -261,9 +261,9 @@ npm run lint     # ESLint
 ## Git & Deployment
 
 - **Remote:** GitHub (`origin`)
-- **Branch mapping:** Local `main` → remote `master`
-- **Push command:** `git push origin HEAD:master`
-- **Auto-deploy:** Vercel watches `master` and deploys on every push
+- **Branch mapping:** Local `main` → remote `main` (also push to `master` for legacy)
+- **Push command:** `git push origin HEAD:main HEAD:master`
+- **Auto-deploy:** Vercel watches `main` and deploys on every push
 - **Environment vars:** Must also be set in Vercel dashboard for production
 - **Domain:** tanhowa.in and www.tanhowa.in (DNS managed in Cloudflare)
   - A record: `216.198.79.1` (Vercel)
