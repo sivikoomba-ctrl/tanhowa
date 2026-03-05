@@ -85,10 +85,15 @@ export async function POST(req: NextRequest) {
       }
 
       // Check which users already have a subscription for this period
-      const { data: existing } = await supabase
+      const { data: existing, error: existErr } = await supabase
         .from("subscriptions")
         .select("user_id")
         .eq("period", body.period);
+
+      if (existErr) {
+        await logError({ type: "api", message: existErr.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
+        return NextResponse.json({ error: `Database error: ${existErr.message}. Make sure the subscriptions table exists.` }, { status: 500 });
+      }
 
       const existingIds = new Set((existing || []).map((e: { user_id: string }) => e.user_id));
       const newSubs = approvedUsers
@@ -110,7 +115,7 @@ export async function POST(req: NextRequest) {
 
       if (error) {
         await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
-        return NextResponse.json({ error: "Failed to create subscriptions" }, { status: 500 });
+        return NextResponse.json({ error: `Failed to create subscriptions: ${error.message}` }, { status: 500 });
       }
 
       return NextResponse.json({ message: `Created ${newSubs.length} subscriptions`, count: newSubs.length });
@@ -146,13 +151,46 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
     const supabase = getServiceClient();
 
+    // Members can only update their own subscription's payment details
+    if (session.role !== "admin") {
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("user_id")
+        .eq("id", body.id)
+        .single();
+
+      if (!sub || sub.user_id !== session.userId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      // Members can only update payment info, not status/amount
+      const memberUpdates: Record<string, string | null> = { updated_at: new Date().toISOString() };
+      if (body.payment_method !== undefined) memberUpdates.payment_method = body.payment_method;
+      if (body.transaction_id !== undefined) memberUpdates.transaction_id = body.transaction_id;
+      if (body.remarks !== undefined) memberUpdates.remarks = body.remarks;
+      if (body.payment_proof_url !== undefined) memberUpdates.payment_proof_url = body.payment_proof_url;
+
+      const { error } = await supabase
+        .from("subscriptions")
+        .update(memberUpdates)
+        .eq("id", body.id);
+
+      if (error) {
+        await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "PUT", status_code: 500 });
+        return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+      }
+
+      return NextResponse.json({ message: "Updated" });
+    }
+
+    // Admin can update everything
     const updates: Record<string, string | number | null> = { updated_at: new Date().toISOString() };
     if (body.status) {
       updates.status = body.status;
@@ -164,6 +202,7 @@ export async function PUT(req: NextRequest) {
     if (body.payment_method !== undefined) updates.payment_method = body.payment_method;
     if (body.transaction_id !== undefined) updates.transaction_id = body.transaction_id;
     if (body.remarks !== undefined) updates.remarks = body.remarks;
+    if (body.payment_proof_url !== undefined) updates.payment_proof_url = body.payment_proof_url;
 
     const { error } = await supabase
       .from("subscriptions")

@@ -12,9 +12,12 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
 
+  const fullSelect = "id, name, email, phone, occupation, address, dob, posting_details, social_links, photo_url, role, status, login_count, last_login_at, created_at";
+  const baseSelect = "id, name, email, phone, occupation, address, dob, posting_details, social_links, photo_url, role, status, created_at";
+
   let query = supabase
     .from("users")
-    .select("id, name, email, phone, occupation, address, dob, posting_details, social_links, photo_url, role, status, login_count, last_login_at, created_at")
+    .select(fullSelect)
     .order("created_at", { ascending: false });
 
   if (status) {
@@ -23,7 +26,24 @@ export async function GET(req: NextRequest) {
     query = query.eq("status", "approved");
   }
 
-  const { data: users } = await query;
+  let { data: users, error } = await query;
+
+  // Fallback if login_count/last_login_at columns don't exist yet
+  if (error) {
+    let fallback = supabase
+      .from("users")
+      .select(baseSelect)
+      .order("created_at", { ascending: false });
+
+    if (status) {
+      fallback = fallback.eq("status", status);
+    } else if (session.role !== "admin") {
+      fallback = fallback.eq("status", "approved");
+    }
+
+    const result = await fallback;
+    users = result.data;
+  }
 
   return NextResponse.json({ users: users || [] });
 }

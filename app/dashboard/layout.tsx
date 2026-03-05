@@ -13,7 +13,7 @@ import {
   Calendar,
   FileText,
   MessageSquareWarning,
-  CreditCard,
+  Wallet,
   LogOut,
   Menu,
   X,
@@ -37,7 +37,7 @@ const navItems = [
   { href: "/dashboard/events", label: "Events", icon: Calendar },
   { href: "/dashboard/documents", label: "Document Vault", icon: FileText },
   { href: "/dashboard/grievances", label: "Grievances", icon: MessageSquareWarning },
-  { href: "/dashboard/subscriptions", label: "Subscriptions", icon: CreditCard },
+  { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

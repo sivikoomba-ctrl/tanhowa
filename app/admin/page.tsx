@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Users, Megaphone, Calendar, FileText, UserCheck, UserX, Bell, Check, X, ArrowRight, Activity, CreditCard } from "lucide-react";
+import { Users, Megaphone, Calendar, FileText, UserCheck, UserX, Bell, Check, X, ArrowRight, Activity, Wallet } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface PendingUser {
@@ -43,7 +43,7 @@ export default function AdminDashboard() {
       fetch("/api/stats").then((r) => r.json()),
       fetch("/api/users?status=pending").then((r) => r.json()),
       fetch("/api/users?status=approved").then((r) => r.json()),
-      fetch("/api/subscriptions").then((r) => r.json()),
+      fetch("/api/subscriptions").then((r) => r.json()).catch(() => ({})),
     ]).then(([s, p, a, sub]) => {
       const users = p.users || [];
       const subStats = sub.stats || {};
@@ -55,7 +55,7 @@ export default function AdminDashboard() {
         .sort((a: ActiveUser, b: ActiveUser) => (b.login_count || 0) - (a.login_count || 0))
         .slice(0, 5);
       setActiveUsers(sorted);
-    });
+    }).catch(() => {});
   }
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
     { label: "Announcements", value: stats.announcements, icon: Megaphone, color: "text-secondary", href: "/admin/announcements" },
     { label: "Events", value: stats.events, icon: Calendar, color: "text-primary", href: "/admin/events" },
     { label: "Documents", value: stats.documents, icon: FileText, color: "text-secondary", href: "/admin/documents" },
-    { label: "Subscriptions Due", value: stats.subscriptionsPending, icon: CreditCard, color: "text-accent", href: "/admin/subscriptions" },
+    { label: "Subscriptions Due", value: stats.subscriptionsPending, icon: Wallet, color: "text-accent", href: "/admin/subscriptions" },
   ];
 
   return (

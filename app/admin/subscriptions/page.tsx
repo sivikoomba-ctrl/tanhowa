@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  CreditCard,
+  Wallet,
   Search,
   Plus,
   CheckCircle2,
@@ -20,6 +20,8 @@ import {
   IndianRupee,
   Users,
   Filter,
+  ImageIcon,
+  Eye,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -33,6 +35,7 @@ interface Subscription {
   paid_at: string | null;
   payment_method: string | null;
   transaction_id: string | null;
+  payment_proof_url: string | null;
   remarks: string | null;
   created_at: string;
   users?: { name: string; email: string; phone: string };
@@ -45,7 +48,8 @@ interface Stats {
   totalCollected: number;
 }
 
-const paymentMethods = ["Cash", "UPI", "Bank Transfer", "Cheque", "Online"];
+const currentYear = new Date().getFullYear();
+const yearOptions = Array.from({ length: 5 }, (_, i) => String(currentYear + i));
 
 export default function AdminSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -56,13 +60,16 @@ export default function AdminSubscriptionsPage() {
 
   // Bulk create dialog
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkForm, setBulkForm] = useState({ period: "", amount: "", due_date: "" });
+  const [bulkForm, setBulkForm] = useState({ period: String(currentYear), amount: "", due_date: "" });
   const [bulkLoading, setBulkLoading] = useState(false);
 
-  // Mark paid dialog
+  // Verify payment dialog
   const [payDialog, setPayDialog] = useState<Subscription | null>(null);
-  const [payForm, setPayForm] = useState({ payment_method: "", transaction_id: "", remarks: "" });
+  const [payForm, setPayForm] = useState({ remarks: "" });
   const [payLoading, setPayLoading] = useState(false);
+
+  // Proof preview
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   function load() {
     fetch("/api/subscriptions")
@@ -89,7 +96,8 @@ export default function AdminSubscriptionsPage() {
         !searchQuery ||
         sub.users?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sub.users?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sub.users?.phone?.includes(searchQuery);
+        sub.users?.phone?.includes(searchQuery) ||
+        sub.transaction_id?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = filterStatus === "all" || sub.status === filterStatus;
       const matchesPeriod = filterPeriod === "all" || sub.period === filterPeriod;
       return matchesSearch && matchesStatus && matchesPeriod;
@@ -111,9 +119,9 @@ export default function AdminSubscriptionsPage() {
     });
     const data = await res.json();
     if (res.ok) {
-      toast.success(`Created ${data.count} subscription entries`);
+      toast.success(`Created ${data.count} subscription entries for ${bulkForm.period}`);
       setBulkOpen(false);
-      setBulkForm({ period: "", amount: "", due_date: "" });
+      setBulkForm({ period: String(currentYear), amount: "", due_date: "" });
       load();
     } else {
       toast.error(data.error || "Failed");
@@ -121,7 +129,7 @@ export default function AdminSubscriptionsPage() {
     setBulkLoading(false);
   }
 
-  async function handleMarkPaid(e: React.FormEvent) {
+  async function handleVerifyPaid(e: React.FormEvent) {
     e.preventDefault();
     if (!payDialog) return;
     setPayLoading(true);
@@ -131,15 +139,13 @@ export default function AdminSubscriptionsPage() {
       body: JSON.stringify({
         id: payDialog.id,
         status: "paid",
-        payment_method: payForm.payment_method,
-        transaction_id: payForm.transaction_id,
-        remarks: payForm.remarks,
+        remarks: payForm.remarks || payDialog.remarks,
       }),
     });
     if (res.ok) {
-      toast.success("Marked as paid");
+      toast.success("Payment verified and marked as paid");
       setPayDialog(null);
-      setPayForm({ payment_method: "", transaction_id: "", remarks: "" });
+      setPayForm({ remarks: "" });
       load();
     } else {
       toast.error("Failed to update");
@@ -177,34 +183,38 @@ export default function AdminSubscriptionsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <CreditCard className="w-5 h-5 text-primary" />
+            <Wallet className="w-5 h-5 text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">Subscriptions</h1>
-            <p className="text-sm text-muted-foreground">Manage member subscription payments</p>
+            <p className="text-sm text-muted-foreground">Manage yearly member subscription payments</p>
           </div>
         </div>
         <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
               <Plus size={16} className="mr-1" />
-              New Subscription Period
+              New Year Subscription
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create Subscription Period</DialogTitle>
+              <DialogTitle>Create Yearly Subscription</DialogTitle>
             </DialogHeader>
-            <p className="text-sm text-muted-foreground">This creates a pending subscription entry for every approved member.</p>
+            <p className="text-sm text-muted-foreground">This creates a pending subscription entry for every approved member for the selected year.</p>
             <form onSubmit={handleBulkCreate} className="space-y-4">
               <div>
-                <Label>Period Name *</Label>
-                <Input
-                  value={bulkForm.period}
-                  onChange={(e) => setBulkForm({ ...bulkForm, period: e.target.value })}
-                  placeholder="e.g. 2025-2026, Jan 2026, Lifetime"
-                  required
-                />
+                <Label>Year *</Label>
+                <Select value={bulkForm.period} onValueChange={(val) => setBulkForm({ ...bulkForm, period: val })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearOptions.map((y) => (
+                      <SelectItem key={y} value={y}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Amount (&#8377;) *</Label>
@@ -287,7 +297,7 @@ export default function AdminSubscriptionsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, email, or phone..."
+                placeholder="Search by name, email, phone, or transaction ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -307,11 +317,11 @@ export default function AdminSubscriptionsPage() {
                 </SelectContent>
               </Select>
               <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Periods</SelectItem>
+                  <SelectItem value="all">All Years</SelectItem>
                   {periods.map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
@@ -322,84 +332,107 @@ export default function AdminSubscriptionsPage() {
         </CardContent>
       </Card>
 
-      {/* Subscription Table */}
+      {/* Subscription List */}
       {filtered.length === 0 ? (
         <div className="text-center py-12">
           <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-muted-foreground">
             {subscriptions.length === 0
-              ? "No subscriptions yet. Create a subscription period to get started."
+              ? "No subscriptions yet. Create a yearly subscription to get started."
               : "No subscriptions match your filters"}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((sub) => (
-            <Card key={sub.id} className={sub.status === "paid" ? "opacity-75" : ""}>
-              <CardContent className="pt-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-sm truncate">{sub.users?.name || "Unknown"}</h3>
-                      <Badge
-                        variant="outline"
-                        className={
-                          sub.status === "paid"
-                            ? "bg-green-100 text-green-700 border-green-300"
-                            : sub.status === "overdue"
-                              ? "bg-red-100 text-red-700 border-red-300"
-                              : "bg-amber-100 text-amber-700 border-amber-300"
-                        }
-                      >
-                        {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate">{sub.users?.email} {sub.users?.phone && `| ${sub.users.phone}`}</p>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <Badge variant="secondary" className="text-xs">{sub.period}</Badge>
-                      <span className="text-sm font-semibold">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
-                      {sub.due_date && <span className="text-xs text-muted-foreground">Due: {formatDate(sub.due_date)}</span>}
-                      {sub.paid_at && <span className="text-xs text-green-600">Paid: {formatDate(sub.paid_at)}</span>}
-                      {sub.payment_method && <span className="text-xs text-muted-foreground">via {sub.payment_method}</span>}
-                      {sub.transaction_id && <span className="text-xs text-muted-foreground">#{sub.transaction_id}</span>}
-                    </div>
-                    {sub.remarks && <p className="text-xs text-muted-foreground mt-1">{sub.remarks}</p>}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {sub.status === "pending" && (
-                      <>
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 h-7 text-xs"
-                          onClick={() => {
-                            setPayDialog(sub);
-                            setPayForm({ payment_method: "", transaction_id: "", remarks: "" });
-                          }}
+          {filtered.map((sub) => {
+            const hasProof = !!sub.payment_proof_url;
+            return (
+              <Card key={sub.id} className={sub.status === "paid" ? "opacity-75" : hasProof && sub.status !== "paid" ? "border-blue-200 bg-blue-50/30" : ""}>
+                <CardContent className="pt-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-medium text-sm truncate">{sub.users?.name || "Unknown"}</h3>
+                        <Badge
+                          variant="outline"
+                          className={
+                            sub.status === "paid"
+                              ? "bg-green-100 text-green-700 border-green-300"
+                              : sub.status === "overdue"
+                                ? "bg-red-100 text-red-700 border-red-300"
+                                : "bg-amber-100 text-amber-700 border-amber-300"
+                          }
                         >
-                          Mark Paid
-                        </Button>
+                          {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
+                        </Badge>
+                        {hasProof && sub.status !== "paid" && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 text-[10px]">
+                            Proof Uploaded
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{sub.users?.email} {sub.users?.phone && `| ${sub.users.phone}`}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <Badge variant="secondary" className="text-xs">{sub.period}</Badge>
+                        <span className="text-sm font-semibold">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
+                        {sub.due_date && <span className="text-xs text-muted-foreground">Due: {formatDate(sub.due_date)}</span>}
+                        {sub.paid_at && <span className="text-xs text-green-600">Verified: {formatDate(sub.paid_at)}</span>}
+                      </div>
+                      {sub.transaction_id && (
+                        <p className="text-xs text-muted-foreground mt-1">Txn ID: <span className="font-mono">{sub.transaction_id}</span></p>
+                      )}
+                      {sub.payment_method && (
+                        <p className="text-xs text-muted-foreground">Method: {sub.payment_method}</p>
+                      )}
+                      {sub.remarks && <p className="text-xs text-muted-foreground">Note: {sub.remarks}</p>}
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      {hasProof && (
                         <Button
                           size="sm"
-                          variant="destructive"
+                          variant="outline"
                           className="h-7 text-xs"
-                          onClick={() => handleMarkOverdue(sub.id)}
+                          onClick={() => setPreviewUrl(sub.payment_proof_url)}
                         >
-                          Overdue
+                          <Eye size={12} className="mr-1" />
+                          View Proof
                         </Button>
-                      </>
-                    )}
-                    {sub.status === "overdue" && (
-                      <>
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 h-7 text-xs"
-                          onClick={() => {
-                            setPayDialog(sub);
-                            setPayForm({ payment_method: "", transaction_id: "", remarks: "" });
-                          }}
-                        >
-                          Mark Paid
-                        </Button>
+                      )}
+                      {(sub.status === "pending" || sub.status === "overdue") && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 h-7 text-xs"
+                            onClick={() => {
+                              setPayDialog(sub);
+                              setPayForm({ remarks: "" });
+                            }}
+                          >
+                            Verify & Approve
+                          </Button>
+                          {sub.status === "pending" && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="h-7 text-xs"
+                              onClick={() => handleMarkOverdue(sub.id)}
+                            >
+                              Mark Overdue
+                            </Button>
+                          )}
+                          {sub.status === "overdue" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => handleRevert(sub.id)}
+                            >
+                              Revert
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      {sub.status === "paid" && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -408,73 +441,97 @@ export default function AdminSubscriptionsPage() {
                         >
                           Revert
                         </Button>
-                      </>
-                    )}
-                    {sub.status === "paid" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() => handleRevert(sub.id)}
-                      >
-                        Revert
-                      </Button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      {/* Mark Paid Dialog */}
+      {/* Verify Payment Dialog */}
       <Dialog open={!!payDialog} onOpenChange={(open) => !open && setPayDialog(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
+            <DialogTitle>Verify Payment</DialogTitle>
           </DialogHeader>
           {payDialog && (
-            <div className="mb-2">
-              <p className="text-sm font-medium">{payDialog.users?.name}</p>
-              <p className="text-xs text-muted-foreground">{payDialog.period} &middot; &#8377;{payDialog.amount?.toLocaleString("en-IN")}</p>
+            <>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Member</span>
+                  <span className="font-medium">{payDialog.users?.name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Year</span>
+                  <span className="font-medium">{payDialog.period}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-medium">&#8377;{payDialog.amount?.toLocaleString("en-IN")}</span>
+                </div>
+                {payDialog.transaction_id && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Transaction ID</span>
+                    <span className="font-mono text-sm">{payDialog.transaction_id}</span>
+                  </div>
+                )}
+                {payDialog.payment_method && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Payment Method</span>
+                    <span>{payDialog.payment_method}</span>
+                  </div>
+                )}
+                {payDialog.remarks && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Member Note</span>
+                    <span>{payDialog.remarks}</span>
+                  </div>
+                )}
+              </div>
+              {payDialog.payment_proof_url && (
+                <div className="rounded-xl overflow-hidden border">
+                  <img src={payDialog.payment_proof_url} alt="Payment proof" className="w-full" />
+                </div>
+              )}
+              {!payDialog.payment_proof_url && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                  <ImageIcon className="w-4 h-4 text-amber-600" />
+                  <p className="text-sm text-amber-700">No payment proof uploaded by member</p>
+                </div>
+              )}
+              <form onSubmit={handleVerifyPaid} className="space-y-4">
+                <div>
+                  <Label>Admin Remarks (optional)</Label>
+                  <Textarea
+                    value={payForm.remarks}
+                    onChange={(e) => setPayForm({ ...payForm, remarks: e.target.value })}
+                    placeholder="Any notes about the verification"
+                    rows={2}
+                  />
+                </div>
+                <Button type="submit" disabled={payLoading} className="w-full bg-green-600 hover:bg-green-700">
+                  {payLoading ? "Verifying..." : "Confirm Payment Received"}
+                </Button>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Proof Preview Dialog */}
+      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Payment Proof</DialogTitle>
+          </DialogHeader>
+          {previewUrl && (
+            <div className="rounded-xl overflow-hidden border">
+              <img src={previewUrl} alt="Payment proof" className="w-full" />
             </div>
           )}
-          <form onSubmit={handleMarkPaid} className="space-y-4">
-            <div>
-              <Label>Payment Method</Label>
-              <Select value={payForm.payment_method} onValueChange={(val) => setPayForm({ ...payForm, payment_method: val })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select method" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Transaction ID / Receipt No.</Label>
-              <Input
-                value={payForm.transaction_id}
-                onChange={(e) => setPayForm({ ...payForm, transaction_id: e.target.value })}
-                placeholder="Optional"
-              />
-            </div>
-            <div>
-              <Label>Remarks</Label>
-              <Textarea
-                value={payForm.remarks}
-                onChange={(e) => setPayForm({ ...payForm, remarks: e.target.value })}
-                placeholder="Optional notes"
-                rows={2}
-              />
-            </div>
-            <Button type="submit" disabled={payLoading} className="w-full bg-green-600 hover:bg-green-700">
-              {payLoading ? "Saving..." : "Confirm Payment"}
-            </Button>
-          </form>
         </DialogContent>
       </Dialog>
     </div>

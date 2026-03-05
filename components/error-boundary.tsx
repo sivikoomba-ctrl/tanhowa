@@ -26,12 +26,22 @@ function reportError(message: string, stack?: string, path?: string) {
 // Global error handlers (unhandled JS errors + promise rejections)
 export function GlobalErrorCatcher({ children }: { children: ReactNode }) {
   useEffect(() => {
+    function isChunkLoadError(msg: string) {
+      return msg.includes("Loading chunk") || msg.includes("ChunkLoadError") || msg.includes("Loading CSS chunk");
+    }
+
     function handleError(event: ErrorEvent) {
-      reportError(
-        event.message || "Unhandled error",
-        event.error?.stack,
-        window.location.pathname
-      );
+      const msg = event.message || "Unhandled error";
+      if (isChunkLoadError(msg)) {
+        // Auto-reload on stale deployment chunks (once per session)
+        const key = "chunk-reload";
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, "1");
+          window.location.reload();
+          return;
+        }
+      }
+      reportError(msg, event.error?.stack, window.location.pathname);
     }
 
     function handleRejection(event: PromiseRejectionEvent) {
@@ -40,6 +50,14 @@ export function GlobalErrorCatcher({ children }: { children: ReactNode }) {
           ? event.reason.message
           : String(event.reason || "Unhandled promise rejection");
       const stack = event.reason instanceof Error ? event.reason.stack : "";
+      if (isChunkLoadError(message)) {
+        const key = "chunk-reload";
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, "1");
+          window.location.reload();
+          return;
+        }
+      }
       reportError(message, stack, window.location.pathname);
     }
 

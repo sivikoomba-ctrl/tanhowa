@@ -13,7 +13,7 @@ import {
   FileText,
   MessageSquareWarning,
   AlertTriangle,
-  CreditCard,
+  Wallet,
   Settings,
   LogOut,
   ArrowLeft,
@@ -30,7 +30,7 @@ const adminNavItems = [
   { href: "/admin/events", label: "Events", icon: Calendar },
   { href: "/admin/documents", label: "Documents", icon: FileText },
   { href: "/admin/grievances", label: "Grievances", icon: MessageSquareWarning },
-  { href: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard },
+  { href: "/admin/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/admin/error-logs", label: "Error Logs", icon: AlertTriangle },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
