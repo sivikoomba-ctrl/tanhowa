@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { createSession } from "@/lib/auth";
+import { createSession, DEFAULT_ADMIN_EMAIL } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 export async function POST(req: NextRequest) {
@@ -43,20 +43,31 @@ export async function POST(req: NextRequest) {
     let user = existingUser;
     let isNewUser = false;
 
-    if (!user) {
-      // Check if this is the very first user (auto-admin)
-      const { count } = await supabase
-        .from("users")
-        .select("*", { count: "exact", head: true });
+    // Auto-promote default admin email if they exist but aren't admin yet
+    if (user && normalizedEmail === DEFAULT_ADMIN_EMAIL && (user.role !== "admin" || user.status !== "approved")) {
+      await supabase.from("users").update({ role: "admin", status: "approved" }).eq("id", user.id);
+      user = { ...user, role: "admin", status: "approved" };
+    }
 
-      const isFirstUser = count === 0;
+    if (!user) {
+      // Auto-admin: first user OR the default admin email
+      const isDefaultAdmin = normalizedEmail === DEFAULT_ADMIN_EMAIL;
+      let isFirstUser = false;
+      if (!isDefaultAdmin) {
+        const { count } = await supabase
+          .from("users")
+          .select("*", { count: "exact", head: true });
+        isFirstUser = count === 0;
+      }
+
+      const autoAdmin = isDefaultAdmin || isFirstUser;
 
       const { data: newUser, error: createError } = await supabase
         .from("users")
         .insert({
           email: normalizedEmail,
-          role: isFirstUser ? "admin" : "member",
-          status: isFirstUser ? "approved" : "pending",
+          role: autoAdmin ? "admin" : "member",
+          status: autoAdmin ? "approved" : "pending",
         })
         .select()
         .single();

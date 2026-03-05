@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 export async function GET(req: NextRequest) {
@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
     const period = url.searchParams.get("period");
     const status = url.searchParams.get("status");
 
-    if (session.role === "admin") {
+    const dbRole = await getDbRole(session.userId);
+    if (dbRole === "admin") {
       // Admin: get all subscriptions with user info
       let query = supabase
         .from("subscriptions")
@@ -70,18 +71,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = getServiceClient();
-
-    // Verify admin role from DB (JWT role may be stale)
-    const { data: currentUser } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", session.userId)
-      .single();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (!(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden — admin role required" }, { status: 403 });
     }
+
+    const supabase = getServiceClient();
 
     const body = await req.json();
 
@@ -169,7 +163,8 @@ export async function PUT(req: NextRequest) {
     const supabase = getServiceClient();
 
     // Members can only update their own subscription's payment details
-    if (session.role !== "admin") {
+    const putRole = await getDbRole(session.userId);
+    if (putRole !== "admin") {
       const { data: sub } = await supabase
         .from("subscriptions")
         .select("user_id")
@@ -235,7 +230,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "admin") {
+    if (!session || !(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

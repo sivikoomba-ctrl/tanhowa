@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 export async function GET(req: NextRequest) {
@@ -20,10 +20,11 @@ export async function GET(req: NextRequest) {
       .select("*, users(name)")
       .order("created_at", { ascending: false });
 
-    if (session.role === "admin" && status) {
+    const dbRole = await getDbRole(session.userId);
+    if (dbRole === "admin" && status) {
       if (status === "pending") query = query.eq("approved", false);
       else if (status === "approved") query = query.eq("approved", true);
-    } else if (session.role !== "admin") {
+    } else if (dbRole !== "admin") {
       query = query.eq("approved", true);
     }
 
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
         file_type: body.file_type,
         category: body.category || "",
         uploaded_by: session.userId,
-        approved: session.role === "admin",
+        approved: (await getDbRole(session.userId)) === "admin",
       })
       .select()
       .single();
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "admin") {
+    if (!session || !(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -104,7 +105,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "admin") {
+    if (!session || !(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

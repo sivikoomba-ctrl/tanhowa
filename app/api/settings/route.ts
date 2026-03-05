@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 
 export async function GET() {
   const session = await getSession();
@@ -21,7 +21,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   const session = await getSession();
-  if (!session || session.role !== "admin") {
+  if (!session || !(await isAdmin(session))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

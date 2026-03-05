@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, getDbRole } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const supabase = getServiceClient();
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
+  const dbRole = await getDbRole(session.userId);
 
   const fullSelect = "id, name, email, phone, occupation, address, dob, posting_details, social_links, photo_url, role, status, login_count, last_login_at, created_at";
   const baseSelect = "id, name, email, phone, occupation, address, dob, posting_details, social_links, photo_url, role, status, created_at";
@@ -22,14 +23,15 @@ export async function GET(req: NextRequest) {
 
   if (status) {
     query = query.eq("status", status);
-  } else if (session.role !== "admin") {
+  } else if (dbRole !== "admin") {
     query = query.eq("status", "approved");
   }
 
-  let { data: users, error } = await query;
+  let { data: users } = await query;
+  const queryError = !users;
 
   // Fallback if login_count/last_login_at columns don't exist yet
-  if (error) {
+  if (queryError) {
     let fallback = supabase
       .from("users")
       .select(baseSelect)
@@ -37,12 +39,13 @@ export async function GET(req: NextRequest) {
 
     if (status) {
       fallback = fallback.eq("status", status);
-    } else if (session.role !== "admin") {
+    } else if (dbRole !== "admin") {
       fallback = fallback.eq("status", "approved");
     }
 
     const result = await fallback;
-    users = result.data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    users = result.data as any;
   }
 
   return NextResponse.json({ users: users || [] });

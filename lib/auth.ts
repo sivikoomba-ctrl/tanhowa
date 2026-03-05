@@ -1,7 +1,11 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { getServiceClient } from "@/lib/supabase";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+
+// Default admin email — always auto-approved as admin on login
+export const DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in";
 
 export interface SessionPayload {
   userId: string;
@@ -44,4 +48,28 @@ export async function getSession(): Promise<SessionPayload | null> {
 export async function deleteSession() {
   const cookieStore = await cookies();
   cookieStore.delete("session");
+}
+
+/**
+ * Get the user's current role from the database (not JWT).
+ * Use this instead of session.role for admin checks — JWT role may be stale.
+ */
+export async function getDbRole(userId: string): Promise<string | null> {
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", userId)
+    .single();
+  return data?.role || null;
+}
+
+/**
+ * Check if the current session user is an admin (verified against DB).
+ * Returns true if admin, false otherwise.
+ */
+export async function isAdmin(session: SessionPayload | null): Promise<boolean> {
+  if (!session) return false;
+  const role = await getDbRole(session.userId);
+  return role === "admin";
 }

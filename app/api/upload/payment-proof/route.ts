@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 export async function POST(req: NextRequest) {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const supabase = getServiceClient();
 
     // Verify the subscription belongs to this user (or user is admin)
-    if (session.role !== "admin") {
+    if ((await getDbRole(session.userId)) !== "admin") {
       const { data: sub } = await supabase
         .from("subscriptions")
         .select("user_id")
