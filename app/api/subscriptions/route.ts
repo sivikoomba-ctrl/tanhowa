@@ -66,12 +66,24 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const supabase = getServiceClient();
+
+    // Verify admin role from DB (JWT role may be stale)
+    const { data: currentUser } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", session.userId)
+      .single();
+
+    if (!currentUser || currentUser.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden — admin role required" }, { status: 403 });
     }
 
     const body = await req.json();
-    const supabase = getServiceClient();
 
     if (body.action === "bulk-create") {
       // Create subscriptions for all approved members for a given period
