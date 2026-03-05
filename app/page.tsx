@@ -19,7 +19,7 @@ const categories = [
   },
   {
     name: "Flowers",
-    image: "https://images.unsplash.com/photo-1749752010054-ef6d3653926f?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1745176593885-c1d466a6dff5?w=800&h=600&fit=crop",
   },
   {
     name: "Spices",
