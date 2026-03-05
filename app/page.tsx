@@ -11,52 +11,36 @@ import { Flower2 } from "lucide-react";
 const categories = [
   {
     name: "Fruits",
-    image: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1553279768-865429fa0078?w=800&h=600&fit=crop",
   },
   {
     name: "Vegetables",
-    image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=800&h=600&fit=crop",
   },
   {
     name: "Flowers",
-    image: "https://images.unsplash.com/photo-1487530811176-3780de880c2d?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1490750967868-88aa4f44baee?w=800&h=600&fit=crop",
   },
   {
     name: "Spices",
-    image: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1532336414038-cf19250c5757?w=800&h=600&fit=crop",
   },
   {
     name: "Plantation Crops",
-    image: "https://images.unsplash.com/photo-1504387103978-e4ee71416c38?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1501554728187-ce583db33af7?w=800&h=600&fit=crop",
   },
   {
     name: "Medicinal Plants",
-    image: "https://images.unsplash.com/photo-1515694346937-94d85e39f29a?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1611241893603-3c228ee0ae6f?w=800&h=600&fit=crop",
   },
   {
     name: "Aromatic Plants",
-    image: "https://images.unsplash.com/photo-1628556270448-4d4e4148e1b1?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1462275646964-a0e3c11f18a6?w=800&h=600&fit=crop",
   },
   {
     name: "Landscape Gardening",
-    image: "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=600&fit=crop",
   },
-];
-
-// Left collage: cascading overlapping cards with position offsets
-const leftLayout = [
-  { width: "85%", height: 200, rotate: -2, ml: "0%",  zIndex: 1 },
-  { width: "78%", height: 180, rotate: 1.5, ml: "18%", zIndex: 2, mt: -36 },
-  { width: "82%", height: 190, rotate: -1, ml: "5%",  zIndex: 3, mt: -40 },
-  { width: "75%", height: 170, rotate: 2,   ml: "22%", zIndex: 4, mt: -32 },
-];
-
-// Right collage: mirrored cascading
-const rightLayout = [
-  { width: "82%", height: 190, rotate: 1.5, ml: "15%", zIndex: 1 },
-  { width: "78%", height: 180, rotate: -2,  ml: "0%",  zIndex: 2, mt: -38 },
-  { width: "85%", height: 200, rotate: 1,   ml: "12%", zIndex: 3, mt: -36 },
-  { width: "75%", height: 170, rotate: -1.5,ml: "5%",  zIndex: 4, mt: -34 },
 ];
 
 export default function LandingPage() {
@@ -95,6 +79,10 @@ export default function LandingPage() {
   const leftImages = categories.slice(0, 4);
   const rightImages = categories.slice(4, 8);
 
+  // Bento grid heights for left and right columns (alternating tall/short)
+  const leftHeights = [240, 160, 160, 240];
+  const rightHeights = [160, 240, 240, 160];
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#f6f9f0]">
       {/* Soft gradient overlays for depth */}
@@ -106,41 +94,31 @@ export default function LandingPage() {
       <div className="relative z-10 min-h-screen flex flex-col">
         <div className="flex-1 flex flex-col lg:flex-row items-stretch">
 
-          {/* Left: Overlapping image collage */}
-          <div className="hidden lg:flex flex-col justify-center py-8 pl-6 xl:pl-10 flex-1 max-w-[400px] xl:max-w-[460px]">
-            <div className="relative">
-              {leftImages.map((cat, i) => {
-                const layout = leftLayout[i];
-                return (
-                  <div
-                    key={cat.name}
-                    className="group relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-700 hover:-translate-y-2"
-                    style={{
-                      width: layout.width,
-                      height: `${layout.height}px`,
-                      transform: `rotate(${layout.rotate}deg)`,
-                      marginLeft: layout.ml,
-                      marginTop: layout.mt ? `${layout.mt}px` : undefined,
-                      zIndex: layout.zIndex,
-                    }}
-                  >
-                    <Image
-                      src={cat.image}
-                      alt={cat.name}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-1000"
-                      sizes="400px"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-white text-sm font-medium border border-white/15">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                        {cat.name}
-                      </span>
-                    </div>
+          {/* Left: Bento mosaic grid */}
+          <div className="hidden lg:flex flex-col justify-center py-8 pl-6 xl:pl-10 flex-1 max-w-[380px] xl:max-w-[440px]">
+            <div className="grid grid-cols-2 gap-3">
+              {leftImages.map((cat, i) => (
+                <div
+                  key={cat.name}
+                  className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1"
+                  style={{ height: `${leftHeights[i]}px` }}
+                >
+                  <Image
+                    src={cat.image}
+                    alt={cat.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-700"
+                    sizes="220px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-white text-sm font-medium border border-white/15">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                      {cat.name}
+                    </span>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
 
@@ -220,83 +198,65 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Right: Overlapping image collage (mirrored) */}
-          <div className="hidden lg:flex flex-col justify-center py-8 pr-6 xl:pr-10 flex-1 max-w-[400px] xl:max-w-[460px]">
-            <div className="relative">
-              {rightImages.map((cat, i) => {
-                const layout = rightLayout[i];
-                return (
-                  <div
-                    key={cat.name}
-                    className="group relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-700 hover:-translate-y-2"
-                    style={{
-                      width: layout.width,
-                      height: `${layout.height}px`,
-                      transform: `rotate(${layout.rotate}deg)`,
-                      marginLeft: layout.ml,
-                      marginTop: layout.mt ? `${layout.mt}px` : undefined,
-                      zIndex: layout.zIndex,
-                    }}
-                  >
-                    <Image
-                      src={cat.image}
-                      alt={cat.name}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-1000"
-                      sizes="400px"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-white text-sm font-medium border border-white/15">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                        {cat.name}
-                      </span>
-                    </div>
+          {/* Right: Bento mosaic grid (mirrored heights) */}
+          <div className="hidden lg:flex flex-col justify-center py-8 pr-6 xl:pr-10 flex-1 max-w-[380px] xl:max-w-[440px]">
+            <div className="grid grid-cols-2 gap-3">
+              {rightImages.map((cat, i) => (
+                <div
+                  key={cat.name}
+                  className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1"
+                  style={{ height: `${rightHeights[i]}px` }}
+                >
+                  <Image
+                    src={cat.image}
+                    alt={cat.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-700"
+                    sizes="220px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-white text-sm font-medium border border-white/15">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                      {cat.name}
+                    </span>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Mobile: Overlapping grid */}
+        {/* Mobile: Clean grid */}
         <div className="lg:hidden px-5 pb-8">
           <div className="flex items-center justify-center gap-3 mb-5">
             <div className="h-px w-10 bg-primary/20" />
             <h2 className="text-lg font-bold text-primary">Our Domains</h2>
             <div className="h-px w-10 bg-primary/20" />
           </div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0">
-            {categories.map((cat, i) => {
-              const isEven = i % 2 === 0;
-              return (
-                <div
-                  key={cat.name}
-                  className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-500"
-                  style={{
-                    marginTop: i < 2 ? 0 : -16,
-                    transform: `rotate(${isEven ? -1 : 1}deg)`,
-                    zIndex: i + 1,
-                    height: 140,
-                  }}
-                >
-                  <Image
-                    src={cat.image}
-                    alt={cat.name}
-                    fill
-                    className="object-cover"
-                    sizes="50vw"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-2">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/20 backdrop-blur-sm rounded-lg text-white text-xs font-medium">
-                      <span className="w-1 h-1 rounded-full bg-green-400" />
-                      {cat.name}
-                    </span>
-                  </div>
+          <div className="grid grid-cols-2 gap-3">
+            {categories.map((cat, i) => (
+              <div
+                key={cat.name}
+                className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-500"
+                style={{ height: i % 3 === 0 ? 160 : 130 }}
+              >
+                <Image
+                  src={cat.image}
+                  alt={cat.name}
+                  fill
+                  className="object-cover"
+                  sizes="50vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/20 backdrop-blur-sm rounded-lg text-white text-xs font-medium">
+                    <span className="w-1 h-1 rounded-full bg-green-400" />
+                    {cat.name}
+                  </span>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
 
