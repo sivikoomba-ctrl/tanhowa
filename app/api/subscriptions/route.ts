@@ -104,7 +104,6 @@ export async function POST(req: NextRequest) {
           amount: body.amount || 0,
           due_date: body.due_date || null,
           status: "pending",
-          created_by: session.userId,
         }));
 
       if (newSubs.length === 0) {
@@ -129,7 +128,6 @@ export async function POST(req: NextRequest) {
           amount: body.amount || 0,
           due_date: body.due_date || null,
           status: "pending",
-          created_by: session.userId,
         })
         .select()
         .single();
