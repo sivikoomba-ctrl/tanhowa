@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Users, Megaphone, Calendar, FileText, UserCheck, UserX, Bell, Check, X, ArrowRight, Activity } from "lucide-react";
+import { Users, Megaphone, Calendar, FileText, UserCheck, UserX, Bell, Check, X, ArrowRight, Activity, CreditCard } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface PendingUser {
@@ -33,6 +33,7 @@ export default function AdminDashboard() {
     events: 0,
     documents: 0,
     pending: 0,
+    subscriptionsPending: 0,
   });
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
@@ -42,9 +43,11 @@ export default function AdminDashboard() {
       fetch("/api/stats").then((r) => r.json()),
       fetch("/api/users?status=pending").then((r) => r.json()),
       fetch("/api/users?status=approved").then((r) => r.json()),
-    ]).then(([s, p, a]) => {
+      fetch("/api/subscriptions").then((r) => r.json()),
+    ]).then(([s, p, a, sub]) => {
       const users = p.users || [];
-      setStats({ ...s, pending: users.length });
+      const subStats = sub.stats || {};
+      setStats({ ...s, pending: users.length, subscriptionsPending: (subStats.pending || 0) + (subStats.overdue || 0) });
       setPendingUsers(users);
       const approved = (a.users || []) as ActiveUser[];
       const sorted = approved
@@ -79,7 +82,7 @@ export default function AdminDashboard() {
     { label: "Announcements", value: stats.announcements, icon: Megaphone, color: "text-secondary", href: "/admin/announcements" },
     { label: "Events", value: stats.events, icon: Calendar, color: "text-primary", href: "/admin/events" },
     { label: "Documents", value: stats.documents, icon: FileText, color: "text-secondary", href: "/admin/documents" },
-    { label: "Total Users", value: stats.members + stats.pending, icon: Users, color: "text-accent", href: "/admin/users" },
+    { label: "Subscriptions Due", value: stats.subscriptionsPending, icon: CreditCard, color: "text-accent", href: "/admin/subscriptions" },
   ];
 
   return (
