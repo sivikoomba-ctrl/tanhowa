@@ -27,15 +27,15 @@ const categories = [
   },
   {
     name: "Plantation Crops",
-    image: "https://images.unsplash.com/photo-1501554728187-ce583db33af7?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1742106856193-5cc3424ac450?w=800&h=600&fit=crop",
   },
   {
     name: "Medicinal Plants",
-    image: "https://images.unsplash.com/photo-1611241893603-3c228ee0ae6f?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1748575233148-cd4851ab7409?w=800&h=600&fit=crop",
   },
   {
     name: "Aromatic Plants",
-    image: "https://images.unsplash.com/photo-1462275646964-a0e3c11f18a6?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1702131193140-703fb886b194?w=800&h=600&fit=crop",
   },
   {
     name: "Landscape Gardening",
