@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Megaphone } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 interface Announcement {
   id: string;
@@ -39,7 +40,7 @@ export default function AnnouncementsPage() {
                 <h2 className="text-lg font-semibold">{a.title}</h2>
                 <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{a.content}</p>
                 <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-                  <span>{new Date(a.created_at).toLocaleDateString()}</span>
+                  <span>{formatDate(a.created_at)}</span>
                   {a.users?.name && (
                     <>
                       <span>&middot;</span>

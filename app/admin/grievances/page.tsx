@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { MessageSquareWarning, Trash2 } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 const statusOptions = [
   { value: "pending", label: "Pending" },
@@ -127,7 +128,7 @@ export default function AdminGrievancesPage() {
                               {g.category && <Badge variant="outline" className="text-xs">{g.category}</Badge>}
                               {g.users?.name && <span className="text-xs text-muted-foreground">by {g.users.name}</span>}
                               <span className="text-xs text-muted-foreground">
-                                {new Date(g.created_at).toLocaleDateString()}
+                                {formatDate(g.created_at)}
                               </span>
                             </div>
                           </div>

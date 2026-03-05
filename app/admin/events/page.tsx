@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Trash2, MapPin } from "lucide-react";
+import { formatDateTime } from "@/lib/utils";
 
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<
@@ -130,7 +131,7 @@ export default function AdminEventsPage() {
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{ev.description}</p>
                   )}
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    <span>{new Date(ev.date).toLocaleString()}</span>
+                    <span>{formatDateTime(ev.date)}</span>
                     {ev.location && (
                       <span className="flex items-center gap-1">
                         <MapPin size={12} />

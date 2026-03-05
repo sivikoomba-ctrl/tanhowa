@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 interface PostingDetails {
   regular_district?: string;
@@ -30,6 +31,7 @@ interface User {
   status: string;
   posting_details: PostingDetails;
   social_links: { instagram?: string; twitter?: string; linkedin?: string };
+  photo_url: string;
   created_at: string;
 }
 
@@ -112,9 +114,13 @@ export default function AdminUsersPage() {
                       {/* Header row */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div
-                          className="flex-1 cursor-pointer"
+                          className="flex-1 cursor-pointer flex items-start gap-3"
                           onClick={() => setExpandedId(isExpanded ? null : u.id)}
                         >
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                            {u.photo_url ? <img src={u.photo_url} alt={u.name} className="w-full h-full object-cover" /> : <span className="text-sm font-semibold text-primary">{u.name?.charAt(0)?.toUpperCase() || "?"}</span>}
+                          </div>
+                          <div>
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold">{u.name || "Unnamed"}</h3>
                             <Badge variant={u.role === "admin" ? "default" : "outline"} className="text-xs">
@@ -125,8 +131,9 @@ export default function AdminUsersPage() {
                           <p className="text-sm text-muted-foreground">{u.email}</p>
                           {u.occupation && <p className="text-xs text-muted-foreground">{u.occupation}</p>}
                           <p className="text-xs text-muted-foreground mt-1">
-                            Joined: {new Date(u.created_at).toLocaleDateString()}
+                            Joined: {formatDate(u.created_at)}
                           </p>
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -212,7 +219,7 @@ export default function AdminUsersPage() {
                               <Calendar size={14} className="mt-0.5 text-muted-foreground shrink-0" />
                               <div>
                                 <p className="text-xs text-muted-foreground">Date of Birth</p>
-                                <p className="font-medium">{u.dob ? new Date(u.dob).toLocaleDateString() : "—"}</p>
+                                <p className="font-medium">{u.dob ? formatDate(u.dob) : "—"}</p>
                               </div>
                             </div>
                             <div className="flex items-start gap-2">

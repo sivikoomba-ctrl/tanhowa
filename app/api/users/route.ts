@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("users")
-    .select("id, name, email, phone, occupation, address, dob, posting_details, social_links, role, status, created_at")
+    .select("id, name, email, phone, occupation, address, dob, posting_details, social_links, photo_url, role, status, login_count, last_login_at, created_at")
     .order("created_at", { ascending: false });
 
   if (status) {

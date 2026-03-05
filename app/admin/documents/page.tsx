@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Trash2, FileText, Check, X } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 const docCategories = [
   "Circular / Order",
@@ -214,7 +215,7 @@ export default function AdminDocumentsPage() {
                             {doc.file_type && <Badge variant="outline" className="text-xs">{doc.file_type.toUpperCase()}</Badge>}
                             {doc.users?.name && <span className="text-xs text-muted-foreground">by {doc.users.name}</span>}
                             <span className="text-xs text-muted-foreground">
-                              {new Date(doc.created_at).toLocaleDateString()}
+                              {formatDate(doc.created_at)}
                             </span>
                           </div>
                           <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-block">

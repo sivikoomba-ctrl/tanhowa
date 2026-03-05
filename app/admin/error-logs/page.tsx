@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { AlertTriangle, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { formatDateTime } from "@/lib/utils";
 
 const typeColors: Record<string, string> = {
   api: "default",
@@ -131,7 +132,7 @@ export default function AdminErrorLogsPage() {
                           </div>
                           <p className="text-sm mt-1 break-all">{log.message}</p>
                           <span className="text-xs text-muted-foreground">
-                            {new Date(log.created_at).toLocaleString()}
+                            {formatDateTime(log.created_at)}
                           </span>
                         </div>
                       </div>

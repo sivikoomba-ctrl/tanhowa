@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Users, Megaphone, Calendar, FileText, UserCheck, UserX, Bell, Check, X, ArrowRight } from "lucide-react";
+import { Users, Megaphone, Calendar, FileText, UserCheck, UserX, Bell, Check, X, ArrowRight, Activity } from "lucide-react";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface PendingUser {
   id: string;
@@ -14,6 +15,15 @@ interface PendingUser {
   email: string;
   occupation: string;
   created_at: string;
+}
+
+interface ActiveUser {
+  id: string;
+  name: string;
+  email: string;
+  photo_url: string;
+  login_count: number;
+  last_login_at: string;
 }
 
 export default function AdminDashboard() {
@@ -25,15 +35,23 @@ export default function AdminDashboard() {
     pending: 0,
   });
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
 
   function loadData() {
     Promise.all([
       fetch("/api/stats").then((r) => r.json()),
       fetch("/api/users?status=pending").then((r) => r.json()),
-    ]).then(([s, p]) => {
+      fetch("/api/users?status=approved").then((r) => r.json()),
+    ]).then(([s, p, a]) => {
       const users = p.users || [];
       setStats({ ...s, pending: users.length });
       setPendingUsers(users);
+      const approved = (a.users || []) as ActiveUser[];
+      const sorted = approved
+        .filter((u: ActiveUser) => u.login_count > 0)
+        .sort((a: ActiveUser, b: ActiveUser) => (b.login_count || 0) - (a.login_count || 0))
+        .slice(0, 5);
+      setActiveUsers(sorted);
     });
   }
 
@@ -97,7 +115,7 @@ export default function AdminDashboard() {
                   <div className="flex items-center gap-3 mt-0.5">
                     {u.occupation && <span className="text-xs text-muted-foreground">{u.occupation}</span>}
                     <span className="text-xs text-muted-foreground">
-                      Joined {new Date(u.created_at).toLocaleDateString()}
+                      Joined {formatDate(u.created_at)}
                     </span>
                   </div>
                 </div>
@@ -149,6 +167,36 @@ export default function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Most Active Users */}
+      {activeUsers.length > 0 && (
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold">Most Active Members</h2>
+            </div>
+            <div className="space-y-2">
+              {activeUsers.map((u, i) => (
+                <div key={u.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
+                  <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                    {u.photo_url ? <img src={u.photo_url} alt={u.name} className="w-full h-full object-cover" /> : <span className="text-xs font-semibold text-primary">{u.name?.charAt(0)?.toUpperCase() || "?"}</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{u.name || "Unnamed"}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold">{u.login_count} logins</p>
+                    {u.last_login_at && <p className="text-xs text-muted-foreground">Last: {formatDateTime(u.last_login_at)}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

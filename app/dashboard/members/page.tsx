@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
 
@@ -13,6 +13,7 @@ interface Member {
   email: string;
   occupation: string;
   phone: string;
+  photo_url: string;
   role: string;
 }
 
@@ -54,6 +55,7 @@ export default function MembersPage() {
             <CardContent className="pt-4">
               <div className="flex items-start gap-3">
                 <Avatar className="w-12 h-12">
+                  {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                     {m.name?.charAt(0)?.toUpperCase() || "?"}
                   </AvatarFallback>

@@ -69,6 +69,12 @@ export async function POST(req: NextRequest) {
       isNewUser = true;
     }
 
+    // Update last login timestamp and increment login count
+    await supabase.from("users").update({
+      last_login_at: new Date().toISOString(),
+      login_count: (user.login_count || 0) + 1,
+    }).eq("id", user.id);
+
     // Create session
     await createSession({
       userId: user.id,

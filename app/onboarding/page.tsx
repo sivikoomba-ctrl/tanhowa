@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Flower2, Clock } from "lucide-react";
+import { Flower2, Clock, ArrowLeft, ArrowRight, User, MapPin, Share2, Camera } from "lucide-react";
 import Image from "next/image";
+import { DISTRICT_NAMES, getBlocks } from "@/lib/tn-districts";
 
 const occupationOptions = [
   "Horticultural Officer",
@@ -54,98 +55,109 @@ interface UserProfile {
   occupation: string;
   occupation_other: string;
   posting_details: PostingDetails;
-  social_links: {
-    instagram: string;
-    twitter: string;
-    linkedin: string;
-  };
+  social_links: { instagram: string; twitter: string; linkedin: string; whatsapp: string };
+  photo_url: string;
   status: string;
 }
 
+const steps = [
+  { label: "Personal Info", icon: User },
+  { label: "Posting Details", icon: MapPin },
+  { label: "Social & Photo", icon: Share2 },
+];
+
+function getDobLimits() {
+  const now = new Date();
+  return {
+    minDate: new Date(now.getFullYear() - 100, now.getMonth(), now.getDate()).toISOString().split("T")[0],
+    maxDate: new Date(now.getFullYear() - 18, now.getMonth(), now.getDate()).toISOString().split("T")[0],
+  };
+}
+
+function isValidPhone(phone: string): boolean {
+  const digits = phone.replace(/[\s\-\+\(\)]/g, "");
+  return /^(91)?[6-9]\d{9}$/.test(digits);
+}
+
 export default function OnboardingPage() {
+  const [step, setStep] = useState(0);
   const [profile, setProfile] = useState<UserProfile>({
-    name: "",
-    phone: "",
-    address: "",
-    dob: "",
-    occupation: "Horticultural Officer",
-    occupation_other: "",
+    name: "", phone: "", address: "", dob: "",
+    occupation: "Horticultural Officer", occupation_other: "",
     posting_details: emptyPosting,
-    social_links: { instagram: "", twitter: "", linkedin: "" },
-    status: "",
+    social_links: { instagram: "", twitter: "", linkedin: "", whatsapp: "" },
+    photo_url: "", status: "",
   });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const { minDate, maxDate } = getDobLimits();
 
   useEffect(() => {
-    fetch("/api/users/me")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.user) {
-          if (data.user.status === "approved" && data.user.name) {
-            router.push("/dashboard");
-            return;
-          }
-          setProfile((prev) => ({
-            ...prev,
-            name: data.user.name || "",
-            phone: data.user.phone || "",
-            address: data.user.address || "",
-            dob: data.user.dob || "",
-            occupation: data.user.occupation || "",
-            social_links: data.user.social_links || prev.social_links,
-            status: data.user.status || "",
-          }));
-          if (data.user.name && data.user.status === "pending") {
-            setSubmitted(true);
-          }
-        }
-      })
-      .catch(() => {});
+    fetch("/api/users/me").then((r) => r.json()).then((data) => {
+      if (!data.user) return;
+      if (data.user.status === "approved" && data.user.name) { router.push("/dashboard"); return; }
+      const sl = data.user.social_links || {};
+      setProfile((prev) => ({
+        ...prev, name: data.user.name || "", phone: data.user.phone || "",
+        address: data.user.address || "", dob: data.user.dob || "",
+        occupation: data.user.occupation || "Horticultural Officer",
+        posting_details: data.user.posting_details || emptyPosting,
+        social_links: { instagram: sl.instagram || "", twitter: sl.twitter || "", linkedin: sl.linkedin || "", whatsapp: sl.whatsapp || "" },
+        photo_url: data.user.photo_url || "", status: data.user.status || "",
+      }));
+      if (data.user.photo_url) setPhotoPreview(data.user.photo_url);
+      if (data.user.name && data.user.status === "pending") setSubmitted(true);
+    }).catch(() => {});
   }, [router]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!profile.name.trim()) {
-      setError("Name is required");
-      return;
-    }
-
+  function validateStep(): boolean {
     setError("");
-    setLoading(true);
+    if (step === 0) {
+      if (!profile.name.trim()) { setError("Full name is required"); return false; }
+      if (!profile.phone.trim()) { setError("Phone number is required"); return false; }
+      if (!isValidPhone(profile.phone)) { setError("Enter a valid Indian mobile number (10 digits starting with 6-9)"); return false; }
+      if (!profile.occupation || (profile.occupation === "Others" && !profile.occupation_other.trim())) { setError("Designation is required"); return false; }
+    }
+    return true;
+  }
 
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setError("Image must be under 2MB"); return; }
+    setPhotoPreview(URL.createObjectURL(file));
+    setUploadingPhoto(true);
+    setError("");
     try {
-      const payload = {
-        ...profile,
-        occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation,
-      };
-      const res = await fetch("/api/users/me", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload/avatar", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok) setProfile((p) => ({ ...p, photo_url: data.photo_url }));
+      else { setError(data.error || "Photo upload failed"); setPhotoPreview(profile.photo_url); }
+    } catch { setError("Photo upload failed"); setPhotoPreview(profile.photo_url); }
+    finally { setUploadingPhoto(false); }
+  }
 
-      if (!res.ok) {
-        setError("Failed to save profile");
-        return;
-      }
-
-      // Check user status — if already approved, go to dashboard
+  async function handleSubmit() {
+    if (!validateStep()) return;
+    setError(""); setLoading(true);
+    try {
+      const payload = { ...profile, occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation };
+      const res = await fetch("/api/users/me", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Failed to save profile"); return; }
       const meRes = await fetch("/api/users/me");
       const meData = await meRes.json();
-      if (meData.user?.status === "approved") {
-        router.push("/dashboard");
-        return;
-      }
-
+      if (meData.user?.status === "approved") { router.push("/dashboard"); return; }
       setSubmitted(true);
-    } catch {
-      setError("Something went wrong");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Something went wrong"); }
+    finally { setLoading(false); }
   }
 
   if (submitted) {
@@ -160,19 +172,8 @@ export default function OnboardingPage() {
                 <Clock className="w-8 h-8 text-secondary" />
               </div>
               <h2 className="text-2xl font-bold text-foreground mb-2">Profile Submitted</h2>
-              <p className="text-muted-foreground">
-                Your profile is awaiting admin approval. You&apos;ll be able to access the dashboard once approved.
-              </p>
-              <Button
-                onClick={async () => {
-                  await fetch("/api/auth/logout", { method: "POST" });
-                  router.push("/");
-                }}
-                variant="outline"
-                className="mt-6"
-              >
-                Back to Home
-              </Button>
+              <p className="text-muted-foreground">Your profile is awaiting admin approval. You&apos;ll be able to access the dashboard once approved.</p>
+              <Button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); router.push("/"); }} variant="outline" className="mt-6">Back to Home</Button>
             </CardContent>
           </Card>
         </div>
@@ -180,111 +181,100 @@ export default function OnboardingPage() {
     );
   }
 
+  const regularBlocks = getBlocks(profile.posting_details.regular_district);
+  const specialBlocks = getBlocks(profile.posting_details.special_duty_district);
+  const deputedBlocks = getBlocks(profile.posting_details.deputed_district);
+
   return (
     <div className="min-h-screen relative overflow-hidden">
       <Image src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.06]" />
       <div className="absolute inset-0 bg-gradient-to-br from-[#2d6a4f]/5 via-[#fefae0]/90 to-[#f4a261]/10" />
-
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12">
         <div className="w-full max-w-lg">
           <div className="text-center mb-6">
             <Flower2 className="w-10 h-10 text-primary mx-auto mb-2" />
             <h1 className="text-3xl font-bold text-primary">Complete Your Profile</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Tell us about yourself to join the community
-            </p>
+            <p className="text-sm text-muted-foreground mt-1">Tell us about yourself to join the community</p>
+          </div>
+
+          {/* Step Progress */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            {steps.map((s, i) => (
+              <div key={s.label} className="flex items-center">
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${i === step ? "bg-primary text-white" : i < step ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                  <s.icon size={14} />
+                  <span className="hidden sm:inline">{s.label}</span>
+                  <span className="sm:hidden">{i + 1}</span>
+                </div>
+                {i < 2 && <div className={`w-6 h-0.5 mx-1 ${i < step ? "bg-primary/40" : "bg-muted"}`} />}
+              </div>
+            ))}
           </div>
 
           <Card className="border-primary/20 shadow-xl shadow-primary/5">
-            <CardHeader>
-              <CardTitle className="text-lg">Personal Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <Label htmlFor="name">Full Name *</Label>
-                    <Input
-                      id="name"
-                      value={profile.name}
-                      onChange={(e) => setProfile({ ...profile, name: e.target.value.toUpperCase() })}
-                      placeholder="Your full name"
-                      required
-                      className="uppercase"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone *</Label>
-                    <Input
-                      id="phone"
-                      value={profile.phone}
-                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                      placeholder="+91 9876543210"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="dob">Date of Birth</Label>
-                    <Input
-                      id="dob"
-                      type="date"
-                      value={profile.dob}
-                      onChange={(e) => setProfile({ ...profile, dob: e.target.value })}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label htmlFor="occupation">Designation *</Label>
-                    <Select
-                      value={profile.occupation}
-                      onValueChange={(val) => setProfile({ ...profile, occupation: val, occupation_other: val !== "Others" ? "" : profile.occupation_other })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select your designation" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {occupationOptions.map((opt) => (
-                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+            <CardContent className="pt-6">
+              {step === 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Personal Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <Label htmlFor="name">Full Name *</Label>
+                      <Input id="name" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value.toUpperCase() })} placeholder="Your full name" required className="uppercase" />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone *</Label>
+                      <Input id="phone" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") })} placeholder="+91 9876543210" required />
+                    </div>
+                    <div>
+                      <Label htmlFor="whatsapp">WhatsApp (if different)</Label>
+                      <Input id="whatsapp" value={profile.social_links.whatsapp} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, whatsapp: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") } })} placeholder="+91 9876543210" />
+                    </div>
+                    <div>
+                      <Label htmlFor="dob">Date of Birth</Label>
+                      <Input id="dob" type="date" value={profile.dob} onChange={(e) => setProfile({ ...profile, dob: e.target.value })} min={minDate} max={maxDate} />
+                    </div>
+                    <div>
+                      <Label htmlFor="occupation">Designation *</Label>
+                      <Select value={profile.occupation} onValueChange={(val) => setProfile({ ...profile, occupation: val, occupation_other: val !== "Others" ? "" : profile.occupation_other })}>
+                        <SelectTrigger><SelectValue placeholder="Select your designation" /></SelectTrigger>
+                        <SelectContent>{occupationOptions.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   {profile.occupation === "Others" && (
-                    <div className="col-span-2">
+                    <div>
                       <Label htmlFor="occupation_other">Specify Designation *</Label>
-                      <Input
-                        id="occupation_other"
-                        value={profile.occupation_other}
-                        onChange={(e) => setProfile({ ...profile, occupation_other: e.target.value })}
-                        placeholder="Enter your designation"
-                        required
-                      />
+                      <Input id="occupation_other" value={profile.occupation_other} onChange={(e) => setProfile({ ...profile, occupation_other: e.target.value })} placeholder="Enter your designation" required />
                     </div>
                   )}
-                  <div className="col-span-2">
+                  <div>
                     <Label htmlFor="address">Address</Label>
-                    <Textarea
-                      id="address"
-                      value={profile.address}
-                      onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                      placeholder="Your address"
-                      rows={2}
-                    />
+                    <Textarea id="address" value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} placeholder="Your address" rows={2} />
                   </div>
                 </div>
+              )}
 
-                <div className="pt-2">
-                  <h3 className="text-sm font-medium mb-3">Posting Details</h3>
-                  <div className="space-y-4 rounded-lg border p-4 mb-4">
+              {step === 1 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Posting Details</h3>
+                  <p className="text-sm text-muted-foreground">Fill in your current posting information</p>
+                  <div className="space-y-4 rounded-lg border p-4">
                     <div>
                       <p className="text-xs font-semibold text-primary mb-2">Regular Posting</p>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label>District</Label>
-                          <Input value={profile.posting_details.regular_district} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_district: e.target.value } })} placeholder="District name" />
+                          <Select value={profile.posting_details.regular_district} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_district: val, regular_block: "" } })}>
+                            <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
+                            <SelectContent>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                          </Select>
                         </div>
                         <div>
                           <Label>Block</Label>
-                          <Input value={profile.posting_details.regular_block} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_block: e.target.value } })} placeholder="Block name" />
+                          <Select value={profile.posting_details.regular_block} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_block: val } })} disabled={!profile.posting_details.regular_district}>
+                            <SelectTrigger><SelectValue placeholder="Select block" /></SelectTrigger>
+                            <SelectContent>{regularBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </div>
@@ -293,11 +283,17 @@ export default function OnboardingPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label>District</Label>
-                          <Input value={profile.posting_details.special_duty_district} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_district: e.target.value } })} placeholder="District name" />
+                          <Select value={profile.posting_details.special_duty_district} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_district: val, special_duty_block: "" } })}>
+                            <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
+                            <SelectContent>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                          </Select>
                         </div>
                         <div>
                           <Label>Block</Label>
-                          <Input value={profile.posting_details.special_duty_block} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_block: e.target.value } })} placeholder="Block name" />
+                          <Select value={profile.posting_details.special_duty_block} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_block: val } })} disabled={!profile.posting_details.special_duty_district}>
+                            <SelectTrigger><SelectValue placeholder="Select block" /></SelectTrigger>
+                            <SelectContent>{specialBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                          </Select>
                         </div>
                         <div className="col-span-2">
                           <Label>Place (other than above)</Label>
@@ -310,73 +306,56 @@ export default function OnboardingPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label>District</Label>
-                          <Input value={profile.posting_details.deputed_district} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_district: e.target.value } })} placeholder="District name" />
+                          <Select value={profile.posting_details.deputed_district} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_district: val, deputed_block: "" } })}>
+                            <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
+                            <SelectContent>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                          </Select>
                         </div>
                         <div>
                           <Label>Block</Label>
-                          <Input value={profile.posting_details.deputed_block} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_block: e.target.value } })} placeholder="Block name" />
+                          <Select value={profile.posting_details.deputed_block} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_block: val } })} disabled={!profile.posting_details.deputed_district}>
+                            <SelectTrigger><SelectValue placeholder="Select block" /></SelectTrigger>
+                            <SelectContent>{deputedBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  <h3 className="text-sm font-medium mb-3">Social Links (optional)</h3>
+              {step === 2 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Social Links & Photo</h3>
+                  <p className="text-sm text-muted-foreground">Optional — add your social links and profile photo</p>
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-20 h-20 rounded-full bg-muted border-2 border-dashed border-primary/30 flex items-center justify-center cursor-pointer overflow-hidden hover:border-primary/60 transition-colors" onClick={() => fileInputRef.current?.click()}>
+                      {photoPreview ? <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" /> : <Camera className="w-6 h-6 text-muted-foreground" />}
+                      {uploadingPhoto && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>}
+                    </div>
+                    <div>
+                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadingPhoto}>{photoPreview ? "Change Photo" : "Upload Photo"}</Button>
+                      <p className="text-xs text-muted-foreground mt-1">JPEG, PNG or WebP. Max 2MB.</p>
+                    </div>
+                    <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoUpload} />
+                  </div>
                   <div className="space-y-3">
-                    <div>
-                      <Label htmlFor="instagram">Instagram</Label>
-                      <Input
-                        id="instagram"
-                        value={profile.social_links.instagram}
-                        onChange={(e) =>
-                          setProfile({
-                            ...profile,
-                            social_links: { ...profile.social_links, instagram: e.target.value },
-                          })
-                        }
-                        placeholder="@username"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="twitter">Twitter / X</Label>
-                      <Input
-                        id="twitter"
-                        value={profile.social_links.twitter}
-                        onChange={(e) =>
-                          setProfile({
-                            ...profile,
-                            social_links: { ...profile.social_links, twitter: e.target.value },
-                          })
-                        }
-                        placeholder="@username"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="linkedin">LinkedIn</Label>
-                      <Input
-                        id="linkedin"
-                        value={profile.social_links.linkedin}
-                        onChange={(e) =>
-                          setProfile({
-                            ...profile,
-                            social_links: { ...profile.social_links, linkedin: e.target.value },
-                          })
-                        }
-                        placeholder="linkedin.com/in/username"
-                      />
-                    </div>
+                    <div><Label htmlFor="instagram">Instagram</Label><Input id="instagram" value={profile.social_links.instagram} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, instagram: e.target.value } })} placeholder="@username" /></div>
+                    <div><Label htmlFor="twitter">Twitter / X</Label><Input id="twitter" value={profile.social_links.twitter} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, twitter: e.target.value } })} placeholder="@username" /></div>
+                    <div><Label htmlFor="linkedin">LinkedIn</Label><Input id="linkedin" value={profile.social_links.linkedin} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, linkedin: e.target.value } })} placeholder="linkedin.com/in/username" /></div>
                   </div>
                 </div>
+              )}
 
-                {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && <p className="text-sm text-destructive mt-4">{error}</p>}
 
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90"
-                >
-                  {loading ? "Saving..." : "Submit Profile"}
-                </Button>
-              </form>
+              <div className="flex items-center justify-between mt-6">
+                {step > 0 ? <Button type="button" variant="outline" onClick={() => { setError(""); setStep((s) => s - 1); }}><ArrowLeft size={16} className="mr-1" /> Back</Button> : <div />}
+                {step < 2
+                  ? <Button type="button" onClick={() => { if (validateStep()) setStep((s) => s + 1); }} className="bg-primary hover:bg-primary/90">Next <ArrowRight size={16} className="ml-1" /></Button>
+                  : <Button type="button" onClick={handleSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">{loading ? "Saving..." : "Submit Profile"}</Button>
+                }
+              </div>
             </CardContent>
           </Card>
         </div>

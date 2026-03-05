@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 export default function AdminAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<
@@ -103,7 +104,7 @@ export default function AdminAnnouncementsPage() {
                   <h3 className="font-semibold">{a.title}</h3>
                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{a.content}</p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    {new Date(a.created_at).toLocaleDateString()}
+                    {formatDate(a.created_at)}
                   </p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)} className="text-destructive">

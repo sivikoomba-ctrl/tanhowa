@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { MessageSquareWarning, Plus } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 const categories = ["General", "Administrative", "Technical", "Suggestion", "Others"];
 
@@ -161,7 +162,7 @@ export default function GrievancesPage() {
                     <div className="flex items-center gap-2 mt-1.5">
                       {g.category && <Badge variant="outline" className="text-xs">{g.category}</Badge>}
                       <span className="text-xs text-muted-foreground">
-                        {new Date(g.created_at).toLocaleDateString()}
+                        {formatDate(g.created_at)}
                       </span>
                     </div>
                     {g.admin_remarks && (

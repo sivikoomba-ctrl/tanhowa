@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Megaphone, Calendar, Users, FileText } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 interface Announcement {
   id: string;
@@ -88,7 +89,7 @@ export default function DashboardHome() {
                   <h3 className="font-medium text-sm">{a.title}</h3>
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{a.content}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(a.created_at).toLocaleDateString()}
+                    {formatDate(a.created_at)}
                   </p>
                 </div>
               ))
