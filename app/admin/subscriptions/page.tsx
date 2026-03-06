@@ -69,9 +69,11 @@ export default function AdminSubscriptionsPage() {
   const [payDialog, setPayDialog] = useState<Subscription | null>(null);
   const [payForm, setPayForm] = useState({ remarks: "" });
   const [payLoading, setPayLoading] = useState(false);
+  const [payProofUrl, setPayProofUrl] = useState<string | null>(null);
 
   // Proof preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // QR code
   const [qrUrl, setQrUrl] = useState<string | null>(null);
@@ -181,6 +183,27 @@ export default function AdminSubscriptionsPage() {
       toast.error("Failed to update");
     }
     setPayLoading(false);
+  }
+
+  async function viewProof(sub: Subscription) {
+    if (!sub.payment_proof_url) return;
+    setPreviewLoading(true);
+    try {
+      const res = await fetch("/api/upload/payment-proof/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_path: sub.payment_proof_url, subscription_id: sub.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setPreviewUrl(data.url);
+      } else {
+        toast.error("Failed to load proof");
+      }
+    } catch {
+      toast.error("Failed to load proof");
+    }
+    setPreviewLoading(false);
   }
 
   async function handleMarkOverdue(id: string) {
@@ -457,7 +480,7 @@ export default function AdminSubscriptionsPage() {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs"
-                          onClick={() => setPreviewUrl(sub.payment_proof_url)}
+                          onClick={() => viewProof(sub)}
                         >
                           <Eye size={12} className="mr-1" />
                           View Proof
@@ -468,9 +491,19 @@ export default function AdminSubscriptionsPage() {
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 h-7 text-xs"
-                            onClick={() => {
+                            onClick={async () => {
                               setPayDialog(sub);
                               setPayForm({ remarks: "" });
+                              setPayProofUrl(null);
+                              if (sub.payment_proof_url) {
+                                const res = await fetch("/api/upload/payment-proof/signed-url", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ file_path: sub.payment_proof_url, subscription_id: sub.id }),
+                                });
+                                const data = await res.json();
+                                if (res.ok && data.url) setPayProofUrl(data.url);
+                              }
                             }}
                           >
                             Verify & Approve
@@ -556,10 +589,13 @@ export default function AdminSubscriptionsPage() {
                   </div>
                 )}
               </div>
-              {payDialog.payment_proof_url && (
+              {payDialog.payment_proof_url && payProofUrl && (
                 <div className="rounded-xl overflow-hidden border">
-                  <img src={payDialog.payment_proof_url} alt="Payment proof" className="w-full" />
+                  <img src={payProofUrl} alt="Payment proof" className="w-full" />
                 </div>
+              )}
+              {payDialog.payment_proof_url && !payProofUrl && (
+                <p className="text-sm text-muted-foreground text-center py-4">Loading proof...</p>
               )}
               {!payDialog.payment_proof_url && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">

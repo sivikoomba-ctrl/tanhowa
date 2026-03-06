@@ -62,20 +62,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Upload failed: " + uploadError.message }, { status: 500 });
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from("payment-proofs")
-      .getPublicUrl(fileName);
-
-    const proofUrl = urlData.publicUrl;
-
-    // Update subscription with proof URL
+    // Store the file path (not public URL) since bucket is private
     await supabase
       .from("subscriptions")
-      .update({ payment_proof_url: proofUrl, updated_at: new Date().toISOString() })
+      .update({ payment_proof_url: fileName, updated_at: new Date().toISOString() })
       .eq("id", subscriptionId);
 
-    return NextResponse.json({ payment_proof_url: proofUrl });
+    return NextResponse.json({ payment_proof_url: fileName });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/upload/payment-proof", method: "POST", status_code: 500 });

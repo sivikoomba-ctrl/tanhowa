@@ -35,6 +35,7 @@ export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
@@ -137,6 +138,27 @@ export default function SubscriptionsPage() {
       toast.error("Failed to save details");
     }
     setDetailsSaving(false);
+  }
+
+  async function viewProof(sub: Subscription) {
+    if (!sub.payment_proof_url) return;
+    setPreviewLoading(true);
+    try {
+      const res = await fetch("/api/upload/payment-proof/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_path: sub.payment_proof_url, subscription_id: sub.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setPreviewUrl(data.url);
+      } else {
+        toast.error("Failed to load proof");
+      }
+    } catch {
+      toast.error("Failed to load proof");
+    }
+    setPreviewLoading(false);
   }
 
   function openEditDetails(sub: Subscription) {
@@ -279,7 +301,7 @@ export default function SubscriptionsPage() {
                         )}
                         {hasProof && (
                           <button
-                            onClick={() => setPreviewUrl(sub.payment_proof_url)}
+                            onClick={() => viewProof(sub)}
                             className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
                           >
                             <ImageIcon size={12} />
@@ -326,7 +348,7 @@ export default function SubscriptionsPage() {
                           size="sm"
                           variant="outline"
                           className="h-8 text-xs"
-                          onClick={() => setPreviewUrl(sub.payment_proof_url)}
+                          onClick={() => viewProof(sub)}
                         >
                           <Eye size={12} className="mr-1" />
                           View Proof
