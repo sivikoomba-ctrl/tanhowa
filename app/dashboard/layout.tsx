@@ -18,15 +18,23 @@ import {
   Menu,
   X,
   Shield,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface UserData {
   name: string;
   email: string;
   role: string;
+  phone?: string;
+  occupation?: string;
+  posting_details?: {
+    regular_district?: string;
+    regular_block?: string;
+  };
 }
 
 const navItems = [
@@ -40,9 +48,20 @@ const navItems = [
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
 ];
 
+function getMissingFields(u: UserData): string[] {
+  const missing: string[] = [];
+  if (!u.phone?.trim()) missing.push("Phone Number");
+  if (!u.occupation?.trim()) missing.push("Designation");
+  if (!u.posting_details?.regular_district) missing.push("District");
+  if (!u.posting_details?.regular_block) missing.push("Block");
+  return missing;
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showIncomplete, setShowIncomplete] = useState(false);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -61,6 +80,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             return;
           }
           setUser(data.user);
+          // Check for missing mandatory fields
+          const missing = getMissingFields(data.user);
+          if (missing.length > 0 && data.user.role !== "admin") {
+            setMissingFields(missing);
+            setShowIncomplete(true);
+          }
         } else {
           router.push("/");
         }
@@ -197,6 +222,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="relative z-10">{children}</div>
         </main>
       </div>
+
+      {/* Incomplete Profile Dialog */}
+      <Dialog open={showIncomplete} onOpenChange={setShowIncomplete}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Flower2 className="w-5 h-5 text-primary" />
+              Welcome back, {user?.name?.split(" ")[0] || "Member"}!
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              We noticed your profile is missing some important details. Please update the following to help us serve you better:
+            </p>
+            <div className="rounded-xl border bg-amber-50 p-3 space-y-1.5">
+              {missingFields.map((field) => (
+                <div key={field} className="flex items-center gap-2 text-sm">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span className="font-medium text-amber-800">{field}</span>
+                </div>
+              ))}
+            </div>
+            <Button
+              className="w-full bg-primary hover:bg-primary/90"
+              onClick={() => {
+                setShowIncomplete(false);
+                router.push("/dashboard/profile");
+              }}
+            >
+              Update My Profile
+            </Button>
+            <button
+              className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setShowIncomplete(false)}
+            >
+              Remind me later
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
