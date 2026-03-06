@@ -43,6 +43,7 @@ export default function SubscriptionsPage() {
   const [detailsSub, setDetailsSub] = useState<Subscription | null>(null);
   const [detailsForm, setDetailsForm] = useState({ transaction_id: "", payment_method: "", remarks: "" });
   const [detailsSaving, setDetailsSaving] = useState(false);
+  const [qrZoom, setQrZoom] = useState(false);
 
   function load() {
     fetch("/api/subscriptions")
@@ -163,9 +164,15 @@ export default function SubscriptionsPage() {
       <Card className="border-2 border-primary/20">
         <CardContent className="pt-5">
           <div className="flex flex-col sm:flex-row items-center gap-5">
-            <div className="w-48 h-48 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center shrink-0 overflow-hidden">
+            <div
+              className={`w-64 h-64 rounded-xl border-2 border-dashed border-primary/30 bg-white flex flex-col items-center justify-center shrink-0 overflow-hidden ${qrUrl ? "cursor-pointer hover:border-primary/60" : ""}`}
+              onClick={() => qrUrl && setQrZoom(true)}
+            >
               {qrUrl ? (
-                <img src={qrUrl} alt="Payment QR Code" className="w-full h-full object-contain" />
+                <>
+                  <img src={qrUrl} alt="Payment QR Code" className="w-full h-full object-contain p-1" />
+                  <p className="text-[10px] text-primary/60 -mt-5 mb-1">Tap to enlarge</p>
+                </>
               ) : (
                 <>
                   <QrCode className="w-16 h-16 text-primary/40" />
@@ -345,6 +352,21 @@ export default function SubscriptionsPage() {
               <img src={previewUrl} alt="Payment proof" className="w-full" />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Code Zoom Dialog */}
+      <Dialog open={qrZoom} onOpenChange={setQrZoom}>
+        <DialogContent className="max-w-sm p-4">
+          <DialogHeader>
+            <DialogTitle className="text-center">Scan to Pay</DialogTitle>
+          </DialogHeader>
+          {qrUrl && (
+            <div className="bg-white rounded-xl p-2">
+              <img src={qrUrl} alt="Payment QR Code" className="w-full h-auto" />
+            </div>
+          )}
+          <p className="text-xs text-center text-muted-foreground">Open your payment app and scan this QR code</p>
         </DialogContent>
       </Dialog>
 
