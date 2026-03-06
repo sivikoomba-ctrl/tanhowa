@@ -6,7 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Users, Megaphone, Calendar, FileText, UserCheck, UserX, Bell, Check, X, ArrowRight, Activity, Wallet } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Users, Megaphone, Calendar, FileText, UserCheck, UserX, Bell, Check, X, ArrowRight, Activity, Wallet, IndianRupee, CalendarDays, Phone, Mail, Shield } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface PendingUser {
@@ -26,6 +28,15 @@ interface ActiveUser {
   last_login_at: string;
 }
 
+interface AdminContact {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  photo_url: string;
+  occupation: string;
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
     members: 0,
@@ -34,9 +45,16 @@ export default function AdminDashboard() {
     documents: 0,
     pending: 0,
     subscriptionsPending: 0,
+    totalCollection: 0,
+    totalPayments: 0,
   });
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const [adminContacts, setAdminContacts] = useState<AdminContact[]>([]);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [filteredCollection, setFilteredCollection] = useState<{ total: number; count: number } | null>(null);
+  const [loadingPayments, setLoadingPayments] = useState(false);
 
   function loadData() {
     Promise.all([
@@ -47,8 +65,15 @@ export default function AdminDashboard() {
     ]).then(([s, p, a, sub]) => {
       const users = p.users || [];
       const subStats = sub.stats || {};
-      setStats({ ...s, pending: users.length, subscriptionsPending: (subStats.pending || 0) + (subStats.overdue || 0) });
+      setStats({
+        ...s,
+        pending: users.length,
+        subscriptionsPending: (subStats.pending || 0) + (subStats.overdue || 0),
+        totalCollection: s.totalCollection || 0,
+        totalPayments: s.totalPayments || 0,
+      });
       setPendingUsers(users);
+      setAdminContacts(s.admins || []);
       const approved = (a.users || []) as ActiveUser[];
       const sorted = approved
         .filter((u: ActiveUser) => u.login_count > 0)
@@ -73,6 +98,20 @@ export default function AdminDashboard() {
       loadData();
     } else {
       toast.error("Action failed");
+    }
+  }
+
+  async function fetchPaymentsByRange() {
+    if (!fromDate || !toDate) return;
+    setLoadingPayments(true);
+    try {
+      const res = await fetch(`/api/stats?from=${fromDate}&to=${toDate}`);
+      const data = await res.json();
+      setFilteredCollection({ total: data.totalCollection || 0, count: data.totalPayments || 0 });
+    } catch {
+      toast.error("Failed to fetch payment data");
+    } finally {
+      setLoadingPayments(false);
     }
   }
 
@@ -169,6 +208,111 @@ export default function AdminDashboard() {
             </Card>
           </Link>
         ))}
+      </div>
+
+      {/* Payment Collection & Admin Contacts */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Payment Collection with Date Range */}
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 mb-4">
+              <IndianRupee className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold">Payment Collection</h2>
+            </div>
+
+            {/* Overall stats */}
+            <div className="flex gap-4 mb-4">
+              <div className="flex-1 rounded-xl bg-green-50 border border-green-200 p-3 text-center">
+                <p className="text-2xl font-bold text-green-700">{stats.totalPayments}</p>
+                <p className="text-xs text-green-600">Total Payments</p>
+              </div>
+              <div className="flex-1 rounded-xl bg-green-50 border border-green-200 p-3 text-center">
+                <p className="text-2xl font-bold text-green-700">₹{stats.totalCollection.toLocaleString("en-IN")}</p>
+                <p className="text-xs text-green-600">Total Collection</p>
+              </div>
+            </div>
+
+            {/* Date range filter */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                <p className="text-sm font-medium">Filter by Date Range</p>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground mb-1 block">From</label>
+                  <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground mb-1 block">To</label>
+                  <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={fetchPaymentsByRange}
+                disabled={!fromDate || !toDate || loadingPayments}
+                className="w-full"
+              >
+                {loadingPayments ? "Loading..." : "Show Collection"}
+              </Button>
+
+              {filteredCollection && (
+                <div className="rounded-xl bg-primary/5 border border-primary/20 p-3">
+                  <p className="text-xs text-muted-foreground mb-1">
+                    {formatDate(fromDate)} — {formatDate(toDate)}
+                  </p>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-xl font-bold text-primary">₹{filteredCollection.total.toLocaleString("en-IN")}</p>
+                      <p className="text-xs text-muted-foreground">{filteredCollection.count} payment{filteredCollection.count !== 1 ? "s" : ""}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Admin Contacts */}
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold">Admin Contacts</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">Reach out to these admins for any help or queries.</p>
+            <div className="space-y-3">
+              {adminContacts.map((a) => (
+                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <Avatar className="w-10 h-10">
+                    {a.photo_url && <AvatarImage src={a.photo_url} alt={a.name} />}
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+                      {a.name?.charAt(0)?.toUpperCase() || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate uppercase">{a.name || "Admin"}</p>
+                    {a.occupation && <p className="text-xs text-muted-foreground">{a.occupation}</p>}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                      {a.phone && (
+                        <a href={`tel:${a.phone}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                          <Phone size={10} /> {a.phone}
+                        </a>
+                      )}
+                      <a href={`mailto:${a.email}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                        <Mail size={10} /> {a.email}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {adminContacts.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No admin contacts found</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Most Active Users */}

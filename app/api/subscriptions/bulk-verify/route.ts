@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
-import { sendSubscriptionApprovedEmail } from "@/lib/mail";
+import { sendSubscriptionApprovedEmail, notifyPaymentVerified } from "@/lib/mail";
 
 export async function POST(req: NextRequest) {
   try {
@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
           .eq("status", "paid");
 
         if (verifiedSubs) {
+          const names: string[] = [];
           for (const sub of verifiedSubs) {
             try {
               const user = sub.users as unknown as { name: string; email: string };
@@ -87,10 +88,15 @@ export async function POST(req: NextRequest) {
                   sub.period,
                   sub.amount || 0
                 );
+                names.push(user.name || "Member");
               }
             } catch {
               // Continue sending to others even if one fails
             }
+          }
+          // Broadcast to all members about verified payments
+          if (names.length > 0 && verifiedSubs[0]) {
+            notifyPaymentVerified(names.join(", "), verifiedSubs[0].period);
           }
         }
       } catch (emailErr) {

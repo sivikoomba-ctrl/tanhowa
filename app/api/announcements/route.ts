@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { notifyNewAnnouncement } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
   try {
@@ -53,6 +54,11 @@ export async function POST(req: NextRequest) {
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/announcements", method: "POST", status_code: 500 });
       return NextResponse.json({ error: "Failed to create announcement" }, { status: 500 });
+    }
+
+    // Notify all members about the new announcement (fire-and-forget)
+    if (data.published) {
+      notifyNewAnnouncement(data.title, data.content);
     }
 
     return NextResponse.json({ announcement: data });

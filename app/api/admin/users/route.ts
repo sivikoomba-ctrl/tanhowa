@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { notifyNewMemberRegistered } from "@/lib/mail";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -20,7 +21,11 @@ export async function PUT(req: NextRequest) {
     const supabase = getServiceClient();
 
     if (action === "approve") {
+      // Get user name before updating
+      const { data: userData } = await supabase.from("users").select("name").eq("id", userId).single();
       await supabase.from("users").update({ status: "approved" }).eq("id", userId);
+      // Notify all members about the new member (fire-and-forget)
+      notifyNewMemberRegistered(userData?.name || "New Member");
     } else if (action === "reject") {
       await supabase.from("users").update({ status: "rejected" }).eq("id", userId);
     } else if (action === "set-role" && role) {

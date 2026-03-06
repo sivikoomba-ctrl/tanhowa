@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
-import { sendSubscriptionApprovedEmail } from "@/lib/mail";
+import { sendSubscriptionApprovedEmail, notifyPaymentVerified } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
   try {
@@ -225,6 +225,8 @@ export async function PUT(req: NextRequest) {
             sub.period,
             sub.amount || 0
           );
+          // Broadcast to all members
+          notifyPaymentVerified(user.name || "Member", sub.period);
         }
       } catch (emailErr) {
         // Log but don't fail the request — approval is already done
