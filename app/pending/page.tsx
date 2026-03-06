@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +9,25 @@ import Image from "next/image";
 
 export default function PendingPage() {
   const router = useRouter();
+
+  // Poll every 30s to check if admin has approved
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch("/api/users/me")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.user?.status === "approved") {
+            clearInterval(interval);
+            router.push("/dashboard");
+          } else if (d.user?.status === "rejected") {
+            clearInterval(interval);
+            router.push("/onboarding");
+          }
+        })
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [router]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
