@@ -62,7 +62,7 @@ export default function MembersPage() {
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm truncate">{m.name || "Unnamed"}</h3>
+                    <h3 className="font-semibold text-sm truncate uppercase">{m.name || "Unnamed"}</h3>
                     {m.role === "admin" && (
                       <Badge className="bg-accent text-accent-foreground text-xs">Official</Badge>
                     )}

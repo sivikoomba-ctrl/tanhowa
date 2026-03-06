@@ -219,7 +219,7 @@ export default function OnboardingPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <Label htmlFor="name">Full Name *</Label>
-                      <Input id="name" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value.toUpperCase() })} placeholder="Your full name" required className="uppercase" />
+                      <Input id="name" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value.toUpperCase() })} placeholder="FIRST NAME, LAST NAME (e.g., SIVAKUMAR K)" required className="uppercase" />
                     </div>
                     <div>
                       <Label htmlFor="phone">Phone *</Label>

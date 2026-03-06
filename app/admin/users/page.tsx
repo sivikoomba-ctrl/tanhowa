@@ -122,7 +122,7 @@ export default function AdminUsersPage() {
                           </div>
                           <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold">{u.name || "Unnamed"}</h3>
+                            <h3 className="font-semibold uppercase">{u.name || "Unnamed"}</h3>
                             <Badge variant={u.role === "admin" ? "default" : "outline"} className="text-xs">
                               {u.role}
                             </Badge>

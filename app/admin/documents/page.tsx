@@ -213,7 +213,7 @@ export default function AdminDocumentsPage() {
                           <div className="flex flex-wrap items-center gap-2 mt-1">
                             {doc.category && <Badge variant="outline" className="text-xs">{doc.category}</Badge>}
                             {doc.file_type && <Badge variant="outline" className="text-xs">{doc.file_type.toUpperCase()}</Badge>}
-                            {doc.users?.name && <span className="text-xs text-muted-foreground">by {doc.users.name}</span>}
+                            {doc.users?.name && <span className="text-xs text-muted-foreground uppercase">by {doc.users.name}</span>}
                             <span className="text-xs text-muted-foreground">
                               {formatDate(doc.created_at)}
                             </span>

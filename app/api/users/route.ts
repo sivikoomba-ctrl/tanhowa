@@ -16,13 +16,16 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("users")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("name", { ascending: true });
 
   if (status) {
     query = query.eq("status", status);
   } else if (dbRole !== "admin") {
     query = query.eq("status", "approved");
   }
+
+  // Ensure we fetch all rows (Supabase default limit can be low)
+  query = query.range(0, 9999);
 
   const { data: users } = await query;
 

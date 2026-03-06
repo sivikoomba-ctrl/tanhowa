@@ -150,7 +150,7 @@ export default function ProfilePage() {
           <form onSubmit={handleSave} className="space-y-4">
             <div><Label>Email</Label><Input value={profile.email} disabled className="bg-muted" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Full Name *</Label><Input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value.toUpperCase() })} required className="uppercase" /></div>
+              <div><Label>Full Name *</Label><Input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value.toUpperCase() })} placeholder="FIRST NAME, LAST NAME (e.g., SIVAKUMAR K)" required className="uppercase" /></div>
               <div><Label>Phone *</Label><Input value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") })} required /></div>
               <div><Label>WhatsApp (if different)</Label><Input value={profile.social_links.whatsapp} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, whatsapp: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") } })} placeholder="+91 9876543210" /></div>
               <div><Label>Date of Birth</Label><Input type="date" value={profile.dob} onChange={(e) => setProfile({ ...profile, dob: e.target.value })} min={minDate} max={maxDate} /></div>

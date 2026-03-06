@@ -126,7 +126,7 @@ export default function AdminGrievancesPage() {
                             <p className="text-xs text-muted-foreground mt-1">{g.description}</p>
                             <div className="flex flex-wrap items-center gap-2 mt-1.5">
                               {g.category && <Badge variant="outline" className="text-xs">{g.category}</Badge>}
-                              {g.users?.name && <span className="text-xs text-muted-foreground">by {g.users.name}</span>}
+                              {g.users?.name && <span className="text-xs text-muted-foreground uppercase">by {g.users.name}</span>}
                               <span className="text-xs text-muted-foreground">
                                 {formatDate(g.created_at)}
                               </span>

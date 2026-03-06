@@ -543,7 +543,7 @@ export default function AdminSubscriptionsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-medium text-sm truncate">{sub.users?.name || "Unknown"}</h3>
+                        <h3 className="font-medium text-sm truncate uppercase">{sub.users?.name || "Unknown"}</h3>
                         <Badge
                           variant="outline"
                           className={
@@ -881,7 +881,7 @@ export default function AdminSubscriptionsPage() {
                         className="rounded"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{sub.users?.name || "Unknown"}</p>
+                        <p className="text-sm font-medium truncate uppercase">{sub.users?.name || "Unknown"}</p>
                         <p className="text-xs text-muted-foreground truncate">{sub.users?.email} {sub.users?.phone && `| ${sub.users.phone}`}</p>
                       </div>
                       <div className="text-right shrink-0">
