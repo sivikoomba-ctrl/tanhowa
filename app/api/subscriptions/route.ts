@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/subscriptions", method: "POST", status_code: 500 });
-    return NextResponse.json({ error: "Failed to create subscription" }, { status: 500 });
+    return NextResponse.json({ error: `Failed to create subscription: ${msg}` }, { status: 500 });
   }
 }
 
