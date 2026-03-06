@@ -19,7 +19,7 @@ const categories = [
   },
   {
     name: "Flowers",
-    image: "https://images.unsplash.com/photo-1490750967868-88aa4f44baee?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1487530811176-3780de880c2d?w=800&h=600&fit=crop",
   },
   {
     name: "Spices",
@@ -27,7 +27,7 @@ const categories = [
   },
   {
     name: "Plantation Crops",
-    image: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1582793988951-9aed5509eb97?w=800&h=600&fit=crop",
   },
   {
     name: "Medicinal Plants",
@@ -35,7 +35,7 @@ const categories = [
   },
   {
     name: "Aromatic Plants",
-    image: "https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1471943038886-da47f75b37eb?w=800&h=600&fit=crop",
   },
   {
     name: "Landscape Gardening",
@@ -177,7 +177,7 @@ export default function LandingPage() {
                 <div className="h-px w-8 bg-gradient-to-l from-transparent to-primary/30" />
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Connecting horticultural officers across Tamil Nadu
+                Connecting Horticultural Officers across Tamil Nadu
               </p>
             </div>
 
