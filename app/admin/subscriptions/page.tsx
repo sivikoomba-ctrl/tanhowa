@@ -744,11 +744,15 @@ export default function AdminSubscriptionsPage() {
               {payDialog.remarks && payDialog.remarks.includes(",") && (() => {
                 // Extract mentioned names from remarks, excluding the paying member
                 const behalfMatch = payDialog.remarks?.match(/Paying on behalf of:\s*(.+)$/i);
-                const payerName = (payDialog.users?.name || "").toLowerCase();
+                const payerParts = (payDialog.users?.name || "").toLowerCase().split(/\s+/).filter(Boolean);
                 const mentionedNames = (behalfMatch
                   ? behalfMatch[1].split(",").map((n: string) => n.trim()).filter(Boolean)
                   : payDialog.remarks?.split(",").map((n: string) => n.trim()).filter(Boolean) || []
-                ).filter((n: string) => n.toLowerCase() !== payerName);
+                ).filter((n: string) => {
+                  const nameLower = n.toLowerCase();
+                  // Exclude if the mentioned name matches any part of the payer's name or vice versa
+                  return !payerParts.some((part: string) => nameLower === part || nameLower.includes(part) || part.includes(nameLower));
+                });
                 const namesList = mentionedNames.join(", ");
 
                 if (mentionedNames.length === 0) return null;
