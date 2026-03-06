@@ -80,24 +80,28 @@ async function getAllMemberEmails(): Promise<string[]> {
   return (data || []).map((u: { email: string }) => u.email).filter(Boolean);
 }
 
-// Send a branded notification email to all approved members (fire-and-forget per member)
+// Send a branded notification email to all approved members using BCC batches
+// Zoho limits recipients per email, so we batch in groups of 40
 export async function sendBroadcastEmail(subject: string, bodyHtml: string) {
   const emails = await getAllMemberEmails();
   if (emails.length === 0) return;
 
   const transporter = getTransporter();
   const from = `"TANHOWA" <${process.env.ZOHO_SMTP_USER}>`;
+  const BATCH_SIZE = 40;
 
-  for (const email of emails) {
+  for (let i = 0; i < emails.length; i += BATCH_SIZE) {
+    const batch = emails.slice(i, i + BATCH_SIZE);
     try {
       await transporter.sendMail({
         from,
-        to: email,
+        to: process.env.ZOHO_SMTP_USER,
+        bcc: batch.join(","),
         subject,
         html: wrapEmailTemplate(bodyHtml),
       });
     } catch {
-      // Continue sending to others even if one fails
+      // Continue with next batch if one fails
     }
   }
 }
