@@ -24,6 +24,8 @@ import {
   Eye,
   QrCode,
   Upload,
+  UsersRound,
+  Trash2,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
@@ -70,6 +72,7 @@ export default function AdminSubscriptionsPage() {
   const [payForm, setPayForm] = useState({ remarks: "", payment_date: "", payment_time: "", verified_email: "" });
   const [payLoading, setPayLoading] = useState(false);
   const [payProofUrl, setPayProofUrl] = useState<string | null>(null);
+  const [extractingDate, setExtractingDate] = useState(false);
 
   // Proof preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -79,6 +82,15 @@ export default function AdminSubscriptionsPage() {
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [qrUploading, setQrUploading] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+
+  // Bulk verify dialog
+  const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false);
+  const [bulkVerifySelected, setBulkVerifySelected] = useState<Set<string>>(new Set());
+  const [bulkVerifyForm, setBulkVerifyForm] = useState({ payment_date: "", payment_time: "", remarks: "" });
+  const [bulkVerifyFile, setBulkVerifyFile] = useState<File | null>(null);
+  const [bulkVerifyLoading, setBulkVerifyLoading] = useState(false);
+  const [bulkVerifySearch, setBulkVerifySearch] = useState("");
+  const [bulkExtractingDate, setBulkExtractingDate] = useState(false);
 
   function load() {
     fetch("/api/subscriptions")
@@ -241,6 +253,71 @@ export default function AdminSubscriptionsPage() {
     }
   }
 
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this subscription entry? This cannot be undone.")) return;
+    const res = await fetch(`/api/subscriptions?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success("Subscription deleted");
+      load();
+    } else {
+      toast.error("Failed to delete");
+    }
+  }
+
+  // Pending/overdue subscriptions for bulk verify member list
+  const pendingForBulk = useMemo(() => {
+    return subscriptions
+      .filter((s) => s.status === "pending" || s.status === "overdue")
+      .filter((s) => {
+        if (!bulkVerifySearch) return true;
+        const q = bulkVerifySearch.toLowerCase();
+        return s.users?.name?.toLowerCase().includes(q) || s.users?.email?.toLowerCase().includes(q) || s.users?.phone?.includes(q);
+      });
+  }, [subscriptions, bulkVerifySearch]);
+
+  function toggleBulkSelect(id: string) {
+    setBulkVerifySelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkVerify(e: React.FormEvent) {
+    e.preventDefault();
+    if (bulkVerifySelected.size === 0) {
+      toast.error("Select at least one member");
+      return;
+    }
+    setBulkVerifyLoading(true);
+
+    const time = bulkVerifyForm.payment_time || "12:00";
+    const paidAt = bulkVerifyForm.payment_date
+      ? new Date(`${bulkVerifyForm.payment_date}T${time}:00`).toISOString()
+      : new Date().toISOString();
+
+    const formData = new FormData();
+    if (bulkVerifyFile) formData.append("file", bulkVerifyFile);
+    formData.append("subscription_ids", JSON.stringify(Array.from(bulkVerifySelected)));
+    formData.append("paid_at", paidAt);
+    formData.append("remarks", bulkVerifyForm.remarks);
+
+    const res = await fetch("/api/subscriptions/bulk-verify", { method: "POST", body: formData });
+    const data = await res.json();
+    if (res.ok) {
+      toast.success(data.message);
+      setBulkVerifyOpen(false);
+      setBulkVerifySelected(new Set());
+      setBulkVerifyFile(null);
+      setBulkVerifyForm({ payment_date: "", payment_time: "", remarks: "" });
+      load();
+    } else {
+      toast.error(data.error || "Failed");
+    }
+    setBulkVerifyLoading(false);
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -254,7 +331,21 @@ export default function AdminSubscriptionsPage() {
             <p className="text-sm text-muted-foreground">Manage yearly member subscription payments</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => {
+              const today = new Date();
+              setBulkVerifyForm({ payment_date: today.toISOString().split("T")[0], payment_time: today.toTimeString().slice(0, 5), remarks: "" });
+              setBulkVerifySelected(new Set());
+              setBulkVerifyFile(null);
+              setBulkVerifySearch("");
+              setBulkVerifyOpen(true);
+            }}
+          >
+            <UsersRound size={16} className="mr-1" />
+            Bulk Verify
+          </Button>
           <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
@@ -513,6 +604,7 @@ export default function AdminSubscriptionsPage() {
                                 verified_email: sub.users?.email || "",
                               });
                               setPayProofUrl(null);
+                              setExtractingDate(false);
                               if (sub.payment_proof_url) {
                                 const res = await fetch("/api/upload/payment-proof/signed-url", {
                                   method: "POST",
@@ -520,7 +612,25 @@ export default function AdminSubscriptionsPage() {
                                   body: JSON.stringify({ file_path: sub.payment_proof_url, subscription_id: sub.id }),
                                 });
                                 const data = await res.json();
-                                if (res.ok && data.url) setPayProofUrl(data.url);
+                                if (res.ok && data.url) {
+                                  setPayProofUrl(data.url);
+                                  // Extract date/time from proof image using AI
+                                  setExtractingDate(true);
+                                  try {
+                                    const fd = new FormData();
+                                    fd.append("image_url", data.url);
+                                    const extRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
+                                    const extData = await extRes.json();
+                                    if (extData.date || extData.time) {
+                                      setPayForm((prev) => ({
+                                        ...prev,
+                                        ...(extData.date ? { payment_date: extData.date } : {}),
+                                        ...(extData.time ? { payment_time: extData.time } : {}),
+                                      }));
+                                    }
+                                  } catch {}
+                                  setExtractingDate(false);
+                                }
                               }
                             }}
                           >
@@ -558,6 +668,15 @@ export default function AdminSubscriptionsPage() {
                           Revert
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDelete(sub.id)}
+                      >
+                        <Trash2 size={12} className="mr-1" />
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -658,23 +777,31 @@ export default function AdminSubscriptionsPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Payment Date *</Label>
-                    <Input
-                      type="date"
-                      value={payForm.payment_date}
-                      onChange={(e) => setPayForm({ ...payForm, payment_date: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label>Payment Time</Label>
-                    <Input
-                      type="time"
-                      value={payForm.payment_time}
-                      onChange={(e) => setPayForm({ ...payForm, payment_time: e.target.value })}
-                    />
+                <div className="space-y-2">
+                  {extractingDate && (
+                    <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
+                      Extracting payment date & time from proof image...
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Payment Date (from proof) *</Label>
+                      <Input
+                        type="date"
+                        value={payForm.payment_date}
+                        onChange={(e) => setPayForm({ ...payForm, payment_date: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label>Payment Time (from proof)</Label>
+                      <Input
+                        type="time"
+                        value={payForm.payment_time}
+                        onChange={(e) => setPayForm({ ...payForm, payment_time: e.target.value })}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -715,6 +842,140 @@ export default function AdminSubscriptionsPage() {
               <img src={previewUrl} alt="Payment proof" className="w-full" />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Verify Dialog */}
+      <Dialog open={bulkVerifyOpen} onOpenChange={setBulkVerifyOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bulk Verify Payments</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Upload one proof image and link it to multiple members. All selected members will be marked as paid.</p>
+          <form onSubmit={handleBulkVerify} className="space-y-4">
+            {/* Search & Select Members */}
+            <div className="space-y-2">
+              <Label>Select Members *</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, email, or phone..."
+                  value={bulkVerifySearch}
+                  onChange={(e) => setBulkVerifySearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="border rounded-xl max-h-[200px] overflow-y-auto divide-y">
+                {pendingForBulk.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No pending/overdue members found</p>
+                ) : (
+                  pendingForBulk.map((sub) => (
+                    <label
+                      key={sub.id}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={bulkVerifySelected.has(sub.id)}
+                        onChange={() => toggleBulkSelect(sub.id)}
+                        className="rounded"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{sub.users?.name || "Unknown"}</p>
+                        <p className="text-xs text-muted-foreground truncate">{sub.users?.email} {sub.users?.phone && `| ${sub.users.phone}`}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <Badge variant="secondary" className="text-[10px]">{sub.period}</Badge>
+                        <p className="text-xs font-semibold">&#8377;{sub.amount?.toLocaleString("en-IN")}</p>
+                      </div>
+                    </label>
+                  ))
+                )}
+              </div>
+              {bulkVerifySelected.size > 0 && (
+                <p className="text-xs text-primary font-medium">{bulkVerifySelected.size} member(s) selected</p>
+              )}
+            </div>
+
+            {/* Proof Image Upload */}
+            <div className="space-y-2">
+              <Label>Payment Proof Image</Label>
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0] || null;
+                  setBulkVerifyFile(file);
+                  if (file) {
+                    setBulkExtractingDate(true);
+                    try {
+                      const fd = new FormData();
+                      fd.append("file", file);
+                      const res = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
+                      const data = await res.json();
+                      if (data.date || data.time) {
+                        setBulkVerifyForm((prev) => ({
+                          ...prev,
+                          ...(data.date ? { payment_date: data.date } : {}),
+                          ...(data.time ? { payment_time: data.time } : {}),
+                        }));
+                      }
+                    } catch {}
+                    setBulkExtractingDate(false);
+                  }
+                }}
+              />
+              {bulkVerifyFile && (
+                <p className="text-xs text-muted-foreground">{bulkVerifyFile.name} ({(bulkVerifyFile.size / 1024).toFixed(0)} KB)</p>
+              )}
+            </div>
+
+            {/* Payment Date & Time */}
+            {bulkExtractingDate && (
+              <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
+                Extracting payment date & time from proof image...
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Payment Date (from proof) *</Label>
+                <Input
+                  type="date"
+                  value={bulkVerifyForm.payment_date}
+                  onChange={(e) => setBulkVerifyForm({ ...bulkVerifyForm, payment_date: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Payment Time (from proof)</Label>
+                <Input
+                  type="time"
+                  value={bulkVerifyForm.payment_time}
+                  onChange={(e) => setBulkVerifyForm({ ...bulkVerifyForm, payment_time: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Remarks */}
+            <div>
+              <Label>Remarks (optional)</Label>
+              <Textarea
+                value={bulkVerifyForm.remarks}
+                onChange={(e) => setBulkVerifyForm({ ...bulkVerifyForm, remarks: e.target.value })}
+                placeholder="e.g., Bulk collection at district meeting"
+                rows={2}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={bulkVerifyLoading || bulkVerifySelected.size === 0}
+              className="w-full bg-green-600 hover:bg-green-700 h-11 text-base"
+            >
+              {bulkVerifyLoading ? "Verifying..." : `Verify ${bulkVerifySelected.size} Member(s) as Paid`}
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
