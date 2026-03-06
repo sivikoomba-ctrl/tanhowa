@@ -742,12 +742,16 @@ export default function AdminSubscriptionsPage() {
 
               {/* Bulk Payment Registration Reminder */}
               {payDialog.remarks && payDialog.remarks.includes(",") && (() => {
-                // Extract mentioned names from remarks
+                // Extract mentioned names from remarks, excluding the paying member
                 const behalfMatch = payDialog.remarks?.match(/Paying on behalf of:\s*(.+)$/i);
-                const mentionedNames = behalfMatch
+                const payerName = (payDialog.users?.name || "").toLowerCase();
+                const mentionedNames = (behalfMatch
                   ? behalfMatch[1].split(",").map((n: string) => n.trim()).filter(Boolean)
-                  : payDialog.remarks?.split(",").map((n: string) => n.trim()).filter(Boolean) || [];
+                  : payDialog.remarks?.split(",").map((n: string) => n.trim()).filter(Boolean) || []
+                ).filter((n: string) => n.toLowerCase() !== payerName);
                 const namesList = mentionedNames.join(", ");
+
+                if (mentionedNames.length === 0) return null;
 
                 return (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
