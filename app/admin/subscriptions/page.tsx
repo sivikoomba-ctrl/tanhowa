@@ -741,46 +741,55 @@ export default function AdminSubscriptionsPage() {
               </div>
 
               {/* Bulk Payment Registration Reminder */}
-              {payDialog.remarks && payDialog.remarks.includes(",") && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
-                  <div className="flex items-start gap-2">
-                    <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-semibold text-amber-800">Bulk Payment Detected</h4>
-                      <p className="text-xs text-amber-700">
-                        This payment appears to cover multiple members. Please ensure all mentioned members are registered in the TANHOWA Portal before approving.
-                        If any member is not yet registered, kindly inform the paying member to request them to register first.
+              {payDialog.remarks && payDialog.remarks.includes(",") && (() => {
+                // Extract mentioned names from remarks
+                const behalfMatch = payDialog.remarks?.match(/Paying on behalf of:\s*(.+)$/i);
+                const mentionedNames = behalfMatch
+                  ? behalfMatch[1].split(",").map((n: string) => n.trim()).filter(Boolean)
+                  : payDialog.remarks?.split(",").map((n: string) => n.trim()).filter(Boolean) || [];
+                const namesList = mentionedNames.join(", ");
+
+                return (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-semibold text-amber-800">Bulk Payment Detected</h4>
+                        <p className="text-xs text-amber-700">
+                          This payment appears to cover multiple members: <span className="font-semibold uppercase">{namesList}</span>. Please ensure all mentioned members are registered in the TANHOWA Portal before approving.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-lg border border-amber-200 p-3">
+                      <p className="text-xs text-muted-foreground mb-1.5 font-medium">Polite message to send to the paying member:</p>
+                      <p className="text-xs text-foreground leading-relaxed">
+                        Dear {payDialog.users?.name || "Member"},<br /><br />
+                        Thank you very much for your payment towards TANHOWA subscription. We truly appreciate your effort in collecting for multiple members.<br /><br />
+                        We noticed that the following members are mentioned in your payment: <strong>{namesList}</strong>.<br /><br />
+                        We kindly request that all the above members be registered on the TANHOWA Portal (tanhowa.in) so that their subscriptions can be processed and approved. Please ask any unregistered member to sign up at the earliest convenience.<br /><br />
+                        Once all members are registered, we will promptly verify and approve the payments.<br /><br />
+                        Thank you for your support and cooperation!<br />
+                        Warm regards,<br />
+                        TANHOWA Admin
                       </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 h-7 text-xs"
+                        onClick={() => {
+                          const msg = `Dear ${payDialog.users?.name || "Member"},\n\nThank you very much for your payment towards TANHOWA subscription. We truly appreciate your effort in collecting for multiple members.\n\nWe noticed that the following members are mentioned in your payment: ${namesList}.\n\nWe kindly request that all the above members be registered on the TANHOWA Portal (tanhowa.in) so that their subscriptions can be processed and approved. Please ask any unregistered member to sign up at the earliest convenience.\n\nOnce all members are registered, we will promptly verify and approve the payments.\n\nThank you for your support and cooperation!\nWarm regards,\nTANHOWA Admin`;
+                          navigator.clipboard.writeText(msg);
+                          toast.success("Message copied to clipboard");
+                        }}
+                      >
+                        <Copy size={12} className="mr-1" />
+                        Copy Message
+                      </Button>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg border border-amber-200 p-3">
-                    <p className="text-xs text-muted-foreground mb-1.5 font-medium">Polite message to send to the paying member:</p>
-                    <p className="text-xs text-foreground leading-relaxed" id="registration-msg">
-                      Dear {payDialog.users?.name || "Member"},<br /><br />
-                      Thank you very much for your payment towards TANHOWA subscription. We truly appreciate your effort in collecting for multiple members.<br /><br />
-                      We kindly request that all members mentioned in your payment be registered on the TANHOWA Portal (tanhowa.in) so that their subscriptions can be processed and approved. Please ask any unregistered member to sign up at the earliest convenience.<br /><br />
-                      Once all members are registered, we will promptly verify and approve the payments.<br /><br />
-                      Thank you for your support and cooperation!<br />
-                      Warm regards,<br />
-                      TANHOWA Admin
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 h-7 text-xs"
-                      onClick={() => {
-                        const msg = `Dear ${payDialog.users?.name || "Member"},\n\nThank you very much for your payment towards TANHOWA subscription. We truly appreciate your effort in collecting for multiple members.\n\nWe kindly request that all members mentioned in your payment be registered on the TANHOWA Portal (tanhowa.in) so that their subscriptions can be processed and approved. Please ask any unregistered member to sign up at the earliest convenience.\n\nOnce all members are registered, we will promptly verify and approve the payments.\n\nThank you for your support and cooperation!\nWarm regards,\nTANHOWA Admin`;
-                        navigator.clipboard.writeText(msg);
-                        toast.success("Message copied to clipboard");
-                      }}
-                    >
-                      <Copy size={12} className="mr-1" />
-                      Copy Message
-                    </Button>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Payment Proof Image */}
               {payDialog.payment_proof_url && payProofUrl && (
