@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { notifyAdminNewRegistration } from "@/lib/mail";
 
 export async function GET() {
   try {
@@ -82,6 +83,14 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    // Check if this is a first-time onboarding (pending user with no name yet)
+    const { data: currentUser } = await supabase
+      .from("users")
+      .select("name, status")
+      .eq("id", session.userId)
+      .single();
+    const isFirstOnboarding = currentUser && !currentUser.name && currentUser.status === "pending";
+
     const { error } = await supabase
       .from("users")
       .update({
@@ -99,6 +108,11 @@ export async function PUT(req: NextRequest) {
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/users/me", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
+    }
+
+    // Notify admins when a new member completes onboarding
+    if (isFirstOnboarding) {
+      notifyAdminNewRegistration(name, session.email).catch(() => {});
     }
 
     return NextResponse.json({ message: "Profile updated" });
