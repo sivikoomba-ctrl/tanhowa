@@ -80,50 +80,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     if (body.action === "bulk-create") {
-      // Create subscriptions for all approved members for a given period
-      const { data: approvedUsers } = await supabase
-        .from("users")
-        .select("id")
-        .eq("status", "approved");
+      // Use RPC function to bypass PostgREST schema cache issues
+      const { data: count, error: rpcErr } = await supabase.rpc("bulk_create_subscriptions", {
+        p_period: body.period,
+        p_amount: parseFloat(body.amount) || 0,
+        p_due_date: body.due_date || null,
+      });
 
-      if (!approvedUsers || approvedUsers.length === 0) {
-        return NextResponse.json({ error: "No approved members found" }, { status: 400 });
+      if (rpcErr) {
+        await logError({ type: "api", message: rpcErr.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
+        return NextResponse.json({ error: "Failed to create subscriptions. Please try again." }, { status: 500 });
       }
 
-      // Check which users already have a subscription for this period
-      const { data: existing, error: existErr } = await supabase
-        .from("subscriptions")
-        .select("user_id")
-        .eq("period", body.period);
-
-      if (existErr) {
-        await logError({ type: "api", message: existErr.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
-        return NextResponse.json({ error: "Subscriptions service is temporarily unavailable. Please try again in a minute." }, { status: 503 });
+      if (count === 0) {
+        return NextResponse.json({ error: "All members already have subscriptions for this period (or no approved members found)" }, { status: 400 });
       }
 
-      const existingIds = new Set((existing || []).map((e: { user_id: string }) => e.user_id));
-      const newSubs = approvedUsers
-        .filter((u: { id: string }) => !existingIds.has(u.id))
-        .map((u: { id: string }) => ({
-          user_id: u.id,
-          period: body.period,
-          amount: body.amount || 0,
-          due_date: body.due_date || null,
-          status: "pending",
-        }));
-
-      if (newSubs.length === 0) {
-        return NextResponse.json({ error: "All members already have subscriptions for this period" }, { status: 400 });
-      }
-
-      const { error } = await supabase.from("subscriptions").insert(newSubs);
-
-      if (error) {
-        await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
-        return NextResponse.json({ error: `Failed to create subscriptions: ${error.message}` }, { status: 500 });
-      }
-
-      return NextResponse.json({ message: `Created ${newSubs.length} subscriptions`, count: newSubs.length });
+      return NextResponse.json({ message: `Created ${count} subscriptions`, count });
     } else {
       // Create single subscription
       const { data, error } = await supabase
