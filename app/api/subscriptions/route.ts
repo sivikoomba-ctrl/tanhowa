@@ -76,11 +76,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     if (body.action === "bulk-create") {
-      // Get all approved users
+      // Get all approved members (exclude admins)
       const { data: users } = await supabase
         .from("users")
         .select("id")
-        .eq("status", "approved");
+        .eq("status", "approved")
+        .neq("role", "admin");
 
       if (!users || users.length === 0) {
         return NextResponse.json({ error: "No approved members found" }, { status: 400 });
