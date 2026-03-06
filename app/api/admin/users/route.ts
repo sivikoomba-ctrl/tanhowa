@@ -24,6 +24,49 @@ export async function PUT(req: NextRequest) {
       // Get user name before updating
       const { data: userData } = await supabase.from("users").select("name").eq("id", userId).single();
       await supabase.from("users").update({ status: "approved" }).eq("id", userId);
+
+      // Auto-assign existing subscription periods to the new member
+      try {
+        // Get all distinct periods with their latest amount and due_date
+        const { data: existingPeriods } = await supabase
+          .from("subscriptions")
+          .select("period, amount, due_date")
+          .order("created_at", { ascending: false });
+
+        if (existingPeriods && existingPeriods.length > 0) {
+          // Get unique periods (first occurrence = latest)
+          const seen = new Set<string>();
+          const uniquePeriods = existingPeriods.filter((p: { period: string }) => {
+            if (seen.has(p.period)) return false;
+            seen.add(p.period);
+            return true;
+          });
+
+          // Check which periods the user already has
+          const { data: userSubs } = await supabase
+            .from("subscriptions")
+            .select("period")
+            .eq("user_id", userId);
+          const userPeriods = new Set((userSubs || []).map((s: { period: string }) => s.period));
+
+          const newRows = uniquePeriods
+            .filter((p: { period: string }) => !userPeriods.has(p.period))
+            .map((p: { period: string; amount: number; due_date: string | null }) => ({
+              user_id: userId,
+              period: p.period,
+              amount: p.amount || 0,
+              due_date: p.due_date || null,
+              status: "pending",
+            }));
+
+          if (newRows.length > 0) {
+            await supabase.from("subscriptions").insert(newRows);
+          }
+        }
+      } catch {
+        // Don't fail the approval if subscription creation fails
+      }
+
       // Notify all members about the new member (fire-and-forget)
       notifyNewMemberRegistered(userData?.name || "New Member");
     } else if (action === "reject") {

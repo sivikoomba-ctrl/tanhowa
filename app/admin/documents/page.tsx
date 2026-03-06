@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, FileText, Check, X } from "lucide-react";
+import { Plus, Trash2, FileText, Check, X, FileUp, Link, Upload } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 const docCategories = [
@@ -41,6 +41,9 @@ export default function AdminDocumentsPage() {
   const [form, setForm] = useState({ title: "", description: "", file_url: "", file_type: "", category: "" });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploadMode, setUploadMode] = useState<"file" | "url">("file");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function load() {
     fetch("/api/documents?status=" + tab)
@@ -57,15 +60,40 @@ export default function AdminDocumentsPage() {
     e.preventDefault();
     setLoading(true);
 
+    let fileUrl = form.file_url;
+    let fileType = form.file_type;
+
+    if (uploadMode === "file" && selectedFile) {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      const uploadRes = await fetch("/api/upload/document", { method: "POST", body: formData });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json();
+        toast.error(err.error || "File upload failed");
+        setLoading(false);
+        return;
+      }
+      const uploadData = await uploadRes.json();
+      fileUrl = uploadData.file_url;
+      fileType = fileType || uploadData.file_type;
+    }
+
+    if (!fileUrl) {
+      toast.error("Please select a file or enter a URL");
+      setLoading(false);
+      return;
+    }
+
     const res = await fetch("/api/documents", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, file_url: fileUrl, file_type: fileType }),
     });
 
     if (res.ok) {
       toast.success("Document added (auto-approved)");
       setForm({ title: "", description: "", file_url: "", file_type: "", category: "" });
+      setSelectedFile(null);
       setDialogOpen(false);
       load();
     } else {
@@ -154,15 +182,87 @@ export default function AdminDocumentsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {/* Upload mode toggle */}
               <div>
-                <Label>File URL *</Label>
-                <Input
-                  value={form.file_url}
-                  onChange={(e) => setForm({ ...form, file_url: e.target.value })}
-                  placeholder="https://..."
-                  required
-                />
+                <Label>Upload Method *</Label>
+                <div className="flex gap-2 mt-1">
+                  <Button
+                    type="button"
+                    variant={uploadMode === "file" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setUploadMode("file")}
+                  >
+                    <FileUp size={14} className="mr-1" />
+                    Upload File
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={uploadMode === "url" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setUploadMode("url")}
+                  >
+                    <Link size={14} className="mr-1" />
+                    Paste URL
+                  </Button>
+                </div>
               </div>
+
+              {uploadMode === "file" ? (
+                <div>
+                  <Label>Select File *</Label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setSelectedFile(f);
+                        if (!form.file_type) {
+                          const ext = f.name.split(".").pop()?.toLowerCase() || "";
+                          setForm((prev) => ({ ...prev, file_type: ext }));
+                        }
+                      }
+                    }}
+                  />
+                  {selectedFile ? (
+                    <div className="flex items-center gap-2 mt-1 p-2.5 rounded-xl border bg-muted/30">
+                      <FileText size={16} className="text-primary shrink-0" />
+                      <span className="text-sm truncate flex-1">{selectedFile.name}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {(selectedFile.size / 1024 / 1024).toFixed(1)} MB
+                      </span>
+                      <button type="button" onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+                        <X size={14} className="text-muted-foreground hover:text-foreground" />
+                      </button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full mt-1"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload size={14} className="mr-1" />
+                      Choose file from device
+                    </Button>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, JPG, PNG, TXT (max 10MB)</p>
+                </div>
+              ) : (
+                <div>
+                  <Label>File URL *</Label>
+                  <Input
+                    value={form.file_url}
+                    onChange={(e) => setForm({ ...form, file_url: e.target.value })}
+                    placeholder="https://..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Paste link from Google Drive or any cloud storage</p>
+                </div>
+              )}
               <div>
                 <Label>File Type</Label>
                 <Input
@@ -171,8 +271,12 @@ export default function AdminDocumentsPage() {
                   placeholder="pdf, doc, xlsx"
                 />
               </div>
-              <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90">
-                {loading ? "Adding..." : "Add Document"}
+              <Button
+                type="submit"
+                disabled={loading || (uploadMode === "file" && !selectedFile) || (uploadMode === "url" && !form.file_url)}
+                className="w-full bg-primary hover:bg-primary/90"
+              >
+                {loading ? "Uploading..." : "Add Document"}
               </Button>
             </form>
           </DialogContent>

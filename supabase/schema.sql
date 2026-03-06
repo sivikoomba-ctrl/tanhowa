@@ -81,6 +81,63 @@ CREATE INDEX idx_otp_email ON otp_codes(email);
 CREATE INDEX idx_announcements_published ON announcements(published);
 CREATE INDEX idx_events_date ON events(date);
 
+-- Users posting details (added after initial schema)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS posting_details JSONB DEFAULT '{}';
+
+-- Documents extras (added after initial schema)
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS category TEXT DEFAULT '';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false;
+
+-- Grievances table
+CREATE TABLE IF NOT EXISTS grievances (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  subject TEXT NOT NULL,
+  description TEXT NOT NULL,
+  category TEXT DEFAULT '',
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'resolved', 'rejected')),
+  admin_remarks TEXT DEFAULT '',
+  submitted_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Error logs table
+CREATE TABLE IF NOT EXISTS error_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  type TEXT DEFAULT 'api',
+  message TEXT NOT NULL,
+  stack TEXT,
+  path TEXT,
+  method TEXT,
+  status_code INTEGER,
+  user_id UUID,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Subscriptions table
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  period TEXT NOT NULL,
+  amount NUMERIC DEFAULT 0,
+  due_date DATE,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue')),
+  payment_proof_url TEXT,
+  verified_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Additional indexes
+CREATE INDEX IF NOT EXISTS idx_grievances_submitted_by ON grievances(submitted_by);
+CREATE INDEX IF NOT EXISTS idx_grievances_status ON grievances(status);
+CREATE INDEX IF NOT EXISTS idx_error_logs_type ON error_logs(type);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_period ON subscriptions(period);
+
 -- Auto-update updated_at on users
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$

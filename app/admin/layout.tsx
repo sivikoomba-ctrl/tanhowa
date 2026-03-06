@@ -29,7 +29,7 @@ const adminNavItems = [
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/events", label: "Events", icon: Calendar },
   { href: "/admin/documents", label: "Document Vault", icon: FileText },
-  { href: "/admin/grievances", label: "Grievances", icon: MessageSquareWarning },
+  { href: "/admin/grievances", label: "Grievances / Suggestions", icon: MessageSquareWarning },
   { href: "/admin/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/admin/error-logs", label: "Error Logs", icon: AlertTriangle },
   { href: "/admin/settings", label: "Settings", icon: Settings },
@@ -149,7 +149,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <header className="md:hidden flex items-center justify-between p-4 border-b bg-card">
           <Link href="/admin" className="flex items-center gap-2">
             <Flower2 className="w-6 h-6 text-primary" />
-            <span className="font-bold text-primary">Admin</span>
+            <span className="font-bold text-primary">TANHOWA</span>
           </Link>
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
@@ -161,7 +161,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div className="p-4 border-b border-sidebar-border">
                 <div className="flex items-center gap-2">
                   <Flower2 className="w-7 h-7 text-sidebar-primary" />
-                  <span className="text-lg font-bold">Admin</span>
+                  <span className="text-lg font-bold">TANHOWA</span>
                 </div>
               </div>
               <nav className="p-3 space-y-1">

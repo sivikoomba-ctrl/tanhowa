@@ -170,6 +170,22 @@ export function notifyNewMemberRegistered(memberName: string) {
   ).catch(() => {});
 }
 
+export function notifyNewEvent(title: string, date: string, location?: string) {
+  const locationLine = location ? `<p style="color: #555; font-size: 14px; margin: 0 0 16px;">Location: <strong>${location}</strong></p>` : "";
+  sendBroadcastEmail(
+    `New Event: ${title}`,
+    `
+      <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">New Event Announced</h2>
+      <h3 style="color: #333; font-size: 16px; margin: 0 0 8px;">${title}</h3>
+      <p style="color: #555; font-size: 14px; margin: 0 0 8px;">Date: <strong>${date}</strong></p>
+      ${locationLine}
+      <div style="text-align: center;">
+        <a href="https://tanhowa.in/dashboard/events" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">View Event</a>
+      </div>
+    `
+  ).catch(() => {});
+}
+
 export async function sendOTPEmail(to: string, otp: string) {
   const transporter = getTransporter();
   await transporter.sendMail({

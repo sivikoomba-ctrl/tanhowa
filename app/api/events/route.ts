@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { notifyNewEvent } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,6 +55,10 @@ export async function POST(req: NextRequest) {
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/events", method: "POST", status_code: 500 });
       return NextResponse.json({ error: "Failed to create event" }, { status: 500 });
+    }
+
+    if (data) {
+      notifyNewEvent(data.title, data.date, data.location);
     }
 
     return NextResponse.json({ event: data });

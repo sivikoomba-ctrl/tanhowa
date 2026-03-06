@@ -34,8 +34,10 @@ Horticulture domains covered:
 
 Website navigation help:
 - Landing page: Sign up or log in with email OTP
-- Dashboard: Overview, Profile, Members directory, Announcements, Events, Documents
-- Admin Panel: Manage users, announcements, events, documents, settings (admin only)
+- Dashboard: Overview, Profile, Members directory, Announcements, Events, Documents, Grievances / Suggestions, Subscriptions
+- Grievances / Suggestions: Members can submit grievances or suggestions to the association. Admins review and respond to them.
+- Subscriptions: Members can view and pay their association membership fees. Admins can create subscription periods and verify payments.
+- Admin Panel: Manage users, announcements, events, documents, grievances/suggestions, subscriptions, settings (admin only)
 
 Instructions:
 - Keep answers concise (2-4 sentences max)

@@ -81,17 +81,17 @@ export default function GrievancesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Grievances</h1>
+        <h1 className="text-2xl font-bold">Grievances / Suggestions</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
               <Plus size={16} className="mr-1" />
-              Submit Grievance
+              Submit Grievance / Suggestion
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Submit Grievance</DialogTitle>
+              <DialogTitle>Submit Grievance / Suggestion</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -99,7 +99,7 @@ export default function GrievancesPage() {
                 <Input
                   value={form.subject}
                   onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                  placeholder="Brief subject of your grievance"
+                  placeholder="Brief subject of your grievance or suggestion"
                   required
                 />
               </div>
@@ -108,7 +108,7 @@ export default function GrievancesPage() {
                 <Textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Describe your grievance in detail"
+                  placeholder="Describe your grievance or suggestion in detail"
                   rows={4}
                   required
                 />
@@ -130,7 +130,7 @@ export default function GrievancesPage() {
                 </Select>
               </div>
               <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90">
-                {loading ? "Submitting..." : "Submit Grievance"}
+                {loading ? "Submitting..." : "Submit Grievance / Suggestion"}
               </Button>
             </form>
           </DialogContent>
