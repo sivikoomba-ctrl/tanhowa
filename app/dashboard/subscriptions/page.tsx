@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, Upload, QrCode, ImageIcon, Eye, Edit2 } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface Subscription {
@@ -42,7 +42,7 @@ export default function SubscriptionsPage() {
 
   // Payment details dialog
   const [detailsSub, setDetailsSub] = useState<Subscription | null>(null);
-  const [detailsForm, setDetailsForm] = useState({ transaction_id: "", payment_method: "", remarks: "" });
+  const [detailsForm, setDetailsForm] = useState({ transaction_id: "", payment_method: "", remarks: "", paying_for_others: false, other_members: "" });
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [qrZoom, setQrZoom] = useState(false);
 
@@ -91,7 +91,7 @@ export default function SubscriptionsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success("Payment proof uploaded! Please fill in payment details.");
+        toast.success("Thank you for uploading your payment proof! Please fill in the payment details below. Our admin will verify and approve your payment shortly.");
         load();
         // Open details dialog for this subscription
         const sub = subscriptions.find((s) => s.id === uploadTargetId);
@@ -101,6 +101,8 @@ export default function SubscriptionsPage() {
             transaction_id: sub.transaction_id || "",
             payment_method: sub.payment_method || "UPI",
             remarks: sub.remarks || "",
+            paying_for_others: false,
+            other_members: "",
           });
         }
       } else {
@@ -119,6 +121,13 @@ export default function SubscriptionsPage() {
     if (!detailsSub) return;
     setDetailsSaving(true);
 
+    // Build remarks: include other member names if paying on behalf
+    let finalRemarks = detailsForm.remarks || "";
+    if (detailsForm.paying_for_others && detailsForm.other_members.trim()) {
+      const names = detailsForm.other_members.trim();
+      finalRemarks = finalRemarks ? `${finalRemarks} | Paying on behalf of: ${names}` : `Paying on behalf of: ${names}`;
+    }
+
     const res = await fetch("/api/subscriptions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -126,7 +135,7 @@ export default function SubscriptionsPage() {
         id: detailsSub.id,
         transaction_id: detailsForm.transaction_id,
         payment_method: detailsForm.payment_method,
-        remarks: detailsForm.remarks,
+        remarks: finalRemarks,
       }),
     });
 
@@ -163,10 +172,15 @@ export default function SubscriptionsPage() {
 
   function openEditDetails(sub: Subscription) {
     setDetailsSub(sub);
+    const remarks = sub.remarks || "";
+    const behalfMatch = remarks.match(/\|?\s*Paying on behalf of:\s*(.+)$/i);
+    const cleanRemarks = behalfMatch ? remarks.replace(behalfMatch[0], "").trim() : remarks;
     setDetailsForm({
       transaction_id: sub.transaction_id || "",
       payment_method: sub.payment_method || "UPI",
-      remarks: sub.remarks || "",
+      remarks: cleanRemarks,
+      paying_for_others: !!behalfMatch,
+      other_members: behalfMatch ? behalfMatch[1].trim() : "",
     });
   }
 
@@ -434,6 +448,39 @@ export default function SubscriptionsPage() {
                     onChange={(e) => setDetailsForm({ ...detailsForm, remarks: e.target.value })}
                     placeholder="Any additional notes"
                   />
+                </div>
+
+                {/* Paying on behalf of others */}
+                <div className="rounded-xl border p-3 space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={detailsForm.paying_for_others}
+                      onChange={(e) => setDetailsForm({ ...detailsForm, paying_for_others: e.target.checked, other_members: e.target.checked ? detailsForm.other_members : "" })}
+                      className="rounded"
+                    />
+                    <Users size={16} className="text-primary" />
+                    <span className="text-sm font-medium">I am paying on behalf of other members too</span>
+                  </label>
+                  {detailsForm.paying_for_others && (
+                    <div className="space-y-2">
+                      <div>
+                        <Label>Names of other members *</Label>
+                        <Input
+                          value={detailsForm.other_members}
+                          onChange={(e) => setDetailsForm({ ...detailsForm, other_members: e.target.value })}
+                          placeholder="e.g., Sivakumar K, Rajesh M, Priya S"
+                          required={detailsForm.paying_for_others}
+                        />
+                      </div>
+                      <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-700">
+                          Please ensure all members mentioned above are registered on the TANHOWA Portal. Unregistered members need to sign up at <span className="font-medium">tanhowa.in</span> before their subscription can be approved.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <Button type="submit" disabled={detailsSaving} className="w-full bg-primary hover:bg-primary/90">
                   {detailsSaving ? "Saving..." : "Save Payment Details"}

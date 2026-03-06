@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { sendSubscriptionApprovedEmail } from "@/lib/mail";
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,6 +65,38 @@ export async function POST(req: NextRequest) {
         .eq("id", id);
 
       if (!error) successCount++;
+    }
+
+    // Send approval email to each verified member
+    if (successCount > 0) {
+      try {
+        const { data: verifiedSubs } = await supabase
+          .from("subscriptions")
+          .select("period, amount, users(name, email)")
+          .in("id", subscriptionIds)
+          .eq("status", "paid");
+
+        if (verifiedSubs) {
+          for (const sub of verifiedSubs) {
+            try {
+              const user = sub.users as unknown as { name: string; email: string };
+              if (user?.email) {
+                await sendSubscriptionApprovedEmail(
+                  user.email,
+                  user.name || "Member",
+                  sub.period,
+                  sub.amount || 0
+                );
+              }
+            } catch {
+              // Continue sending to others even if one fails
+            }
+          }
+        }
+      } catch (emailErr) {
+        const emailMsg = emailErr instanceof Error ? emailErr.message : "Email send failed";
+        await logError({ type: "api", message: emailMsg, path: "/api/subscriptions/bulk-verify", method: "POST", status_code: 200, metadata: { context: "bulk-approval-email" } });
+      }
     }
 
     return NextResponse.json({ message: `Verified ${successCount} of ${subscriptionIds.length} subscriptions`, count: successCount });

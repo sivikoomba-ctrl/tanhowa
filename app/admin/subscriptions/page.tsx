@@ -26,6 +26,8 @@ import {
   Upload,
   UsersRound,
   Trash2,
+  Copy,
+  Info,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
@@ -738,6 +740,48 @@ export default function AdminSubscriptionsPage() {
                 </div>
               </div>
 
+              {/* Bulk Payment Registration Reminder */}
+              {payDialog.remarks && payDialog.remarks.includes(",") && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-semibold text-amber-800">Bulk Payment Detected</h4>
+                      <p className="text-xs text-amber-700">
+                        This payment appears to cover multiple members. Please ensure all mentioned members are registered in the TANHOWA Portal before approving.
+                        If any member is not yet registered, kindly inform the paying member to request them to register first.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg border border-amber-200 p-3">
+                    <p className="text-xs text-muted-foreground mb-1.5 font-medium">Polite message to send to the paying member:</p>
+                    <p className="text-xs text-foreground leading-relaxed" id="registration-msg">
+                      Dear {payDialog.users?.name || "Member"},<br /><br />
+                      Thank you very much for your payment towards TANHOWA subscription. We truly appreciate your effort in collecting for multiple members.<br /><br />
+                      We kindly request that all members mentioned in your payment be registered on the TANHOWA Portal (tanhowa.in) so that their subscriptions can be processed and approved. Please ask any unregistered member to sign up at the earliest convenience.<br /><br />
+                      Once all members are registered, we will promptly verify and approve the payments.<br /><br />
+                      Thank you for your support and cooperation!<br />
+                      Warm regards,<br />
+                      TANHOWA Admin
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 h-7 text-xs"
+                      onClick={() => {
+                        const msg = `Dear ${payDialog.users?.name || "Member"},\n\nThank you very much for your payment towards TANHOWA subscription. We truly appreciate your effort in collecting for multiple members.\n\nWe kindly request that all members mentioned in your payment be registered on the TANHOWA Portal (tanhowa.in) so that their subscriptions can be processed and approved. Please ask any unregistered member to sign up at the earliest convenience.\n\nOnce all members are registered, we will promptly verify and approve the payments.\n\nThank you for your support and cooperation!\nWarm regards,\nTANHOWA Admin`;
+                        navigator.clipboard.writeText(msg);
+                        toast.success("Message copied to clipboard");
+                      }}
+                    >
+                      <Copy size={12} className="mr-1" />
+                      Copy Message
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Payment Proof Image */}
               {payDialog.payment_proof_url && payProofUrl && (
                 <div className="space-y-2">
@@ -852,6 +896,12 @@ export default function AdminSubscriptionsPage() {
             <DialogTitle>Bulk Verify Payments</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">Upload one proof image and link it to multiple members. All selected members will be marked as paid.</p>
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700">
+              Only registered members with pending/overdue subscriptions appear below. If a member is not listed, they need to register on the TANHOWA Portal first.
+            </p>
+          </div>
           <form onSubmit={handleBulkVerify} className="space-y-4">
             {/* Search & Select Members */}
             <div className="space-y-2">

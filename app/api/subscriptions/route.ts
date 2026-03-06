@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { sendSubscriptionApprovedEmail } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
   try {
@@ -205,6 +206,31 @@ export async function PUT(req: NextRequest) {
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+    }
+
+    // Send email notification when subscription is approved (marked as paid)
+    if (body.status === "paid") {
+      try {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("period, amount, user_id, users(name, email)")
+          .eq("id", body.id)
+          .single();
+
+        if (sub?.users) {
+          const user = sub.users as unknown as { name: string; email: string };
+          await sendSubscriptionApprovedEmail(
+            user.email,
+            user.name || "Member",
+            sub.period,
+            sub.amount || 0
+          );
+        }
+      } catch (emailErr) {
+        // Log but don't fail the request — approval is already done
+        const emailMsg = emailErr instanceof Error ? emailErr.message : "Email send failed";
+        await logError({ type: "api", message: emailMsg, path: "/api/subscriptions", method: "PUT", status_code: 200, metadata: { context: "subscription-approval-email", subscription_id: body.id } });
+      }
     }
 
     return NextResponse.json({ message: "Updated" });
