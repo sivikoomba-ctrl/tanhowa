@@ -19,7 +19,7 @@ const categories = [
   },
   {
     name: "Flowers",
-    image: "https://images.unsplash.com/photo-1455659817273-f96807779a8a?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1487530811176-3780de880c2d?w=800&h=600&fit=crop",
   },
   {
     name: "Spices",
@@ -27,7 +27,7 @@ const categories = [
   },
   {
     name: "Plantation Crops",
-    image: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1582793988951-9aed5509eb97?w=800&h=600&fit=crop",
   },
   {
     name: "Medicinal Plants",
@@ -35,7 +35,7 @@ const categories = [
   },
   {
     name: "Aromatic Plants",
-    image: "https://images.unsplash.com/photo-1611909023032-2d6b3134ecba?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1468327768560-75b778cbb551?w=800&h=600&fit=crop",
   },
   {
     name: "Landscape Gardening",
