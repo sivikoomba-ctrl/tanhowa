@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
 
       if (existErr) {
         await logError({ type: "api", message: existErr.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
-        return NextResponse.json({ error: `Database error: ${existErr.message}. Make sure the subscriptions table exists.` }, { status: 500 });
+        return NextResponse.json({ error: "Subscriptions service is temporarily unavailable. Please try again in a minute." }, { status: 503 });
       }
 
       const existingIds = new Set((existing || []).map((e: { user_id: string }) => e.user_id));
