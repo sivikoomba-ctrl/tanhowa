@@ -67,7 +67,7 @@ export default function AdminSubscriptionsPage() {
 
   // Verify payment dialog
   const [payDialog, setPayDialog] = useState<Subscription | null>(null);
-  const [payForm, setPayForm] = useState({ remarks: "" });
+  const [payForm, setPayForm] = useState({ remarks: "", payment_date: "", payment_time: "", verified_email: "" });
   const [payLoading, setPayLoading] = useState(false);
   const [payProofUrl, setPayProofUrl] = useState<string | null>(null);
 
@@ -130,7 +130,9 @@ export default function AdminSubscriptionsPage() {
         sub.users?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sub.users?.phone?.includes(searchQuery) ||
         sub.transaction_id?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = filterStatus === "all" || sub.status === filterStatus;
+      const matchesStatus =
+        filterStatus === "all" ||
+        (filterStatus === "proof-uploaded" ? !!sub.payment_proof_url && sub.status !== "paid" : sub.status === filterStatus);
       const matchesPeriod = filterPeriod === "all" || sub.period === filterPeriod;
       return matchesSearch && matchesStatus && matchesPeriod;
     });
@@ -165,6 +167,14 @@ export default function AdminSubscriptionsPage() {
     e.preventDefault();
     if (!payDialog) return;
     setPayLoading(true);
+
+    // Build paid_at from admin-entered date & time
+    let paidAt: string | undefined;
+    if (payForm.payment_date) {
+      const time = payForm.payment_time || "12:00";
+      paidAt = new Date(`${payForm.payment_date}T${time}:00`).toISOString();
+    }
+
     const res = await fetch("/api/subscriptions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -172,12 +182,13 @@ export default function AdminSubscriptionsPage() {
         id: payDialog.id,
         status: "paid",
         remarks: payForm.remarks || payDialog.remarks,
+        paid_at: paidAt,
       }),
     });
     if (res.ok) {
       toast.success("Payment verified and marked as paid");
       setPayDialog(null);
-      setPayForm({ remarks: "" });
+      setPayForm({ remarks: "", payment_date: "", payment_time: "", verified_email: "" });
       load();
     } else {
       toast.error("Failed to update");
@@ -394,11 +405,12 @@ export default function AdminSubscriptionsPage() {
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[200px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="proof-uploaded">Proof Uploaded (Awaiting Approval)</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="overdue">Overdue</SelectItem>
@@ -493,7 +505,13 @@ export default function AdminSubscriptionsPage() {
                             className="bg-green-600 hover:bg-green-700 h-7 text-xs"
                             onClick={async () => {
                               setPayDialog(sub);
-                              setPayForm({ remarks: "" });
+                              const today = new Date();
+                              setPayForm({
+                                remarks: "",
+                                payment_date: today.toISOString().split("T")[0],
+                                payment_time: today.toTimeString().slice(0, 5),
+                                verified_email: sub.users?.email || "",
+                              });
                               setPayProofUrl(null);
                               if (sub.payment_proof_url) {
                                 const res = await fetch("/api/upload/payment-proof/signed-url", {
@@ -551,59 +569,115 @@ export default function AdminSubscriptionsPage() {
 
       {/* Verify Payment Dialog */}
       <Dialog open={!!payDialog} onOpenChange={(open) => !open && setPayDialog(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Verify Payment</DialogTitle>
+            <DialogTitle>Verify & Approve Payment</DialogTitle>
           </DialogHeader>
           {payDialog && (
-            <>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Member</span>
-                  <span className="font-medium">{payDialog.users?.name}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Year</span>
-                  <span className="font-medium">{payDialog.period}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Amount</span>
-                  <span className="font-medium">&#8377;{payDialog.amount?.toLocaleString("en-IN")}</span>
-                </div>
-                {payDialog.transaction_id && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Transaction ID</span>
-                    <span className="font-mono text-sm">{payDialog.transaction_id}</span>
+            <div className="space-y-5">
+              {/* Member Info Section */}
+              <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Member Details</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Name</span>
+                    <p className="font-medium">{payDialog.users?.name || "—"}</p>
                   </div>
-                )}
-                {payDialog.payment_method && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Payment Method</span>
-                    <span>{payDialog.payment_method}</span>
+                  <div>
+                    <span className="text-muted-foreground">Email</span>
+                    <p className="font-medium">{payDialog.users?.email || "—"}</p>
                   </div>
-                )}
-                {payDialog.remarks && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Member Note</span>
-                    <span>{payDialog.remarks}</span>
+                  <div>
+                    <span className="text-muted-foreground">Phone</span>
+                    <p className="font-medium">{payDialog.users?.phone || "—"}</p>
                   </div>
-                )}
+                  <div>
+                    <span className="text-muted-foreground">Subscription</span>
+                    <p className="font-medium">{payDialog.period} — &#8377;{payDialog.amount?.toLocaleString("en-IN")}</p>
+                  </div>
+                </div>
               </div>
+
+              {/* Member-Submitted Payment Info */}
+              <div className="rounded-xl border bg-blue-50/50 p-4 space-y-2">
+                <h3 className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Member-Submitted Details (cross-verify with proof)</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Transaction ID</span>
+                    <p className="font-mono font-medium">{payDialog.transaction_id || <span className="text-amber-600 italic">Not provided</span>}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Payment Method</span>
+                    <p className="font-medium">{payDialog.payment_method || <span className="text-amber-600 italic">Not provided</span>}</p>
+                  </div>
+                  {payDialog.remarks && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Member Note</span>
+                      <p className="font-medium">{payDialog.remarks}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Payment Proof Image */}
               {payDialog.payment_proof_url && payProofUrl && (
-                <div className="rounded-xl overflow-hidden border">
-                  <img src={payProofUrl} alt="Payment proof" className="w-full" />
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Payment Proof Image</h3>
+                  <div className="rounded-xl overflow-hidden border bg-white">
+                    <img src={payProofUrl} alt="Payment proof" className="w-full" />
+                  </div>
                 </div>
               )}
               {payDialog.payment_proof_url && !payProofUrl && (
-                <p className="text-sm text-muted-foreground text-center py-4">Loading proof...</p>
-              )}
-              {!payDialog.payment_proof_url && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                  <ImageIcon className="w-4 h-4 text-amber-600" />
-                  <p className="text-sm text-amber-700">No payment proof uploaded by member</p>
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                  <span className="ml-2 text-sm text-muted-foreground">Loading proof image...</span>
                 </div>
               )}
-              <form onSubmit={handleVerifyPaid} className="space-y-4">
+              {!payDialog.payment_proof_url && (
+                <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                  <ImageIcon className="w-5 h-5 text-amber-600" />
+                  <p className="text-sm text-amber-700 font-medium">No payment proof uploaded by member</p>
+                </div>
+              )}
+
+              {/* Admin Verification Form */}
+              <form onSubmit={handleVerifyPaid} className="space-y-4 border-t pt-4">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Admin Verification</h3>
+
+                <div>
+                  <Label>Member Email (confirm identity) *</Label>
+                  <Input
+                    value={payForm.verified_email}
+                    onChange={(e) => setPayForm({ ...payForm, verified_email: e.target.value })}
+                    placeholder="Enter member's email"
+                    required
+                  />
+                  {payForm.verified_email && payForm.verified_email !== payDialog.users?.email && (
+                    <p className="text-xs text-red-600 mt-1 font-medium">Email does not match member record ({payDialog.users?.email})</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Payment Date *</Label>
+                    <Input
+                      type="date"
+                      value={payForm.payment_date}
+                      onChange={(e) => setPayForm({ ...payForm, payment_date: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Payment Time</Label>
+                    <Input
+                      type="time"
+                      value={payForm.payment_time}
+                      onChange={(e) => setPayForm({ ...payForm, payment_time: e.target.value })}
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <Label>Admin Remarks (optional)</Label>
                   <Textarea
@@ -613,11 +687,19 @@ export default function AdminSubscriptionsPage() {
                     rows={2}
                   />
                 </div>
-                <Button type="submit" disabled={payLoading} className="w-full bg-green-600 hover:bg-green-700">
+
+                <Button
+                  type="submit"
+                  disabled={payLoading || (payForm.verified_email !== payDialog.users?.email)}
+                  className="w-full bg-green-600 hover:bg-green-700 h-11 text-base"
+                >
                   {payLoading ? "Verifying..." : "Confirm Payment Received"}
                 </Button>
+                {payForm.verified_email && payForm.verified_email !== payDialog.users?.email && (
+                  <p className="text-xs text-red-500 text-center">Cannot approve — email mismatch. Please verify the correct member.</p>
+                )}
               </form>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>

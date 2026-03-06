@@ -188,7 +188,7 @@ export async function PUT(req: NextRequest) {
     if (body.status) {
       updates.status = body.status;
       if (body.status === "paid") {
-        updates.paid_at = new Date().toISOString();
+        updates.paid_at = body.paid_at || new Date().toISOString();
       }
     }
     if (body.amount !== undefined) updates.amount = body.amount;
