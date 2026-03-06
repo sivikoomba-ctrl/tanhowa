@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, IndianRupee } from "lucide-react";
 
 interface Member {
   id: string;
@@ -22,16 +22,28 @@ interface Member {
   };
 }
 
+interface RecentPayment {
+  name: string;
+  period: string;
+  paid_at: string;
+}
+
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState("");
   const [filterDistrict, setFilterDistrict] = useState("all");
   const [filterOccupation, setFilterOccupation] = useState("all");
+  const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
+  const tickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/users")
       .then((r) => r.json())
       .then((d) => setMembers(d.users || []))
+      .catch(() => {});
+    fetch("/api/subscriptions/recent-payments")
+      .then((r) => r.json())
+      .then((d) => setRecentPayments(d.payments || []))
       .catch(() => {});
   }, []);
 
@@ -108,6 +120,34 @@ export default function MembersPage() {
           </div>
         </div>
       </div>
+
+      {/* Recent Payments Scrolling Ticker */}
+      {recentPayments.length > 0 && (
+        <div className="rounded-xl border bg-green-50/80 border-green-200 overflow-hidden">
+          <div className="flex items-center">
+            <div className="bg-green-600 text-white px-3 py-2 text-xs font-semibold shrink-0 flex items-center gap-1.5">
+              <IndianRupee size={14} />
+              Recent Payments
+            </div>
+            <div className="flex-1 overflow-hidden relative py-2">
+              <div
+                ref={tickerRef}
+                className="flex gap-8 animate-scroll whitespace-nowrap px-4"
+                style={{
+                  animation: `scroll ${Math.max(recentPayments.length * 5, 15)}s linear infinite`,
+                }}
+              >
+                {[...recentPayments, ...recentPayments].map((p, i) => (
+                  <span key={i} className="text-xs text-green-800 inline-flex items-center gap-1.5 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+                    Thank you <span className="font-semibold uppercase">{p.name}</span> for your {p.period} subscription payment!
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((m) => (
