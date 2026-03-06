@@ -89,9 +89,8 @@ export default function AdminSubscriptionsPage() {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((d) => {
-        const settings = d.settings || [];
-        const qr = settings.find((s: { key: string; value: string }) => s.key === "payment_qr_url");
-        if (qr) setQrUrl(qr.value);
+        const s = d.settings || {};
+        if (s.payment_qr_url) setQrUrl(s.payment_qr_url);
       })
       .catch(() => {});
   }

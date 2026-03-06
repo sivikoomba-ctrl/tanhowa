@@ -52,8 +52,8 @@ export default function SubscriptionsPage() {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((d) => {
-        const qr = (d.settings || []).find((s: { key: string; value: string }) => s.key === "payment_qr_url");
-        if (qr) setQrUrl(qr.value);
+        const s = d.settings || {};
+        if (s.payment_qr_url) setQrUrl(s.payment_qr_url);
       })
       .catch(() => {});
   }
