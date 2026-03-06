@@ -37,7 +37,8 @@ interface PostingDetails {
 }
 
 interface Profile {
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string;
   address: string;
@@ -77,8 +78,13 @@ export default function ProfilePage() {
         const occ = d.user.occupation || "";
         const isPreset = occupationOptions.includes(occ);
         const sl = d.user.social_links || {};
+        const nameParts = (d.user.name || "").trim().split(/\s+/);
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
         setProfile({
           ...d.user,
+          first_name: firstName,
+          last_name: lastName,
           dob: d.user.dob || "",
           occupation: isPreset ? occ : (occ ? "Others" : ""),
           occupation_other: isPreset ? "" : occ,
@@ -112,7 +118,8 @@ export default function ProfilePage() {
     if (!profile) return;
     setLoading(true);
     try {
-      const payload = { ...profile, occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation };
+      const fullName = `${profile.first_name.trim()} ${profile.last_name.trim()}`.toUpperCase();
+      const payload = { ...profile, name: fullName, occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation };
       const res = await fetch("/api/users/me", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (res.ok) toast.success("Profile updated");
@@ -150,7 +157,8 @@ export default function ProfilePage() {
           <form onSubmit={handleSave} className="space-y-4">
             <div><Label>Email</Label><Input value={profile.email} disabled className="bg-muted" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Full Name *</Label><Input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value.toUpperCase() })} placeholder="FIRST NAME, LAST NAME (e.g., SIVAKUMAR K)" required className="uppercase" /></div>
+              <div><Label>First Name *</Label><Input value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value.toUpperCase() })} placeholder="e.g., SIVAKUMAR" required className="uppercase" /></div>
+              <div><Label>Last Name / Initial *</Label><Input value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.toUpperCase() })} placeholder="e.g., K" required className="uppercase" /></div>
               <div><Label>Phone *</Label><Input value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") })} required /></div>
               <div><Label>WhatsApp (if different)</Label><Input value={profile.social_links.whatsapp} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, whatsapp: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") } })} placeholder="+91 9876543210" /></div>
               <div><Label>Date of Birth</Label><Input type="date" value={profile.dob} onChange={(e) => setProfile({ ...profile, dob: e.target.value })} min={minDate} max={maxDate} /></div>

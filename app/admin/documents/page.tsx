@@ -20,6 +20,8 @@ const docCategories = [
   "Report",
   "Newsletter",
   "Form / Application",
+  "Government G.O.s",
+  "Legal",
   "Others",
 ];
 
@@ -135,7 +137,7 @@ export default function AdminDocumentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Documents</h1>
+        <h1 className="text-2xl font-bold">Document Vault</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">

@@ -120,7 +120,7 @@ export default function AdminDashboard() {
     { label: "Pending Approvals", value: stats.pending, icon: UserX, color: "text-accent", href: "/admin/users" },
     { label: "Announcements", value: stats.announcements, icon: Megaphone, color: "text-secondary", href: "/admin/announcements" },
     { label: "Events", value: stats.events, icon: Calendar, color: "text-primary", href: "/admin/events" },
-    { label: "Documents", value: stats.documents, icon: FileText, color: "text-secondary", href: "/admin/documents" },
+    { label: "Document Vault", value: stats.documents, icon: FileText, color: "text-secondary", href: "/admin/documents" },
     { label: "Subscriptions Due", value: stats.subscriptionsPending, icon: Wallet, color: "text-accent", href: "/admin/subscriptions" },
   ];
 

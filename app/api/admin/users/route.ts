@@ -21,8 +21,8 @@ export async function PUT(req: NextRequest) {
     const supabase = getServiceClient();
 
     if (action === "approve") {
-      // Get user name before updating
-      const { data: userData } = await supabase.from("users").select("name").eq("id", userId).single();
+      // Get user details before updating
+      const { data: userData } = await supabase.from("users").select("name, email").eq("id", userId).single();
       await supabase.from("users").update({ status: "approved" }).eq("id", userId);
 
       // Auto-assign existing subscription periods to the new member
@@ -68,7 +68,7 @@ export async function PUT(req: NextRequest) {
       }
 
       // Notify all members about the new member (fire-and-forget)
-      notifyNewMemberRegistered(userData?.name || "New Member");
+      notifyNewMemberRegistered(userData?.name || userData?.email || "New Member");
     } else if (action === "reject") {
       await supabase.from("users").update({ status: "rejected" }).eq("id", userId);
     } else if (action === "set-role" && role) {

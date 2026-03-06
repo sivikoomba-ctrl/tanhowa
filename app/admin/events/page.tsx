@@ -34,10 +34,12 @@ export default function AdminEventsPage() {
     e.preventDefault();
     setLoading(true);
 
+    // Convert datetime-local to proper ISO with timezone so Supabase stores correct UTC
+    const localDate = form.date ? new Date(form.date).toISOString() : form.date;
     const res = await fetch("/api/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, date: localDate }),
     });
 
     if (res.ok) {

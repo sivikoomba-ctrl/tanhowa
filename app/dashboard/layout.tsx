@@ -51,7 +51,7 @@ const navItems = [
 function getMissingFields(u: UserData): string[] {
   const missing: string[] = [];
   const nameParts = (u.name || "").trim().split(/\s+/).filter(Boolean);
-  if (nameParts.length < 2) missing.push("Full Name (please provide First Name and Last Name)");
+  if (nameParts.length < 2) missing.push("Last Name / Initial (update your First Name and Last Name in Profile)");
   if (!u.phone?.trim()) missing.push("Phone Number");
   if (!u.occupation?.trim()) missing.push("Designation");
   if (!u.posting_details?.regular_district) missing.push("District");

@@ -18,6 +18,42 @@ export async function GET(req: NextRequest) {
 
     const dbRole = await getDbRole(session.userId);
     if (dbRole === "admin") {
+      // Auto-sync: fill missing subscriptions for all approved members
+      try {
+        const [{ data: allMembers }, { data: allSubs }] = await Promise.all([
+          supabase.from("users").select("id").eq("status", "approved").neq("role", "admin"),
+          supabase.from("subscriptions").select("user_id, period, amount, due_date").order("created_at", { ascending: false }),
+        ]);
+
+        if (allMembers && allSubs && allSubs.length > 0) {
+          // Get unique periods with latest amount/due_date
+          const periodMap = new Map<string, { amount: number; due_date: string | null }>();
+          for (const s of allSubs) {
+            if (!periodMap.has(s.period)) {
+              periodMap.set(s.period, { amount: s.amount, due_date: s.due_date });
+            }
+          }
+
+          // Build set of existing user_id+period combos
+          const existingSet = new Set(allSubs.map((s: { user_id: string; period: string }) => `${s.user_id}::${s.period}`));
+
+          const missing: { user_id: string; period: string; amount: number; due_date: string | null; status: string }[] = [];
+          for (const member of allMembers) {
+            for (const [p, info] of periodMap) {
+              if (!existingSet.has(`${member.id}::${p}`)) {
+                missing.push({ user_id: member.id, period: p, amount: info.amount || 0, due_date: info.due_date, status: "pending" });
+              }
+            }
+          }
+
+          if (missing.length > 0) {
+            await supabase.from("subscriptions").insert(missing);
+          }
+        }
+      } catch {
+        // Don't fail the GET if sync fails
+      }
+
       let query = supabase
         .from("subscriptions")
         .select("*, users(name, email, phone)")

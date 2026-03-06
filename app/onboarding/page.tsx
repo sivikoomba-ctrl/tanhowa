@@ -48,7 +48,8 @@ const emptyPosting: PostingDetails = {
 };
 
 interface UserProfile {
-  name: string;
+  first_name: string;
+  last_name: string;
   phone: string;
   address: string;
   dob: string;
@@ -82,7 +83,7 @@ function isValidPhone(phone: string): boolean {
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState<UserProfile>({
-    name: "", phone: "", address: "", dob: "",
+    first_name: "", last_name: "", phone: "", address: "", dob: "",
     occupation: "Horticultural Officer", occupation_other: "",
     posting_details: emptyPosting,
     social_links: { instagram: "", twitter: "", linkedin: "", whatsapp: "" },
@@ -102,8 +103,11 @@ export default function OnboardingPage() {
       if (!data.user) return;
       if (data.user.status === "approved" && data.user.name) { router.push("/dashboard"); return; }
       const sl = data.user.social_links || {};
+      const nameParts = (data.user.name || "").trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
       setProfile((prev) => ({
-        ...prev, name: data.user.name || "", phone: data.user.phone || "",
+        ...prev, first_name: firstName, last_name: lastName, phone: data.user.phone || "",
         address: data.user.address || "", dob: data.user.dob || "",
         occupation: data.user.occupation || "Horticultural Officer",
         posting_details: data.user.posting_details || emptyPosting,
@@ -118,7 +122,8 @@ export default function OnboardingPage() {
   function validateStep(): boolean {
     setError("");
     if (step === 0) {
-      if (!profile.name.trim()) { setError("Full name is required"); return false; }
+      if (!profile.first_name.trim()) { setError("First name is required"); return false; }
+      if (!profile.last_name.trim()) { setError("Last name / Initial is required"); return false; }
       if (!profile.phone.trim()) { setError("Phone number is required"); return false; }
       if (!isValidPhone(profile.phone)) { setError("Enter a valid Indian mobile number (10 digits starting with 6-9)"); return false; }
       if (!profile.occupation || (profile.occupation === "Others" && !profile.occupation_other.trim())) { setError("Designation is required"); return false; }
@@ -148,7 +153,8 @@ export default function OnboardingPage() {
     if (!validateStep()) return;
     setError(""); setLoading(true);
     try {
-      const payload = { ...profile, occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation };
+      const fullName = `${profile.first_name.trim()} ${profile.last_name.trim()}`.toUpperCase();
+      const payload = { ...profile, name: fullName, occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation };
       const res = await fetch("/api/users/me", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Failed to save profile"); return; }
@@ -217,9 +223,13 @@ export default function OnboardingPage() {
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Personal Information</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <Label htmlFor="name">Full Name *</Label>
-                      <Input id="name" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value.toUpperCase() })} placeholder="FIRST NAME, LAST NAME (e.g., SIVAKUMAR K)" required className="uppercase" />
+                    <div>
+                      <Label htmlFor="first_name">First Name *</Label>
+                      <Input id="first_name" value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value.toUpperCase() })} placeholder="e.g., SIVAKUMAR" required className="uppercase" />
+                    </div>
+                    <div>
+                      <Label htmlFor="last_name">Last Name / Initial *</Label>
+                      <Input id="last_name" value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.toUpperCase() })} placeholder="e.g., K" required className="uppercase" />
                     </div>
                     <div>
                       <Label htmlFor="phone">Phone *</Label>

@@ -19,6 +19,8 @@ const docCategories = [
   "Report",
   "Newsletter",
   "Form / Application",
+  "Government G.O.s",
+  "Legal",
   "Others",
 ];
 

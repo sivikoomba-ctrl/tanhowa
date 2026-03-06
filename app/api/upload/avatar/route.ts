@@ -35,12 +35,24 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
 
     // Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
+    let { error: uploadError } = await supabase.storage
       .from("avatars")
       .upload(fileName, buffer, {
         contentType: file.type,
         upsert: true,
       });
+
+    // Auto-create bucket if it doesn't exist
+    if (uploadError?.message?.includes("Bucket not found")) {
+      await supabase.storage.createBucket("avatars", { public: true });
+      const retry = await supabase.storage
+        .from("avatars")
+        .upload(fileName, buffer, {
+          contentType: file.type,
+          upsert: true,
+        });
+      uploadError = retry.error;
+    }
 
     if (uploadError) {
       await logError({ type: "api", message: uploadError.message, path: "/api/upload/avatar", method: "POST", status_code: 500 });

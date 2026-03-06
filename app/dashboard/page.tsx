@@ -44,7 +44,7 @@ export default function DashboardHome() {
     { label: "Members", value: stats.members, icon: Users, color: "text-primary" },
     { label: "Announcements", value: stats.announcements, icon: Megaphone, color: "text-accent" },
     { label: "Events", value: stats.events, icon: Calendar, color: "text-secondary" },
-    { label: "Documents", value: stats.documents, icon: FileText, color: "text-primary" },
+    { label: "Document Vault", value: stats.documents, icon: FileText, color: "text-primary" },
   ];
 
   return (
