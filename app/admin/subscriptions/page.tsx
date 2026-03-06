@@ -22,6 +22,8 @@ import {
   Filter,
   ImageIcon,
   Eye,
+  QrCode,
+  Upload,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -71,6 +73,11 @@ export default function AdminSubscriptionsPage() {
   // Proof preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  // QR code
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [qrUploading, setQrUploading] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+
   function load() {
     fetch("/api/subscriptions")
       .then((r) => r.json())
@@ -79,6 +86,30 @@ export default function AdminSubscriptionsPage() {
         if (d.stats) setStats(d.stats);
       })
       .catch(() => {});
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        const settings = d.settings || [];
+        const qr = settings.find((s: { key: string; value: string }) => s.key === "payment_qr_url");
+        if (qr) setQrUrl(qr.value);
+      })
+      .catch(() => {});
+  }
+
+  async function handleQrUpload(file: File) {
+    setQrUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/upload/qr-code", { method: "POST", body: formData });
+    const data = await res.json();
+    if (res.ok) {
+      setQrUrl(data.url);
+      toast.success("QR code uploaded successfully");
+      setQrDialogOpen(false);
+    } else {
+      toast.error(data.error || "Upload failed");
+    }
+    setQrUploading(false);
   }
 
   useEffect(() => {
@@ -190,13 +221,47 @@ export default function AdminSubscriptionsPage() {
             <p className="text-sm text-muted-foreground">Manage yearly member subscription payments</p>
           </div>
         </div>
-        <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
-              <Plus size={16} className="mr-1" />
-              New Year Subscription
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <QrCode size={16} className="mr-1" />
+                {qrUrl ? "Update QR" : "Upload QR"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Payment QR Code</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">Upload the UPI/bank payment QR code image. Members will see this on their subscriptions page.</p>
+              {qrUrl && (
+                <div className="rounded-xl overflow-hidden border">
+                  <img src={qrUrl} alt="Current QR code" className="w-full max-w-[250px] mx-auto" />
+                  <p className="text-xs text-center text-muted-foreground py-2">Current QR code</p>
+                </div>
+              )}
+              <div className="space-y-3">
+                <Label>Select QR Code Image</Label>
+                <Input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={qrUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleQrUpload(file);
+                  }}
+                />
+                {qrUploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus size={16} className="mr-1" />
+                New Year Subscription
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Yearly Subscription</DialogTitle>
@@ -240,6 +305,7 @@ export default function AdminSubscriptionsPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Stats Cards */}

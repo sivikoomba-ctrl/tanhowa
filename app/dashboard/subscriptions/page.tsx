@@ -35,6 +35,7 @@ export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
 
@@ -47,6 +48,13 @@ export default function SubscriptionsPage() {
     fetch("/api/subscriptions")
       .then((r) => r.json())
       .then((d) => setSubscriptions(d.subscriptions || []))
+      .catch(() => {});
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        const qr = (d.settings || []).find((s: { key: string; value: string }) => s.key === "payment_qr_url");
+        if (qr) setQrUrl(qr.value);
+      })
       .catch(() => {});
   }
 
@@ -155,9 +163,15 @@ export default function SubscriptionsPage() {
       <Card className="border-2 border-primary/20">
         <CardContent className="pt-5">
           <div className="flex flex-col sm:flex-row items-center gap-5">
-            <div className="w-48 h-48 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center shrink-0">
-              <QrCode className="w-16 h-16 text-primary/40" />
-              <p className="text-xs text-muted-foreground mt-2 text-center px-2">QR Code will be updated soon</p>
+            <div className="w-48 h-48 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center shrink-0 overflow-hidden">
+              {qrUrl ? (
+                <img src={qrUrl} alt="Payment QR Code" className="w-full h-full object-contain" />
+              ) : (
+                <>
+                  <QrCode className="w-16 h-16 text-primary/40" />
+                  <p className="text-xs text-muted-foreground mt-2 text-center px-2">QR Code will be updated soon</p>
+                </>
+              )}
             </div>
             <div className="flex-1 text-center sm:text-left">
               <h2 className="text-lg font-semibold mb-1">Pay via UPI / Bank Transfer</h2>
