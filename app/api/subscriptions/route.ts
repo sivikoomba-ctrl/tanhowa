@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { getSQL } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = getServiceClient();
+    const sql = getSQL();
     const url = new URL(req.url);
     const period = url.searchParams.get("period");
     const status = url.searchParams.get("status");
@@ -18,44 +18,53 @@ export async function GET(req: NextRequest) {
     const dbRole = await getDbRole(session.userId);
     if (dbRole === "admin") {
       // Admin: get all subscriptions with user info
-      let query = supabase
-        .from("subscriptions")
-        .select("*, users(name, email, phone)")
-        .order("created_at", { ascending: false });
+      const subscriptions = period && status && status !== "all"
+        ? await sql`
+            SELECT s.*, json_build_object('name', u.name, 'email', u.email, 'phone', u.phone) as users
+            FROM subscriptions s LEFT JOIN users u ON s.user_id = u.id
+            WHERE s.period = ${period} AND s.status = ${status}
+            ORDER BY s.created_at DESC`
+        : period
+        ? await sql`
+            SELECT s.*, json_build_object('name', u.name, 'email', u.email, 'phone', u.phone) as users
+            FROM subscriptions s LEFT JOIN users u ON s.user_id = u.id
+            WHERE s.period = ${period}
+            ORDER BY s.created_at DESC`
+        : status && status !== "all"
+        ? await sql`
+            SELECT s.*, json_build_object('name', u.name, 'email', u.email, 'phone', u.phone) as users
+            FROM subscriptions s LEFT JOIN users u ON s.user_id = u.id
+            WHERE s.status = ${status}
+            ORDER BY s.created_at DESC`
+        : await sql`
+            SELECT s.*, json_build_object('name', u.name, 'email', u.email, 'phone', u.phone) as users
+            FROM subscriptions s LEFT JOIN users u ON s.user_id = u.id
+            ORDER BY s.created_at DESC`;
 
-      if (period) query = query.eq("period", period);
-      if (status && status !== "all") query = query.eq("status", status);
-
-      const { data: subscriptions } = await query;
-
-      // Also get summary stats
-      const [paidRes, pendingRes, overdueRes, totalAmountRes] = await Promise.all([
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "paid"),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "overdue"),
-        supabase.from("subscriptions").select("amount").eq("status", "paid"),
+      // Summary stats
+      const [statsRows, totalRows] = await Promise.all([
+        sql`SELECT status, COUNT(*)::int as count FROM subscriptions GROUP BY status`,
+        sql`SELECT COALESCE(SUM(amount), 0)::float as total FROM subscriptions WHERE status = 'paid'`,
       ]);
 
-      const totalCollected = (totalAmountRes.data || []).reduce((sum: number, r: { amount: number }) => sum + (r.amount || 0), 0);
+      const statsMap: Record<string, number> = {};
+      for (const row of statsRows) statsMap[row.status] = row.count;
 
       return NextResponse.json({
-        subscriptions: subscriptions || [],
+        subscriptions,
         stats: {
-          paid: paidRes.count || 0,
-          pending: pendingRes.count || 0,
-          overdue: overdueRes.count || 0,
-          totalCollected,
+          paid: statsMap.paid || 0,
+          pending: statsMap.pending || 0,
+          overdue: statsMap.overdue || 0,
+          totalCollected: totalRows[0]?.total || 0,
         },
       });
     } else {
       // Member: get own subscriptions
-      const { data: subscriptions } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", session.userId)
-        .order("created_at", { ascending: false });
+      const subscriptions = await sql`
+        SELECT * FROM subscriptions WHERE user_id = ${session.userId} ORDER BY created_at DESC`;
 
-      return NextResponse.json({ subscriptions: subscriptions || [] });
+      return NextResponse.json({ subscriptions });
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -75,22 +84,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden — admin role required" }, { status: 403 });
     }
 
-    const supabase = getServiceClient();
-
+    const sql = getSQL();
     const body = await req.json();
 
     if (body.action === "bulk-create") {
-      // Use RPC function to bypass PostgREST schema cache issues
-      const { data: count, error: rpcErr } = await supabase.rpc("bulk_create_subscriptions", {
-        p_period: body.period,
-        p_amount: parseFloat(body.amount) || 0,
-        p_due_date: body.due_date || null,
-      });
+      const amount = parseFloat(body.amount) || 0;
+      const period = body.period;
+      const dueDate = body.due_date || null;
 
-      if (rpcErr) {
-        await logError({ type: "api", message: rpcErr.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
-        return NextResponse.json({ error: `RPC error: ${rpcErr.message}` }, { status: 500 });
-      }
+      // Insert subscriptions for all approved members who don't already have one for this period
+      const result = await sql`
+        INSERT INTO subscriptions (user_id, period, amount, due_date, status)
+        SELECT u.id, ${period}, ${amount}, ${dueDate}::timestamptz, 'pending'
+        FROM users u
+        WHERE u.status = 'approved'
+          AND NOT EXISTS (
+            SELECT 1 FROM subscriptions s WHERE s.user_id = u.id AND s.period = ${period}
+          )`;
+
+      const count = result.count;
 
       if (count === 0) {
         return NextResponse.json({ error: "All members already have subscriptions for this period (or no approved members found)" }, { status: 400 });
@@ -99,24 +111,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: `Created ${count} subscriptions`, count });
     } else {
       // Create single subscription
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .insert({
-          user_id: body.user_id,
-          period: body.period,
-          amount: body.amount || 0,
-          due_date: body.due_date || null,
-          status: "pending",
-        })
-        .select()
-        .single();
+      const rows = await sql`
+        INSERT INTO subscriptions (user_id, period, amount, due_date, status)
+        VALUES (${body.user_id}, ${body.period}, ${body.amount || 0}, ${body.due_date || null}::timestamptz, 'pending')
+        RETURNING *`;
 
-      if (error) {
-        await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
-        return NextResponse.json({ error: "Failed to create subscription" }, { status: 500 });
-      }
-
-      return NextResponse.json({ subscription: data });
+      return NextResponse.json({ subscription: rows[0] });
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -132,65 +132,44 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const sql = getSQL();
     const body = await req.json();
-    const supabase = getServiceClient();
+    const now = new Date().toISOString();
 
     // Members can only update their own subscription's payment details
     const putRole = await getDbRole(session.userId);
     if (putRole !== "admin") {
-      const { data: sub } = await supabase
-        .from("subscriptions")
-        .select("user_id")
-        .eq("id", body.id)
-        .single();
-
-      if (!sub || sub.user_id !== session.userId) {
+      const subRows = await sql`SELECT user_id FROM subscriptions WHERE id = ${body.id}`;
+      if (!subRows.length || subRows[0].user_id !== session.userId) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      // Members can only update payment info, not status/amount
-      const memberUpdates: Record<string, string | null> = { updated_at: new Date().toISOString() };
-      if (body.payment_method !== undefined) memberUpdates.payment_method = body.payment_method;
-      if (body.transaction_id !== undefined) memberUpdates.transaction_id = body.transaction_id;
-      if (body.remarks !== undefined) memberUpdates.remarks = body.remarks;
-      if (body.payment_proof_url !== undefined) memberUpdates.payment_proof_url = body.payment_proof_url;
-
-      const { error } = await supabase
-        .from("subscriptions")
-        .update(memberUpdates)
-        .eq("id", body.id);
-
-      if (error) {
-        await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "PUT", status_code: 500 });
-        return NextResponse.json({ error: "Failed to update" }, { status: 500 });
-      }
+      await sql`
+        UPDATE subscriptions SET
+          payment_method = COALESCE(${body.payment_method ?? null}, payment_method),
+          transaction_id = COALESCE(${body.transaction_id ?? null}, transaction_id),
+          remarks = COALESCE(${body.remarks ?? null}, remarks),
+          payment_proof_url = COALESCE(${body.payment_proof_url ?? null}, payment_proof_url),
+          updated_at = ${now}
+        WHERE id = ${body.id}`;
 
       return NextResponse.json({ message: "Updated" });
     }
 
     // Admin can update everything
-    const updates: Record<string, string | number | null> = { updated_at: new Date().toISOString() };
-    if (body.status) {
-      updates.status = body.status;
-      if (body.status === "paid") {
-        updates.paid_at = new Date().toISOString();
-      }
-    }
-    if (body.amount !== undefined) updates.amount = body.amount;
-    if (body.payment_method !== undefined) updates.payment_method = body.payment_method;
-    if (body.transaction_id !== undefined) updates.transaction_id = body.transaction_id;
-    if (body.remarks !== undefined) updates.remarks = body.remarks;
-    if (body.payment_proof_url !== undefined) updates.payment_proof_url = body.payment_proof_url;
+    const paidAt = body.status === "paid" ? now : null;
 
-    const { error } = await supabase
-      .from("subscriptions")
-      .update(updates)
-      .eq("id", body.id);
-
-    if (error) {
-      await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "PUT", status_code: 500 });
-      return NextResponse.json({ error: "Failed to update" }, { status: 500 });
-    }
+    await sql`
+      UPDATE subscriptions SET
+        status = COALESCE(${body.status ?? null}, status),
+        amount = COALESCE(${body.amount !== undefined ? body.amount : null}, amount),
+        payment_method = COALESCE(${body.payment_method ?? null}, payment_method),
+        transaction_id = COALESCE(${body.transaction_id ?? null}, transaction_id),
+        remarks = COALESCE(${body.remarks ?? null}, remarks),
+        payment_proof_url = COALESCE(${body.payment_proof_url ?? null}, payment_proof_url),
+        paid_at = COALESCE(${paidAt}, paid_at),
+        updated_at = ${now}
+      WHERE id = ${body.id}`;
 
     return NextResponse.json({ message: "Updated" });
   } catch (error) {
@@ -211,8 +190,8 @@ export async function DELETE(req: NextRequest) {
     const id = url.searchParams.get("id");
     if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
-    const supabase = getServiceClient();
-    await supabase.from("subscriptions").delete().eq("id", id);
+    const sql = getSQL();
+    await sql`DELETE FROM subscriptions WHERE id = ${id}`;
 
     return NextResponse.json({ message: "Deleted" });
   } catch (error) {
