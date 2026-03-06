@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Wallet, CheckCircle2, Clock, AlertTriangle, Upload, QrCode, ImageIcon, Eye, Edit2 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface Subscription {
   id: string;
@@ -296,7 +296,7 @@ export default function SubscriptionsPage() {
                         )}
                         {sub.paid_at && (
                           <p className="text-xs text-green-600 mt-0.5">
-                            Verified on {formatDate(sub.paid_at)}
+                            Paid on {formatDateTime(sub.paid_at)}
                           </p>
                         )}
                         {hasProof && (

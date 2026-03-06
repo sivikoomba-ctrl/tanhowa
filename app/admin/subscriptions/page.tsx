@@ -25,7 +25,7 @@ import {
   QrCode,
   Upload,
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface Subscription {
   id: string;
@@ -476,7 +476,7 @@ export default function AdminSubscriptionsPage() {
                         <Badge variant="secondary" className="text-xs">{sub.period}</Badge>
                         <span className="text-sm font-semibold">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
                         {sub.due_date && <span className="text-xs text-muted-foreground">Due: {formatDate(sub.due_date)}</span>}
-                        {sub.paid_at && <span className="text-xs text-green-600">Verified: {formatDate(sub.paid_at)}</span>}
+                        {sub.paid_at && <span className="text-xs text-green-600">Paid: {formatDateTime(sub.paid_at)}</span>}
                       </div>
                       {sub.transaction_id && (
                         <p className="text-xs text-muted-foreground mt-1">Txn ID: <span className="font-mono">{sub.transaction_id}</span></p>
