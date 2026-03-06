@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 
       if (rpcErr) {
         await logError({ type: "api", message: rpcErr.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
-        return NextResponse.json({ error: "Failed to create subscriptions. Please try again." }, { status: 500 });
+        return NextResponse.json({ error: `RPC error: ${rpcErr.message}` }, { status: 500 });
       }
 
       if (count === 0) {
