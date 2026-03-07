@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar } from "lucide-react";
+import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { DISTRICT_NAMES } from "@/lib/tn-districts";
 
 interface PostingDetails {
   regular_district?: string;
@@ -40,6 +43,8 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [tab, setTab] = useState("pending");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [districtFilter, setDistrictFilter] = useState("all");
 
   function loadUsers() {
     fetch("/api/users?status=" + (tab === "all" ? "" : tab))
@@ -51,7 +56,29 @@ export default function AdminUsersPage() {
   useEffect(() => {
     loadUsers();
     setExpandedId(null);
+    setSearch("");
+    setDistrictFilter("all");
   }, [tab]);
+
+  const filteredUsers = useMemo(() => {
+    let result = users;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (u) =>
+          u.name?.toLowerCase().includes(q) ||
+          u.email?.toLowerCase().includes(q) ||
+          u.phone?.toLowerCase().includes(q) ||
+          u.occupation?.toLowerCase().includes(q)
+      );
+    }
+    if (districtFilter !== "all") {
+      result = result.filter(
+        (u) => u.posting_details?.regular_district === districtFilter
+      );
+    }
+    return result;
+  }, [users, search, districtFilter]);
 
   async function handleAction(userId: string, action: string, role?: string) {
     const res = await fetch("/api/admin/users", {
@@ -104,12 +131,40 @@ export default function AdminUsersPage() {
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
         </TabsList>
 
-        <TabsContent value={tab} className="mt-4">
-          {users.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center">No {tab} users</p>
+        <TabsContent value={tab} className="mt-4 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, phone, or designation..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={districtFilter} onValueChange={setDistrictFilter}>
+              <SelectTrigger className="w-full sm:w-[220px]">
+                <Filter size={14} className="mr-1 text-muted-foreground" />
+                <SelectValue placeholder="All Districts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Districts</SelectItem>
+                {DISTRICT_NAMES.map((d) => (
+                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {users.length > 0 && filteredUsers.length !== users.length && (
+            <p className="text-sm text-muted-foreground">Showing {filteredUsers.length} of {users.length} users</p>
+          )}
+          {filteredUsers.length === 0 ? (
+            <p className="text-muted-foreground py-8 text-center">
+              {users.length === 0 ? `No ${tab} users` : "No users match your search"}
+            </p>
           ) : (
             <div className="space-y-3">
-              {users.map((u) => {
+              {filteredUsers.map((u) => {
                 const isExpanded = expandedId === u.id;
                 return (
                   <Card key={u.id}>

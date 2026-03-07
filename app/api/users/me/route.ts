@@ -66,7 +66,7 @@ export async function PUT(req: NextRequest) {
       .eq("phone", phone)
       .neq("id", session.userId)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (existingPhone) {
       return NextResponse.json({ error: "This phone number is already registered with another account" }, { status: 400 });
@@ -108,7 +108,7 @@ export async function PUT(req: NextRequest) {
 
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/users/me", method: "PUT", status_code: 500 });
-      return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
+      return NextResponse.json({ error: error.message || "Failed to update profile" }, { status: 500 });
     }
 
     // Notify admins when a new member completes onboarding
