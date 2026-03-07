@@ -18,7 +18,12 @@ function getTransporter() {
   });
 }
 
+// HOLD: All member-facing emails (except OTP) are temporarily disabled.
+// Set to false to re-enable member emails.
+const HOLD_MEMBER_EMAILS = true;
+
 export async function sendSubscriptionApprovedEmail(to: string, memberName: string, period: string, amount: number) {
+  if (HOLD_MEMBER_EMAILS) return;
   const transporter = getTransporter();
   await transporter.sendMail({
     from: `"TANHOWA" <${process.env.ZOHO_SMTP_USER}>`,
@@ -83,6 +88,7 @@ async function getAllMemberEmails(): Promise<string[]> {
 // Send a branded notification email to all approved members using BCC batches
 // Zoho limits recipients per email, so we batch in groups of 40
 export async function sendBroadcastEmail(subject: string, bodyHtml: string) {
+  if (HOLD_MEMBER_EMAILS) return;
   const emails = await getAllMemberEmails();
   if (emails.length === 0) return;
 
@@ -231,6 +237,7 @@ export async function notifyAdminNewRegistration(memberName: string, memberEmail
 }
 
 export async function sendSubscriptionNotification(to: string, memberName: string, period: string, amount: number, message: string) {
+  if (HOLD_MEMBER_EMAILS) return;
   const transporter = getTransporter();
   await transporter.sendMail({
     from: `"TANHOWA" <${process.env.ZOHO_SMTP_USER}>`,
