@@ -12,6 +12,8 @@ import { Flower2, Clock, ArrowLeft, ArrowRight, User, MapPin, Share2, Camera } f
 import Image from "next/image";
 import { DISTRICT_NAMES, getBlocks } from "@/lib/tn-districts";
 
+const titleOptions = ["", "Dr."];
+
 const occupationOptions = [
   "Horticultural Officer",
   "Assistant Director of Horticulture",
@@ -26,6 +28,19 @@ const occupationOptions = [
   "System Admin",
   "Others",
 ];
+
+function parseTitleFromName(name: string): { title: string; firstName: string; lastName: string } {
+  const upper = name.trim().toUpperCase();
+  for (const t of titleOptions) {
+    if (t && upper.startsWith(t.toUpperCase())) {
+      const rest = name.trim().substring(t.length).trim();
+      const parts = rest.split(/\s+/);
+      return { title: t, firstName: parts[0] || "", lastName: parts.slice(1).join(" ") || "" };
+    }
+  }
+  const parts = name.trim().split(/\s+/);
+  return { title: "", firstName: parts[0] || "", lastName: parts.slice(1).join(" ") || "" };
+}
 
 interface PostingDetails {
   regular_district: string;
@@ -48,8 +63,10 @@ const emptyPosting: PostingDetails = {
 };
 
 interface UserProfile {
+  title: string;
   first_name: string;
   last_name: string;
+  gender: string;
   phone: string;
   address: string;
   office_address: string;
@@ -84,7 +101,7 @@ function isValidPhone(phone: string): boolean {
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState<UserProfile>({
-    first_name: "", last_name: "", phone: "", address: "", office_address: "", dob: "",
+    title: "", first_name: "", last_name: "", gender: "", phone: "", address: "", office_address: "", dob: "",
     occupation: "Horticultural Officer", occupation_other: "",
     posting_details: emptyPosting,
     social_links: { instagram: "", twitter: "", linkedin: "", whatsapp: "" },
@@ -104,11 +121,9 @@ export default function OnboardingPage() {
       if (!data.user) return;
       if (data.user.status === "approved" && data.user.name) { router.push("/dashboard"); return; }
       const sl = data.user.social_links || {};
-      const nameParts = (data.user.name || "").trim().split(/\s+/);
-      const firstName = nameParts[0] || "";
-      const lastName = nameParts.slice(1).join(" ") || "";
+      const parsed = parseTitleFromName(data.user.name || "");
       setProfile((prev) => ({
-        ...prev, first_name: firstName, last_name: lastName, phone: data.user.phone || "",
+        ...prev, title: parsed.title, first_name: parsed.firstName, last_name: parsed.lastName, gender: sl.gender || "", phone: data.user.phone || "",
         address: data.user.address || "", office_address: data.user.office_address || "", dob: data.user.dob || "",
         occupation: data.user.occupation || "Horticultural Officer",
         posting_details: data.user.posting_details || emptyPosting,
@@ -154,8 +169,10 @@ export default function OnboardingPage() {
     if (!validateStep()) return;
     setError(""); setLoading(true);
     try {
-      const fullName = `${profile.first_name.trim()} ${profile.last_name.trim()}`.toUpperCase();
-      const payload = { ...profile, name: fullName, occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation };
+      const nameWithoutTitle = `${profile.first_name.trim()} ${profile.last_name.trim()}`.toUpperCase();
+      const fullName = profile.title ? `${profile.title} ${nameWithoutTitle}` : nameWithoutTitle;
+      const socialLinksWithExtras = { ...profile.social_links, gender: profile.gender || "" };
+      const payload = { ...profile, name: fullName, occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation, social_links: socialLinksWithExtras };
       const res = await fetch("/api/users/me", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Failed to save profile"); return; }
@@ -223,6 +240,17 @@ export default function OnboardingPage() {
               {step === 0 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Personal Information</h3>
+                  <div>
+                    <Label>Title (if applicable)</Label>
+                    <Select value={profile.title || "none"} onValueChange={(val) => setProfile({ ...profile, title: val === "none" ? "" : val })}>
+                      <SelectTrigger className="w-[140px]"><SelectValue placeholder="None" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {titleOptions.filter(Boolean).map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">Select Dr. or Prof. if you hold a PhD or equivalent</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="first_name">First Name *</Label>
@@ -243,6 +271,17 @@ export default function OnboardingPage() {
                     <div>
                       <Label htmlFor="dob">Date of Birth</Label>
                       <Input id="dob" type="date" value={profile.dob} onChange={(e) => setProfile({ ...profile, dob: e.target.value })} min={minDate} max={maxDate} />
+                    </div>
+                    <div>
+                      <Label>Gender</Label>
+                      <Select value={profile.gender || "none"} onValueChange={(val) => setProfile({ ...profile, gender: val === "none" ? "" : val })}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Select</SelectItem>
+                          <SelectItem value="Male">Male</SelectItem>
+                          <SelectItem value="Female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="occupation">Designation *</Label>
