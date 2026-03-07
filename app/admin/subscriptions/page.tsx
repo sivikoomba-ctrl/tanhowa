@@ -118,6 +118,7 @@ export default function AdminSubscriptionsPage() {
   const [pastMembers, setPastMembers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [pastSelected, setPastSelected] = useState<Set<string>>(new Set());
   const [pastSearch, setPastSearch] = useState("");
+  const [pastFile, setPastFile] = useState<File | null>(null);
 
   // Notify member dialog
   const [notifySub, setNotifySub] = useState<Subscription | null>(null);
@@ -173,6 +174,22 @@ export default function AdminSubscriptionsPage() {
       return;
     }
     setPastLoading(true);
+
+    // Upload payment proof first if provided
+    let paymentProofUrl: string | null = null;
+    if (pastFile) {
+      const formData = new FormData();
+      formData.append("file", pastFile);
+      const uploadRes = await fetch("/api/upload/payment-proof", { method: "POST", body: formData });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) {
+        toast.error(uploadData.error || "Failed to upload payment proof");
+        setPastLoading(false);
+        return;
+      }
+      paymentProofUrl = uploadData.payment_proof_url;
+    }
+
     const res = await fetch("/api/subscriptions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -185,6 +202,7 @@ export default function AdminSubscriptionsPage() {
         status: pastForm.status,
         paid_at: pastForm.status === "paid" && pastForm.paid_at ? new Date(`${pastForm.paid_at}T12:00:00`).toISOString() : null,
         remarks: pastForm.remarks || null,
+        payment_proof_url: paymentProofUrl,
       }),
     });
     const data = await res.json();
@@ -192,6 +210,7 @@ export default function AdminSubscriptionsPage() {
       toast.success(data.message);
       setPastOpen(false);
       setPastSelected(new Set());
+      setPastFile(null);
       setPastForm({ period: String(currentYear - 1), amount: "", due_date: "", status: "paid", paid_at: "", remarks: "" });
       load();
     } else {
@@ -574,6 +593,47 @@ export default function AdminSubscriptionsPage() {
                     placeholder="e.g. Cash payment collected at meeting"
                   />
                 </div>
+                <div>
+                  <Label>Payment Proof (optional)</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <label className="flex items-center gap-2 px-3 py-2 border rounded-xl cursor-pointer hover:bg-muted/50 text-sm w-full">
+                      <Upload size={16} className="text-muted-foreground shrink-0" />
+                      <span className="truncate text-muted-foreground">
+                        {pastFile ? pastFile.name : "Upload JPEG, PNG, or WebP (max 5MB)"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) {
+                            if (f.size > 5 * 1024 * 1024) {
+                              toast.error("File must be under 5MB");
+                              return;
+                            }
+                            setPastFile(f);
+                          }
+                        }}
+                      />
+                    </label>
+                    {pastFile && (
+                      <Button type="button" variant="ghost" size="sm" className="h-9 px-2 shrink-0" onClick={() => setPastFile(null)}>
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {pastSelected.size > 1 && pastForm.amount && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-sm">
+                    <p className="font-medium text-amber-800">
+                      Total: ₹{((parseFloat(pastForm.amount) || 0) * pastSelected.size).toLocaleString("en-IN")}
+                    </p>
+                    <p className="text-amber-600 text-xs">
+                      ₹{parseFloat(pastForm.amount).toLocaleString("en-IN")} × {pastSelected.size} members — please verify this matches the payment proof
+                    </p>
+                  </div>
+                )}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <Label>Select Members ({pastSelected.size} selected)</Label>

@@ -186,6 +186,7 @@ export async function POST(req: NextRequest) {
         status: isPaid ? "paid" : "pending",
         paid_at: isPaid ? (body.paid_at || new Date().toISOString()) : null,
         remarks: body.remarks || null,
+        payment_proof_url: body.payment_proof_url || null,
       }));
 
       const { error } = await supabase.from("subscriptions").insert(rows);

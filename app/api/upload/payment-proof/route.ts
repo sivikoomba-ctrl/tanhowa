@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File | null;
     const subscriptionId = formData.get("subscription_id") as string | null;
 
-    if (!file || !subscriptionId) {
-      return NextResponse.json({ error: "File and subscription_id required" }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: "File is required" }, { status: 400 });
     }
 
     // Validate file type
@@ -31,8 +31,13 @@ export async function POST(req: NextRequest) {
 
     const supabase = getServiceClient();
 
+    const isAdmin = (await getDbRole(session.userId)) === "admin";
+
     // Verify the subscription belongs to this user (or user is admin)
-    if ((await getDbRole(session.userId)) !== "admin") {
+    if (!isAdmin) {
+      if (!subscriptionId) {
+        return NextResponse.json({ error: "subscription_id required" }, { status: 400 });
+      }
       const { data: sub } = await supabase
         .from("subscriptions")
         .select("user_id")
@@ -45,7 +50,8 @@ export async function POST(req: NextRequest) {
     }
 
     const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
-    const fileName = `${subscriptionId}-${Date.now()}.${ext}`;
+    const prefix = subscriptionId || `admin-${session.userId}`;
+    const fileName = `${prefix}-${Date.now()}.${ext}`;
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -63,10 +69,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Store the file path (not public URL) since bucket is private
-    await supabase
-      .from("subscriptions")
-      .update({ payment_proof_url: fileName, updated_at: new Date().toISOString() })
-      .eq("id", subscriptionId);
+    if (subscriptionId) {
+      await supabase
+        .from("subscriptions")
+        .update({ payment_proof_url: fileName, updated_at: new Date().toISOString() })
+        .eq("id", subscriptionId);
+    }
 
     return NextResponse.json({ payment_proof_url: fileName });
   } catch (error) {
