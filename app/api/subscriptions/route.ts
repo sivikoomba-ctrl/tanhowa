@@ -218,13 +218,19 @@ export async function POST(req: NextRequest) {
       }
 
       const user = sub.users as unknown as { name: string; email: string };
-      await sendSubscriptionNotification(
-        user.email,
-        user.name || "Member",
-        sub.period,
-        sub.amount || 0,
-        body.message,
-      );
+      try {
+        await sendSubscriptionNotification(
+          user.email,
+          user.name || "Member",
+          sub.period,
+          sub.amount || 0,
+          body.message,
+        );
+      } catch (mailErr) {
+        const mailMsg = mailErr instanceof Error ? mailErr.message : "Unknown email error";
+        await logError({ type: "api", message: `Notify failed: ${mailMsg}`, path: "/api/subscriptions", method: "POST", status_code: 500 });
+        return NextResponse.json({ error: `Failed to send notification: ${mailMsg}` }, { status: 500 });
+      }
 
       return NextResponse.json({ message: `Notification sent to ${user.email}` });
     } else {
