@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, FileText, Check, X, FileUp, Link, Upload } from "lucide-react";
+import { Plus, Trash2, FileText, Check, X, FileUp, Link, Upload, Users, Globe, UserCheck } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 const docCategories = [
@@ -33,15 +33,30 @@ interface Document {
   file_type: string;
   category: string;
   approved: boolean;
+  visibility: string;
+  assigned_users: string[];
   created_at: string;
   users?: { name: string };
 }
 
+interface Member {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export default function AdminDocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [tab, setTab] = useState("pending");
-  const [form, setForm] = useState({ title: "", description: "", file_url: "", file_type: "", category: "" });
+  const [form, setForm] = useState({ title: "", description: "", file_url: "", file_type: "", category: "", visibility: "all" });
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [accessDialogOpen, setAccessDialogOpen] = useState(false);
+  const [accessDocId, setAccessDocId] = useState<string | null>(null);
+  const [accessVisibility, setAccessVisibility] = useState("all");
+  const [accessMembers, setAccessMembers] = useState<string[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploadMode, setUploadMode] = useState<"file" | "url">("file");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -54,9 +69,34 @@ export default function AdminDocumentsPage() {
       .catch(() => {});
   }
 
+  function loadMembers() {
+    fetch("/api/users?status=approved")
+      .then((r) => r.json())
+      .then((d) => setMembers(d.users || []))
+      .catch(() => {});
+  }
+
   useEffect(() => {
     load();
   }, [tab]);
+
+  useEffect(() => {
+    loadMembers();
+  }, []);
+
+  const filteredMembers = members.filter((m) => {
+    if (!memberSearch) return true;
+    const q = memberSearch.toLowerCase();
+    return m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q);
+  });
+
+  function toggleMember(list: string[], setList: (v: string[]) => void, userId: string) {
+    if (list.includes(userId)) {
+      setList(list.filter((id) => id !== userId));
+    } else {
+      setList([...list, userId]);
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -86,16 +126,29 @@ export default function AdminDocumentsPage() {
       return;
     }
 
+    if (form.visibility === "specific" && selectedMembers.length === 0) {
+      toast.error("Please select at least one member");
+      setLoading(false);
+      return;
+    }
+
     const res = await fetch("/api/documents", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, file_url: fileUrl, file_type: fileType }),
+      body: JSON.stringify({
+        ...form,
+        file_url: fileUrl,
+        file_type: fileType,
+        assigned_users: form.visibility === "specific" ? selectedMembers : [],
+      }),
     });
 
     if (res.ok) {
       toast.success("Document added (auto-approved)");
-      setForm({ title: "", description: "", file_url: "", file_type: "", category: "" });
+      setForm({ title: "", description: "", file_url: "", file_type: "", category: "", visibility: "all" });
+      setSelectedMembers([]);
       setSelectedFile(null);
+      setMemberSearch("");
       setDialogOpen(false);
       load();
     } else {
@@ -134,6 +187,45 @@ export default function AdminDocumentsPage() {
     }
   }
 
+  function openAccessDialog(doc: Document) {
+    setAccessDocId(doc.id);
+    setAccessVisibility(doc.visibility || "all");
+    setAccessMembers(doc.assigned_users || []);
+    setMemberSearch("");
+    setAccessDialogOpen(true);
+  }
+
+  async function saveAccess() {
+    if (!accessDocId) return;
+    if (accessVisibility === "specific" && accessMembers.length === 0) {
+      toast.error("Please select at least one member");
+      return;
+    }
+
+    const res = await fetch("/api/documents", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: accessDocId,
+        visibility: accessVisibility,
+        assigned_users: accessVisibility === "specific" ? accessMembers : [],
+      }),
+    });
+
+    if (res.ok) {
+      toast.success("Access updated");
+      setAccessDialogOpen(false);
+      load();
+    } else {
+      toast.error("Failed to update access");
+    }
+  }
+
+  function getMemberName(userId: string) {
+    const m = members.find((m) => m.id === userId);
+    return m?.name || m?.email || userId.slice(0, 8);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -145,7 +237,7 @@ export default function AdminDocumentsPage() {
               Add Document
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Document</DialogTitle>
             </DialogHeader>
@@ -184,6 +276,66 @@ export default function AdminDocumentsPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Visibility */}
+              <div>
+                <Label>Who can see this?</Label>
+                <div className="flex gap-2 mt-1">
+                  <Button
+                    type="button"
+                    variant={form.visibility === "all" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setForm({ ...form, visibility: "all" })}
+                  >
+                    <Globe size={14} className="mr-1" />
+                    All Members
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={form.visibility === "specific" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setForm({ ...form, visibility: "specific" })}
+                  >
+                    <Users size={14} className="mr-1" />
+                    Specific Members
+                  </Button>
+                </div>
+              </div>
+
+              {form.visibility === "specific" && (
+                <div>
+                  <Label>Select Members ({selectedMembers.length} selected)</Label>
+                  <Input
+                    placeholder="Search members..."
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    className="mt-1"
+                  />
+                  <div className="mt-2 max-h-40 overflow-y-auto border rounded-lg divide-y">
+                    {filteredMembers.map((m) => (
+                      <label
+                        key={m.id}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMembers.includes(m.id)}
+                          onChange={() => toggleMember(selectedMembers, setSelectedMembers, m.id)}
+                          className="rounded"
+                        />
+                        <span className="font-medium uppercase">{m.name || "Unnamed"}</span>
+                        <span className="text-muted-foreground text-xs">{m.email}</span>
+                      </label>
+                    ))}
+                    {filteredMembers.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-3">No members found</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Upload mode toggle */}
               <div>
                 <Label>Upload Method *</Label>
@@ -285,6 +437,78 @@ export default function AdminDocumentsPage() {
         </Dialog>
       </div>
 
+      {/* Access management dialog */}
+      <Dialog open={accessDialogOpen} onOpenChange={setAccessDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Access</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Who can see this document?</Label>
+              <div className="flex gap-2 mt-1">
+                <Button
+                  type="button"
+                  variant={accessVisibility === "all" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setAccessVisibility("all")}
+                >
+                  <Globe size={14} className="mr-1" />
+                  All Members
+                </Button>
+                <Button
+                  type="button"
+                  variant={accessVisibility === "specific" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setAccessVisibility("specific")}
+                >
+                  <Users size={14} className="mr-1" />
+                  Specific Members
+                </Button>
+              </div>
+            </div>
+
+            {accessVisibility === "specific" && (
+              <div>
+                <Label>Select Members ({accessMembers.length} selected)</Label>
+                <Input
+                  placeholder="Search members..."
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  className="mt-1"
+                />
+                <div className="mt-2 max-h-52 overflow-y-auto border rounded-lg divide-y">
+                  {filteredMembers.map((m) => (
+                    <label
+                      key={m.id}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={accessMembers.includes(m.id)}
+                        onChange={() => toggleMember(accessMembers, setAccessMembers, m.id)}
+                        className="rounded"
+                      />
+                      <span className="font-medium uppercase">{m.name || "Unnamed"}</span>
+                      <span className="text-muted-foreground text-xs">{m.email}</span>
+                    </label>
+                  ))}
+                  {filteredMembers.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-3">No members found</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <Button onClick={saveAccess} className="w-full bg-primary hover:bg-primary/90">
+              Save Access
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="pending">Pending Approval</TabsTrigger>
@@ -319,17 +543,48 @@ export default function AdminDocumentsPage() {
                           <div className="flex flex-wrap items-center gap-2 mt-1">
                             {doc.category && <Badge variant="outline" className="text-xs">{doc.category}</Badge>}
                             {doc.file_type && <Badge variant="outline" className="text-xs">{doc.file_type.toUpperCase()}</Badge>}
+                            {/* Visibility badge */}
+                            {doc.visibility === "specific" ? (
+                              <Badge variant="secondary" className="text-xs">
+                                <UserCheck size={10} className="mr-1" />
+                                {doc.assigned_users?.length || 0} member{(doc.assigned_users?.length || 0) !== 1 ? "s" : ""}
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">
+                                <Globe size={10} className="mr-1" />
+                                All Members
+                              </Badge>
+                            )}
                             {doc.users?.name && <span className="text-xs text-muted-foreground uppercase">by {doc.users.name}</span>}
                             <span className="text-xs text-muted-foreground">
                               {formatDate(doc.created_at)}
                             </span>
                           </div>
+                          {/* Show assigned member names for specific docs */}
+                          {doc.visibility === "specific" && doc.assigned_users?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {doc.assigned_users.slice(0, 5).map((uid) => (
+                                <span key={uid} className="text-[10px] bg-muted px-1.5 py-0.5 rounded uppercase">
+                                  {getMemberName(uid)}
+                                </span>
+                              ))}
+                              {doc.assigned_users.length > 5 && (
+                                <span className="text-[10px] text-muted-foreground">+{doc.assigned_users.length - 5} more</span>
+                              )}
+                            </div>
+                          )}
                           <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-block">
                             View file
                           </a>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        {doc.approved && (
+                          <Button size="sm" variant="outline" onClick={() => openAccessDialog(doc)}>
+                            <Users size={14} className="mr-1" />
+                            Access
+                          </Button>
+                        )}
                         {!doc.approved && (
                           <Button size="sm" onClick={() => handleApprove(doc.id)} className="bg-primary hover:bg-primary/90">
                             <Check size={14} className="mr-1" />

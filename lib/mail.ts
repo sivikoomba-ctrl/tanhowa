@@ -230,6 +230,37 @@ export async function notifyAdminNewRegistration(memberName: string, memberEmail
   }
 }
 
+export async function sendSubscriptionNotification(to: string, memberName: string, period: string, amount: number, message: string) {
+  const transporter = getTransporter();
+  await transporter.sendMail({
+    from: `"TANHOWA" <${process.env.ZOHO_SMTP_USER}>`,
+    to,
+    subject: `TANHOWA Subscription Reminder — ${period}`,
+    html: wrapEmailTemplate(`
+      <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Subscription Notification</h2>
+      <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+        Dear <strong>${memberName}</strong>,
+      </p>
+      <div style="background: #fffbeb; border-radius: 8px; padding: 16px; margin: 0 0 16px;">
+        <table style="width: 100%; font-size: 14px; color: #333;">
+          <tr>
+            <td style="padding: 4px 0; color: #666;">Subscription Period</td>
+            <td style="padding: 4px 0; font-weight: 600; text-align: right;">${period}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #666;">Amount</td>
+            <td style="padding: 4px 0; font-weight: 600; text-align: right;">&#8377;${amount.toLocaleString("en-IN")}</td>
+          </tr>
+        </table>
+      </div>
+      <p style="color: #333; font-size: 14px; margin: 0 0 16px; white-space: pre-line;">${message}</p>
+      <div style="text-align: center;">
+        <a href="https://tanhowa.in/dashboard/subscriptions" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">View My Subscriptions</a>
+      </div>
+    `),
+  });
+}
+
 export async function sendOTPEmail(to: string, otp: string) {
   const transporter = getTransporter();
   await transporter.sendMail({

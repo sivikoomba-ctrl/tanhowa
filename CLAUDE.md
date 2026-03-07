@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member portal for horticultural officers in Tamil Nadu, India. Members sign up via email OTP, complete their profile, get admin approval, then access announcements, events, documents, a member directory, and grievance submission. Admins manage all content and users through a separate admin panel.
+TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member portal for horticultural officers in Tamil Nadu, India. Members sign up via email OTP, complete their profile, get admin approval, then access announcements, events, documents, a member directory, subscriptions/payments, and grievance submission. Admins manage all content and users through a separate admin panel.
 
 **Live URL:** https://tanhowa.in
 **Deployment:** Vercel (auto-deploys from `main` branch)
@@ -43,6 +43,7 @@ tanhowa/
 │   │   ├── announcements/page.tsx
 │   │   ├── events/page.tsx
 │   │   ├── documents/page.tsx  # View/download documents
+│   │   ├── subscriptions/page.tsx # View/pay subscriptions
 │   │   └── grievances/page.tsx # Submit grievances
 │   ├── admin/                  # Admin panel (sidebar layout, role-gated)
 │   │   ├── layout.tsx          # Admin role check, sidebar nav
@@ -51,6 +52,7 @@ tanhowa/
 │   │   ├── announcements/page.tsx
 │   │   ├── events/page.tsx
 │   │   ├── documents/page.tsx  # Upload/manage documents
+│   │   ├── subscriptions/page.tsx # Subscription payments (bulk create, verify, district report)
 │   │   ├── grievances/page.tsx # Review/respond to grievances
 │   │   ├── error-logs/page.tsx # Application error log viewer
 │   │   └── settings/page.tsx   # Site settings (community name, tagline, about)
@@ -68,7 +70,20 @@ tanhowa/
 │       ├── events/route.ts          # GET/POST/PUT/DELETE
 │       ├── documents/route.ts       # GET/POST/PUT/DELETE
 │       ├── grievances/route.ts      # GET/POST/PUT/DELETE
+│       ├── subscriptions/
+│       │   ├── route.ts             # GET/POST/PUT/DELETE (auto-sync, bulk-create, verify)
+│       │   ├── bulk-verify/route.ts # POST: bulk verify payments
+│       │   ├── recent-payments/route.ts # GET: recent verified payments
+│       │   └── district-report/route.ts # GET: district-wise collection report
 │       ├── error-logs/route.ts      # GET/POST/DELETE (POST = client error submission)
+│       ├── upload/
+│       │   ├── avatar/route.ts            # POST: upload user avatar to Supabase Storage
+│       │   ├── document/route.ts          # POST: upload document file to Supabase Storage
+│       │   ├── qr-code/route.ts           # POST: upload QR code image for subscriptions
+│       │   └── payment-proof/
+│       │       ├── route.ts               # POST: upload payment proof image
+│       │       ├── signed-url/route.ts    # POST: get signed URL for payment proof
+│       │       └── extract-date/route.ts  # POST: extract date from payment proof via Gemini
 │       ├── chat/route.ts            # POST: Gemini AI chatbot
 │       ├── settings/route.ts        # GET/POST site settings
 │       └── stats/route.ts           # GET dashboard statistics
@@ -84,9 +99,11 @@ tanhowa/
 ├── lib/
 │   ├── supabase.ts             # getSupabase() (anon client) + getServiceClient() (service role)
 │   ├── auth.ts                 # createSession, getSession, deleteSession (JWT + httpOnly cookie)
-│   ├── mail.ts                 # sendOTPEmail() via Zoho SMTP
+│   ├── mail.ts                 # sendOTPEmail(), sendSubscriptionApprovedEmail(), notifyPaymentVerified() via Zoho SMTP
 │   ├── gemini.ts               # getGemini() + SYSTEM_PROMPT for chatbot
 │   ├── error-logger.ts         # logError() — server-side error logging to Supabase
+│   ├── db.ts                   # getSQL() — direct PostgreSQL via `postgres` package (requires DATABASE_URL)
+│   ├── tn-districts.ts         # TN_DISTRICTS, DISTRICT_NAMES, getBlocks() — 38 TN districts + blocks
 │   └── utils.ts                # cn() — clsx + tailwind-merge utility
 ├── supabase/
 │   └── schema.sql              # Base database schema (run in Supabase SQL editor)
@@ -163,8 +180,13 @@ export async function GET(req: NextRequest) {
 | `events` | Calendar events | title, description, date, location, image_url |
 | `documents` | Uploaded files | title, file_url, file_type, description, category, approved |
 | `grievances` | Member complaints/suggestions | subject, description, category, status (pending/in_progress/resolved/rejected), admin_remarks, submitted_by |
+| `subscriptions` | Member payment tracking | user_id, period, amount, due_date, status (pending/paid/overdue), payment_method, transaction_id, payment_proof_url, remarks, paid_at |
+| `document_access` | Per-member document access | document_id, user_id (junction table for visibility="selected" documents) |
 | `error_logs` | Application error tracking | type (api/client/auth), message, stack, path, method, status_code, user_id, metadata (JSONB) |
 | `site_settings` | Key-value site config | key (unique), value |
+
+**Additional user columns:** `office_address` (TEXT), `posting_details` includes `regular_district` used for district-wise reports.
+**Document columns:** `visibility` (TEXT, "all" or "selected") controls who can see each document.
 
 ### Migrations beyond base schema
 
@@ -205,6 +227,36 @@ CREATE TABLE IF NOT EXISTS error_logs (
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Subscriptions table
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  period TEXT NOT NULL,
+  amount NUMERIC DEFAULT 0,
+  due_date DATE,
+  status TEXT DEFAULT 'pending',
+  payment_method TEXT,
+  transaction_id TEXT,
+  payment_proof_url TEXT,
+  remarks TEXT,
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Document access control
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS visibility TEXT DEFAULT 'all';
+CREATE TABLE IF NOT EXISTS document_access (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(document_id, user_id)
+);
+
+-- Office address
+ALTER TABLE users ADD COLUMN IF NOT EXISTS office_address TEXT DEFAULT '';
 ```
 
 ## Environment Variables
@@ -221,6 +273,7 @@ ZOHO_SMTP_PORT=                 # 465
 ZOHO_SMTP_USER=                 # admin@tanhowa.in
 ZOHO_SMTP_PASS=                 # Zoho app password
 GOOGLE_GEMINI_API_KEY=          # Google Generative AI API key
+DATABASE_URL=                   # Direct PostgreSQL connection string (used by lib/db.ts)
 ```
 
 ## UI & Styling Conventions
@@ -279,6 +332,19 @@ npm run lint     # ESLint
 6. **Member vs Admin data scoping** — API routes filter by `session.userId` for members, return all records for admins.
 7. **Gemini model** — use `gemini-2.5-flash` (earlier models like `gemini-1.5-flash` and `gemini-2.0-flash` are deprecated for new users).
 8. **No dark mode** — single light theme only.
+
+## Cross-Component Communication
+
+Admin layout sidebar badges (pending users count, error count) refresh on page navigation. When a child page performs actions that change these counts (e.g., approving a user), it must dispatch a custom event so the layout can re-fetch:
+
+```typescript
+// In child page after an action that changes counts:
+window.dispatchEvent(new Event("admin-users-changed"));
+
+// The admin layout listens for this event and re-fetches badge counts
+```
+
+Use this pattern whenever a child page modifies data that the layout displays.
 
 ## Common Tasks
 

@@ -56,6 +56,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       })
       .catch(() => router.push("/"));
 
+    fetchCounts();
+  }, [router, pathname]);
+
+  function fetchCounts() {
     fetch("/api/users?status=pending")
       .then((r) => r.json())
       .then((d) => setPendingCount(d.users?.length || 0))
@@ -65,7 +69,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .then((r) => r.json())
       .then((d) => setErrorCount(d.unresolvedCount || 0))
       .catch(() => {});
-  }, [router, pathname]);
+  }
+
+  useEffect(() => {
+    const handler = () => fetchCounts();
+    window.addEventListener("admin-users-changed", handler);
+    return () => window.removeEventListener("admin-users-changed", handler);
+  }, []);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });

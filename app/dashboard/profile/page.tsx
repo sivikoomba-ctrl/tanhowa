@@ -42,6 +42,7 @@ interface Profile {
   email: string;
   phone: string;
   address: string;
+  office_address: string;
   dob: string;
   occupation: string;
   occupation_other: string;
@@ -86,6 +87,7 @@ export default function ProfilePage() {
           first_name: firstName,
           last_name: lastName,
           dob: d.user.dob || "",
+          office_address: d.user.office_address || "",
           occupation: isPreset ? occ : (occ ? "Others" : ""),
           occupation_other: isPreset ? "" : occ,
           posting_details: d.user.posting_details || emptyPosting,
@@ -173,7 +175,8 @@ export default function ProfilePage() {
             {profile.occupation === "Others" && (
               <div><Label>Specify Designation *</Label><Input value={profile.occupation_other} onChange={(e) => setProfile({ ...profile, occupation_other: e.target.value })} placeholder="Enter your designation" required /></div>
             )}
-            <div><Label>Address</Label><Textarea value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} rows={2} /></div>
+            <div><Label>Home Address</Label><Textarea value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} placeholder="Your home address" rows={2} /></div>
+            <div><Label>Office Address</Label><Textarea value={profile.office_address} onChange={(e) => setProfile({ ...profile, office_address: e.target.value })} placeholder="Your office address" rows={2} /></div>
 
             <h3 className="text-sm font-medium pt-2">Posting Details</h3>
             <div className="space-y-4 rounded-lg border p-4">

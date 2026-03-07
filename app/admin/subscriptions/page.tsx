@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
@@ -28,6 +29,9 @@ import {
   Trash2,
   Copy,
   Info,
+  BarChart3,
+  History,
+  Send,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
@@ -54,8 +58,15 @@ interface Stats {
   totalCollected: number;
 }
 
+interface DistrictRow {
+  district: string;
+  members: number;
+  total: number;
+  [period: string]: string | number;
+}
+
 const currentYear = new Date().getFullYear();
-const yearOptions = Array.from({ length: 5 }, (_, i) => String(currentYear + i));
+const yearOptions = Array.from({ length: 7 }, (_, i) => String(currentYear - 2 + i));
 
 export default function AdminSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -94,6 +105,38 @@ export default function AdminSubscriptionsPage() {
   const [bulkVerifySearch, setBulkVerifySearch] = useState("");
   const [bulkExtractingDate, setBulkExtractingDate] = useState(false);
 
+  // District report
+  const [districtRows, setDistrictRows] = useState<DistrictRow[]>([]);
+  const [districtPeriods, setDistrictPeriods] = useState<string[]>([]);
+  const [districtGrandTotal, setDistrictGrandTotal] = useState<DistrictRow | null>(null);
+  const [districtLoading, setDistrictLoading] = useState(false);
+
+  // Past year subscription dialog
+  const [pastOpen, setPastOpen] = useState(false);
+  const [pastForm, setPastForm] = useState({ period: String(currentYear - 1), amount: "", due_date: "", status: "paid", paid_at: "", remarks: "" });
+  const [pastLoading, setPastLoading] = useState(false);
+  const [pastMembers, setPastMembers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [pastSelected, setPastSelected] = useState<Set<string>>(new Set());
+  const [pastSearch, setPastSearch] = useState("");
+
+  // Notify member dialog
+  const [notifySub, setNotifySub] = useState<Subscription | null>(null);
+  const [notifyMessage, setNotifyMessage] = useState("");
+  const [notifyLoading, setNotifyLoading] = useState(false);
+
+  function loadDistrictReport() {
+    setDistrictLoading(true);
+    fetch("/api/subscriptions/district-report")
+      .then((r) => r.json())
+      .then((d) => {
+        setDistrictRows(d.rows || []);
+        setDistrictPeriods(d.periods || []);
+        setDistrictGrandTotal(d.grandTotal || null);
+      })
+      .catch(() => {})
+      .finally(() => setDistrictLoading(false));
+  }
+
   function load() {
     fetch("/api/subscriptions")
       .then((r) => r.json())
@@ -109,6 +152,76 @@ export default function AdminSubscriptionsPage() {
         if (s.payment_qr_url) setQrUrl(s.payment_qr_url);
       })
       .catch(() => {});
+  }
+
+  function loadPastMembers() {
+    fetch("/api/users?status=approved")
+      .then((r) => r.json())
+      .then((d) => {
+        const members = (d.users || [])
+          .filter((u: { role: string }) => u.role !== "admin")
+          .map((u: { id: string; name: string; email: string }) => ({ id: u.id, name: u.name || "", email: u.email }));
+        setPastMembers(members);
+      })
+      .catch(() => {});
+  }
+
+  async function handlePastCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (pastSelected.size === 0) {
+      toast.error("Select at least one member");
+      return;
+    }
+    setPastLoading(true);
+    const res = await fetch("/api/subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "past-create",
+        user_ids: Array.from(pastSelected),
+        period: pastForm.period,
+        amount: parseFloat(pastForm.amount) || 0,
+        due_date: pastForm.due_date || null,
+        status: pastForm.status,
+        paid_at: pastForm.status === "paid" && pastForm.paid_at ? new Date(`${pastForm.paid_at}T12:00:00`).toISOString() : null,
+        remarks: pastForm.remarks || null,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      toast.success(data.message);
+      setPastOpen(false);
+      setPastSelected(new Set());
+      setPastForm({ period: String(currentYear - 1), amount: "", due_date: "", status: "paid", paid_at: "", remarks: "" });
+      load();
+    } else {
+      toast.error(data.error || "Failed");
+    }
+    setPastLoading(false);
+  }
+
+  async function handleNotify(e: React.FormEvent) {
+    e.preventDefault();
+    if (!notifySub || !notifyMessage.trim()) return;
+    setNotifyLoading(true);
+    const res = await fetch("/api/subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "notify-member",
+        subscription_id: notifySub.id,
+        message: notifyMessage.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      toast.success(data.message);
+      setNotifySub(null);
+      setNotifyMessage("");
+    } else {
+      toast.error(data.error || "Failed to send notification");
+    }
+    setNotifyLoading(false);
   }
 
   async function handleQrUpload(file: File) {
@@ -381,6 +494,146 @@ export default function AdminSubscriptionsPage() {
               </div>
             </DialogContent>
           </Dialog>
+          <Dialog open={pastOpen} onOpenChange={(open) => { setPastOpen(open); if (open && pastMembers.length === 0) loadPastMembers(); }}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <History size={16} className="mr-1" />
+                Past Year Subscription
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add Past Year Subscription</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">Create subscription entries for selected members for a past year. Useful for recording historical payments.</p>
+              <form onSubmit={handlePastCreate} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Year *</Label>
+                    <Select value={pastForm.period} onValueChange={(val) => setPastForm({ ...pastForm, period: val })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {yearOptions.map((y) => (
+                          <SelectItem key={y} value={y}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Amount (&#8377;) *</Label>
+                    <Input
+                      type="number"
+                      value={pastForm.amount}
+                      onChange={(e) => setPastForm({ ...pastForm, amount: e.target.value })}
+                      placeholder="500"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Status</Label>
+                    <Select value={pastForm.status} onValueChange={(val) => setPastForm({ ...pastForm, status: val })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="paid">Already Paid</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {pastForm.status === "paid" && (
+                    <div>
+                      <Label>Payment Date</Label>
+                      <Input
+                        type="date"
+                        value={pastForm.paid_at}
+                        onChange={(e) => setPastForm({ ...pastForm, paid_at: e.target.value })}
+                      />
+                    </div>
+                  )}
+                  {pastForm.status === "pending" && (
+                    <div>
+                      <Label>Due Date</Label>
+                      <Input
+                        type="date"
+                        value={pastForm.due_date}
+                        onChange={(e) => setPastForm({ ...pastForm, due_date: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label>Remarks</Label>
+                  <Input
+                    value={pastForm.remarks}
+                    onChange={(e) => setPastForm({ ...pastForm, remarks: e.target.value })}
+                    placeholder="e.g. Cash payment collected at meeting"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label>Select Members ({pastSelected.size} selected)</Label>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
+                        const visible = pastMembers.filter((m) => {
+                          if (!pastSearch) return true;
+                          const q = pastSearch.toLowerCase();
+                          return m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q);
+                        });
+                        setPastSelected(new Set(visible.map((m) => m.id)));
+                      }}>Select All</Button>
+                      <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setPastSelected(new Set())}>Clear</Button>
+                    </div>
+                  </div>
+                  <Input
+                    placeholder="Search members..."
+                    value={pastSearch}
+                    onChange={(e) => setPastSearch(e.target.value)}
+                    className="mb-2"
+                  />
+                  <div className="border rounded-xl max-h-[200px] overflow-y-auto divide-y">
+                    {pastMembers
+                      .filter((m) => {
+                        if (!pastSearch) return true;
+                        const q = pastSearch.toLowerCase();
+                        return m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q);
+                      })
+                      .map((m) => (
+                        <label key={m.id} className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={pastSelected.has(m.id)}
+                            onChange={() => {
+                              setPastSelected((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(m.id)) next.delete(m.id);
+                                else next.add(m.id);
+                                return next;
+                              });
+                            }}
+                            className="rounded"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate uppercase">{m.name || "Unnamed"}</p>
+                            <p className="text-xs text-muted-foreground truncate">{m.email}</p>
+                          </div>
+                        </label>
+                      ))}
+                    {pastMembers.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">Loading members...</p>
+                    )}
+                  </div>
+                </div>
+                <Button type="submit" disabled={pastLoading || pastSelected.size === 0} className="w-full bg-primary hover:bg-primary/90">
+                  {pastLoading ? "Creating..." : `Create for ${pastSelected.size} Member${pastSelected.size !== 1 ? "s" : ""}`}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
           <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90">
@@ -433,6 +686,14 @@ export default function AdminSubscriptionsPage() {
         </Dialog>
         </div>
       </div>
+
+      <Tabs defaultValue="members" onValueChange={(val) => { if (val === "district-report" && districtRows.length === 0) loadDistrictReport(); }}>
+        <TabsList>
+          <TabsTrigger value="members">Member Payments</TabsTrigger>
+          <TabsTrigger value="district-report" className="gap-1.5"><BarChart3 size={14} /> District Report</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="members" className="space-y-6 mt-4">
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -672,6 +933,22 @@ export default function AdminSubscriptionsPage() {
                       )}
                       <Button
                         size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setNotifySub(sub);
+                          setNotifyMessage(
+                            sub.status === "pending" || sub.status === "overdue"
+                              ? `Your subscription payment for ${sub.period} (₹${sub.amount?.toLocaleString("en-IN") || 0}) is still ${sub.status}. Please make the payment and upload the proof in the TANHOWA portal at your earliest convenience.`
+                              : ""
+                          );
+                        }}
+                      >
+                        <Send size={12} className="mr-1" />
+                        Notify
+                      </Button>
+                      <Button
+                        size="sm"
                         variant="ghost"
                         className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
                         onClick={() => handleDelete(sub.id)}
@@ -687,6 +964,81 @@ export default function AdminSubscriptionsPage() {
           })}
         </div>
       )}
+
+        </TabsContent>
+
+        <TabsContent value="district-report" className="space-y-4 mt-4">
+          {districtLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading district report...</span>
+            </div>
+          ) : districtRows.length === 0 ? (
+            <div className="text-center py-12">
+              <BarChart3 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground">No paid subscription data to show</p>
+            </div>
+          ) : (
+            <>
+              <Card>
+                <CardContent className="pt-4">
+                  <p className="text-sm text-muted-foreground mb-1">District-wise subscription collection report computed from verified payments.</p>
+                  <Button variant="outline" size="sm" onClick={loadDistrictReport}>Refresh</Button>
+                </CardContent>
+              </Card>
+              <div className="rounded-xl border overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="text-left px-4 py-3 font-semibold">S.No</th>
+                      <th className="text-left px-4 py-3 font-semibold">District</th>
+                      <th className="text-center px-4 py-3 font-semibold">Members</th>
+                      {districtPeriods.map((p) => (
+                        <th key={p} className="text-right px-4 py-3 font-semibold">{p}</th>
+                      ))}
+                      <th className="text-right px-4 py-3 font-semibold">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {districtRows.map((row, i) => (
+                      <tr key={row.district} className="hover:bg-muted/30">
+                        <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
+                        <td className="px-4 py-2.5 font-medium">{row.district}</td>
+                        <td className="px-4 py-2.5 text-center">{row.members}</td>
+                        {districtPeriods.map((p) => (
+                          <td key={p} className="px-4 py-2.5 text-right font-mono">
+                            {(row[p] as number) > 0 ? `₹${(row[p] as number).toLocaleString("en-IN")}` : "—"}
+                          </td>
+                        ))}
+                        <td className="px-4 py-2.5 text-right font-semibold font-mono">
+                          {(row.total as number) > 0 ? `₹${(row.total as number).toLocaleString("en-IN")}` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {districtGrandTotal && (
+                    <tfoot>
+                      <tr className="bg-primary/5 font-bold border-t-2">
+                        <td className="px-4 py-3" />
+                        <td className="px-4 py-3">TOTAL</td>
+                        <td className="px-4 py-3 text-center">{districtGrandTotal.members}</td>
+                        {districtPeriods.map((p) => (
+                          <td key={p} className="px-4 py-3 text-right font-mono">
+                            ₹{((districtGrandTotal[p] as number) || 0).toLocaleString("en-IN")}
+                          </td>
+                        ))}
+                        <td className="px-4 py-3 text-right font-mono">
+                          ₹{((districtGrandTotal.total as number) || 0).toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Verify Payment Dialog */}
       <Dialog open={!!payDialog} onOpenChange={(open) => !open && setPayDialog(null)}>
@@ -1045,6 +1397,54 @@ export default function AdminSubscriptionsPage() {
               {bulkVerifyLoading ? "Verifying..." : `Verify ${bulkVerifySelected.size} Member(s) as Paid`}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notify Member Dialog */}
+      <Dialog open={!!notifySub} onOpenChange={(open) => !open && setNotifySub(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Notification</DialogTitle>
+          </DialogHeader>
+          {notifySub && (
+            <div className="space-y-4">
+              <div className="rounded-xl border bg-muted/30 p-3 text-sm">
+                <p className="font-medium uppercase">{notifySub.users?.name || "Unknown"}</p>
+                <p className="text-xs text-muted-foreground">{notifySub.users?.email}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="secondary" className="text-xs">{notifySub.period}</Badge>
+                  <span className="text-sm font-semibold">&#8377;{notifySub.amount?.toLocaleString("en-IN") || 0}</span>
+                  <Badge
+                    variant="outline"
+                    className={
+                      notifySub.status === "paid"
+                        ? "bg-green-100 text-green-700 border-green-300"
+                        : notifySub.status === "overdue"
+                          ? "bg-red-100 text-red-700 border-red-300"
+                          : "bg-amber-100 text-amber-700 border-amber-300"
+                    }
+                  >
+                    {notifySub.status.charAt(0).toUpperCase() + notifySub.status.slice(1)}
+                  </Badge>
+                </div>
+              </div>
+              <form onSubmit={handleNotify} className="space-y-3">
+                <div>
+                  <Label>Message *</Label>
+                  <Textarea
+                    value={notifyMessage}
+                    onChange={(e) => setNotifyMessage(e.target.value)}
+                    placeholder="Enter the message to send to this member..."
+                    rows={4}
+                    required
+                  />
+                </div>
+                <Button type="submit" disabled={notifyLoading || !notifyMessage.trim()} className="w-full bg-primary hover:bg-primary/90">
+                  {notifyLoading ? "Sending..." : `Send to ${notifySub.users?.email}`}
+                </Button>
+              </form>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

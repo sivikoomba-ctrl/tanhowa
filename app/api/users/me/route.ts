@@ -97,6 +97,7 @@ export async function PUT(req: NextRequest) {
         name,
         phone,
         address: body.address || "",
+        office_address: body.office_address || "",
         dob,
         occupation,
         photo_url: body.photo_url || "",

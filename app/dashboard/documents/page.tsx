@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { FileText, Download, Upload, Search, FolderLock, Filter, Link, FileUp, X } from "lucide-react";
+import { FileText, Download, Upload, Search, FolderLock, Filter, Link, FileUp, X, Eye } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 const docCategories = [
@@ -46,6 +46,7 @@ export default function DocumentsPage() {
   const [uploadMode, setUploadMode] = useState<"file" | "url">("file");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
 
   function load() {
     fetch("/api/documents")
@@ -126,8 +127,59 @@ export default function DocumentsPage() {
     setLoading(false);
   }
 
+  function getPreviewType(doc: Document): "image" | "pdf" | null {
+    const ext = (doc.file_type || "").toLowerCase();
+    const url = (doc.file_url || "").toLowerCase();
+    if (["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext) || /\.(jpg|jpeg|png|webp|gif|svg)(\?|$)/.test(url)) return "image";
+    if (ext === "pdf" || url.endsWith(".pdf") || /\.pdf(\?|$)/.test(url)) return "pdf";
+    return null;
+  }
+
+  function handleView(doc: Document) {
+    const type = getPreviewType(doc);
+    if (type) {
+      setPreviewDoc(doc);
+    } else {
+      window.open(doc.file_url, "_blank", "noopener,noreferrer");
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* Document Preview Dialog */}
+      <Dialog open={!!previewDoc} onOpenChange={(open) => { if (!open) setPreviewDoc(null); }}>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-5 pb-3">
+            <DialogTitle className="pr-8 truncate">{previewDoc?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto px-6 pb-5">
+            {previewDoc && getPreviewType(previewDoc) === "image" && (
+              <img
+                src={previewDoc.file_url}
+                alt={previewDoc.title}
+                className="w-full h-auto rounded-xl"
+              />
+            )}
+            {previewDoc && getPreviewType(previewDoc) === "pdf" && (
+              <iframe
+                src={previewDoc.file_url}
+                className="w-full rounded-xl border"
+                style={{ height: "70vh" }}
+                title={previewDoc.title}
+              />
+            )}
+          </div>
+          <div className="flex items-center justify-end gap-2 px-6 pb-4">
+            <Button variant="outline" size="sm" asChild>
+              <a href={previewDoc?.file_url} target="_blank" rel="noopener noreferrer">
+                <Download size={14} className="mr-1" />
+                Download
+              </a>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -395,12 +447,18 @@ export default function DocumentsPage() {
                         {doc.users?.name && <span>by {doc.users.name} &middot; </span>}
                         {formatDate(doc.created_at)}
                       </div>
-                      <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                          <Download size={12} className="mr-1" />
-                          Download
-                        </a>
-                      </Button>
+                      <div className="flex items-center gap-1.5">
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleView(doc)}>
+                          <Eye size={12} className="mr-1" />
+                          View
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
+                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                            <Download size={12} className="mr-1" />
+                            Download
+                          </a>
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

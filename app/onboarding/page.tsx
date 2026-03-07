@@ -52,6 +52,7 @@ interface UserProfile {
   last_name: string;
   phone: string;
   address: string;
+  office_address: string;
   dob: string;
   occupation: string;
   occupation_other: string;
@@ -83,7 +84,7 @@ function isValidPhone(phone: string): boolean {
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState<UserProfile>({
-    first_name: "", last_name: "", phone: "", address: "", dob: "",
+    first_name: "", last_name: "", phone: "", address: "", office_address: "", dob: "",
     occupation: "Horticultural Officer", occupation_other: "",
     posting_details: emptyPosting,
     social_links: { instagram: "", twitter: "", linkedin: "", whatsapp: "" },
@@ -108,7 +109,7 @@ export default function OnboardingPage() {
       const lastName = nameParts.slice(1).join(" ") || "";
       setProfile((prev) => ({
         ...prev, first_name: firstName, last_name: lastName, phone: data.user.phone || "",
-        address: data.user.address || "", dob: data.user.dob || "",
+        address: data.user.address || "", office_address: data.user.office_address || "", dob: data.user.dob || "",
         occupation: data.user.occupation || "Horticultural Officer",
         posting_details: data.user.posting_details || emptyPosting,
         social_links: { instagram: sl.instagram || "", twitter: sl.twitter || "", linkedin: sl.linkedin || "", whatsapp: sl.whatsapp || "" },
@@ -258,8 +259,12 @@ export default function OnboardingPage() {
                     </div>
                   )}
                   <div>
-                    <Label htmlFor="address">Address</Label>
-                    <Textarea id="address" value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} placeholder="Your address" rows={2} />
+                    <Label htmlFor="address">Home Address</Label>
+                    <Textarea id="address" value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} placeholder="Your home address" rows={2} />
+                  </div>
+                  <div>
+                    <Label htmlFor="office_address">Office Address</Label>
+                    <Textarea id="office_address" value={profile.office_address} onChange={(e) => setProfile({ ...profile, office_address: e.target.value })} placeholder="Your office address" rows={2} />
                   </div>
                 </div>
               )}

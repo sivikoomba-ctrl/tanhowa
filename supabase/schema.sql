@@ -130,6 +130,23 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Office address (home address uses existing 'address' column)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS office_address TEXT DEFAULT '';
+
+-- Document visibility & per-member access
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS visibility TEXT DEFAULT 'all';
+
+CREATE TABLE IF NOT EXISTS document_access (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(document_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_access_doc ON document_access(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_access_user ON document_access(user_id);
+
 -- Additional indexes
 CREATE INDEX IF NOT EXISTS idx_grievances_submitted_by ON grievances(submitted_by);
 CREATE INDEX IF NOT EXISTS idx_grievances_status ON grievances(status);

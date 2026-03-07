@@ -25,6 +25,7 @@ interface User {
   email: string;
   phone: string;
   address: string;
+  office_address: string;
   dob: string;
   occupation: string;
   role: string;
@@ -62,6 +63,7 @@ export default function AdminUsersPage() {
     if (res.ok) {
       toast.success(`User ${action}d successfully`);
       loadUsers();
+      window.dispatchEvent(new Event("admin-users-changed"));
     } else {
       toast.error("Action failed");
     }
@@ -74,6 +76,7 @@ export default function AdminUsersPage() {
     if (res.ok) {
       toast.success("User deleted");
       loadUsers();
+      window.dispatchEvent(new Event("admin-users-changed"));
     } else {
       const data = await res.json();
       toast.error(data.error || "Delete failed");
@@ -229,11 +232,18 @@ export default function AdminUsersPage() {
                                 <p className="font-medium">{u.occupation || "—"}</p>
                               </div>
                             </div>
-                            <div className="flex items-start gap-2 sm:col-span-2">
+                            <div className="flex items-start gap-2">
                               <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
                               <div>
-                                <p className="text-xs text-muted-foreground">Address</p>
+                                <p className="text-xs text-muted-foreground">Home Address</p>
                                 <p className="font-medium">{u.address || "—"}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                              <div>
+                                <p className="text-xs text-muted-foreground">Office Address</p>
+                                <p className="font-medium">{u.office_address || "—"}</p>
                               </div>
                             </div>
                           </div>
