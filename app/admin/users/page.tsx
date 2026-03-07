@@ -66,7 +66,7 @@ export default function AdminUsersPage() {
       const q = search.toLowerCase();
       result = result.filter(
         (u) =>
-          u.name?.toLowerCase().includes(q) ||
+          (u.name || "unnamed").toLowerCase().includes(q) ||
           u.email?.toLowerCase().includes(q) ||
           u.phone?.toLowerCase().includes(q) ||
           u.occupation?.toLowerCase().includes(q)
