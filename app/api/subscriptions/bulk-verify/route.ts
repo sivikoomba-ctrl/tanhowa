@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
         status: "paid",
         paid_at: paidAt,
         updated_at: new Date().toISOString(),
+        approved_by: session.userId,
+        approved_at: new Date().toISOString(),
       };
       if (proofPath) updates.payment_proof_url = proofPath;
       if (remarks) updates.remarks = remarks;

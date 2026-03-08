@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
       let query = supabase
         .from("subscriptions")
-        .select("*, users(name, email, phone)")
+        .select("*, users(name, email, phone), approver:approved_by(name)")
         .order("created_at", { ascending: false });
 
       if (period) query = query.eq("period", period);
@@ -187,6 +187,8 @@ export async function POST(req: NextRequest) {
         paid_at: isPaid ? (body.paid_at || new Date().toISOString()) : null,
         remarks: body.remarks || null,
         payment_proof_url: body.payment_proof_url || null,
+        approved_by: isPaid ? session.userId : null,
+        approved_at: isPaid ? new Date().toISOString() : null,
       }));
 
       const { error } = await supabase.from("subscriptions").insert(rows);
@@ -306,6 +308,12 @@ export async function PUT(req: NextRequest) {
       updates.status = body.status;
       if (body.status === "paid") {
         updates.paid_at = body.paid_at || new Date().toISOString();
+        updates.approved_by = session.userId;
+        updates.approved_at = new Date().toISOString();
+      } else {
+        // Clear approval info when reverting
+        updates.approved_by = null;
+        updates.approved_at = null;
       }
     }
     if (body.amount !== undefined) updates.amount = body.amount;

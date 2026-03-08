@@ -130,6 +130,10 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Subscription approval tracking
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id);
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+
 -- Office address (home address uses existing 'address' column)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS office_address TEXT DEFAULT '';
 

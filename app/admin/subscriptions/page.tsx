@@ -47,8 +47,11 @@ interface Subscription {
   transaction_id: string | null;
   payment_proof_url: string | null;
   remarks: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
   created_at: string;
   users?: { name: string; email: string; phone: string };
+  approver?: { name: string } | null;
 }
 
 interface Stats {
@@ -899,6 +902,12 @@ export default function AdminSubscriptionsPage() {
                         <p className="text-xs text-muted-foreground">Method: {sub.payment_method}</p>
                       )}
                       {sub.remarks && <p className="text-xs text-muted-foreground">Note: {sub.remarks}</p>}
+                      {sub.approved_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Approved: {formatDateTime(sub.approved_at)}
+                          {sub.approver?.name && <> by <span className="font-medium">{sub.approver.name}</span></>}
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       {hasProof && (
