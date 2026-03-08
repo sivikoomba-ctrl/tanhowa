@@ -88,7 +88,7 @@ export default function AdminTodosPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
-  const [viewMode, setViewMode] = useState<"list" | "matrix">("list");
+  const [viewMode, setViewMode] = useState<"list" | "matrix">("matrix");
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
   const [editStatus, setEditStatus] = useState("");
   const [editUrgent, setEditUrgent] = useState(false);
@@ -275,7 +275,7 @@ export default function AdminTodosPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">To-Do List</h1>
+        <h1 className="text-2xl font-bold">Eisenhower Matrix</h1>
         <div className="flex items-center gap-2">
           <Button
             variant={viewMode === "list" ? "default" : "outline"}
