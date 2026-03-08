@@ -11,7 +11,7 @@ export async function GET() {
   const supabase = getServiceClient();
   const { data } = await supabase
     .from("subscriptions")
-    .select("paid_at, period, users(name)")
+    .select("paid_at, period, users!subscriptions_user_id_fkey(name)")
     .eq("status", "paid")
     .not("paid_at", "is", null)
     .order("paid_at", { ascending: false })

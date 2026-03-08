@@ -21,7 +21,7 @@ export async function GET() {
     // Fetch all paid subscriptions with user posting details
     const { data: paidSubs } = await supabase
       .from("subscriptions")
-      .select("amount, period, user_id, users(posting_details)")
+      .select("amount, period, user_id, users!subscriptions_user_id_fkey(posting_details)")
       .eq("status", "paid");
 
     // Fetch all approved members with their districts

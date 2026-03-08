@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
       // Build query — fetch subscriptions and stats in parallel
       let query = supabase
         .from("subscriptions")
-        .select("*, users(name, email, phone)")
+        .select("*, users!subscriptions_user_id_fkey(name, email, phone), approver:users!subscriptions_approved_by_fkey(name)")
         .order("created_at", { ascending: false });
 
       if (period) query = query.eq("period", period);
@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
 
       const { data: sub } = await supabase
         .from("subscriptions")
-        .select("period, amount, users(name, email)")
+        .select("period, amount, users!subscriptions_user_id_fkey(name, email)")
         .eq("id", body.subscription_id)
         .single();
 
@@ -343,7 +343,7 @@ export async function PUT(req: NextRequest) {
       try {
         const { data: sub } = await supabase
           .from("subscriptions")
-          .select("period, amount, user_id, users(name, email)")
+          .select("period, amount, user_id, users!subscriptions_user_id_fkey(name, email)")
           .eq("id", body.id)
           .single();
 

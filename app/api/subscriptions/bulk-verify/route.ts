@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       try {
         const { data: verifiedSubs } = await supabase
           .from("subscriptions")
-          .select("period, amount, users(name, email)")
+          .select("period, amount, users!subscriptions_user_id_fkey(name, email)")
           .in("id", subscriptionIds)
           .eq("status", "paid");
 
