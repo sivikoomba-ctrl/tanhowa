@@ -11,16 +11,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter, Send } from "lucide-react";
+import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter, Send, Clock } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
 
 const nudgeFieldOptions = [
-  { value: "Name", label: "Name" },
-  { value: "Phone", label: "Phone" },
+  { value: "Name", label: "Name *" },
+  { value: "Phone", label: "Phone *" },
   { value: "Date of Birth", label: "Date of Birth" },
   { value: "Gender", label: "Gender" },
-  { value: "Designation", label: "Designation" },
+  { value: "Designation", label: "Designation *" },
   { value: "Qualification", label: "Qualification" },
   { value: "Home Address", label: "Home Address" },
   { value: "Office Address", label: "Office Address" },
@@ -56,6 +56,7 @@ interface User {
   social_links: { instagram?: string; twitter?: string; linkedin?: string };
   photo_url: string;
   created_at: string;
+  profile_nudge: { fields: string[]; message: string; requested_at: string } | null;
 }
 
 export default function AdminUsersPage() {
@@ -378,15 +379,27 @@ export default function AdminUsersPage() {
 
                           {/* Request Update */}
                           {tab === "approved" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => { setNudgeUserId(u.id); setNudgeFields([]); setNudgeMessage(""); }}
-                              className="text-amber-700 border-amber-300 hover:bg-amber-50"
-                            >
-                              <Send size={14} className="mr-1" />
-                              Request Profile Update
-                            </Button>
+                            <div className="space-y-2">
+                              {u.profile_nudge && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+                                  <div className="flex items-center gap-2 text-amber-800 font-medium mb-1">
+                                    <Clock size={14} />
+                                    Update requested on {new Date(u.profile_nudge.requested_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                  </div>
+                                  <p className="text-amber-700">Fields: {u.profile_nudge.fields.join(", ")}</p>
+                                  {u.profile_nudge.message && <p className="text-amber-600 text-xs mt-1">{u.profile_nudge.message}</p>}
+                                </div>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => { setNudgeUserId(u.id); setNudgeFields([]); setNudgeMessage(""); }}
+                                className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                              >
+                                <Send size={14} className="mr-1" />
+                                {u.profile_nudge ? "Send New Request" : "Request Profile Update"}
+                              </Button>
+                            </div>
                           )}
 
                           {/* Social Links */}
