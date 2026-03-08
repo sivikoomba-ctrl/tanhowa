@@ -101,8 +101,20 @@ export default function AdminUsersPage() {
         (u) => u.posting_details?.regular_district === districtFilter
       );
     }
+    // Sort: most recently active first, then by name
+    result = [...result].sort((a, b) => {
+      const aTime = a.last_active_at ? new Date(a.last_active_at).getTime() : 0;
+      const bTime = b.last_active_at ? new Date(b.last_active_at).getTime() : 0;
+      if (bTime !== aTime) return bTime - aTime;
+      return (a.name || "").localeCompare(b.name || "");
+    });
     return result;
   }, [users, search, districtFilter]);
+
+  const onlineCount = useMemo(() => {
+    const fiveMinAgo = Date.now() - 5 * 60000;
+    return users.filter((u) => u.last_active_at && new Date(u.last_active_at).getTime() > fiveMinAgo).length;
+  }, [users]);
 
   async function handleAction(userId: string, action: string, role?: string) {
     const res = await fetch("/api/admin/users", {
@@ -217,6 +229,11 @@ export default function AdminUsersPage() {
               {filteredUsers.length !== users.length
                 ? `Showing ${filteredUsers.length} of ${users.length} users`
                 : `${users.length} users`}
+              {onlineCount > 0 && (
+                <span className="ml-2 text-green-600 font-medium">
+                  ({onlineCount} online)
+                </span>
+              )}
             </p>
           )}
           {filteredUsers.length === 0 ? (
