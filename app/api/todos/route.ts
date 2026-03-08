@@ -24,9 +24,23 @@ export async function GET(req: NextRequest) {
       query = query.eq("status", status);
     }
 
-    // Members see only their own submitted or assigned tasks; admins see all
+    // Members see only their own submitted, assigned, or team-assigned tasks; admins see all
     if (dbRole !== "admin") {
-      query = query.or(`submitted_by.eq.${session.userId},assigned_to.eq.${session.userId}`);
+      // Get user's team IDs
+      const { data: userTeams } = await supabase
+        .from("team_members")
+        .select("team_id")
+        .eq("user_id", session.userId);
+
+      const userTeamIds = (userTeams || []).map((t) => t.team_id);
+
+      if (userTeamIds.length > 0) {
+        query = query.or(
+          `submitted_by.eq.${session.userId},assigned_to.eq.${session.userId},assigned_team_id.in.(${userTeamIds.join(",")})`
+        );
+      } else {
+        query = query.or(`submitted_by.eq.${session.userId},assigned_to.eq.${session.userId}`);
+      }
     }
 
     const { data: todos, error } = await query;
@@ -36,7 +50,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch todos" }, { status: 500 });
     }
 
-    return NextResponse.json({ todos: todos || [] });
+    // Fetch team names for todos with assigned_team_id
+    const teamIds = [...new Set((todos || []).filter((t) => t.assigned_team_id).map((t) => t.assigned_team_id))];
+    let teamsMap: Record<string, { id: string; name: string; icon: string }> = {};
+    if (teamIds.length > 0) {
+      const { data: teams } = await supabase
+        .from("teams")
+        .select("id, name, icon")
+        .in("id", teamIds);
+      teamsMap = (teams || []).reduce((acc, t) => {
+        acc[t.id] = t;
+        return acc;
+      }, {} as Record<string, { id: string; name: string; icon: string }>);
+    }
+
+    const todosWithTeams = (todos || []).map((t) => ({
+      ...t,
+      assigned_team: t.assigned_team_id ? teamsMap[t.assigned_team_id] || null : null,
+    }));
+
+    return NextResponse.json({ todos: todosWithTeams });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/todos", method: "GET", status_code: 500 });
@@ -107,6 +140,10 @@ export async function PUT(req: NextRequest) {
       if (body.urgent !== undefined) updates.urgent = body.urgent;
       if (body.important !== undefined) updates.important = body.important;
       if (body.assigned_to !== undefined) updates.assigned_to = body.assigned_to || null;
+      if (body.assigned_team_id !== undefined) updates.assigned_team_id = body.assigned_team_id || null;
+      // Clear individual assignment when team is set, and vice versa
+      if (body.assigned_team_id) updates.assigned_to = null;
+      if (body.assigned_to) updates.assigned_team_id = null;
       if (body.admin_remarks !== undefined) updates.admin_remarks = body.admin_remarks;
       if (body.due_date !== undefined) updates.due_date = body.due_date || null;
 

@@ -33,6 +33,12 @@ interface TodoUser {
   occupation: string;
 }
 
+interface Team {
+  id: string;
+  name: string;
+  icon: string;
+}
+
 interface Todo {
   id: string;
   title: string;
@@ -44,8 +50,10 @@ interface Todo {
   admin_remarks: string;
   submitted_by: string;
   assigned_to: string | null;
+  assigned_team_id: string | null;
   submitter: TodoUser | null;
   assignee: TodoUser | null;
+  assigned_team: Team | null;
   approved_by: string | null;
   approved_at: string | null;
   completed_at: string | null;
@@ -77,6 +85,7 @@ const quadrants = [
 export default function AdminTodosPage() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState<"list" | "matrix">("list");
@@ -92,12 +101,14 @@ export default function AdminTodosPage() {
 
   async function fetchData() {
     try {
-      const [todosRes, membersRes] = await Promise.all([
+      const [todosRes, membersRes, teamsRes] = await Promise.all([
         fetch("/api/todos").then((r) => r.json()),
         fetch("/api/users").then((r) => r.json()),
+        fetch("/api/teams").then((r) => r.json()),
       ]);
       setTodos(todosRes.todos || []);
       setMembers(membersRes.users || []);
+      setTeams((teamsRes.teams || []).map((t: Team & Record<string, unknown>) => ({ id: t.id, name: t.name, icon: t.icon })));
     } catch {
       toast.error("Failed to load data");
     } finally {
@@ -114,7 +125,7 @@ export default function AdminTodosPage() {
     setEditStatus(todo.status);
     setEditUrgent(todo.urgent);
     setEditImportant(todo.important);
-    setEditAssignedTo(todo.assigned_to || "none");
+    setEditAssignedTo(todo.assigned_team_id ? `team:${todo.assigned_team_id}` : todo.assigned_to || "none");
     setEditRemarks(todo.admin_remarks);
     setEditDueDate(todo.due_date || "");
   }
@@ -131,7 +142,8 @@ export default function AdminTodosPage() {
           status: editStatus,
           urgent: editUrgent,
           important: editImportant,
-          assigned_to: editAssignedTo === "none" ? null : editAssignedTo,
+          assigned_to: editAssignedTo.startsWith("team:") ? null : editAssignedTo === "none" ? null : editAssignedTo,
+          assigned_team_id: editAssignedTo.startsWith("team:") ? editAssignedTo.replace("team:", "") : null,
           admin_remarks: editRemarks,
           due_date: editDueDate || null,
         }),
@@ -224,6 +236,11 @@ export default function AdminTodosPage() {
                 <AvatarFallback className="text-[6px] bg-primary/10 text-primary">{todo.submitter.name?.charAt(0)}</AvatarFallback>
               </Avatar>
               {todo.submitter.name}
+            </span>
+          )}
+          {todo.assigned_team && (
+            <span className="flex items-center gap-0.5 font-medium text-primary">
+              {todo.assigned_team.icon ? `${todo.assigned_team.icon} ` : ""}{todo.assigned_team.name}
             </span>
           )}
           {todo.due_date && (
@@ -453,10 +470,21 @@ export default function AdminTodosPage() {
                 <Label>Assign To</Label>
                 <Select value={editAssignedTo} onValueChange={setEditAssignedTo}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select member" />
+                    <SelectValue placeholder="Select member or team" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Unassigned</SelectItem>
+                    {teams.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Teams</div>
+                        {teams.map((t) => (
+                          <SelectItem key={`team:${t.id}`} value={`team:${t.id}`}>
+                            {t.icon ? `${t.icon} ` : ""}{t.name}
+                          </SelectItem>
+                        ))}
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Members</div>
+                      </>
+                    )}
                     {members.map((m) => (
                       <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                     ))}

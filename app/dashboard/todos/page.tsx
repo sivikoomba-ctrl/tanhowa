@@ -29,6 +29,12 @@ interface TodoUser {
   occupation: string;
 }
 
+interface TodoTeam {
+  id: string;
+  name: string;
+  icon: string;
+}
+
 interface Todo {
   id: string;
   title: string;
@@ -40,8 +46,10 @@ interface Todo {
   admin_remarks: string;
   submitted_by: string;
   assigned_to: string | null;
+  assigned_team_id: string | null;
   submitter: TodoUser | null;
   assignee: TodoUser | null;
+  assigned_team: TodoTeam | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -224,6 +232,12 @@ export default function TodosPage() {
                               </AvatarFallback>
                             </Avatar>
                             Assigned to {todo.assignee.name}
+                          </span>
+                        )}
+                        {todo.assigned_team && (
+                          <span className="flex items-center gap-1 font-medium text-primary">
+                            {todo.assigned_team.icon ? `${todo.assigned_team.icon} ` : ""}
+                            Assigned to {todo.assigned_team.name}
                           </span>
                         )}
                         <span>

@@ -207,6 +207,7 @@ CREATE TABLE IF NOT EXISTS todos (
   description TEXT DEFAULT '',
   submitted_by UUID REFERENCES users(id) ON DELETE SET NULL,
   assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+  assigned_team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'in_progress', 'completed', 'rejected')),
   urgent BOOLEAN DEFAULT FALSE,
   important BOOLEAN DEFAULT FALSE,
@@ -221,4 +222,5 @@ CREATE TABLE IF NOT EXISTS todos (
 
 CREATE INDEX IF NOT EXISTS idx_todos_submitted_by ON todos(submitted_by);
 CREATE INDEX IF NOT EXISTS idx_todos_assigned_to ON todos(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_todos_assigned_team ON todos(assigned_team_id);
 CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
