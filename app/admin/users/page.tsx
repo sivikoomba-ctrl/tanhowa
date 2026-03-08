@@ -172,6 +172,7 @@ export default function AdminUsersPage() {
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="approved">Approved</TabsTrigger>
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
+          <TabsTrigger value="all">All</TabsTrigger>
         </TabsList>
 
         <TabsContent value={tab} className="mt-4 space-y-4">
@@ -198,8 +199,12 @@ export default function AdminUsersPage() {
               </SelectContent>
             </Select>
           </div>
-          {users.length > 0 && filteredUsers.length !== users.length && (
-            <p className="text-sm text-muted-foreground">Showing {filteredUsers.length} of {users.length} users</p>
+          {users.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {filteredUsers.length !== users.length
+                ? `Showing ${filteredUsers.length} of ${users.length} users`
+                : `${users.length} users`}
+            </p>
           )}
           {filteredUsers.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center">
@@ -227,6 +232,11 @@ export default function AdminUsersPage() {
                             <Badge variant={u.role === "admin" ? "default" : "outline"} className="text-xs">
                               {u.role}
                             </Badge>
+                            {tab === "all" && (
+                              <Badge className={`text-xs ${u.status === "approved" ? "bg-green-100 text-green-800 hover:bg-green-100" : u.status === "pending" ? "bg-amber-100 text-amber-800 hover:bg-amber-100" : "bg-red-100 text-red-800 hover:bg-red-100"}`}>
+                                {u.status}
+                              </Badge>
+                            )}
                             {isExpanded ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
                           </div>
                           <p className="text-sm text-muted-foreground">{u.email}</p>
@@ -285,6 +295,26 @@ export default function AdminUsersPage() {
                             >
                               <Check size={14} className="mr-1" />
                               Approve
+                            </Button>
+                          )}
+                          {tab === "all" && u.status !== "approved" && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleAction(u.id, "approve")}
+                              className="bg-primary hover:bg-primary/90"
+                            >
+                              <Check size={14} className="mr-1" />
+                              Approve
+                            </Button>
+                          )}
+                          {tab === "all" && u.status === "approved" && u.role !== "admin" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAction(u.id, "set-role", "admin")}
+                            >
+                              <Shield size={14} className="mr-1" />
+                              Make Admin
                             </Button>
                           )}
                           <Button
@@ -378,7 +408,7 @@ export default function AdminUsersPage() {
                           )}
 
                           {/* Request Update */}
-                          {tab === "approved" && (
+                          {(tab === "approved" || (tab === "all" && u.status === "approved")) && (
                             <div className="space-y-2">
                               {u.profile_nudge && (
                                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
