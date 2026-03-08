@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter, IndianRupee } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Search, Filter, IndianRupee, X } from "lucide-react";
 
 interface Member {
   id: string;
@@ -34,6 +35,7 @@ export default function MembersPage() {
   const [filterDistrict, setFilterDistrict] = useState("all");
   const [filterOccupation, setFilterOccupation] = useState("all");
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
+  const [viewPhoto, setViewPhoto] = useState<{ url: string; name: string } | null>(null);
   const tickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -154,7 +156,10 @@ export default function MembersPage() {
           <Card key={m.id} className="hover:shadow-md transition-shadow">
             <CardContent className="pt-4">
               <div className="flex items-start gap-3">
-                <Avatar className="w-12 h-12">
+                <Avatar
+                  className="w-12 h-12 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+                  onClick={() => m.photo_url && setViewPhoto({ url: m.photo_url, name: m.name })}
+                >
                   {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                     {m.name?.charAt(0)?.toUpperCase() || "?"}
@@ -187,6 +192,28 @@ export default function MembersPage() {
       {filtered.length === 0 && (
         <p className="text-center text-muted-foreground py-8">No members found</p>
       )}
+
+      {/* Photo Viewer Dialog */}
+      <Dialog open={!!viewPhoto} onOpenChange={() => setViewPhoto(null)}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-2xl">
+          <button
+            onClick={() => setViewPhoto(null)}
+            className="absolute right-3 top-3 z-10 rounded-full bg-black/50 p-1.5 text-white hover:bg-black/70 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          {viewPhoto && (
+            <div className="flex flex-col items-center">
+              <img
+                src={viewPhoto.url}
+                alt={viewPhoto.name}
+                className="w-full max-h-[70vh] object-contain bg-black/5"
+              />
+              <p className="py-3 text-sm font-semibold text-center uppercase">{viewPhoto.name}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

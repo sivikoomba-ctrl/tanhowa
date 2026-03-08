@@ -120,14 +120,16 @@ tanhowa/
 
 ## Authentication Flow
 
-1. User enters email on landing page (`/`)
-2. `POST /api/auth/send-otp` — generates 6-digit OTP, stores in `otp_codes` table, sends via Zoho SMTP
-3. User enters OTP on `/verify`
-4. `POST /api/auth/verify-otp` — validates OTP, creates or finds user, sets JWT cookie (`session`, 7-day expiry, httpOnly)
-5. New user (no name set) → redirect to `/onboarding` for profile completion
+1. User clicks "Continue with Google" on landing page (`/`)
+2. `GET /api/auth/google` — redirects to Google OAuth consent screen (with CSRF state cookie)
+3. Google redirects back to `GET /api/auth/google/callback` with authorization code
+4. Callback exchanges code for tokens, fetches user info (email, name, picture), creates or finds user, sets JWT cookie
+5. New user (no name/phone/occupation) → redirect to `/onboarding` for profile completion
 6. Pending user → redirect to `/pending`
 7. Approved user → redirect to `/dashboard`
 8. Admin users can access `/admin` (role check in admin layout)
+
+**Email OTP fallback:** Users without Google accounts can click "Continue with Email" on the landing page, which expands an email input → sends OTP via `/api/auth/send-otp` → verifies on `/verify` page via `/api/auth/verify-otp`.
 
 **Session payload:** `{ userId, email, role: "member"|"admin", status: "pending"|"approved"|"rejected" }`
 
@@ -174,18 +176,23 @@ export async function GET(req: NextRequest) {
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `users` | Members and admins | email, name, phone, occupation, posting_details (JSONB), social_links (JSONB), role, status |
+| `users` | Members and admins | email, name, phone, occupation, posting_details (JSONB), social_links (JSONB), role, status, last_active_at, profile_nudge (JSONB) |
 | `otp_codes` | Temporary OTP storage | email, code, expires_at, used |
 | `announcements` | News/announcements | title, content, author_id, published (boolean) |
 | `events` | Calendar events | title, description, date, location, image_url |
 | `documents` | Uploaded files | title, file_url, file_type, description, category, approved |
 | `grievances` | Member complaints/suggestions | subject, description, category, status (pending/in_progress/resolved/rejected), admin_remarks, submitted_by |
-| `subscriptions` | Member payment tracking | user_id, period, amount, due_date, status (pending/paid/overdue), payment_method, transaction_id, payment_proof_url, remarks, paid_at |
+| `subscriptions` | Member payment tracking | user_id, period, amount, due_date, status (pending/paid/overdue), payment_method, transaction_id, payment_proof_url, remarks, paid_at, approved_by, approved_at |
 | `document_access` | Per-member document access | document_id, user_id (junction table for visibility="selected" documents) |
 | `error_logs` | Application error tracking | type (api/client/auth), message, stack, path, method, status_code, user_id, metadata (JSONB) |
 | `site_settings` | Key-value site config | key (unique), value |
 
-**Additional user columns:** `office_address` (TEXT), `posting_details` includes `regular_district` used for district-wise reports.
+**Additional user columns:**
+- `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
+- `profile_nudge` (JSONB: `{ fields, message, requested_at, requested_by }`) — admin nudge for profile completion
+- `posting_details` includes `regular_district` used for district-wise reports
+- `social_links` JSONB also stores: `title`, `gender`, `qualification`, `specialisation`, `skill_sets` (object), `languages` (object), `experience` (array of `{ institution, from, to, designation }`), `current_interest_area`, `date_of_joining`
+
 **Document columns:** `visibility` (TEXT, "all" or "selected") controls who can see each document.
 
 ### Migrations beyond base schema
@@ -257,6 +264,14 @@ CREATE TABLE IF NOT EXISTS document_access (
 
 -- Office address
 ALTER TABLE users ADD COLUMN IF NOT EXISTS office_address TEXT DEFAULT '';
+
+-- Activity tracking & admin nudge
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_nudge JSONB DEFAULT NULL;
+
+-- Subscription approval tracking
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id);
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
 ```
 
 ## Environment Variables
@@ -273,6 +288,9 @@ ZOHO_SMTP_PORT=                 # 465
 ZOHO_SMTP_USER=                 # admin@tanhowa.in
 ZOHO_SMTP_PASS=                 # Zoho app password
 GOOGLE_GEMINI_API_KEY=          # Google Generative AI API key
+GOOGLE_CLIENT_ID=               # Google OAuth client ID (from Google Cloud Console)
+GOOGLE_CLIENT_SECRET=           # Google OAuth client secret
+GOOGLE_REDIRECT_URI=            # OAuth callback URL (e.g. https://tanhowa.in/api/auth/google/callback)
 DATABASE_URL=                   # Direct PostgreSQL connection string (used by lib/db.ts)
 ```
 
@@ -321,6 +339,42 @@ npm run lint     # ESLint
 - **Domain:** tanhowa.in and www.tanhowa.in (DNS managed in Cloudflare)
   - A record: `216.198.79.1` (Vercel)
   - CNAME for www: points to Vercel DNS
+
+## Activity Tracking
+
+`/api/users/me` GET silently updates `last_active_at` via fire-and-forget (no `await`). Admin users page sorts by most recently active and shows online count (active within 5 minutes).
+
+## Email System (`lib/mail.ts`)
+
+- `sendOTPEmail(to, otp)` — OTP delivery
+- `sendSubscriptionApprovedEmail(to, memberName, period, amount)` — Payment approval confirmation
+- `sendSubscriptionNotification(to, memberName, period, amount, message)` — Custom admin→member notification
+- `notifyAdminNewRegistration(memberName, memberEmail)` — Alert admins of pending registrations
+- `notifyNewAnnouncement(title, content)` — Broadcast to all members
+- `notifyPaymentVerified(memberName, period)` — Broadcast payment verification
+- `notifyNewMemberRegistered(memberName)` — Broadcast new member welcome
+- `notifyNewEvent(title, date, location?)` — Broadcast event notification
+- `sendBroadcastEmail(subject, bodyHtml)` — Generic broadcast (BCC batched at 40 recipients per email for Zoho limits)
+
+**Flag:** `HOLD_MEMBER_EMAILS = true` disables all member-facing emails except OTP.
+
+## Admin Auth Pattern
+
+- Use `isAdmin(session)` helper which checks DB role (not JWT which may be stale)
+- `DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in"` is auto-approved as admin on first login
+- Admin user actions: approve, reject, nudge (profile completion), change role
+
+## PDF Generation (Admin Reports)
+
+Uses `jspdf` + `jspdf-autotable` for client-side PDF export. Pattern: create landscape doc → header text → autoTable for district summary → autoTable for member details → color-coded status text. Theme color: `fillColor: [45, 106, 79]` (deep green).
+
+## Subscription Auto-Sync
+
+`GET /api/subscriptions?sync=true` (admin only) auto-creates missing subscription records for all approved members based on existing periods.
+
+## AI-Powered Payment Proof Extraction
+
+`POST /api/upload/payment-proof/extract-date` uses Gemini to extract date, time, transaction_id, and payment_method from uploaded payment proof images. Available to all authenticated users (not admin-only).
 
 ## Key Conventions
 
