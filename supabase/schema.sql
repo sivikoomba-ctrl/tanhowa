@@ -199,3 +199,26 @@ CREATE TABLE IF NOT EXISTS team_members (
 CREATE INDEX IF NOT EXISTS idx_teams_sort_order ON teams(sort_order);
 CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
 CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id);
+
+-- To-Do List table (Eisenhower Matrix priority)
+CREATE TABLE IF NOT EXISTS todos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  submitted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'in_progress', 'completed', 'rejected')),
+  urgent BOOLEAN DEFAULT FALSE,
+  important BOOLEAN DEFAULT FALSE,
+  due_date DATE,
+  admin_remarks TEXT DEFAULT '',
+  approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  approved_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_todos_submitted_by ON todos(submitted_by);
+CREATE INDEX IF NOT EXISTS idx_todos_assigned_to ON todos(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);

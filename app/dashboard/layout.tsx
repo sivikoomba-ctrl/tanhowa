@@ -20,6 +20,7 @@ import {
   Shield,
   AlertCircle,
   UsersRound,
+  ListTodo,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -48,6 +49,7 @@ const navItems = [
   { href: "/dashboard/documents", label: "Document Vault", icon: FileText },
   { href: "/dashboard/grievances", label: "Grievances / Suggestions", icon: MessageSquareWarning },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
+  { href: "/dashboard/todos", label: "To-Do List", icon: ListTodo },
 ];
 
 function getMissingFields(u: UserData): string[] {
