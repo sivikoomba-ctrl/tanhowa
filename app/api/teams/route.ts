@@ -23,18 +23,36 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to fetch teams" }, { status: 500 });
     }
 
-    // Fetch team members with user details
+    // Fetch team members
     const { data: teamMembers } = await supabase
       .from("team_members")
-      .select("*, users(id, name, email, phone, photo_url, occupation, role, posting_details)")
+      .select("*")
       .order("created_at", { ascending: true });
+
+    // Get unique user IDs from team members
+    const userIds = [...new Set((teamMembers || []).map((tm) => tm.user_id))];
+
+    // Fetch user details for all team members
+    let usersMap: Record<string, Record<string, unknown>> = {};
+    if (userIds.length > 0) {
+      const { data: users } = await supabase
+        .from("users")
+        .select("id, name, email, phone, photo_url, occupation, role, posting_details")
+        .in("id", userIds);
+
+      usersMap = (users || []).reduce((acc, u) => {
+        acc[u.id] = u;
+        return acc;
+      }, {} as Record<string, Record<string, unknown>>);
+    }
 
     // Group members by team
     const teamsWithMembers = (teams || []).map((team) => ({
       ...team,
       members: (teamMembers || [])
         .filter((tm) => tm.team_id === team.id)
-        .map((tm) => ({ ...tm.users, team_role: tm.role })),
+        .map((tm) => ({ ...usersMap[tm.user_id], team_role: tm.role }))
+        .filter((m) => "id" in m && m.id),
     }));
 
     return NextResponse.json({ teams: teamsWithMembers });
