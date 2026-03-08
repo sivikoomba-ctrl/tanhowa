@@ -45,6 +45,7 @@ export default function SubscriptionsPage() {
   const [detailsForm, setDetailsForm] = useState({ transaction_id: "", payment_method: "", remarks: "", paying_for_others: false, other_members: "" });
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [qrZoom, setQrZoom] = useState(false);
+  const [extracting, setExtracting] = useState(false);
 
   function load() {
     fetch("/api/subscriptions")
@@ -91,7 +92,7 @@ export default function SubscriptionsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success("Thank you for uploading your payment proof! Please fill in the payment details below. Our admin will verify and approve your payment shortly.");
+        toast.success("Payment proof uploaded! Extracting details...");
         load();
         // Open details dialog for this subscription
         const sub = subscriptions.find((s) => s.id === uploadTargetId);
@@ -104,6 +105,26 @@ export default function SubscriptionsPage() {
             paying_for_others: false,
             other_members: "",
           });
+
+          // Auto-extract transaction ID and payment method from proof using AI
+          if (file) {
+            setExtracting(true);
+            try {
+              const extractFd = new FormData();
+              extractFd.append("file", file);
+              const extractRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: extractFd });
+              const extractData = await extractRes.json();
+              if (extractData.transaction_id || extractData.payment_method) {
+                setDetailsForm((prev) => ({
+                  ...prev,
+                  transaction_id: extractData.transaction_id || prev.transaction_id,
+                  payment_method: extractData.payment_method || prev.payment_method,
+                }));
+                toast.success("Transaction details auto-filled from your proof!");
+              }
+            } catch { /* extraction is best-effort */ }
+            setExtracting(false);
+          }
         }
       } else {
         toast.error(data.error || "Upload failed");
@@ -426,12 +447,19 @@ export default function SubscriptionsPage() {
               <form onSubmit={handleSaveDetails} className="space-y-4">
                 <div>
                   <Label>Transaction / Reference ID *</Label>
-                  <Input
-                    value={detailsForm.transaction_id}
-                    onChange={(e) => setDetailsForm({ ...detailsForm, transaction_id: e.target.value })}
-                    placeholder="e.g. UPI ref number, bank ref ID"
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      value={detailsForm.transaction_id}
+                      onChange={(e) => setDetailsForm({ ...detailsForm, transaction_id: e.target.value })}
+                      placeholder={extracting ? "Extracting from proof..." : "e.g. UPI ref number, bank ref ID"}
+                      required
+                    />
+                    {extracting && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label>Payment Method</Label>

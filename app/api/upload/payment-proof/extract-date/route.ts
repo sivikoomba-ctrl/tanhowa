@@ -50,15 +50,16 @@ export async function POST(req: NextRequest) {
     const result = await model.generateContent([
       imageData,
       {
-        text: `Analyze this payment proof/receipt image. Extract the exact payment date and time.
+        text: `Analyze this payment proof/receipt image. Extract the exact payment date, time, transaction/reference ID, and payment method.
 
 Return ONLY a JSON object in this exact format, nothing else:
-{"date": "YYYY-MM-DD", "time": "HH:MM"}
+{"date": "YYYY-MM-DD", "time": "HH:MM", "transaction_id": "string", "payment_method": "string"}
 
 Rules:
 - Use 24-hour time format
-- If you cannot determine the date, use null for "date"
-- If you cannot determine the time, use null for "time"
+- For transaction_id: extract UPI reference number, UTR number, bank reference ID, or any transaction/reference number shown
+- For payment_method: identify the method (e.g., "UPI", "Google Pay", "PhonePe", "Paytm", "Bank Transfer", "NEFT", "IMPS")
+- If you cannot determine any field, use null for that field
 - Do not include any explanation, just the JSON object`,
       },
     ]);
@@ -74,6 +75,8 @@ Rules:
     return NextResponse.json({
       date: parsed.date || null,
       time: parsed.time || null,
+      transaction_id: parsed.transaction_id || null,
+      payment_method: parsed.payment_method || null,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
