@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { getGemini } from "@/lib/gemini";
 import { logError } from "@/lib/error-logger";
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !(await isAdmin(session))) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const formData = await req.formData();
