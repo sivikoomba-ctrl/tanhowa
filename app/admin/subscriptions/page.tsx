@@ -123,6 +123,10 @@ export default function AdminSubscriptionsPage() {
   const [pastSearch, setPastSearch] = useState("");
   const [pastFile, setPastFile] = useState<File | null>(null);
 
+  // Page loading
+  const [pageLoading, setPageLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+
   // Notify member dialog
   const [notifySub, setNotifySub] = useState<Subscription | null>(null);
   const [notifyMessage, setNotifyMessage] = useState("");
@@ -142,20 +146,32 @@ export default function AdminSubscriptionsPage() {
   }
 
   function load() {
-    fetch("/api/subscriptions")
+    setPageLoading(true);
+    Promise.all([
+      fetch("/api/subscriptions").then((r) => r.json()),
+      fetch("/api/settings").then((r) => r.json()),
+    ])
+      .then(([subData, settingsData]) => {
+        setSubscriptions(subData.subscriptions || []);
+        if (subData.stats) setStats(subData.stats);
+        const s = settingsData.settings || {};
+        if (s.payment_qr_url) setQrUrl(s.payment_qr_url);
+      })
+      .catch(() => {})
+      .finally(() => setPageLoading(false));
+  }
+
+  function syncMembers() {
+    setSyncing(true);
+    fetch("/api/subscriptions?sync=true")
       .then((r) => r.json())
       .then((d) => {
         setSubscriptions(d.subscriptions || []);
         if (d.stats) setStats(d.stats);
+        toast.success("Members synced");
       })
-      .catch(() => {});
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        const s = d.settings || {};
-        if (s.payment_qr_url) setQrUrl(s.payment_qr_url);
-      })
-      .catch(() => {});
+      .catch(() => toast.error("Sync failed"))
+      .finally(() => setSyncing(false));
   }
 
   function loadPastMembers() {
@@ -455,6 +471,17 @@ export default function AdminSubscriptionsPage() {
     setBulkVerifyLoading(false);
   }
 
+  if (pageLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading subscriptions...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -469,6 +496,10 @@ export default function AdminSubscriptionsPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={syncMembers} disabled={syncing}>
+            <Users size={16} className="mr-1" />
+            {syncing ? "Syncing..." : "Sync Members"}
+          </Button>
           <Button
             variant="outline"
             onClick={() => {
