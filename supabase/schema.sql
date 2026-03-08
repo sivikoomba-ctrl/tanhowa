@@ -224,3 +224,52 @@ CREATE INDEX IF NOT EXISTS idx_todos_submitted_by ON todos(submitted_by);
 CREATE INDEX IF NOT EXISTS idx_todos_assigned_to ON todos(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_todos_assigned_team ON todos(assigned_team_id);
 CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
+
+-- Subtask hierarchy: parent_id allows task → subtask → sub-subtask (max 2 levels)
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES todos(id) ON DELETE CASCADE;
+-- Human-readable Event ID: ET-001 (task), ET-001-01 (subtask), ET-001-01-01 (sub-subtask)
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS event_id TEXT UNIQUE;
+CREATE INDEX IF NOT EXISTS idx_todos_parent ON todos(parent_id);
+CREATE INDEX IF NOT EXISTS idx_todos_event_id ON todos(event_id);
+
+-- Todo notes/messages (reports, updates, deliverable descriptions)
+CREATE TABLE IF NOT EXISTS todo_notes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  todo_id UUID REFERENCES todos(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  content TEXT NOT NULL,
+  type TEXT DEFAULT 'note' CHECK (type IN ('note', 'report', 'update')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_todo_notes_todo ON todo_notes(todo_id);
+
+-- Todo attachments (deliverable files uploaded against tasks)
+CREATE TABLE IF NOT EXISTS todo_attachments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  todo_id UUID REFERENCES todos(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  file_url TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_type TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_todo_attachments_todo ON todo_attachments(todo_id);
+
+-- Todo vouchers/bills (cost tracking with Finance Team approval)
+CREATE TABLE IF NOT EXISTS todo_vouchers (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  todo_id UUID REFERENCES todos(id) ON DELETE CASCADE,
+  submitted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  description TEXT DEFAULT '',
+  receipt_url TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  approved_at TIMESTAMPTZ,
+  remarks TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_todo_vouchers_todo ON todo_vouchers(todo_id);
+CREATE INDEX IF NOT EXISTS idx_todo_vouchers_status ON todo_vouchers(status);

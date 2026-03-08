@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
     const status = url.searchParams.get("status");
     const dbRole = await getDbRole(session.userId);
 
+    const parentId = url.searchParams.get("parent_id");
+
     let query = supabase
       .from("todos")
       .select("*, submitter:submitted_by(id, name, photo_url, occupation), assignee:assigned_to(id, name, photo_url, occupation)")
@@ -22,6 +24,18 @@ export async function GET(req: NextRequest) {
 
     if (status && status !== "all") {
       query = query.eq("status", status);
+    }
+
+    // Filter by parent: null = top-level only, specific id = children of that task
+    if (parentId === "null" || parentId === null) {
+      // Default: fetch only top-level tasks (no parent)
+      if (!url.searchParams.has("parent_id")) {
+        query = query.is("parent_id", null);
+      } else {
+        query = query.is("parent_id", null);
+      }
+    } else if (parentId) {
+      query = query.eq("parent_id", parentId);
     }
 
     // Members see only their own submitted, assigned, or team-assigned tasks; admins see all
@@ -64,9 +78,24 @@ export async function GET(req: NextRequest) {
       }, {} as Record<string, { id: string; name: string; icon: string }>);
     }
 
+    // Fetch subtask counts for each todo
+    const todoIds = (todos || []).map((t) => t.id);
+    let subtaskCounts: Record<string, number> = {};
+    if (todoIds.length > 0) {
+      const { data: children } = await supabase
+        .from("todos")
+        .select("parent_id")
+        .in("parent_id", todoIds);
+      subtaskCounts = (children || []).reduce((acc, c) => {
+        acc[c.parent_id] = (acc[c.parent_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+    }
+
     const todosWithTeams = (todos || []).map((t) => ({
       ...t,
       assigned_team: t.assigned_team_id ? teamsMap[t.assigned_team_id] || null : null,
+      subtask_count: subtaskCounts[t.id] || 0,
     }));
 
     return NextResponse.json({ todos: todosWithTeams });
@@ -92,6 +121,51 @@ export async function POST(req: NextRequest) {
 
     const supabase = getServiceClient();
 
+    // Generate event_id
+    let eventId: string;
+    if (body.parent_id) {
+      // Get parent event_id and count existing siblings
+      const { data: parent } = await supabase
+        .from("todos")
+        .select("event_id, parent_id")
+        .eq("id", body.parent_id)
+        .single();
+
+      if (!parent) {
+        return NextResponse.json({ error: "Parent task not found" }, { status: 404 });
+      }
+
+      // Enforce max 2 levels (sub-sub-task = level 2)
+      if (parent.parent_id) {
+        // Parent is already a subtask — check if grandparent also has a parent
+        const { data: grandparent } = await supabase
+          .from("todos")
+          .select("parent_id")
+          .eq("id", parent.parent_id)
+          .single();
+        if (grandparent?.parent_id) {
+          return NextResponse.json({ error: "Maximum nesting depth is 2 levels (sub-sub-task)" }, { status: 400 });
+        }
+      }
+
+      const { count } = await supabase
+        .from("todos")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_id", body.parent_id);
+
+      const childNum = (count || 0) + 1;
+      eventId = `${parent.event_id}-${String(childNum).padStart(2, "0")}`;
+    } else {
+      // Top-level task: ET-001, ET-002, etc.
+      const { count } = await supabase
+        .from("todos")
+        .select("id", { count: "exact", head: true })
+        .is("parent_id", null);
+
+      const taskNum = (count || 0) + 1;
+      eventId = `ET-${String(taskNum).padStart(3, "0")}`;
+    }
+
     const { data, error } = await supabase
       .from("todos")
       .insert({
@@ -99,6 +173,8 @@ export async function POST(req: NextRequest) {
         description: body.description || "",
         submitted_by: session.userId,
         due_date: body.due_date || null,
+        parent_id: body.parent_id || null,
+        event_id: eventId,
       })
       .select()
       .single();
