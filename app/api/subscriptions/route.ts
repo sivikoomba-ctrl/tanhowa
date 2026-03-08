@@ -59,19 +59,23 @@ export async function GET(req: NextRequest) {
       // Build query — fetch subscriptions and stats in parallel
       let query = supabase
         .from("subscriptions")
-        .select("*, users(name, email, phone), approver:approved_by(name)")
+        .select("*, users(name, email, phone)")
         .order("created_at", { ascending: false });
 
       if (period) query = query.eq("period", period);
       if (status && status !== "all") query = query.eq("status", status);
 
-      const [{ data: subscriptions }, paidRes, pendingRes, overdueRes, totalAmountRes] = await Promise.all([
+      const [{ data: subscriptions, error: subError }, paidRes, pendingRes, overdueRes, totalAmountRes] = await Promise.all([
         query,
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "paid"),
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "overdue"),
         supabase.from("subscriptions").select("amount").eq("status", "paid"),
       ]);
+
+      if (subError) {
+        await logError({ type: "api", message: subError.message, path: "/api/subscriptions", method: "GET", status_code: 200, metadata: { context: "subscription-query" } });
+      }
 
       const totalCollected = (totalAmountRes.data || []).reduce((sum: number, r: { amount: number }) => sum + (r.amount || 0), 0);
 
