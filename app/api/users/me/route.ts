@@ -103,6 +103,7 @@ export async function PUT(req: NextRequest) {
         photo_url: body.photo_url || "",
         social_links: body.social_links || {},
         posting_details: body.posting_details || {},
+        profile_nudge: null,
       })
       .eq("id", session.userId);
 

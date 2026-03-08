@@ -73,6 +73,22 @@ export async function PUT(req: NextRequest) {
       await supabase.from("users").update({ status: "rejected" }).eq("id", userId);
     } else if (action === "set-role" && role) {
       await supabase.from("users").update({ role }).eq("id", userId);
+    } else if (action === "nudge") {
+      const { fields, message } = body;
+      if (!fields || !Array.isArray(fields) || fields.length === 0) {
+        return NextResponse.json({ error: "At least one field is required" }, { status: 400 });
+      }
+      await supabase
+        .from("users")
+        .update({
+          profile_nudge: {
+            fields,
+            message: message || "",
+            requested_at: new Date().toISOString(),
+            requested_by: session.userId,
+          },
+        })
+        .eq("id", userId);
     }
 
     return NextResponse.json({ message: "User updated" });

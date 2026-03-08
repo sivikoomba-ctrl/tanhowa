@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Camera, Plus, X } from "lucide-react";
+import { Camera, Plus, X, AlertCircle } from "lucide-react";
 import { DISTRICT_NAMES, getBlocks } from "@/lib/tn-districts";
 
 const titleOptions = ["", "Dr."];
@@ -93,6 +93,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState("");
+  const [nudge, setNudge] = useState<{ fields: string[]; message: string } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { minDate, maxDate } = getDobLimits();
@@ -126,6 +127,7 @@ export default function ProfilePage() {
           photo_url: d.user.photo_url || "",
         });
         if (d.user.photo_url) setPhotoPreview(d.user.photo_url);
+        if (d.user.profile_nudge) setNudge(d.user.profile_nudge);
       }
     }).catch(() => {});
   }, []);
@@ -167,7 +169,7 @@ export default function ProfilePage() {
       const payload = { ...profile, name: fullName, occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation, social_links: socialLinksWithExtras };
       const res = await fetch("/api/users/me", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
-      if (res.ok) toast.success("Profile updated");
+      if (res.ok) { toast.success("Profile updated"); setNudge(null); }
       else toast.error(data.error || "Failed to update profile");
     } catch { toast.error("Something went wrong"); }
     finally { setLoading(false); }
@@ -182,6 +184,19 @@ export default function ProfilePage() {
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">My Profile</h1>
+
+      {nudge && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-amber-800">Admin has requested you to update your profile</p>
+            {nudge.message && <p className="text-sm text-amber-700 mt-1">{nudge.message}</p>}
+            <p className="text-sm text-amber-600 mt-1">
+              Please update: <span className="font-medium">{nudge.fields.join(", ")}</span>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Photo Section */}
       <div className="flex items-center gap-4">

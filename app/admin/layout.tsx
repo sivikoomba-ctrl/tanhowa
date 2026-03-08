@@ -14,6 +14,7 @@ import {
   MessageSquareWarning,
   AlertTriangle,
   Wallet,
+  BarChart3,
   Settings,
   LogOut,
   ArrowLeft,
@@ -31,6 +32,7 @@ const adminNavItems = [
   { href: "/admin/documents", label: "Document Vault", icon: FileText },
   { href: "/admin/grievances", label: "Grievances / Suggestions", icon: MessageSquareWarning },
   { href: "/admin/subscriptions", label: "Subscriptions", icon: Wallet },
+  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/error-logs", label: "Error Logs", icon: AlertTriangle },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];

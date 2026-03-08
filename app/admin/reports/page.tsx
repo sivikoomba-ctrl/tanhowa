@@ -1,0 +1,307 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { toast } from "sonner";
+import { Download, FileText, IndianRupee, Users, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { DISTRICT_NAMES } from "@/lib/tn-districts";
+
+interface ReportRow {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  occupation: string;
+  district: string;
+  block: string;
+  period: string;
+  amount: number;
+  status: string;
+  paid_at: string | null;
+  payment_method: string;
+  transaction_id: string;
+}
+
+interface Summary {
+  total: number;
+  paid: number;
+  pending: number;
+  overdue: number;
+  totalAmount: number;
+}
+
+export default function ReportsPage() {
+  const [district, setDistrict] = useState("all");
+  const [period, setPeriod] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [periods, setPeriods] = useState<string[]>([]);
+  const [members, setMembers] = useState<ReportRow[]>([]);
+  const [summary, setSummary] = useState<Summary>({ total: 0, paid: 0, pending: 0, overdue: 0, totalAmount: 0 });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadReport();
+  }, [district, period, status]);
+
+  async function loadReport() {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (district !== "all") params.set("district", district);
+      if (period !== "all") params.set("period", period);
+      if (status !== "all") params.set("status", status);
+      const res = await fetch(`/api/reports/subscriptions?${params}`);
+      const data = await res.json();
+      if (res.ok) {
+        setMembers(data.members || []);
+        setPeriods(data.periods || []);
+        setSummary(data.summary || { total: 0, paid: 0, pending: 0, overdue: 0, totalAmount: 0 });
+      } else {
+        toast.error(data.error || "Failed to load report");
+      }
+    } catch {
+      toast.error("Failed to load report");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const statusBadge = (s: string) => {
+    switch (s) {
+      case "paid": return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Paid</Badge>;
+      case "pending": return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Pending</Badge>;
+      case "overdue": return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Overdue</Badge>;
+      default: return <Badge variant="outline">{s}</Badge>;
+    }
+  };
+
+  // District-wise summary for state-wide view
+  const districtSummary = useMemo(() => {
+    if (district !== "all") return [];
+    const map = new Map<string, { district: string; total: number; paid: number; pending: number; overdue: number; amount: number }>();
+    for (const m of members) {
+      const d = m.district || "Unassigned";
+      if (!map.has(d)) map.set(d, { district: d, total: 0, paid: 0, pending: 0, overdue: 0, amount: 0 });
+      const row = map.get(d)!;
+      row.total++;
+      if (m.status === "paid") { row.paid++; row.amount += m.amount || 0; }
+      else if (m.status === "pending") row.pending++;
+      else if (m.status === "overdue") row.overdue++;
+    }
+    return Array.from(map.values()).sort((a, b) => a.district === "Unassigned" ? 1 : b.district === "Unassigned" ? -1 : a.district.localeCompare(b.district));
+  }, [members, district]);
+
+  function downloadCSV() {
+    if (members.length === 0) { toast.error("No data to download"); return; }
+    const headers = ["Name", "Email", "Phone", "Designation", "District", "Block", "Period", "Amount", "Status", "Paid At", "Payment Method", "Transaction ID"];
+    const rows = members.map((m) => [
+      m.name, m.email, m.phone, m.occupation, m.district, m.block,
+      m.period, m.amount, m.status, m.paid_at || "", m.payment_method || "", m.transaction_id || "",
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const label = district === "all" ? "State" : district;
+    const periodLabel = period === "all" ? "All-Periods" : period;
+    a.download = `Subscriptions-${label}-${periodLabel}-${status}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Reports</h1>
+        <Button variant="outline" onClick={downloadCSV} disabled={members.length === 0}>
+          <Download size={14} className="mr-2" />
+          Download CSV
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">District</label>
+              <Select value={district} onValueChange={setDistrict}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Districts (State-wide)</SelectItem>
+                  {DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Period</label>
+              <Select value={period} onValueChange={setPeriod}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Periods</SelectItem>
+                  {periods.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Status</label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="pt-4 pb-4 flex items-center gap-3">
+            <FileText className="w-8 h-8 text-primary/60" />
+            <div>
+              <p className="text-2xl font-bold">{summary.total}</p>
+              <p className="text-xs text-muted-foreground">Total</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4 flex items-center gap-3">
+            <CheckCircle className="w-8 h-8 text-green-500/60" />
+            <div>
+              <p className="text-2xl font-bold text-green-700">{summary.paid}</p>
+              <p className="text-xs text-muted-foreground">Paid</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4 flex items-center gap-3">
+            <Clock className="w-8 h-8 text-amber-500/60" />
+            <div>
+              <p className="text-2xl font-bold text-amber-700">{summary.pending}</p>
+              <p className="text-xs text-muted-foreground">Pending</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4 flex items-center gap-3">
+            <AlertTriangle className="w-8 h-8 text-red-500/60" />
+            <div>
+              <p className="text-2xl font-bold text-red-700">{summary.overdue}</p>
+              <p className="text-xs text-muted-foreground">Overdue</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4 flex items-center gap-3">
+            <IndianRupee className="w-8 h-8 text-primary/60" />
+            <div>
+              <p className="text-2xl font-bold">{summary.totalAmount.toLocaleString("en-IN")}</p>
+              <p className="text-xs text-muted-foreground">Collected</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {loading && <p className="text-center text-muted-foreground py-8">Loading report...</p>}
+
+      {/* District-wise Summary (only when viewing all districts) */}
+      {!loading && district === "all" && districtSummary.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">District-wise Summary</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>District</TableHead>
+                    <TableHead className="text-center">Total</TableHead>
+                    <TableHead className="text-center">Paid</TableHead>
+                    <TableHead className="text-center">Pending</TableHead>
+                    <TableHead className="text-center">Overdue</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {districtSummary.map((d) => (
+                    <TableRow key={d.district} className="cursor-pointer hover:bg-muted/50" onClick={() => setDistrict(d.district === "Unassigned" ? "all" : d.district)}>
+                      <TableCell className="font-medium">{d.district}</TableCell>
+                      <TableCell className="text-center">{d.total}</TableCell>
+                      <TableCell className="text-center text-green-700">{d.paid}</TableCell>
+                      <TableCell className="text-center text-amber-700">{d.pending}</TableCell>
+                      <TableCell className="text-center text-red-700">{d.overdue}</TableCell>
+                      <TableCell className="text-right font-medium">{d.amount.toLocaleString("en-IN")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Detailed Member Table */}
+      {!loading && members.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Users size={18} />
+              Member Details
+              <Badge variant="outline" className="ml-2">{members.length} records</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>District</TableHead>
+                    <TableHead>Period</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead>Paid At</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {members.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-sm">{m.name}</p>
+                          <p className="text-xs text-muted-foreground">{m.phone}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">{m.district}{m.block ? ` / ${m.block}` : ""}</TableCell>
+                      <TableCell className="text-sm">{m.period}</TableCell>
+                      <TableCell className="text-right text-sm">{(m.amount || 0).toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-center">{statusBadge(m.status)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {m.paid_at ? new Date(m.paid_at).toLocaleDateString("en-IN") : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && members.length === 0 && (
+        <p className="text-center text-muted-foreground py-8">No subscription records found for the selected filters.</p>
+      )}
+    </div>
+  );
+}

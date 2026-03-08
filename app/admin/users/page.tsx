@@ -7,10 +7,29 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter } from "lucide-react";
+import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter, Send } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
+
+const nudgeFieldOptions = [
+  { value: "Name", label: "Name" },
+  { value: "Phone", label: "Phone" },
+  { value: "Date of Birth", label: "Date of Birth" },
+  { value: "Gender", label: "Gender" },
+  { value: "Designation", label: "Designation" },
+  { value: "Qualification", label: "Qualification" },
+  { value: "Home Address", label: "Home Address" },
+  { value: "Office Address", label: "Office Address" },
+  { value: "Posting Details", label: "Posting Details" },
+  { value: "Photo", label: "Photo" },
+  { value: "Experience", label: "Experience" },
+  { value: "Skill Sets", label: "Skill Sets" },
+  { value: "Social Links", label: "Social Links" },
+];
 
 interface PostingDetails {
   regular_district?: string;
@@ -45,6 +64,9 @@ export default function AdminUsersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [districtFilter, setDistrictFilter] = useState("all");
+  const [nudgeUserId, setNudgeUserId] = useState<string | null>(null);
+  const [nudgeFields, setNudgeFields] = useState<string[]>([]);
+  const [nudgeMessage, setNudgeMessage] = useState("");
 
   function loadUsers() {
     fetch("/api/users?status=" + (tab === "all" ? "" : tab))
@@ -107,6 +129,26 @@ export default function AdminUsersPage() {
     } else {
       const data = await res.json();
       toast.error(data.error || "Delete failed");
+    }
+  }
+
+  async function handleNudge() {
+    if (!nudgeUserId || nudgeFields.length === 0) {
+      toast.error("Select at least one field");
+      return;
+    }
+    const res = await fetch("/api/admin/users", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: nudgeUserId, action: "nudge", fields: nudgeFields, message: nudgeMessage }),
+    });
+    if (res.ok) {
+      toast.success("Update request sent to member");
+      setNudgeUserId(null);
+      setNudgeFields([]);
+      setNudgeMessage("");
+    } else {
+      toast.error("Failed to send request");
     }
   }
 
@@ -334,6 +376,19 @@ export default function AdminUsersPage() {
                             </div>
                           )}
 
+                          {/* Request Update */}
+                          {tab === "approved" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => { setNudgeUserId(u.id); setNudgeFields([]); setNudgeMessage(""); }}
+                              className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                            >
+                              <Send size={14} className="mr-1" />
+                              Request Profile Update
+                            </Button>
+                          )}
+
                           {/* Social Links */}
                           {hasSocial(u.social_links) && (
                             <div>
@@ -361,6 +416,50 @@ export default function AdminUsersPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Nudge Dialog */}
+      <Dialog open={!!nudgeUserId} onOpenChange={(open) => { if (!open) setNudgeUserId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request Profile Update</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium">Select fields to update *</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {nudgeFieldOptions.map((f) => (
+                  <label key={f.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={nudgeFields.includes(f.value)}
+                      onChange={(e) => {
+                        if (e.target.checked) setNudgeFields([...nudgeFields, f.value]);
+                        else setNudgeFields(nudgeFields.filter((v) => v !== f.value));
+                      }}
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    {f.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Message (optional)</Label>
+              <Textarea
+                value={nudgeMessage}
+                onChange={(e) => setNudgeMessage(e.target.value)}
+                placeholder="e.g., Please update your posting details after your recent transfer"
+                rows={2}
+                className="mt-1"
+              />
+            </div>
+            <Button onClick={handleNudge} disabled={nudgeFields.length === 0} className="w-full bg-primary hover:bg-primary/90">
+              <Send size={14} className="mr-2" />
+              Send Request
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
