@@ -56,6 +56,7 @@ interface User {
   social_links: { instagram?: string; twitter?: string; linkedin?: string };
   photo_url: string;
   created_at: string;
+  last_active_at: string | null;
   profile_nudge: { fields: string[]; message: string; requested_at: string } | null;
 }
 
@@ -153,6 +154,18 @@ export default function AdminUsersPage() {
     }
   }
 
+  function getActivityStatus(lastActive: string | null): { label: string; color: string; dot: string } {
+    if (!lastActive) return { label: "Never", color: "text-muted-foreground", dot: "bg-gray-300" };
+    const diff = Date.now() - new Date(lastActive).getTime();
+    const mins = diff / 60000;
+    if (mins < 5) return { label: "Online", color: "text-green-600", dot: "bg-green-500" };
+    if (mins < 60) return { label: `${Math.floor(mins)}m ago`, color: "text-green-600", dot: "bg-green-400" };
+    const hours = diff / 3600000;
+    if (hours < 24) return { label: `${Math.floor(hours)}h ago`, color: "text-amber-600", dot: "bg-amber-400" };
+    const days = diff / 86400000;
+    return { label: `${Math.floor(days)}d ago`, color: "text-muted-foreground", dot: "bg-gray-300" };
+  }
+
   function hasPosting(p?: PostingDetails) {
     if (!p) return false;
     return !!(p.regular_district || p.regular_block || p.special_duty_district || p.special_duty_block || p.special_duty_place || p.deputed_district || p.deputed_block);
@@ -223,8 +236,11 @@ export default function AdminUsersPage() {
                           className="flex-1 cursor-pointer flex items-start gap-3"
                           onClick={() => setExpandedId(isExpanded ? null : u.id)}
                         >
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
-                            {u.photo_url ? <img src={u.photo_url} alt={u.name} className="w-full h-full object-cover" /> : <span className="text-sm font-semibold text-primary">{u.name?.charAt(0)?.toUpperCase() || "?"}</span>}
+                          <div className="relative shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                              {u.photo_url ? <img src={u.photo_url} alt={u.name} className="w-full h-full object-cover" /> : <span className="text-sm font-semibold text-primary">{u.name?.charAt(0)?.toUpperCase() || "?"}</span>}
+                            </div>
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${getActivityStatus(u.last_active_at).dot}`} title={getActivityStatus(u.last_active_at).label} />
                           </div>
                           <div>
                           <div className="flex items-center gap-2">
@@ -243,6 +259,11 @@ export default function AdminUsersPage() {
                           {u.occupation && <p className="text-xs text-muted-foreground">{u.occupation}</p>}
                           <p className="text-xs text-muted-foreground mt-1">
                             Joined: {formatDate(u.created_at)}
+                            {u.last_active_at && (
+                              <span className={`ml-3 ${getActivityStatus(u.last_active_at).color}`}>
+                                Active: {getActivityStatus(u.last_active_at).label}
+                              </span>
+                            )}
                           </p>
                           </div>
                         </div>

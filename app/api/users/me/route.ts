@@ -18,6 +18,13 @@ export async function GET() {
       .eq("id", session.userId)
       .single();
 
+    // Silently update last_active_at (fire-and-forget)
+    supabase
+      .from("users")
+      .update({ last_active_at: new Date().toISOString() })
+      .eq("id", session.userId)
+      .then(() => {});
+
     return NextResponse.json({ user });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
