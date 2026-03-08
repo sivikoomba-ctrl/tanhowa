@@ -7,7 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Download, FileText, IndianRupee, Users, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { Download, FileText, IndianRupee, Users, CheckCircle, Clock, AlertTriangle, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
 
 interface ReportRow {
@@ -115,14 +117,84 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function downloadPDF() {
+    if (members.length === 0) { toast.error("No data to download"); return; }
+
+    const doc = new jsPDF({ orientation: "landscape" });
+    const label = district === "all" ? "State-wide" : district;
+    const periodLabel = period === "all" ? "All Periods" : period;
+    const statusLabel = status === "all" ? "All Status" : status.charAt(0).toUpperCase() + status.slice(1);
+    const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+    // Header
+    doc.setFontSize(16);
+    doc.text("TANHOWA - Subscription Report", 14, 15);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`District: ${label}  |  Period: ${periodLabel}  |  Status: ${statusLabel}  |  Generated: ${today}`, 14, 22);
+
+    // Summary line
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    doc.text(`Total: ${summary.total}  |  Paid: ${summary.paid}  |  Pending: ${summary.pending}  |  Overdue: ${summary.overdue}  |  Collected: Rs.${summary.totalAmount.toLocaleString("en-IN")}`, 14, 29);
+
+    let startY = 34;
+
+    // District-wise summary table (if state-wide)
+    if (district === "all" && districtSummary.length > 0) {
+      autoTable(doc, {
+        startY,
+        head: [["District", "Total", "Paid", "Pending", "Overdue", "Amount"]],
+        body: districtSummary.map((d) => [d.district, d.total, d.paid, d.pending, d.overdue, d.amount.toLocaleString("en-IN")]),
+        theme: "grid",
+        headStyles: { fillColor: [45, 106, 79], fontSize: 8 },
+        bodyStyles: { fontSize: 7 },
+        margin: { left: 14 },
+      });
+      startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+    }
+
+    // Member details table
+    autoTable(doc, {
+      startY,
+      head: [["#", "Name", "Phone", "District", "Block", "Period", "Amount", "Status", "Paid At"]],
+      body: members.map((m, i) => [
+        i + 1, m.name, m.phone || "", m.district, m.block || "", m.period,
+        (m.amount || 0).toLocaleString("en-IN"), m.status,
+        m.paid_at ? new Date(m.paid_at).toLocaleDateString("en-IN") : "—",
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [45, 106, 79], fontSize: 8 },
+      bodyStyles: { fontSize: 7 },
+      margin: { left: 14 },
+      didParseCell(data) {
+        if (data.section === "body" && data.column.index === 7) {
+          const val = String(data.cell.raw);
+          if (val === "paid") data.cell.styles.textColor = [22, 101, 52];
+          else if (val === "pending") data.cell.styles.textColor = [161, 98, 7];
+          else if (val === "overdue") data.cell.styles.textColor = [185, 28, 28];
+        }
+      },
+    });
+
+    const fileName = `Subscriptions-${label}-${periodLabel}-${statusLabel}.pdf`.replace(/\s+/g, "-");
+    doc.save(fileName);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Reports</h1>
-        <Button variant="outline" onClick={downloadCSV} disabled={members.length === 0}>
-          <Download size={14} className="mr-2" />
-          Download CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={downloadPDF} disabled={members.length === 0}>
+            <FileDown size={14} className="mr-2" />
+            PDF
+          </Button>
+          <Button variant="outline" onClick={downloadCSV} disabled={members.length === 0}>
+            <Download size={14} className="mr-2" />
+            CSV
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
