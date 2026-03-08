@@ -19,6 +19,7 @@ import {
   X,
   Shield,
   AlertCircle,
+  UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -41,6 +42,7 @@ const navItems = [
   { href: "/dashboard", label: "Overview", icon: Home },
   { href: "/dashboard/profile", label: "Profile", icon: User },
   { href: "/dashboard/members", label: "Members", icon: Users },
+  { href: "/dashboard/teams", label: "Teams", icon: UsersRound },
   { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
   { href: "/dashboard/events", label: "Events", icon: Calendar },
   { href: "/dashboard/documents", label: "Document Vault", icon: FileText },

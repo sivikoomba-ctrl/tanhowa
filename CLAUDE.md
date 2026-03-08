@@ -29,7 +29,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 tanhowa/
 ├── app/                        # Next.js App Router
 │   ├── layout.tsx              # Root layout (Poppins font, ErrorBoundary, ChatbotWidget, Toaster)
-│   ├── page.tsx                # Landing page — overlapping image collage + email login
+│   ├── page.tsx                # Landing page — bento image grid + Google OAuth / email OTP login
 │   ├── globals.css             # Tailwind + horticulture theme (oklch colors)
 │   ├── favicon.ico
 │   ├── verify/page.tsx         # OTP verification page
@@ -58,6 +58,8 @@ tanhowa/
 │   │   └── settings/page.tsx   # Site settings (community name, tagline, about)
 │   └── api/                    # API routes (all server-side)
 │       ├── auth/
+│       │   ├── google/route.ts      # GET: initiate Google OAuth (CSRF state cookie → redirect to Google)
+│       │   ├── google/callback/route.ts # GET: OAuth callback (exchange code, create/find user, set JWT)
 │       │   ├── send-otp/route.ts    # POST: generate 6-digit OTP, send via Zoho SMTP
 │       │   ├── verify-otp/route.ts  # POST: verify OTP, create/find user, set JWT cookie
 │       │   └── logout/route.ts      # POST: delete session cookie
@@ -314,7 +316,7 @@ Custom horticulture theme using oklch colors defined in `app/globals.css`:
 - **Border radius:** Clean rounded corners only — use `rounded-2xl` for cards, `rounded-xl` for inputs/buttons. **Never use blob, egg, or organic shapes.**
 - **Images:** Unsplash via `next/image` with `fill` + `object-cover`. Remote pattern for `images.unsplash.com` is configured in `next.config.ts`
 - **Background images:** Subtle horticulture photos at 3-6% opacity on dashboard, admin, verify, onboarding, and pending pages
-- **Landing page:** Overlapping image collage with negative margins, subtle rotations (1-2 degrees), and stacking z-index for a rich, layered horticulture feel
+- **Landing page:** Bento mosaic grid layout with horticulture domain images flanking a centered login card
 - **No dark mode** — light theme only
 
 ### shadcn/ui components in use
