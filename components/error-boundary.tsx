@@ -64,6 +64,11 @@ export function GlobalErrorCatcher({ children }: { children: ReactNode }) {
     window.addEventListener("error", handleError);
     window.addEventListener("unhandledrejection", handleRejection);
 
+    // Register service worker for PWA
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+
     return () => {
       window.removeEventListener("error", handleError);
       window.removeEventListener("unhandledrejection", handleRejection);

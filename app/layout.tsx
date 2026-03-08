@@ -20,6 +20,16 @@ export const metadata: Metadata = {
   title: "TANHOWA - Tamil Nadu Horticultural Officers Welfare Association",
   description:
     "TANHOWA - Tamil Nadu Horticultural Officers Welfare Association. Connecting horticultural officers and professionals.",
+  manifest: "/manifest.json",
+  themeColor: "#2d6a4f",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "TANHOWA",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({
@@ -29,6 +39,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+      </head>
       <body
         className={`${poppins.variable} ${geistMono.variable} font-sans antialiased`}
       >
