@@ -33,6 +33,10 @@ import {
   FileText,
   Plus,
   ChevronRight,
+  Lock,
+  Unlock,
+  Timer,
+  IndianRupee,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -65,7 +69,12 @@ interface Todo {
   event_id: string;
   submitter: TodoUser | null;
   assignee: TodoUser | null;
+  committed_by: string | null;
+  committed_at: string | null;
+  estimated_time: string;
+  estimated_amount: number;
   assigned_team: Team | null;
+  committer: TodoUser | null;
   approved_by: string | null;
   approved_at: string | null;
   completed_at: string | null;
@@ -348,6 +357,24 @@ export default function AdminTodosPage() {
     }
   }
 
+  async function handleReleaseCommitment(todoId: string) {
+    try {
+      const res = await fetch("/api/todos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: todoId, action: "release_commitment" }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success("Commitment released");
+      fetchData();
+      if (selectedTodo) {
+        openTaskDetail({ ...selectedTodo, committed_by: null, committed_at: null, estimated_time: "", estimated_amount: 0, committer: null });
+      }
+    } catch {
+      toast.error("Failed to release commitment");
+    }
+  }
+
   async function handleCreateSubtask() {
     if (!subtaskTitle.trim() || !selectedTodo) return;
     setSaving(true);
@@ -438,6 +465,21 @@ export default function AdminTodosPage() {
           {todo.assigned_team && (
             <span className="flex items-center gap-0.5 font-medium text-primary">
               {todo.assigned_team.icon ? `${todo.assigned_team.icon} ` : ""}{todo.assigned_team.name}
+            </span>
+          )}
+          {todo.committer && (
+            <span className="flex items-center gap-0.5 text-indigo-600 font-medium">
+              <Lock size={9} /> {todo.committer.name}
+            </span>
+          )}
+          {todo.estimated_time && (
+            <span className="flex items-center gap-0.5">
+              <Timer size={9} /> {todo.estimated_time}
+            </span>
+          )}
+          {todo.estimated_amount > 0 && (
+            <span className="flex items-center gap-0.5">
+              <IndianRupee size={9} /> ₹{Number(todo.estimated_amount).toLocaleString("en-IN")}
             </span>
           )}
           {todo.due_date && (
@@ -538,6 +580,46 @@ export default function AdminTodosPage() {
             {selectedTodo.admin_remarks && (
               <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs">
                 <span className="font-medium">Admin remarks:</span> {selectedTodo.admin_remarks}
+              </div>
+            )}
+
+            {/* Commitment Status */}
+            {selectedTodo.committer ? (
+              <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50/50 px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Lock size={14} className="text-indigo-600" />
+                    <span className="text-sm font-semibold text-indigo-700">Committed by</span>
+                    <Avatar className="w-5 h-5">
+                      {selectedTodo.committer.photo_url && <AvatarImage src={selectedTodo.committer.photo_url} />}
+                      <AvatarFallback className="text-[8px] bg-indigo-200 text-indigo-700">{selectedTodo.committer.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium text-indigo-700">{selectedTodo.committer.name}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 gap-1"
+                    onClick={() => handleReleaseCommitment(selectedTodo.id)}
+                  >
+                    <Unlock size={12} /> Release
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs text-indigo-600">
+                  {selectedTodo.committed_at && (
+                    <span>{new Date(selectedTodo.committed_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                  )}
+                  {selectedTodo.estimated_time && (
+                    <span className="flex items-center gap-1"><Timer size={11} /> Est. Time: {selectedTodo.estimated_time}</span>
+                  )}
+                  {selectedTodo.estimated_amount > 0 && (
+                    <span className="flex items-center gap-1"><IndianRupee size={11} /> Est. Amount: ₹{Number(selectedTodo.estimated_amount).toLocaleString("en-IN")}</span>
+                  )}
+                </div>
+              </div>
+            ) : (selectedTodo.status === "approved" || selectedTodo.status === "in_progress") && (
+              <div className="text-xs text-muted-foreground italic flex items-center gap-1">
+                <Lock size={11} /> No member has committed yet
               </div>
             )}
           </CardContent>

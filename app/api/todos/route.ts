@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { notifyTaskCommitted, notifyTaskStatusChanged } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from("todos")
-      .select("*, submitter:submitted_by(id, name, photo_url, occupation), assignee:assigned_to(id, name, photo_url, occupation)")
+      .select("*, submitter:submitted_by(id, name, photo_url, occupation), assignee:assigned_to(id, name, photo_url, occupation), committer:committed_by(id, name, photo_url)")
       .order("created_at", { ascending: false });
 
     if (status && status !== "all") {
@@ -208,6 +209,105 @@ export async function PUT(req: NextRequest) {
     const supabase = getServiceClient();
     const dbRole = await getDbRole(session.userId);
 
+    // Handle commit action: member commits to a task
+    if (body.action === "commit") {
+      // Check if task exists and is available for commitment
+      const { data: task } = await supabase
+        .from("todos")
+        .select("id, status, committed_by")
+        .eq("id", body.id)
+        .single();
+
+      if (!task) {
+        return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      }
+
+      if (task.committed_by && task.committed_by !== session.userId) {
+        return NextResponse.json({ error: "Task is already committed by another member" }, { status: 409 });
+      }
+
+      if (!["approved", "in_progress"].includes(task.status)) {
+        return NextResponse.json({ error: "Only approved or in-progress tasks can be committed" }, { status: 400 });
+      }
+
+      const commitUpdates: Record<string, unknown> = {
+        committed_by: session.userId,
+        committed_at: new Date().toISOString(),
+        status: "in_progress",
+        updated_at: new Date().toISOString(),
+      };
+      if (body.estimated_time !== undefined) commitUpdates.estimated_time = body.estimated_time;
+      if (body.estimated_amount !== undefined) commitUpdates.estimated_amount = body.estimated_amount;
+
+      const { error: commitError } = await supabase.from("todos").update(commitUpdates).eq("id", body.id);
+      if (commitError) {
+        await logError({ type: "api", message: commitError.message, path: "/api/todos", method: "PUT", status_code: 500 });
+        return NextResponse.json({ error: "Failed to commit" }, { status: 500 });
+      }
+
+      // Fire-and-forget: notify task submitter & admins about commitment
+      (async () => {
+        try {
+          const { data: taskFull } = await supabase
+            .from("todos")
+            .select("title, event_id, submitted_by")
+            .eq("id", body.id)
+            .single();
+          if (!taskFull) return;
+
+          const { data: committerUser } = await supabase
+            .from("users")
+            .select("name")
+            .eq("id", session.userId)
+            .single();
+          const memberName = committerUser?.name || "A member";
+
+          // Notify task submitter
+          if (taskFull.submitted_by && taskFull.submitted_by !== session.userId) {
+            const { data: submitter } = await supabase
+              .from("users")
+              .select("telegram_chat_id")
+              .eq("id", taskFull.submitted_by)
+              .single();
+            if (submitter?.telegram_chat_id) {
+              notifyTaskCommitted(submitter.telegram_chat_id, taskFull.title, taskFull.event_id, memberName, body.estimated_time || "", body.estimated_amount || 0).catch(() => {});
+            }
+          }
+
+          // Notify all admins
+          const { data: admins } = await supabase
+            .from("users")
+            .select("telegram_chat_id")
+            .eq("role", "admin")
+            .not("telegram_chat_id", "is", null);
+          for (const admin of admins || []) {
+            notifyTaskCommitted(admin.telegram_chat_id, taskFull.title, taskFull.event_id, memberName, body.estimated_time || "", body.estimated_amount || 0).catch(() => {});
+          }
+        } catch { /* silent */ }
+      })();
+
+      return NextResponse.json({ message: "Committed" });
+    }
+
+    // Handle release commitment (admin only)
+    if (body.action === "release_commitment") {
+      if (dbRole !== "admin") {
+        return NextResponse.json({ error: "Only admins can release commitments" }, { status: 403 });
+      }
+      const { error: releaseError } = await supabase.from("todos").update({
+        committed_by: null,
+        committed_at: null,
+        estimated_time: "",
+        estimated_amount: 0,
+        updated_at: new Date().toISOString(),
+      }).eq("id", body.id);
+      if (releaseError) {
+        await logError({ type: "api", message: releaseError.message, path: "/api/todos", method: "PUT", status_code: 500 });
+        return NextResponse.json({ error: "Failed to release" }, { status: 500 });
+      }
+      return NextResponse.json({ message: "Commitment released" });
+    }
+
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
     if (dbRole === "admin") {
@@ -249,6 +349,39 @@ export async function PUT(req: NextRequest) {
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/todos", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update task" }, { status: 500 });
+    }
+
+    // Fire-and-forget: notify on status change
+    if (body.status && dbRole === "admin") {
+      (async () => {
+        try {
+          const { data: taskFull } = await supabase
+            .from("todos")
+            .select("title, event_id, submitted_by, committed_by, assigned_to")
+            .eq("id", body.id)
+            .single();
+          if (!taskFull) return;
+
+          // Collect unique user IDs to notify (submitter, committer, assignee)
+          const notifyIds = new Set<string>();
+          if (taskFull.submitted_by) notifyIds.add(taskFull.submitted_by);
+          if (taskFull.committed_by) notifyIds.add(taskFull.committed_by);
+          if (taskFull.assigned_to) notifyIds.add(taskFull.assigned_to);
+          notifyIds.delete(session.userId); // Don't notify the admin who made the change
+
+          if (notifyIds.size === 0) return;
+
+          const { data: users } = await supabase
+            .from("users")
+            .select("telegram_chat_id")
+            .in("id", Array.from(notifyIds))
+            .not("telegram_chat_id", "is", null);
+
+          for (const u of users || []) {
+            notifyTaskStatusChanged(u.telegram_chat_id, taskFull.title, taskFull.event_id, body.status).catch(() => {});
+          }
+        } catch { /* silent */ }
+      })();
     }
 
     return NextResponse.json({ message: "Updated" });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { notifyVoucherAction } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
   try {
@@ -134,6 +135,32 @@ export async function PUT(req: NextRequest) {
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/todos/vouchers", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update voucher" }, { status: 500 });
+    }
+
+    // Fire-and-forget: notify voucher submitter on approval/rejection
+    if (dbRole === "admin" && (body.status === "approved" || body.status === "rejected")) {
+      (async () => {
+        try {
+          const { data: voucher } = await supabase
+            .from("todo_vouchers")
+            .select("title, submitted_by, todo:todo_id(event_id)")
+            .eq("id", body.id)
+            .single();
+          if (!voucher || !voucher.submitted_by) return;
+
+          const { data: submitter } = await supabase
+            .from("users")
+            .select("telegram_chat_id")
+            .eq("id", voucher.submitted_by)
+            .single();
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const eventId = (voucher.todo as any)?.event_id || "";
+          if (submitter?.telegram_chat_id) {
+            notifyVoucherAction(submitter.telegram_chat_id, voucher.title, eventId, body.status, body.remarks || "").catch(() => {});
+          }
+        } catch { /* silent */ }
+      })();
     }
 
     return NextResponse.json({ message: "Updated" });

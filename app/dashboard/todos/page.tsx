@@ -29,6 +29,10 @@ import {
   FileText,
   Trash2,
   GitBranch,
+  Lock,
+  HandMetal,
+  Timer,
+  IndianRupee,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -59,8 +63,13 @@ interface Todo {
   assigned_team_id: string | null;
   parent_id: string | null;
   event_id: string;
+  committed_by: string | null;
+  committed_at: string | null;
+  estimated_time: string;
+  estimated_amount: number;
   submitter: TodoUser | null;
   assignee: TodoUser | null;
+  committer: TodoUser | null;
   assigned_team: TodoTeam | null;
   created_at: string;
   completed_at: string | null;
@@ -153,6 +162,12 @@ export default function TodosPage() {
   const [voucherTitle, setVoucherTitle] = useState("");
   const [voucherAmount, setVoucherAmount] = useState("");
   const [voucherDescription, setVoucherDescription] = useState("");
+
+  // Commitment
+  const [showCommitForm, setShowCommitForm] = useState(false);
+  const [commitEstTime, setCommitEstTime] = useState("");
+  const [commitEstAmount, setCommitEstAmount] = useState("");
+  const [committing, setCommitting] = useState(false);
 
   const fetchTodos = useCallback(async () => {
     try {
@@ -328,6 +343,38 @@ export default function TodosPage() {
     }
   }
 
+  async function handleCommit() {
+    if (!selectedTodo) return;
+    setCommitting(true);
+    try {
+      const res = await fetch("/api/todos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedTodo.id,
+          action: "commit",
+          estimated_time: commitEstTime.trim(),
+          estimated_amount: commitEstAmount ? parseFloat(commitEstAmount) : 0,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to commit");
+      }
+      toast.success("You have committed to this task!");
+      setShowCommitForm(false);
+      setCommitEstTime("");
+      setCommitEstAmount("");
+      // Refresh
+      fetchTodos();
+      openTaskDetail({ ...selectedTodo, status: "in_progress" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to commit");
+    } finally {
+      setCommitting(false);
+    }
+  }
+
   const tabs = [
     { key: "all", label: "All" },
     { key: "pending", label: "Pending" },
@@ -419,6 +466,71 @@ export default function TodosPage() {
             {selectedTodo.admin_remarks && (
               <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs">
                 <span className="font-medium">Admin remarks:</span> {selectedTodo.admin_remarks}
+              </div>
+            )}
+
+            {/* Commitment Status */}
+            {selectedTodo.committer ? (
+              <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50/50 px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Lock size={14} className="text-indigo-600" />
+                  <span className="text-sm font-semibold text-indigo-700">Committed</span>
+                  <span className="text-xs text-indigo-600">by</span>
+                  <span className="flex items-center gap-1">
+                    <Avatar className="w-5 h-5">
+                      {selectedTodo.committer.photo_url && <AvatarImage src={selectedTodo.committer.photo_url} />}
+                      <AvatarFallback className="text-[8px] bg-indigo-200 text-indigo-700">{selectedTodo.committer.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium text-indigo-700">{selectedTodo.committer.name}</span>
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs text-indigo-600">
+                  {selectedTodo.committed_at && (
+                    <span>Committed on {new Date(selectedTodo.committed_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                  )}
+                  {selectedTodo.estimated_time && (
+                    <span className="flex items-center gap-1"><Timer size={11} /> Est. Time: {selectedTodo.estimated_time}</span>
+                  )}
+                  {selectedTodo.estimated_amount > 0 && (
+                    <span className="flex items-center gap-1"><IndianRupee size={11} /> Est. Amount: ₹{Number(selectedTodo.estimated_amount).toLocaleString("en-IN")}</span>
+                  )}
+                </div>
+              </div>
+            ) : (selectedTodo.status === "approved" || selectedTodo.status === "in_progress") && (
+              <div className="space-y-2">
+                {!showCommitForm ? (
+                  <Button
+                    variant="outline"
+                    className="gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                    onClick={() => setShowCommitForm(true)}
+                  >
+                    <HandMetal size={16} />
+                    Commit to this Task
+                  </Button>
+                ) : (
+                  <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50/30 p-4 space-y-3">
+                    <h4 className="text-sm font-semibold text-indigo-700 flex items-center gap-2">
+                      <HandMetal size={14} /> Commit to Task
+                    </h4>
+                    <p className="text-xs text-muted-foreground">Once you commit, this task will be locked to you. Provide your estimates below.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Estimated Time</Label>
+                        <Input placeholder="e.g. 2 days, 4 hours" value={commitEstTime} onChange={(e) => setCommitEstTime(e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Estimated Amount (₹)</Label>
+                        <Input type="number" placeholder="0" value={commitEstAmount} onChange={(e) => setCommitEstAmount(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setShowCommitForm(false)}>Cancel</Button>
+                      <Button size="sm" onClick={handleCommit} disabled={committing} className="bg-indigo-600 hover:bg-indigo-700">
+                        {committing ? "Committing..." : "Confirm Commitment"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -842,6 +954,22 @@ export default function TodosPage() {
                           <span className="flex items-center gap-1 font-medium text-primary">
                             {todo.assigned_team.icon ? `${todo.assigned_team.icon} ` : ""}
                             Assigned to {todo.assigned_team.name}
+                          </span>
+                        )}
+                        {todo.committer && (
+                          <span className="flex items-center gap-1 text-indigo-600 font-medium">
+                            <Lock size={11} />
+                            {todo.committer.name}
+                          </span>
+                        )}
+                        {todo.estimated_time && (
+                          <span className="flex items-center gap-1">
+                            <Timer size={11} /> {todo.estimated_time}
+                          </span>
+                        )}
+                        {todo.estimated_amount > 0 && (
+                          <span className="flex items-center gap-1">
+                            <IndianRupee size={11} /> ₹{Number(todo.estimated_amount).toLocaleString("en-IN")}
                           </span>
                         )}
                         {todo.subtask_count > 0 && (

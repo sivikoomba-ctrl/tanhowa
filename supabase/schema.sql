@@ -273,3 +273,14 @@ CREATE TABLE IF NOT EXISTS todo_vouchers (
 );
 CREATE INDEX IF NOT EXISTS idx_todo_vouchers_todo ON todo_vouchers(todo_id);
 CREATE INDEX IF NOT EXISTS idx_todo_vouchers_status ON todo_vouchers(status);
+
+-- Task commitment: member locks a task to themselves with estimates
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS committed_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS committed_at TIMESTAMPTZ;
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS estimated_time TEXT DEFAULT ''; -- e.g. "2 days", "4 hours"
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS estimated_amount NUMERIC DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_todos_committed_by ON todos(committed_by);
+
+-- Telegram integration: store chat_id for bot notifications
+ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_telegram_chat_id ON users(telegram_chat_id);

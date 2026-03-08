@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { notifyNewNote } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
   try {
@@ -64,6 +65,44 @@ export async function POST(req: NextRequest) {
       await logError({ type: "api", message: error.message, path: "/api/todos/notes", method: "POST", status_code: 500 });
       return NextResponse.json({ error: "Failed to add note" }, { status: 500 });
     }
+
+    // Fire-and-forget: notify task assignee/committer about new note
+    (async () => {
+      try {
+        const { data: todo } = await supabase
+          .from("todos")
+          .select("title, event_id, submitted_by, committed_by, assigned_to")
+          .eq("id", body.todo_id)
+          .single();
+        if (!todo) return;
+
+        const { data: author } = await supabase
+          .from("users")
+          .select("name")
+          .eq("id", session.userId)
+          .single();
+        const authorName = author?.name || "Someone";
+
+        // Collect unique user IDs to notify
+        const notifyIds = new Set<string>();
+        if (todo.submitted_by) notifyIds.add(todo.submitted_by);
+        if (todo.committed_by) notifyIds.add(todo.committed_by);
+        if (todo.assigned_to) notifyIds.add(todo.assigned_to);
+        notifyIds.delete(session.userId); // Don't notify the author
+
+        if (notifyIds.size === 0) return;
+
+        const { data: users } = await supabase
+          .from("users")
+          .select("telegram_chat_id")
+          .in("id", Array.from(notifyIds))
+          .not("telegram_chat_id", "is", null);
+
+        for (const u of users || []) {
+          notifyNewNote(u.telegram_chat_id, todo.title, todo.event_id, body.type || "note", authorName, body.content).catch(() => {});
+        }
+      } catch { /* silent */ }
+    })();
 
     return NextResponse.json({ note: data });
   } catch (error) {

@@ -44,7 +44,8 @@ tanhowa/
 │   │   ├── events/page.tsx
 │   │   ├── documents/page.tsx  # View/download documents
 │   │   ├── subscriptions/page.tsx # View/pay subscriptions
-│   │   └── grievances/page.tsx # Submit grievances
+│   │   ├── grievances/page.tsx # Submit grievances
+│   │   └── todos/page.tsx      # To-Do List: task list + detail view (subtasks, notes, deliverables, vouchers)
 │   ├── admin/                  # Admin panel (sidebar layout, role-gated)
 │   │   ├── layout.tsx          # Admin role check, sidebar nav
 │   │   ├── page.tsx            # Admin dashboard stats
@@ -55,6 +56,7 @@ tanhowa/
 │   │   ├── subscriptions/page.tsx # Subscription payments (bulk create, verify, district report)
 │   │   ├── grievances/page.tsx # Review/respond to grievances
 │   │   ├── error-logs/page.tsx # Application error log viewer
+│   │   ├── todos/page.tsx      # To-Do List: Eisenhower Matrix + task detail (subtasks, notes, vouchers)
 │   │   └── settings/page.tsx   # Site settings (community name, tagline, about)
 │   └── api/                    # API routes (all server-side)
 │       ├── auth/
@@ -77,6 +79,12 @@ tanhowa/
 │       │   ├── bulk-verify/route.ts # POST: bulk verify payments
 │       │   ├── recent-payments/route.ts # GET: recent verified payments
 │       │   └── district-report/route.ts # GET: district-wise collection report
+│       ├── todos/
+│       │   ├── route.ts             # GET/POST/PUT/DELETE (tasks with subtask hierarchy + event_id)
+│       │   ├── notes/route.ts       # GET/POST/DELETE (task notes, reports, updates)
+│       │   ├── attachments/route.ts # GET/POST/DELETE (deliverable file uploads)
+│       │   └── vouchers/route.ts    # GET/POST/PUT/DELETE (cost/bill tracking with approval)
+│       ├── teams/route.ts           # GET/POST/PUT/DELETE (team management)
 │       ├── error-logs/route.ts      # GET/POST/DELETE (POST = client error submission)
 │       ├── upload/
 │       │   ├── avatar/route.ts            # POST: upload user avatar to Supabase Storage
@@ -188,6 +196,12 @@ export async function GET(req: NextRequest) {
 | `document_access` | Per-member document access | document_id, user_id (junction table for visibility="selected" documents) |
 | `error_logs` | Application error tracking | type (api/client/auth), message, stack, path, method, status_code, user_id, metadata (JSONB) |
 | `site_settings` | Key-value site config | key (unique), value |
+| `teams` | Member teams | name, description, icon, sort_order, created_by |
+| `team_members` | Team membership (junction) | team_id, user_id, role, added_by |
+| `todos` | Tasks with Eisenhower Matrix | title, description, status, urgent, important, due_date, event_id, parent_id, submitted_by, assigned_to, assigned_team_id, admin_remarks |
+| `todo_notes` | Task messages/reports | todo_id, user_id, content, type (note/report/update) |
+| `todo_attachments` | Task deliverable files | todo_id, user_id, file_url, file_name, file_type |
+| `todo_vouchers` | Task cost/bill tracking | todo_id, submitted_by, title, amount, receipt_url, status (pending/approved/rejected), approved_by, remarks |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -274,7 +288,21 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_nudge JSONB DEFAULT NULL;
 -- Subscription approval tracking
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id);
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+
+-- Teams
+CREATE TABLE IF NOT EXISTS teams (...);
+CREATE TABLE IF NOT EXISTS team_members (...);
+
+-- To-Do List with subtasks, notes, attachments, vouchers
+CREATE TABLE IF NOT EXISTS todos (...);
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES todos(id) ON DELETE CASCADE;
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS event_id TEXT UNIQUE;
+CREATE TABLE IF NOT EXISTS todo_notes (...);
+CREATE TABLE IF NOT EXISTS todo_attachments (...);
+CREATE TABLE IF NOT EXISTS todo_vouchers (...);
 ```
+
+See `supabase/schema.sql` for the complete DDL.
 
 ## Environment Variables
 
@@ -377,6 +405,43 @@ Uses `jspdf` + `jspdf-autotable` for client-side PDF export. Pattern: create lan
 ## AI-Powered Payment Proof Extraction
 
 `POST /api/upload/payment-proof/extract-date` uses Gemini to extract date, time, transaction_id, and payment_method from uploaded payment proof images. Available to all authenticated users (not admin-only).
+
+## To-Do List / Task Management System
+
+### Event ID Format
+Every task gets a unique, human-readable Event ID auto-generated on creation:
+- **Task:** `ET-001`, `ET-002`, ...
+- **Sub-task:** `ET-001-01`, `ET-001-02`, ...
+- **Sub-sub-task:** `ET-001-01-01` (max 2 levels of nesting enforced in API)
+
+### Task Hierarchy
+- `todos.parent_id` references `todos.id` for subtask relationships
+- Top-level tasks have `parent_id = null`
+- API enforces max depth of 2 (task → subtask → sub-subtask)
+
+### Task Workflow
+1. Member submits task → status `pending`
+2. Admin sets Eisenhower priority (urgent/important), assigns to team/member, approves
+3. Any member on the assigned team can add notes, upload deliverables, raise vouchers
+4. On completion, member submits a report (as a note of type `report`)
+5. If costs involved, member raises a voucher → Finance Team (admin) approves/rejects
+
+### Eisenhower Matrix (Admin View)
+2×2 grid based on `urgent` + `important` boolean flags:
+- Do First (urgent + important, red)
+- Schedule (not urgent + important, blue)
+- Delegate (urgent + not important, amber)
+- Eliminate (neither, gray)
+
+### Task Detail View (Both Admin & Member)
+Clicking a task opens detail view with 4 tabs:
+- **Sub-Tasks** — nested tasks with their own Event IDs
+- **Notes & Reports** — messages with types: `note`, `report`, `update`
+- **Deliverables** — file uploads to `todo-attachments` Supabase Storage bucket
+- **Vouchers/Bills** — cost tracking with Finance Team approval (pending/approved/rejected)
+
+### Storage Bucket
+`todo-attachments` — auto-created on first upload. Files stored as `todo-{todoId}/{userId}-{timestamp}.{ext}`.
 
 ## Key Conventions
 
