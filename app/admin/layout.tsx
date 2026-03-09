@@ -173,16 +173,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {mobileOpen ? <X size={20} /> : <Menu size={20} />}
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 bg-sidebar text-sidebar-foreground p-0">
+            <SheetContent side="left" className="w-64 bg-sidebar text-sidebar-foreground p-0 flex flex-col">
               <div className="p-4 border-b border-sidebar-border">
                 <div className="flex items-center gap-2">
                   <Flower2 className="w-7 h-7 text-sidebar-primary" />
                   <span className="text-lg font-bold">TANHOWA</span>
                 </div>
               </div>
-              <nav className="p-3 space-y-1">
+              <nav className="flex-1 p-3 space-y-1">
                 <NavLinks onItemClick={() => setMobileOpen(false)} />
               </nav>
+              <div className="p-3 border-t border-sidebar-border space-y-1">
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground rounded-lg hover:bg-sidebar-accent/50"
+                >
+                  <ArrowLeft size={16} />
+                  Back to Dashboard
+                </Link>
+                <Button
+                  variant="ghost"
+                  onClick={() => { setMobileOpen(false); handleLogout(); }}
+                  className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </Button>
+              </div>
             </SheetContent>
           </Sheet>
         </header>
