@@ -85,6 +85,7 @@ tanhowa/
 │       │   ├── attachments/route.ts # GET/POST/DELETE (deliverable file uploads)
 │       │   └── vouchers/route.ts    # GET/POST/PUT/DELETE (cost/bill tracking with approval)
 │       ├── teams/route.ts           # GET/POST/PUT/DELETE (team management)
+│       ├── telegram/webhook/route.ts # POST: Telegram bot webhook (commands, account linking)
 │       ├── error-logs/route.ts      # GET/POST/DELETE (POST = client error submission)
 │       ├── upload/
 │       │   ├── avatar/route.ts            # POST: upload user avatar to Supabase Storage
@@ -113,6 +114,7 @@ tanhowa/
 │   ├── gemini.ts               # getGemini() + SYSTEM_PROMPT for chatbot
 │   ├── error-logger.ts         # logError() — server-side error logging to Supabase
 │   ├── db.ts                   # getSQL() — direct PostgreSQL via `postgres` package (requires DATABASE_URL)
+│   ├── telegram.ts             # Telegram Bot API helpers (sendTelegramMessage, notification functions)
 │   ├── tn-districts.ts         # TN_DISTRICTS, DISTRICT_NAMES, getBlocks() — 38 TN districts + blocks
 │   └── utils.ts                # cn() — clsx + tailwind-merge utility
 ├── supabase/
@@ -186,7 +188,7 @@ export async function GET(req: NextRequest) {
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `users` | Members and admins | email, name, phone, occupation, posting_details (JSONB), social_links (JSONB), role, status, last_active_at, profile_nudge (JSONB) |
+| `users` | Members and admins | email, name, phone, occupation, posting_details (JSONB), social_links (JSONB), role, status, last_active_at, profile_nudge (JSONB), telegram_chat_id |
 | `otp_codes` | Temporary OTP storage | email, code, expires_at, used |
 | `announcements` | News/announcements | title, content, author_id, published (boolean) |
 | `events` | Calendar events | title, description, date, location, image_url |
@@ -198,7 +200,7 @@ export async function GET(req: NextRequest) {
 | `site_settings` | Key-value site config | key (unique), value |
 | `teams` | Member teams | name, description, icon, sort_order, created_by |
 | `team_members` | Team membership (junction) | team_id, user_id, role, added_by |
-| `todos` | Tasks with Eisenhower Matrix | title, description, status, urgent, important, due_date, event_id, parent_id, submitted_by, assigned_to, assigned_team_id, admin_remarks |
+| `todos` | Tasks with Eisenhower Matrix | title, description, status, urgent, important, due_date, event_id, parent_id, submitted_by, assigned_to, assigned_team_id, committed_by, committed_at, estimated_time, estimated_amount, admin_remarks |
 | `todo_notes` | Task messages/reports | todo_id, user_id, content, type (note/report/update) |
 | `todo_attachments` | Task deliverable files | todo_id, user_id, file_url, file_name, file_type |
 | `todo_vouchers` | Task cost/bill tracking | todo_id, submitted_by, title, amount, receipt_url, status (pending/approved/rejected), approved_by, remarks |
@@ -322,6 +324,7 @@ GOOGLE_CLIENT_ID=               # Google OAuth client ID (from Google Cloud Cons
 GOOGLE_CLIENT_SECRET=           # Google OAuth client secret
 GOOGLE_REDIRECT_URI=            # OAuth callback URL (e.g. https://tanhowa.in/api/auth/google/callback)
 DATABASE_URL=                   # Direct PostgreSQL connection string (used by lib/db.ts)
+TELEGRAM_BOT_TOKEN=             # Telegram Bot API token (for task notifications)
 ```
 
 ## UI & Styling Conventions
@@ -406,6 +409,41 @@ Uses `jspdf` + `jspdf-autotable` for client-side PDF export. Pattern: create lan
 
 `POST /api/upload/payment-proof/extract-date` uses Gemini to extract date, time, transaction_id, and payment_method from uploaded payment proof images. Available to all authenticated users (not admin-only).
 
+## Telegram Bot Integration
+
+### Overview
+A Telegram bot sends real-time notifications for task events. Users link their Telegram account by sending their registered email to the bot.
+
+**Key files:**
+- `lib/telegram.ts` — `sendTelegramMessage()`, notification helpers (`notifyTaskAssigned`, `notifyTaskCommitted`, `notifyTaskStatusChanged`, `notifyVoucherAction`, `notifyNewNote`), `escapeHtml()`
+- `app/api/telegram/webhook/route.ts` — Webhook handler for bot commands (`/start`, `/help`, `/status`, `/update`, `/report`)
+
+### Account Linking Flow
+1. User sends any email text to the bot
+2. Webhook looks up email in `users` table
+3. If found, stores `telegram_chat_id` on the user record
+4. Future task notifications are sent to that chat ID
+
+### Notification Pattern
+API routes use fire-and-forget async IIFE to send notifications without blocking the response:
+```typescript
+(async () => {
+  try {
+    // Look up relevant users, send notifications
+    notifyTaskStatusChanged(chatId, title, eventId, status).catch(() => {});
+  } catch { /* silent */ }
+})();
+```
+
+### Notifications Sent
+- **Task committed** → submitter + all admins
+- **Task status changed** → submitter, committer, assignee (excluding the admin who changed it)
+- **New note/report/update** → submitter, committer, assignee (excluding the author)
+- **Voucher approved/rejected** → voucher submitter
+
+### Domain Note
+`tanhowa.in` returns 307 redirect to `www.tanhowa.in`. Telegram doesn't follow redirects, so always use `https://www.tanhowa.in/api/telegram/webhook` as the webhook URL.
+
 ## To-Do List / Task Management System
 
 ### Event ID Format
@@ -422,9 +460,11 @@ Every task gets a unique, human-readable Event ID auto-generated on creation:
 ### Task Workflow
 1. Member submits task → status `pending`
 2. Admin sets Eisenhower priority (urgent/important), assigns to team/member, approves
-3. Any member on the assigned team can add notes, upload deliverables, raise vouchers
-4. On completion, member submits a report (as a note of type `report`)
-5. If costs involved, member raises a voucher → Finance Team (admin) approves/rejects
+3. Member **commits** to the task (PUT with `action: "commit"`) → sets `committed_by`, `committed_at`, optional `estimated_time` and `estimated_amount`, status becomes `in_progress`
+4. Any member on the assigned team can add notes, upload deliverables, raise vouchers
+5. On completion, member submits a report (as a note of type `report`)
+6. If costs involved, member raises a voucher → Finance Team (admin) approves/rejects
+7. Admin can **release commitment** (PUT with `action: "release_commitment"`) to reassign
 
 ### Eisenhower Matrix (Admin View)
 2×2 grid based on `urgent` + `important` boolean flags:
