@@ -8,8 +8,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Wallet, CheckCircle2, Clock, AlertTriangle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
+
+interface MemberInfo {
+  name: string;
+  email: string;
+  phone: string;
+  occupation: string;
+  photo_url: string | null;
+  posting_details?: { regular_district?: string; block?: string };
+}
 
 interface Subscription {
   id: string;
@@ -46,6 +56,7 @@ export default function SubscriptionsPage() {
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [qrZoom, setQrZoom] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [member, setMember] = useState<MemberInfo | null>(null);
 
   function load() {
     fetch("/api/subscriptions")
@@ -63,6 +74,10 @@ export default function SubscriptionsPage() {
 
   useEffect(() => {
     load();
+    fetch("/api/users/me")
+      .then((r) => r.json())
+      .then((d) => { if (d.user) setMember(d.user); })
+      .catch(() => {});
   }, []);
 
   const paid = subscriptions.filter((s) => s.status === "paid").length;
@@ -216,6 +231,32 @@ export default function SubscriptionsPage() {
           <p className="text-sm text-muted-foreground">Yearly membership subscription payments</p>
         </div>
       </div>
+
+      {/* Member Details */}
+      {member && (
+        <Card className="border-primary/15">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="w-12 h-12">
+                {member.photo_url && <AvatarImage src={member.photo_url} alt={member.name} />}
+                <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                  {member.name?.charAt(0)?.toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-base truncate">{member.name}</h3>
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground">
+                  {member.occupation && <span>{member.occupation}</span>}
+                  {member.posting_details?.regular_district && (
+                    <span>{member.posting_details.regular_district}{member.posting_details?.block ? `, ${member.posting_details.block}` : ""}</span>
+                  )}
+                  {member.phone && <span>{member.phone}</span>}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* QR Code Payment Section */}
       <Card className="border-2 border-primary/20">
