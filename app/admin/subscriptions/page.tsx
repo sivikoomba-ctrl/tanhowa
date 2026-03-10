@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +122,11 @@ export default function AdminSubscriptionsPage() {
   const [pastSelected, setPastSelected] = useState<Set<string>>(new Set());
   const [pastSearch, setPastSearch] = useState("");
   const [pastFile, setPastFile] = useState<File | null>(null);
+
+  // Admin proof upload
+  const adminFileInputRef = useRef<HTMLInputElement>(null);
+  const [adminUploadTargetId, setAdminUploadTargetId] = useState<string | null>(null);
+  const [adminUploading, setAdminUploading] = useState<string | null>(null);
 
   // Page loading
   const [pageLoading, setPageLoading] = useState(true);
@@ -417,6 +422,61 @@ export default function AdminSubscriptionsPage() {
     } else {
       toast.error("Failed to delete");
     }
+  }
+
+  async function handleAdminFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !adminUploadTargetId) return;
+    setAdminUploading(adminUploadTargetId);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("subscription_id", adminUploadTargetId);
+    try {
+      const res = await fetch("/api/upload/payment-proof", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Payment proof uploaded!");
+        load();
+        // If verify dialog is open for this subscription, refresh the proof image
+        if (payDialog?.id === adminUploadTargetId) {
+          const signedRes = await fetch("/api/upload/payment-proof/signed-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ file_path: data.payment_proof_url, subscription_id: adminUploadTargetId }),
+          });
+          const signedData = await signedRes.json();
+          if (signedRes.ok && signedData.url) {
+            setPayProofUrl(signedData.url);
+            setPayDialog((prev) => prev ? { ...prev, payment_proof_url: data.payment_proof_url } : prev);
+            // Auto-extract from uploaded file
+            setExtractingDate(true);
+            try {
+              const fd = new FormData();
+              fd.append("file", file);
+              const extRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
+              const extData = await extRes.json();
+              if (extData.date || extData.time || extData.transaction_id || extData.payment_method) {
+                setPayForm((prev) => ({
+                  ...prev,
+                  ...(extData.date ? { payment_date: extData.date } : {}),
+                  ...(extData.time ? { payment_time: extData.time } : {}),
+                  ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
+                  ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
+                }));
+              }
+            } catch { /* best-effort */ }
+            setExtractingDate(false);
+          }
+        }
+      } else {
+        toast.error(data.error || "Upload failed");
+      }
+    } catch {
+      toast.error("Upload failed");
+    }
+    setAdminUploading(null);
+    setAdminUploadTargetId(null);
+    if (adminFileInputRef.current) adminFileInputRef.current.value = "";
   }
 
   // Pending/overdue subscriptions for bulk verify member list
@@ -783,6 +843,15 @@ export default function AdminSubscriptionsPage() {
         </div>
       </div>
 
+      {/* Hidden file input for admin proof upload */}
+      <input
+        type="file"
+        ref={adminFileInputRef}
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleAdminFileChange}
+        className="hidden"
+      />
+
       <Tabs defaultValue="members" onValueChange={(val) => { if (val === "district-report" && districtRows.length === 0) loadDistrictReport(); }}>
         <TabsList>
           <TabsTrigger value="members">Member Payments</TabsTrigger>
@@ -952,6 +1021,25 @@ export default function AdminSubscriptionsPage() {
                         >
                           <Eye size={12} className="mr-1" />
                           View Proof
+                        </Button>
+                      )}
+                      {(sub.status === "pending" || sub.status === "overdue") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          disabled={adminUploading === sub.id}
+                          onClick={() => {
+                            setAdminUploadTargetId(sub.id);
+                            adminFileInputRef.current?.click();
+                          }}
+                        >
+                          {adminUploading === sub.id ? (
+                            <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
+                          ) : (
+                            <Upload size={12} className="mr-1" />
+                          )}
+                          {hasProof ? "Re-upload" : "Upload Proof"}
                         </Button>
                       )}
                       {(sub.status === "pending" || sub.status === "overdue") && (
@@ -1281,9 +1369,29 @@ export default function AdminSubscriptionsPage() {
                 </div>
               )}
               {!payDialog.payment_proof_url && (
-                <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-50 border border-amber-200">
-                  <ImageIcon className="w-5 h-5 text-amber-600" />
-                  <p className="text-sm text-amber-700 font-medium">No payment proof uploaded by member</p>
+                <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-amber-600 shrink-0" />
+                    <p className="text-sm text-amber-700 font-medium">No payment proof uploaded by member</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100"
+                    disabled={adminUploading === payDialog.id}
+                    onClick={() => {
+                      setAdminUploadTargetId(payDialog.id);
+                      adminFileInputRef.current?.click();
+                    }}
+                  >
+                    {adminUploading === payDialog.id ? (
+                      <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
+                    ) : (
+                      <Upload size={12} className="mr-1" />
+                    )}
+                    Upload Proof
+                  </Button>
                 </div>
               )}
 
