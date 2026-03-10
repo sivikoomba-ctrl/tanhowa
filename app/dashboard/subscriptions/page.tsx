@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface MemberInfo {
@@ -233,16 +232,17 @@ export default function SubscriptionsPage() {
       </div>
 
       {/* Member Details Card */}
-      {member ? (
-        <Card className="border-primary/15">
-          <CardContent className="pt-4 pb-4">
+      <Card className="border-primary/15">
+        <CardContent className="pt-4 pb-4">
+          {member ? (
             <div className="flex items-center gap-4">
-              <Avatar className="w-12 h-12">
-                {member.photo_url ? <AvatarImage src={member.photo_url} alt={member.name} /> : null}
-                <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                  {member.name?.charAt(0)?.toUpperCase() || "U"}
-                </AvatarFallback>
-              </Avatar>
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                {member.photo_url ? (
+                  <img src={member.photo_url} alt={member.name} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-6 h-6 text-primary" />
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-base truncate">{member.name}</h3>
                 <p className="text-sm text-muted-foreground">{member.email}</p>
@@ -255,9 +255,14 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      ) : null}
+          ) : (
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+              <span>Loading member details...</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* QR Code Payment Section */}
       <Card className="border-2 border-primary/20">
