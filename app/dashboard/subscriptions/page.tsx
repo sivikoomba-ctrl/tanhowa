@@ -232,20 +232,21 @@ export default function SubscriptionsPage() {
         </div>
       </div>
 
-      {/* Member Details */}
-      {member && (
+      {/* Member Details Card */}
+      {member ? (
         <Card className="border-primary/15">
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-4">
               <Avatar className="w-12 h-12">
-                {member.photo_url && <AvatarImage src={member.photo_url} alt={member.name} />}
+                {member.photo_url ? <AvatarImage src={member.photo_url} alt={member.name} /> : null}
                 <AvatarFallback className="bg-primary/10 text-primary font-bold">
                   {member.name?.charAt(0)?.toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-base truncate">{member.name}</h3>
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground">{member.email}</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground mt-0.5">
                   {member.occupation && <span>{member.occupation}</span>}
                   {member.posting_details?.regular_district && (
                     <span>{member.posting_details.regular_district}{member.posting_details?.block ? `, ${member.posting_details.block}` : ""}</span>
@@ -256,7 +257,7 @@ export default function SubscriptionsPage() {
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       {/* QR Code Payment Section */}
       <Card className="border-2 border-primary/20">
