@@ -33,7 +33,7 @@ const adminNavItems = [
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/events", label: "Events", icon: Calendar },
   { href: "/admin/documents", label: "Document Vault", icon: FileText },
-  { href: "/admin/grievances", label: "Grievances / Suggestions", icon: MessageSquareWarning },
+  { href: "/admin/grievances", label: "Suggestions/Grievances", icon: MessageSquareWarning },
   { href: "/admin/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/admin/todos", label: "To-Do List", icon: ListTodo },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },

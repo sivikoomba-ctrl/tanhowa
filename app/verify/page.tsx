@@ -86,6 +86,10 @@ function VerifyContent() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.error === "account_deleted_incomplete_profile") {
+          router.push("/?error=account_deleted_incomplete_profile");
+          return;
+        }
         setError(data.error || "Verification failed");
         return;
       }

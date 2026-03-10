@@ -47,7 +47,7 @@ const navItems = [
   { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
   { href: "/dashboard/events", label: "Events", icon: Calendar },
   { href: "/dashboard/documents", label: "Document Vault", icon: FileText },
-  { href: "/dashboard/grievances", label: "Grievances / Suggestions", icon: MessageSquareWarning },
+  { href: "/dashboard/grievances", label: "Suggestions/Grievances", icon: MessageSquareWarning },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/dashboard/todos", label: "To-Do List", icon: ListTodo },
 ];
@@ -83,6 +83,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (data.user) {
           if (data.user.status === "pending") {
             router.push("/pending");
+            return;
+          }
+          // Redirect truly unnamed users (no name at all) back to onboarding
+          if (!data.user.name && data.user.role !== "admin") {
+            router.push("/onboarding");
             return;
           }
           setUser(data.user);

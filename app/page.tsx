@@ -87,6 +87,7 @@ export default function LandingPage() {
         account_creation_failed: "Failed to create your account. Please try again.",
         invalid_state: "Session expired. Please try again.",
         auth_failed: "Something went wrong. Please try again.",
+        account_deleted_incomplete_profile: "Your account was removed because your profile was never completed. Please sign in again to create a new account.",
       };
       setError(messages[oauthError] || "Authentication failed. Please try again.");
       // Clean the URL

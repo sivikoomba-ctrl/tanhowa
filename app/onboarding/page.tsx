@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Flower2, Clock, ArrowLeft, ArrowRight, User, MapPin, Share2, Camera } from "lucide-react";
+import { Flower2, Clock, ArrowLeft, ArrowRight, User, MapPin, Share2, Camera, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 import { DISTRICT_NAMES, getBlocks } from "@/lib/tn-districts";
 
@@ -112,6 +112,7 @@ export default function OnboardingPage() {
   const [error, setError] = useState("");
   const [photoPreview, setPhotoPreview] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [loginCount, setLoginCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { minDate, maxDate } = getDobLimits();
@@ -120,6 +121,7 @@ export default function OnboardingPage() {
     fetch("/api/users/me").then((r) => r.json()).then((data) => {
       if (!data.user) return;
       if (data.user.status === "approved" && data.user.name) { router.push("/dashboard"); return; }
+      setLoginCount(data.user.login_count || 0);
       const sl = data.user.social_links || {};
       const parsed = parseTitleFromName(data.user.name || "");
       setProfile((prev) => ({
@@ -220,6 +222,23 @@ export default function OnboardingPage() {
             <h1 className="text-3xl font-bold text-primary">Complete Your Profile</h1>
             <p className="text-sm text-muted-foreground mt-1">Tell us about yourself to join the community</p>
           </div>
+
+          {/* Login count warning */}
+          {loginCount >= 3 && (
+            <div className={`rounded-xl border px-4 py-3 mb-5 flex items-start gap-3 ${loginCount >= 5 ? "bg-red-50 border-red-300" : "bg-amber-50 border-amber-300"}`}>
+              <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${loginCount >= 5 ? "text-red-600" : "text-amber-600"}`} />
+              <div>
+                <p className={`text-sm font-semibold ${loginCount >= 5 ? "text-red-800" : "text-amber-800"}`}>
+                  {loginCount >= 5 ? "Final Warning — Account at Risk" : "Profile Incomplete"}
+                </p>
+                <p className={`text-xs mt-0.5 ${loginCount >= 5 ? "text-red-700" : "text-amber-700"}`}>
+                  {loginCount >= 5
+                    ? `You have logged in ${loginCount} times without completing your profile. Incomplete accounts will be removed. Please fill in your details now.`
+                    : `You have logged in ${loginCount} times without completing your profile. Please complete it to continue using the portal.`}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Step Progress */}
           <div className="flex items-center justify-center gap-2 mb-6">

@@ -81,10 +81,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Update last login timestamp and increment login count
+    const newLoginCount = (user.login_count || 0) + 1;
     await supabase.from("users").update({
       last_login_at: new Date().toISOString(),
-      login_count: (user.login_count || 0) + 1,
+      login_count: newLoginCount,
     }).eq("id", user.id);
+
+    // Auto-delete accounts that never completed profile after 7+ logins
+    if (newLoginCount >= 7 && !user.name && user.role !== "admin") {
+      await supabase.from("users").delete().eq("id", user.id);
+      return NextResponse.json({ error: "account_deleted_incomplete_profile" }, { status: 403 });
+    }
 
     // Create session
     await createSession({

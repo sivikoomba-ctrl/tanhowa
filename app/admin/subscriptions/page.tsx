@@ -85,7 +85,7 @@ export default function AdminSubscriptionsPage() {
 
   // Verify payment dialog
   const [payDialog, setPayDialog] = useState<Subscription | null>(null);
-  const [payForm, setPayForm] = useState({ remarks: "", payment_date: "", payment_time: "", verified_email: "" });
+  const [payForm, setPayForm] = useState({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "" });
   const [payLoading, setPayLoading] = useState(false);
   const [payProofUrl, setPayProofUrl] = useState<string | null>(null);
   const [extractingDate, setExtractingDate] = useState(false);
@@ -348,12 +348,14 @@ export default function AdminSubscriptionsPage() {
         status: "paid",
         remarks: payForm.remarks || payDialog.remarks,
         paid_at: paidAt,
+        transaction_id: payForm.transaction_id || payDialog.transaction_id,
+        payment_method: payForm.payment_method || payDialog.payment_method,
       }),
     });
     if (res.ok) {
       toast.success("Payment verified and marked as paid");
       setPayDialog(null);
-      setPayForm({ remarks: "", payment_date: "", payment_time: "", verified_email: "" });
+      setPayForm({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "" });
       load();
     } else {
       toast.error("Failed to update");
@@ -965,6 +967,8 @@ export default function AdminSubscriptionsPage() {
                                 payment_date: today.toISOString().split("T")[0],
                                 payment_time: today.toTimeString().slice(0, 5),
                                 verified_email: sub.users?.email || "",
+                                transaction_id: sub.transaction_id || "",
+                                payment_method: sub.payment_method || "",
                               });
                               setPayProofUrl(null);
                               setExtractingDate(false);
@@ -984,11 +988,13 @@ export default function AdminSubscriptionsPage() {
                                     fd.append("image_url", data.url);
                                     const extRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
                                     const extData = await extRes.json();
-                                    if (extData.date || extData.time) {
+                                    if (extData.date || extData.time || extData.transaction_id || extData.payment_method) {
                                       setPayForm((prev) => ({
                                         ...prev,
                                         ...(extData.date ? { payment_date: extData.date } : {}),
                                         ...(extData.time ? { payment_time: extData.time } : {}),
+                                        ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
+                                        ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
                                       }));
                                     }
                                   } catch {}
@@ -1290,6 +1296,26 @@ export default function AdminSubscriptionsPage() {
                   {payForm.verified_email && payForm.verified_email !== payDialog.users?.email && (
                     <p className="text-xs text-red-600 mt-1 font-medium">Email does not match member record ({payDialog.users?.email})</p>
                   )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Transaction ID (from proof)</Label>
+                    <Input
+                      value={payForm.transaction_id}
+                      onChange={(e) => setPayForm({ ...payForm, transaction_id: e.target.value })}
+                      placeholder="UPI ref / UTR / bank ref"
+                      className="font-mono"
+                    />
+                  </div>
+                  <div>
+                    <Label>Payment Method</Label>
+                    <Input
+                      value={payForm.payment_method}
+                      onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value })}
+                      placeholder="e.g. UPI, Google Pay, NEFT"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">

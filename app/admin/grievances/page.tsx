@@ -89,7 +89,7 @@ export default function AdminGrievancesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Grievances / Suggestions</h1>
+      <h1 className="text-2xl font-bold">Suggestions/Grievances</h1>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>

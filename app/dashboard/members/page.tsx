@@ -125,13 +125,13 @@ export default function MembersPage() {
 
       {/* Recent Payments Scrolling Ticker */}
       {recentPayments.length > 0 && (
-        <div className="rounded-xl border bg-green-50/80 border-green-200 overflow-hidden">
-          <div className="flex items-center">
+        <div className="rounded-xl border bg-green-50/80 border-green-200 overflow-hidden w-full">
+          <div className="flex items-center min-w-0">
             <div className="bg-green-600 text-white px-3 py-2 text-xs font-semibold shrink-0 flex items-center gap-1.5">
               <IndianRupee size={14} />
               Recent Payments
             </div>
-            <div className="flex-1 overflow-hidden relative py-2">
+            <div className="flex-1 overflow-hidden relative py-2 min-w-0">
               <div
                 ref={tickerRef}
                 className="flex gap-8 animate-scroll whitespace-nowrap px-4"
