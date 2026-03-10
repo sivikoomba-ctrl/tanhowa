@@ -242,6 +242,18 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ message: `Notification sent to ${user.email}` });
     } else {
+      // Check for existing subscription for this user/period
+      const { data: existingSub } = await supabase
+        .from("subscriptions")
+        .select("id")
+        .eq("user_id", body.user_id)
+        .eq("period", body.period)
+        .maybeSingle();
+
+      if (existingSub) {
+        return NextResponse.json({ error: "A subscription already exists for this member and period" }, { status: 400 });
+      }
+
       const { data, error } = await supabase
         .from("subscriptions")
         .insert({
