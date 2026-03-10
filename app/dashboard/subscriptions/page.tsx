@@ -16,7 +16,7 @@ interface MemberInfo {
   email: string;
   phone: string;
   occupation: string;
-  photo_url: string | null;
+  avatar_url: string | null;
   posting_details?: { regular_district?: string; block?: string };
 }
 
@@ -221,46 +221,43 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Wallet className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">My Subscriptions</h1>
-          <p className="text-sm text-muted-foreground">Yearly membership subscription payments</p>
-        </div>
-      </div>
-
-      {/* Member Details Card */}
       <Card className="border-primary/15">
         <CardContent className="pt-4 pb-4">
-          {member ? (
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
-                {member.photo_url ? (
-                  <img src={member.photo_url} alt={member.name} className="w-full h-full object-cover" />
-                ) : (
-                  <User className="w-6 h-6 text-primary" />
-                )}
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+              {member?.avatar_url ? (
+                <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-6 h-6 text-primary" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-primary shrink-0" />
+                <h1 className="text-xl font-bold">My Subscriptions</h1>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-base truncate">{member.name}</h3>
-                <p className="text-sm text-muted-foreground">{member.email}</p>
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground mt-0.5">
-                  {member.occupation && <span>{member.occupation}</span>}
-                  {member.posting_details?.regular_district && (
-                    <span>{member.posting_details.regular_district}{member.posting_details?.block ? `, ${member.posting_details.block}` : ""}</span>
-                  )}
-                  {member.phone && <span>{member.phone}</span>}
+              {member ? (
+                <>
+                  <p className="font-medium text-sm truncate">{member.name || member.email}</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
+                    {member.occupation && <span>{member.occupation}</span>}
+                    {member.posting_details?.regular_district && (
+                      <span>{member.posting_details.regular_district}{member.posting_details?.block ? `, ${member.posting_details.block}` : ""}</span>
+                    )}
+                    {member.phone && <span>{member.phone}</span>}
+                    {!member.occupation && !member.posting_details?.regular_district && !member.phone && (
+                      <span>{member.email}</span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-24 h-3 rounded bg-muted animate-pulse" />
+                  <div className="w-16 h-3 rounded bg-muted animate-pulse" />
                 </div>
-              </div>
+              )}
             </div>
-          ) : (
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
-              <span>Loading member details...</span>
-            </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
