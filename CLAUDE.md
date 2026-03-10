@@ -147,6 +147,8 @@ tanhowa/
 
 **Session implementation:** JWT signed with HS256, stored in httpOnly cookie named `session`, 7-day expiry. Uses `jose` library (not jsonwebtoken) for Edge compatibility.
 
+**`login_count` tracking:** Both auth routes (`google/callback` and `verify-otp`) increment `login_count` and update `last_login_at` on every login. **Auto-delete:** if `login_count >= 7` and `user.name` is empty and `role !== "admin"`, the account is deleted and the error `account_deleted_incomplete_profile` is returned. Warning banners appear on `/onboarding` at count ≥ 3 (amber) and ≥ 5 (red).
+
 ## API Route Patterns
 
 All API routes follow this consistent pattern:
@@ -394,8 +396,12 @@ npm run lint     # ESLint
 ## Admin Auth Pattern
 
 - Use `isAdmin(session)` helper which checks DB role (not JWT which may be stale)
-- `DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in"` is auto-approved as admin on first login
+- `DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in"` is auto-approved as admin on first login and **never goes through onboarding** — their `name`, `phone`, `occupation` may be empty. Don't assume admins have a complete profile.
 - Admin user actions: approve, reject, nudge (profile completion), change role
+
+## Known Field Name Gotchas
+
+- **User avatar:** DB column is `avatar_url`, not `photo_url`. Always use `avatar_url` in TypeScript interfaces and code that reads user records.
 
 ## PDF Generation (Admin Reports)
 
