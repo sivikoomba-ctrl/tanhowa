@@ -344,24 +344,6 @@ export default function SubscriptionsPage() {
             return (
               <Card key={sub.id}>
                 <CardContent className="pt-4">
-                  {/* Member info strip */}
-                  {member && (
-                    <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-border/50">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
-                        {member.avatar_url ? (
-                          <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <User className="w-3.5 h-3.5 text-primary" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium truncate leading-tight">{member.name || member.email}</p>
-                        <p className="text-[10px] text-muted-foreground truncate leading-tight">
-                          {[member.occupation, member.posting_details?.regular_district, member.phone].filter(Boolean).join(" · ") || member.email}
-                        </p>
-                      </div>
-                    </div>
-                  )}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
