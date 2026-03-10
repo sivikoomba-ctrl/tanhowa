@@ -996,6 +996,12 @@ export default function AdminSubscriptionsPage() {
                                         ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
                                         ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
                                       }));
+                                      // Also reflect AI-extracted values in the member-submitted display
+                                      setPayDialog((prev) => prev ? {
+                                        ...prev,
+                                        ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
+                                        ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
+                                      } : prev);
                                     }
                                   } catch {}
                                   setExtractingDate(false);
