@@ -1,4 +1,4 @@
-const CACHE_NAME = "tanhowa-v1";
+const CACHE_NAME = "tanhowa-v2";
 const STATIC_ASSETS = [
   "/icons/icon-192x192.png",
   "/icons/icon-512x512.png",
@@ -26,11 +26,11 @@ self.addEventListener("fetch", (event) => {
   // Skip non-GET requests and API calls
   if (request.method !== "GET" || request.url.includes("/api/")) return;
 
+  // Only cache static assets (images, fonts) — NOT JS/CSS bundles which change on every deploy
   event.respondWith(
     fetch(request)
       .then((response) => {
-        // Cache successful responses for static assets
-        if (response.ok && (request.url.match(/\.(js|css|png|jpg|svg|woff2?)$/) || request.destination === "image")) {
+        if (response.ok && request.url.match(/\.(png|jpg|jpeg|svg|webp|woff2?|ico)$/)) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
