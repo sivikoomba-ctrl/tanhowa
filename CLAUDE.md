@@ -402,6 +402,7 @@ npm run lint     # ESLint
 ## Known Field Name Gotchas
 
 - **User avatar:** DB column is `avatar_url`, not `photo_url`. Always use `avatar_url` in TypeScript interfaces and code that reads user records.
+- **`GET /api/subscriptions?me=true`** — forces user-scoped results even for admins. The member dashboard always appends `?me=true`; the admin panel omits it to receive all members' data.
 
 ## PDF Generation (Admin Reports)
 
