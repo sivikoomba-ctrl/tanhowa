@@ -46,3 +46,37 @@ export const DISTRICT_NAMES = Object.keys(TN_DISTRICTS).sort();
 export function getBlocks(district: string): string[] {
   return TN_DISTRICTS[district] || [];
 }
+
+// Tamil Nadu State Horticulture Farms
+export const TN_HORTICULTURE_FARMS: string[] = [
+  "Govt. Horticulture Farm, Kodaikanal",
+  "Govt. Horticulture Farm, Ooty (Udhagamandalam)",
+  "Govt. Horticulture Farm, Coonoor",
+  "Govt. Horticulture Farm, Kotagiri",
+  "Govt. Horticulture Farm, Yercaud",
+  "Govt. Horticulture Farm, Manjolai",
+  "Govt. Horticulture Farm, Palani",
+  "Govt. Horticulture Farm, Oddanchatram",
+  "Govt. Horticulture Farm, Theni",
+  "Govt. Horticulture Farm, Coimbatore",
+  "Govt. Horticulture Farm, Dharapuram",
+  "Govt. Horticulture Farm, Udumalpet",
+  "Govt. Horticulture Farm, Salem",
+  "Govt. Horticulture Farm, Krishnagiri",
+  "Govt. Horticulture Farm, Hosur",
+  "Govt. Horticulture Farm, Dharmapuri",
+  "Govt. Horticulture Farm, Vellore",
+  "Govt. Horticulture Farm, Tiruvannamalai",
+  "Govt. Horticulture Farm, Thanjavur",
+  "Govt. Horticulture Farm, Madurai",
+  "Govt. Horticulture Farm, Dindigul",
+  "Govt. Horticulture Farm, Tirunelveli",
+  "Govt. Horticulture Farm, Thoothukudi",
+  "Govt. Horticulture Farm, Ramanathapuram",
+  "Govt. Horticulture Farm, Virudhunagar",
+  "Govt. Horticulture Farm, Cuddalore",
+  "Govt. Horticulture Farm, Villupuram",
+  "Govt. Horticulture Farm, Namakkal",
+  "Govt. Horticulture Farm, Erode",
+  "Govt. Horticulture Farm, Tiruppur",
+];

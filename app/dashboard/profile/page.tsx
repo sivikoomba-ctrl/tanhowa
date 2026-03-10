@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Camera, Plus, X, AlertCircle } from "lucide-react";
-import { DISTRICT_NAMES, getBlocks } from "@/lib/tn-districts";
+import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
 
 const titleOptions = ["", "Dr."];
 
@@ -47,6 +47,8 @@ interface PostingDetails {
   special_duty_district: string;
   special_duty_block: string;
   special_duty_place: string;
+  special_designation: string;
+  special_farm: string;
   deputed_district: string;
   deputed_block: string;
 }
@@ -78,6 +80,7 @@ interface Profile {
 const emptyPosting: PostingDetails = {
   regular_district: "", regular_block: "",
   special_duty_district: "", special_duty_block: "", special_duty_place: "",
+  special_designation: "", special_farm: "",
   deputed_district: "", deputed_block: "",
 };
 
@@ -406,6 +409,26 @@ export default function ProfilePage() {
                     </Select>
                   </div>
                   <div className="col-span-2"><Label>Place (other than above)</Label><Input value={profile.posting_details.special_duty_place} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_place: e.target.value } })} placeholder="Place name" /></div>
+                  <div>
+                    <Label>Special Designation</Label>
+                    <Select value={profile.posting_details.special_designation || ""} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_designation: val, special_farm: "" } })}>
+                      <SelectTrigger><SelectValue placeholder="Select designation" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="HO Tech (State Scheme)">HO Tech (State Scheme)</SelectItem>
+                        <SelectItem value="HO Tech (GOI)">HO Tech (GOI)</SelectItem>
+                        <SelectItem value="Farm Manager">Farm Manager</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {profile.posting_details.special_designation === "Farm Manager" && (
+                    <div>
+                      <Label>Farm</Label>
+                      <Select value={profile.posting_details.special_farm || ""} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_farm: val } })}>
+                        <SelectTrigger><SelectValue placeholder="Select farm" /></SelectTrigger>
+                        <SelectContent>{TN_HORTICULTURE_FARMS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
