@@ -18,8 +18,9 @@ export async function GET(req: NextRequest) {
 
     const dbRole = await getDbRole(session.userId);
     const sync = url.searchParams.get("sync");
+    const me = url.searchParams.get("me");
 
-    if (dbRole === "admin") {
+    if (dbRole === "admin" && me !== "true") {
       // Auto-sync only when explicitly requested (not on every page load)
       if (sync === "true") {
         try {

@@ -58,7 +58,7 @@ export default function SubscriptionsPage() {
   const [member, setMember] = useState<MemberInfo | null>(null);
 
   function load() {
-    fetch("/api/subscriptions")
+    fetch("/api/subscriptions?me=true")
       .then((r) => r.json())
       .then((d) => setSubscriptions(d.subscriptions || []))
       .catch(() => {});
