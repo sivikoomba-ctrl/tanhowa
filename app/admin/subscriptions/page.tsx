@@ -85,7 +85,7 @@ export default function AdminSubscriptionsPage() {
 
   // Verify payment dialog
   const [payDialog, setPayDialog] = useState<Subscription | null>(null);
-  const [payForm, setPayForm] = useState({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "" });
+  const [payForm, setPayForm] = useState({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
   const [payLoading, setPayLoading] = useState(false);
   const [payProofUrl, setPayProofUrl] = useState<string | null>(null);
   const [extractingDate, setExtractingDate] = useState(false);
@@ -355,12 +355,13 @@ export default function AdminSubscriptionsPage() {
         paid_at: paidAt,
         transaction_id: payForm.transaction_id || payDialog.transaction_id,
         payment_method: payForm.payment_method || payDialog.payment_method,
+        ...(payForm.amount ? { amount: parseFloat(payForm.amount) } : {}),
       }),
     });
     if (res.ok) {
       toast.success("Payment verified and marked as paid");
       setPayDialog(null);
-      setPayForm({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "" });
+      setPayForm({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
       load();
     } else {
       toast.error("Failed to update");
@@ -455,13 +456,14 @@ export default function AdminSubscriptionsPage() {
               fd.append("file", file);
               const extRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
               const extData = await extRes.json();
-              if (extData.date || extData.time || extData.transaction_id || extData.payment_method) {
+              if (extData.date || extData.time || extData.transaction_id || extData.payment_method || extData.amount) {
                 setPayForm((prev) => ({
                   ...prev,
                   ...(extData.date ? { payment_date: extData.date } : {}),
                   ...(extData.time ? { payment_time: extData.time } : {}),
                   ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
                   ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
+                  ...(extData.amount ? { amount: String(extData.amount) } : {}),
                 }));
               }
             } catch { /* best-effort */ }
@@ -1057,6 +1059,7 @@ export default function AdminSubscriptionsPage() {
                                 verified_email: sub.users?.email || "",
                                 transaction_id: sub.transaction_id || "",
                                 payment_method: sub.payment_method || "",
+                                amount: sub.amount ? String(sub.amount) : "",
                               });
                               setPayProofUrl(null);
                               setExtractingDate(false);
@@ -1076,13 +1079,14 @@ export default function AdminSubscriptionsPage() {
                                     fd.append("image_url", data.url);
                                     const extRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
                                     const extData = await extRes.json();
-                                    if (extData.date || extData.time || extData.transaction_id || extData.payment_method) {
+                                    if (extData.date || extData.time || extData.transaction_id || extData.payment_method || extData.amount) {
                                       setPayForm((prev) => ({
                                         ...prev,
                                         ...(extData.date ? { payment_date: extData.date } : {}),
                                         ...(extData.time ? { payment_time: extData.time } : {}),
                                         ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
                                         ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
+                                        ...(extData.amount ? { amount: String(extData.amount) } : {}),
                                       }));
                                       // Also reflect AI-extracted values in the member-submitted display
                                       setPayDialog((prev) => prev ? {
@@ -1292,63 +1296,136 @@ export default function AdminSubscriptionsPage() {
                 </div>
               </div>
 
-              {/* Bulk Payment Registration Reminder */}
-              {payDialog.remarks && payDialog.remarks.includes(",") && (() => {
+              {/* Bulk Payment — Linked Members */}
+              {payDialog.remarks && (() => {
+                // Parse structured sub_ids from remarks
+                const subIdsMatch = payDialog.remarks?.match(/\[sub_ids:([^\]]+)\]/);
+                const linkedSubIds = subIdsMatch ? subIdsMatch[1].split(",").map((s: string) => s.trim()).filter(Boolean) : [];
+
                 // Extract mentioned names from remarks, excluding the paying member
-                const behalfMatch = payDialog.remarks?.match(/Paying on behalf of:\s*(.+)$/i);
+                const behalfMatch = payDialog.remarks?.match(/Paying on behalf of:\s*(.+?)(?:\s*\[sub_ids:|$)/i);
                 const payerFull = (payDialog.users?.name || "").toLowerCase().trim();
                 const payerParts = payerFull.split(/\s+/).filter((p: string) => p.length > 1);
                 const mentionedNames = (behalfMatch
                   ? behalfMatch[1].split(",").map((n: string) => n.trim()).filter(Boolean)
-                  : payDialog.remarks?.split(",").map((n: string) => n.trim()).filter(Boolean) || []
+                  : payDialog.remarks?.includes(",")
+                    ? payDialog.remarks?.split(",").map((n: string) => n.trim()).filter(Boolean) || []
+                    : []
                 ).filter((n: string) => {
                   const nameLower = n.toLowerCase().trim();
-                  // Exclude only if the mentioned name matches the full payer name or a significant part (>1 char)
                   if (nameLower === payerFull) return false;
                   return !payerParts.some((part: string) => nameLower === part);
                 });
                 const namesList = mentionedNames.join(", ");
 
-                if (mentionedNames.length === 0) return null;
+                if (mentionedNames.length === 0 && linkedSubIds.length === 0) return null;
+
+                // Find linked subscriptions from loaded data
+                const linkedSubs = linkedSubIds.length > 0
+                  ? subscriptions.filter((s) => linkedSubIds.includes(s.id))
+                  : [];
 
                 return (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
                     <div className="flex items-start gap-2">
-                      <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <Users className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                       <div className="space-y-1">
-                        <h4 className="text-sm font-semibold text-amber-800">Bulk Payment Detected</h4>
-                        <p className="text-xs text-amber-700">
-                          This payment appears to cover multiple members: <span className="font-semibold uppercase">{namesList}</span>. Please ensure all mentioned members are registered in the TANHOWA Portal before approving.
-                        </p>
+                        <h4 className="text-sm font-semibold text-amber-800">
+                          Bulk Payment — {linkedSubs.length > 0 ? linkedSubs.length : mentionedNames.length} Other Member{(linkedSubs.length > 0 ? linkedSubs.length : mentionedNames.length) > 1 ? "s" : ""}
+                        </h4>
+                        {linkedSubs.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {linkedSubs.map((ls) => (
+                              <div key={ls.id} className="flex items-center justify-between text-xs">
+                                <span className="font-medium">{ls.users?.name || ls.users?.email}</span>
+                                <Badge variant={ls.status === "paid" ? "default" : "outline"} className="text-[10px] h-5">
+                                  {ls.status}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-amber-700">
+                            Members: <span className="font-semibold uppercase">{namesList}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="bg-white rounded-lg border border-amber-200 p-3">
-                      <p className="text-xs text-muted-foreground mb-1.5 font-medium">Polite message to send to the paying member:</p>
-                      <p className="text-xs text-foreground leading-relaxed">
-                        Dear {payDialog.users?.name || "Member"},<br /><br />
-                        Thank you very much for your payment towards TANHOWA subscription. We truly appreciate your effort in collecting for multiple members.<br /><br />
-                        We noticed that the following members are mentioned in your payment: <strong>{namesList}</strong>.<br /><br />
-                        We kindly request that all the above members be registered on the TANHOWA Portal (tanhowa.in) so that their subscriptions can be processed and approved. Please ask any unregistered member to sign up at the earliest convenience.<br /><br />
-                        Once all members are registered, we will promptly verify and approve the payments.<br /><br />
-                        Thank you for your support and cooperation!<br />
-                        Warm regards,<br />
-                        TANHOWA Admin
-                      </p>
+
+                    {/* One-click bulk verify for linked subs */}
+                    {linkedSubs.filter((s) => s.status !== "paid").length > 0 && (
                       <Button
                         type="button"
-                        variant="outline"
                         size="sm"
-                        className="mt-2 h-7 text-xs"
-                        onClick={() => {
-                          const msg = `Dear ${payDialog.users?.name || "Member"},\n\nThank you very much for your payment towards TANHOWA subscription. We truly appreciate your effort in collecting for multiple members.\n\nWe noticed that the following members are mentioned in your payment: ${namesList}.\n\nWe kindly request that all the above members be registered on the TANHOWA Portal (tanhowa.in) so that their subscriptions can be processed and approved. Please ask any unregistered member to sign up at the earliest convenience.\n\nOnce all members are registered, we will promptly verify and approve the payments.\n\nThank you for your support and cooperation!\nWarm regards,\nTANHOWA Admin`;
-                          navigator.clipboard.writeText(msg);
-                          toast.success("Message copied to clipboard");
+                        className="w-full bg-green-600 hover:bg-green-700 text-xs"
+                        disabled={payLoading}
+                        onClick={async () => {
+                          if (!confirm(`Verify payment for ${linkedSubs.filter((s) => s.status !== "paid").length} linked member(s) too?`)) return;
+                          setPayLoading(true);
+                          try {
+                            const unpaidIds = linkedSubs.filter((s) => s.status !== "paid").map((s) => s.id);
+                            // Build paid_at from form
+                            let paidAt: string | undefined;
+                            if (payForm.payment_date) {
+                              const time = payForm.payment_time || "12:00";
+                              paidAt = new Date(`${payForm.payment_date}T${time}:00`).toISOString();
+                            }
+                            // Verify each linked subscription
+                            for (const subId of unpaidIds) {
+                              await fetch("/api/subscriptions", {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  id: subId,
+                                  status: "paid",
+                                  paid_at: paidAt,
+                                  payment_proof_url: payDialog.payment_proof_url,
+                                  transaction_id: payForm.transaction_id || payDialog.transaction_id,
+                                  payment_method: payForm.payment_method || payDialog.payment_method,
+                                  remarks: `Bulk payment by ${payDialog.users?.name || payDialog.users?.email}`,
+                                  ...(payForm.amount && payDialog.amount ? { amount: payDialog.amount } : {}),
+                                }),
+                              });
+                            }
+                            toast.success(`Verified ${unpaidIds.length} linked member(s)`);
+                            load();
+                          } catch {
+                            toast.error("Failed to verify linked members");
+                          }
+                          setPayLoading(false);
                         }}
                       >
-                        <Copy size={12} className="mr-1" />
-                        Copy Message
+                        <CheckCircle2 size={14} className="mr-1" />
+                        Verify All {linkedSubs.filter((s) => s.status !== "paid").length} Linked Member{linkedSubs.filter((s) => s.status !== "paid").length > 1 ? "s" : ""}
                       </Button>
-                    </div>
+                    )}
+
+                    {/* Fallback: copy message for unstructured names */}
+                    {linkedSubs.length === 0 && (
+                      <div className="bg-white rounded-lg border border-amber-200 p-3">
+                        <p className="text-xs text-muted-foreground mb-1.5 font-medium">Polite message to send to the paying member:</p>
+                        <p className="text-xs text-foreground leading-relaxed">
+                          Dear {payDialog.users?.name || "Member"},<br /><br />
+                          Thank you for your bulk payment. We noticed members: <strong>{namesList}</strong>.<br /><br />
+                          Please ensure all members are registered on tanhowa.in so their subscriptions can be approved.<br /><br />
+                          Warm regards, TANHOWA Admin
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 h-7 text-xs"
+                          onClick={() => {
+                            const msg = `Dear ${payDialog.users?.name || "Member"},\n\nThank you for your bulk payment towards TANHOWA subscription.\n\nWe noticed the following members: ${namesList}.\n\nPlease ensure all members are registered on tanhowa.in so their subscriptions can be approved.\n\nWarm regards,\nTANHOWA Admin`;
+                            navigator.clipboard.writeText(msg);
+                            toast.success("Message copied to clipboard");
+                          }}
+                        >
+                          <Copy size={12} className="mr-1" />
+                          Copy Message
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -1430,6 +1507,21 @@ export default function AdminSubscriptionsPage() {
                       placeholder="e.g. UPI, Google Pay, NEFT"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <Label>Amount Paid (&#8377;)</Label>
+                  <Input
+                    type="number"
+                    value={payForm.amount}
+                    onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+                    placeholder="e.g. 3000"
+                  />
+                  {payDialog && payDialog.amount && payForm.amount && parseFloat(payForm.amount) !== payDialog.amount && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Subscription amount: &#8377;{payDialog.amount.toLocaleString("en-IN")} — Proof amount: &#8377;{parseFloat(payForm.amount).toLocaleString("en-IN")}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">

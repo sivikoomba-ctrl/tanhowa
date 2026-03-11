@@ -8,8 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
+
+interface PendingMember {
+  id: string;
+  user_id: string;
+  period: string;
+  amount: number;
+  status: string;
+  users: { id: string; name: string; email: string; phone: string } | null;
+}
 
 interface MemberInfo {
   name: string;
@@ -51,11 +60,16 @@ export default function SubscriptionsPage() {
 
   // Payment details dialog
   const [detailsSub, setDetailsSub] = useState<Subscription | null>(null);
-  const [detailsForm, setDetailsForm] = useState({ transaction_id: "", payment_method: "", remarks: "", paying_for_others: false, other_members: "" });
+  const [detailsForm, setDetailsForm] = useState({ transaction_id: "", payment_method: "", remarks: "", paying_for_others: false, other_members: "", amount: "" });
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [qrZoom, setQrZoom] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [member, setMember] = useState<MemberInfo | null>(null);
+
+  // Paying-for-others member picker
+  const [pendingMembers, setPendingMembers] = useState<PendingMember[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [memberSearch, setMemberSearch] = useState("");
 
   function load() {
     fetch("/api/subscriptions?me=true")
@@ -118,9 +132,10 @@ export default function SubscriptionsPage() {
             remarks: sub.remarks || "",
             paying_for_others: false,
             other_members: "",
+            amount: sub.amount ? String(sub.amount) : "",
           });
 
-          // Auto-extract transaction ID and payment method from proof using AI
+          // Auto-extract transaction ID, payment method, and amount from proof using AI
           if (file) {
             setExtracting(true);
             try {
@@ -128,11 +143,12 @@ export default function SubscriptionsPage() {
               extractFd.append("file", file);
               const extractRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: extractFd });
               const extractData = await extractRes.json();
-              if (extractData.transaction_id || extractData.payment_method) {
+              if (extractData.transaction_id || extractData.payment_method || extractData.amount) {
                 setDetailsForm((prev) => ({
                   ...prev,
                   transaction_id: extractData.transaction_id || prev.transaction_id,
                   payment_method: extractData.payment_method || prev.payment_method,
+                  ...(extractData.amount ? { amount: String(extractData.amount) } : {}),
                 }));
                 toast.success("Transaction details auto-filled from your proof!");
               }
@@ -151,14 +167,47 @@ export default function SubscriptionsPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  async function fetchPendingMembers(period: string) {
+    try {
+      const res = await fetch(`/api/subscriptions/pending-members?period=${encodeURIComponent(period)}`);
+      const data = await res.json();
+      setPendingMembers(data.subscriptions || []);
+    } catch {
+      setPendingMembers([]);
+    }
+  }
+
+  function toggleMember(subId: string) {
+    setSelectedMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(subId)) next.delete(subId);
+      else next.add(subId);
+      return next;
+    });
+  }
+
+  // Compute how many other members the amount covers
+  const memberSlots = detailsSub && detailsForm.amount && detailsSub.amount
+    ? Math.floor(parseFloat(detailsForm.amount) / detailsSub.amount) - 1
+    : 0;
+
   async function handleSaveDetails(e: React.FormEvent) {
     e.preventDefault();
     if (!detailsSub) return;
     setDetailsSaving(true);
 
-    // Build remarks: include other member names if paying on behalf
+    // Build remarks: include selected member names and subscription IDs
     let finalRemarks = detailsForm.remarks || "";
-    if (detailsForm.paying_for_others && detailsForm.other_members.trim()) {
+    if (detailsForm.paying_for_others && selectedMembers.size > 0) {
+      const selectedNames = pendingMembers
+        .filter((m) => selectedMembers.has(m.id))
+        .map((m) => m.users?.name || m.users?.email || "Unknown")
+        .join(", ");
+      const selectedIds = Array.from(selectedMembers).join(",");
+      finalRemarks = finalRemarks
+        ? `${finalRemarks} | Paying on behalf of: ${selectedNames} [sub_ids:${selectedIds}]`
+        : `Paying on behalf of: ${selectedNames} [sub_ids:${selectedIds}]`;
+    } else if (detailsForm.paying_for_others && detailsForm.other_members.trim()) {
       const names = detailsForm.other_members.trim();
       finalRemarks = finalRemarks ? `${finalRemarks} | Paying on behalf of: ${names}` : `Paying on behalf of: ${names}`;
     }
@@ -171,6 +220,7 @@ export default function SubscriptionsPage() {
         transaction_id: detailsForm.transaction_id,
         payment_method: detailsForm.payment_method,
         remarks: finalRemarks,
+        ...(detailsForm.amount ? { amount: parseFloat(detailsForm.amount) } : {}),
       }),
     });
 
@@ -216,6 +266,7 @@ export default function SubscriptionsPage() {
       remarks: cleanRemarks,
       paying_for_others: !!behalfMatch,
       other_members: behalfMatch ? behalfMatch[1].trim() : "",
+      amount: sub.amount ? String(sub.amount) : "",
     });
   }
 
@@ -514,6 +565,20 @@ export default function SubscriptionsPage() {
                   />
                 </div>
                 <div>
+                  <Label>Amount Paid (&#8377;)</Label>
+                  <Input
+                    type="number"
+                    value={detailsForm.amount}
+                    onChange={(e) => setDetailsForm({ ...detailsForm, amount: e.target.value })}
+                    placeholder={extracting ? "Extracting from proof..." : "e.g. 3000"}
+                  />
+                  {detailsSub.amount && detailsForm.amount && parseFloat(detailsForm.amount) !== detailsSub.amount && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Subscription amount is &#8377;{detailsSub.amount.toLocaleString("en-IN")} — you entered &#8377;{parseFloat(detailsForm.amount).toLocaleString("en-IN")}
+                    </p>
+                  )}
+                </div>
+                <div>
                   <Label>Remarks (optional)</Label>
                   <Input
                     value={detailsForm.remarks}
@@ -528,27 +593,129 @@ export default function SubscriptionsPage() {
                     <input
                       type="checkbox"
                       checked={detailsForm.paying_for_others}
-                      onChange={(e) => setDetailsForm({ ...detailsForm, paying_for_others: e.target.checked, other_members: e.target.checked ? detailsForm.other_members : "" })}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setDetailsForm({ ...detailsForm, paying_for_others: checked, other_members: checked ? detailsForm.other_members : "" });
+                        if (checked && detailsSub) {
+                          fetchPendingMembers(detailsSub.period);
+                        }
+                        if (!checked) {
+                          setSelectedMembers(new Set());
+                          setMemberSearch("");
+                        }
+                      }}
                       className="rounded"
                     />
                     <Users size={16} className="text-primary" />
                     <span className="text-sm font-medium">I am paying on behalf of other members too</span>
                   </label>
+
+                  {/* Auto-detect bulk payment */}
+                  {memberSlots > 0 && !detailsForm.paying_for_others && (
+                    <div className="flex items-start gap-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2">
+                      <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-blue-700">
+                        Your payment of <span className="font-semibold">&#8377;{parseFloat(detailsForm.amount).toLocaleString("en-IN")}</span> covers <span className="font-semibold">{memberSlots + 1} members</span> (&#8377;{detailsSub?.amount?.toLocaleString("en-IN")} each). Check the box above to select the other {memberSlots} member{memberSlots > 1 ? "s" : ""}.
+                      </p>
+                    </div>
+                  )}
+
                   {detailsForm.paying_for_others && (
-                    <div className="space-y-2">
-                      <div>
-                        <Label>Names of other members *</Label>
-                        <Input
-                          value={detailsForm.other_members}
-                          onChange={(e) => setDetailsForm({ ...detailsForm, other_members: e.target.value })}
-                          placeholder="e.g., Sivakumar K, Rajesh M, Priya S"
-                          required={detailsForm.paying_for_others}
-                        />
-                      </div>
+                    <div className="space-y-3">
+                      {memberSlots > 0 && (
+                        <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-200 px-3 py-2">
+                          <Users className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                          <p className="text-xs text-green-700">
+                            Select <span className="font-semibold">{memberSlots}</span> other member{memberSlots > 1 ? "s" : ""} you are paying for ({selectedMembers.size}/{memberSlots} selected)
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Member picker */}
+                      {pendingMembers.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                              value={memberSearch}
+                              onChange={(e) => setMemberSearch(e.target.value)}
+                              placeholder="Search members by name, email, or phone..."
+                              className="pl-9"
+                            />
+                          </div>
+
+                          {/* Selected members chips */}
+                          {selectedMembers.size > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {pendingMembers
+                                .filter((m) => selectedMembers.has(m.id))
+                                .map((m) => (
+                                  <Badge key={m.id} variant="secondary" className="gap-1 pr-1">
+                                    {m.users?.name || m.users?.email}
+                                    <button type="button" onClick={() => toggleMember(m.id)} className="hover:bg-muted rounded-full p-0.5">
+                                      <X size={12} />
+                                    </button>
+                                  </Badge>
+                                ))}
+                            </div>
+                          )}
+
+                          {/* Scrollable member list */}
+                          <div className="max-h-40 overflow-y-auto border rounded-lg divide-y">
+                            {pendingMembers
+                              .filter((m) => {
+                                if (!memberSearch) return true;
+                                const q = memberSearch.toLowerCase();
+                                return m.users?.name?.toLowerCase().includes(q) || m.users?.email?.toLowerCase().includes(q) || m.users?.phone?.includes(q);
+                              })
+                              .map((m) => (
+                                <label
+                                  key={m.id}
+                                  className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 text-sm ${
+                                    selectedMembers.has(m.id) ? "bg-primary/5" : ""
+                                  } ${memberSlots > 0 && selectedMembers.size >= memberSlots && !selectedMembers.has(m.id) ? "opacity-40 pointer-events-none" : ""}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedMembers.has(m.id)}
+                                    onChange={() => toggleMember(m.id)}
+                                    className="rounded"
+                                    disabled={memberSlots > 0 && selectedMembers.size >= memberSlots && !selectedMembers.has(m.id)}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium truncate">{m.users?.name || "—"}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{m.users?.email} {m.users?.phone ? `• ${m.users.phone}` : ""}</p>
+                                  </div>
+                                  <Badge variant="outline" className="text-[10px] shrink-0">
+                                    {m.status}
+                                  </Badge>
+                                </label>
+                              ))}
+                            {pendingMembers.filter((m) => {
+                              if (!memberSearch) return true;
+                              const q = memberSearch.toLowerCase();
+                              return m.users?.name?.toLowerCase().includes(q) || m.users?.email?.toLowerCase().includes(q) || m.users?.phone?.includes(q);
+                            }).length === 0 && (
+                              <p className="text-xs text-muted-foreground text-center py-3">No pending members found</p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <Label>Names of other members *</Label>
+                          <Input
+                            value={detailsForm.other_members}
+                            onChange={(e) => setDetailsForm({ ...detailsForm, other_members: e.target.value })}
+                            placeholder="e.g., Sivakumar K, Rajesh M, Priya S"
+                            required={detailsForm.paying_for_others && selectedMembers.size === 0}
+                          />
+                        </div>
+                      )}
+
                       <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
                         <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-700">
-                          Please ensure all members mentioned above are registered on the TANHOWA Portal. Unregistered members need to sign up at <span className="font-medium">tanhowa.in</span> before their subscription can be approved.
+                          All selected members must be registered on the TANHOWA Portal. Admin will verify and clear their dues upon approval.
                         </p>
                       </div>
                     </div>
