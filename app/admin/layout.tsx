@@ -44,6 +44,8 @@ const adminNavItems = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [user, setUser] = useState<any>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [errorCount, setErrorCount] = useState(0);
   const router = useRouter();
@@ -58,7 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .then((d) => {
         if (!d.user) router.push("/");
         else if (d.user.role !== "admin") router.push("/dashboard");
-        else setIsAdmin(true);
+        else { setIsAdmin(true); setUser(d.user); }
       })
       .catch(() => router.push("/"));
 
@@ -135,6 +137,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span className="text-xs text-sidebar-foreground/60 block -mt-1">Admin Panel</span>
             </div>
           </Link>
+          {user?.name && (
+            <p className="mt-1.5 text-xs text-sidebar-foreground/60 truncate">{user.name}</p>
+          )}
+          {user?.status && (
+            <p className="text-[10px] text-sidebar-foreground/40 capitalize">{user.status}</p>
+          )}
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -179,6 +187,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <Flower2 className="w-7 h-7 text-sidebar-primary" />
                   <span className="text-lg font-bold">TANHOWA</span>
                 </div>
+                {user?.name && (
+                  <p className="mt-1.5 text-xs text-sidebar-foreground/60 truncate">{user.name}</p>
+                )}
+                {user?.status && (
+                  <p className="text-[10px] text-sidebar-foreground/40 capitalize">{user.status}</p>
+                )}
               </div>
               <nav className="flex-1 overflow-y-auto p-3 space-y-1">
                 <NavLinks onItemClick={() => setMobileOpen(false)} />

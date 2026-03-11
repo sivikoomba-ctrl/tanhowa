@@ -162,6 +162,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Flower2 className="w-7 h-7 text-sidebar-primary" />
             <span className="text-lg font-bold text-sidebar-foreground">TANHOWA</span>
           </Link>
+          {user?.name && (
+            <p className="mt-1.5 text-xs text-sidebar-foreground/60 truncate">{user.name}</p>
+          )}
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -210,6 +213,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Flower2 className="w-7 h-7 text-sidebar-primary" />
                   <span className="text-lg font-bold">TANHOWA</span>
                 </div>
+                {user?.name && (
+                  <p className="mt-1.5 text-xs text-sidebar-foreground/60 truncate">{user.name}</p>
+                )}
               </div>
               <nav className="p-3 space-y-1">
                 <NavLinks onItemClick={() => setMobileOpen(false)} />
