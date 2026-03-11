@@ -57,7 +57,7 @@ Return ONLY a JSON object in this exact format, nothing else:
 
 Rules:
 - Use 24-hour time format
-- For transaction_id: extract UPI reference number, UTR number, bank reference ID, or any transaction/reference number shown
+- For transaction_id: PREFER the bank-level reference ID (starts with "T" followed by digits, found under "Transfer Details" or "Bank Reference") over the app-level transaction ID. If both are visible, use the bank reference ID. Otherwise extract UTR number, UPI reference number, or any transaction/reference number shown
 - For payment_method: identify the method (e.g., "UPI", "Google Pay", "PhonePe", "Paytm", "Bank Transfer", "NEFT", "IMPS")
 - If you cannot determine any field, use null for that field
 - Do not include any explanation, just the JSON object`,
