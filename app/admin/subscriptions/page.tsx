@@ -1570,9 +1570,23 @@ export default function AdminSubscriptionsPage() {
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-blue-600" />
                         <p className="text-xs font-semibold text-blue-800">
-                          This payment covers {slots + 1} members — select {slots} other member{slots > 1 ? "s" : ""} ({adminSelectedMembers.size}/{slots})
+                          This payment covers up to {slots + 1} members — select members ({adminSelectedMembers.size} selected, up to {slots})
                         </p>
                       </div>
+                      {adminSelectedMembers.size > 0 && (() => {
+                        const matchedAmt = (adminSelectedMembers.size + 1) * payDialog!.amount;
+                        const totalAmt = parseFloat(payForm.amount) || 0;
+                        const bal = totalAmt - matchedAmt;
+                        if (bal <= 0) return null;
+                        return (
+                          <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
+                            <Info className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-amber-700">
+                              Matched: <span className="font-semibold">&#8377;{matchedAmt.toLocaleString("en-IN")}</span> ({adminSelectedMembers.size + 1} members) — Balance: <span className="font-semibold">&#8377;{bal.toLocaleString("en-IN")}</span> pending
+                            </p>
+                          </div>
+                        );
+                      })()}
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                         <Input
@@ -1610,7 +1624,7 @@ export default function AdminSubscriptionsPage() {
                               key={s.id}
                               className={`flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-muted/50 text-xs ${
                                 adminSelectedMembers.has(s.id) ? "bg-primary/5" : ""
-                              } ${slots > 0 && adminSelectedMembers.size >= slots && !adminSelectedMembers.has(s.id) ? "opacity-40 pointer-events-none" : ""}`}
+                              }`}
                             >
                               <input
                                 type="checkbox"
@@ -1623,7 +1637,6 @@ export default function AdminSubscriptionsPage() {
                                   });
                                 }}
                                 className="rounded"
-                                disabled={slots > 0 && adminSelectedMembers.size >= slots && !adminSelectedMembers.has(s.id)}
                               />
                               <div className="flex-1 min-w-0">
                                 <span className="font-medium">{s.users?.name || "—"}</span>

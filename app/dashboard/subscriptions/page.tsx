@@ -622,14 +622,29 @@ export default function SubscriptionsPage() {
 
                   {detailsForm.paying_for_others && (
                     <div className="space-y-3">
-                      {memberSlots > 0 && (
-                        <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-200 px-3 py-2">
-                          <Users className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-                          <p className="text-xs text-green-700">
-                            Select <span className="font-semibold">{memberSlots}</span> other member{memberSlots > 1 ? "s" : ""} you are paying for ({selectedMembers.size}/{memberSlots} selected)
-                          </p>
-                        </div>
-                      )}
+                      {memberSlots > 0 && (() => {
+                        const matchedAmount = (selectedMembers.size + 1) * (detailsSub?.amount || 0);
+                        const totalPaidAmount = parseFloat(detailsForm.amount) || 0;
+                        const balance = totalPaidAmount - matchedAmount;
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-200 px-3 py-2">
+                              <Users className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                              <p className="text-xs text-green-700">
+                                Select members you are paying for ({selectedMembers.size} selected, up to {memberSlots})
+                              </p>
+                            </div>
+                            {selectedMembers.size > 0 && balance > 0 && (
+                              <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-700">
+                                  Matched: <span className="font-semibold">&#8377;{matchedAmount.toLocaleString("en-IN")}</span> ({selectedMembers.size + 1} members) — Balance: <span className="font-semibold">&#8377;{balance.toLocaleString("en-IN")}</span> pending admin approval
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Member picker */}
                       {pendingMembers.length > 0 ? (
@@ -673,14 +688,13 @@ export default function SubscriptionsPage() {
                                   key={m.id}
                                   className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 text-sm ${
                                     selectedMembers.has(m.id) ? "bg-primary/5" : ""
-                                  } ${memberSlots > 0 && selectedMembers.size >= memberSlots && !selectedMembers.has(m.id) ? "opacity-40 pointer-events-none" : ""}`}
+                                  }`}
                                 >
                                   <input
                                     type="checkbox"
                                     checked={selectedMembers.has(m.id)}
                                     onChange={() => toggleMember(m.id)}
                                     className="rounded"
-                                    disabled={memberSlots > 0 && selectedMembers.size >= memberSlots && !selectedMembers.has(m.id)}
                                   />
                                   <div className="flex-1 min-w-0">
                                     <p className="font-medium truncate">{m.users?.name || "—"}</p>
