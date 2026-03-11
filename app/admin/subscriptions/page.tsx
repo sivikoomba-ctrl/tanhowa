@@ -32,6 +32,7 @@ import {
   BarChart3,
   History,
   Send,
+  X,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
@@ -89,6 +90,10 @@ export default function AdminSubscriptionsPage() {
   const [payLoading, setPayLoading] = useState(false);
   const [payProofUrl, setPayProofUrl] = useState<string | null>(null);
   const [extractingDate, setExtractingDate] = useState(false);
+
+  // Admin member picker for bulk payments
+  const [adminSelectedMembers, setAdminSelectedMembers] = useState<Set<string>>(new Set());
+  const [adminMemberSearch, setAdminMemberSearch] = useState("");
 
   // Proof preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -359,9 +364,36 @@ export default function AdminSubscriptionsPage() {
       }),
     });
     if (res.ok) {
-      toast.success("Payment verified and marked as paid");
+      // Also verify admin-selected linked members
+      if (adminSelectedMembers.size > 0) {
+        let verifiedCount = 0;
+        for (const subId of adminSelectedMembers) {
+          try {
+            const linkedRes = await fetch("/api/subscriptions", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: subId,
+                status: "paid",
+                paid_at: paidAt,
+                payment_proof_url: payDialog.payment_proof_url,
+                transaction_id: payForm.transaction_id || payDialog.transaction_id,
+                payment_method: payForm.payment_method || payDialog.payment_method,
+                remarks: `Bulk payment by ${payDialog.users?.name || payDialog.users?.email}`,
+                ...(payDialog.amount ? { amount: payDialog.amount } : {}),
+              }),
+            });
+            if (linkedRes.ok) verifiedCount++;
+          } catch { /* continue */ }
+        }
+        toast.success(`Payment verified + ${verifiedCount} linked member${verifiedCount > 1 ? "s" : ""}`);
+      } else {
+        toast.success("Payment verified and marked as paid");
+      }
       setPayDialog(null);
       setPayForm({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
+      setAdminSelectedMembers(new Set());
+      setAdminMemberSearch("");
       load();
     } else {
       toast.error("Failed to update");
@@ -1063,6 +1095,8 @@ export default function AdminSubscriptionsPage() {
                               });
                               setPayProofUrl(null);
                               setExtractingDate(false);
+                              setAdminSelectedMembers(new Set());
+                              setAdminMemberSearch("");
                               if (sub.payment_proof_url) {
                                 const res = await fetch("/api/upload/payment-proof/signed-url", {
                                   method: "POST",
@@ -1523,6 +1557,91 @@ export default function AdminSubscriptionsPage() {
                     </p>
                   )}
                 </div>
+
+                {/* Admin member picker for bulk payments */}
+                {payDialog && payForm.amount && payDialog.amount && parseFloat(payForm.amount) > payDialog.amount && (() => {
+                  const slots = Math.floor(parseFloat(payForm.amount) / payDialog.amount) - 1;
+                  if (slots <= 0) return null;
+                  const samePeriodPending = subscriptions.filter(
+                    (s) => s.period === payDialog.period && s.user_id !== payDialog.user_id && (s.status === "pending" || s.status === "overdue")
+                  );
+                  return (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-blue-600" />
+                        <p className="text-xs font-semibold text-blue-800">
+                          This payment covers {slots + 1} members — select {slots} other member{slots > 1 ? "s" : ""} ({adminSelectedMembers.size}/{slots})
+                        </p>
+                      </div>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <Input
+                          value={adminMemberSearch}
+                          onChange={(e) => setAdminMemberSearch(e.target.value)}
+                          placeholder="Search by name, email, phone..."
+                          className="pl-8 h-8 text-xs"
+                        />
+                      </div>
+                      {adminSelectedMembers.size > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {samePeriodPending
+                            .filter((s) => adminSelectedMembers.has(s.id))
+                            .map((s) => (
+                              <Badge key={s.id} variant="secondary" className="gap-1 pr-1 text-[10px]">
+                                {s.users?.name || s.users?.email}
+                                <button type="button" onClick={() => {
+                                  setAdminSelectedMembers((prev) => { const n = new Set(prev); n.delete(s.id); return n; });
+                                }} className="hover:bg-muted rounded-full p-0.5">
+                                  <X size={10} />
+                                </button>
+                              </Badge>
+                            ))}
+                        </div>
+                      )}
+                      <div className="max-h-32 overflow-y-auto border rounded-lg divide-y bg-white">
+                        {samePeriodPending
+                          .filter((s) => {
+                            if (!adminMemberSearch) return true;
+                            const q = adminMemberSearch.toLowerCase();
+                            return s.users?.name?.toLowerCase().includes(q) || s.users?.email?.toLowerCase().includes(q) || s.users?.phone?.includes(q);
+                          })
+                          .map((s) => (
+                            <label
+                              key={s.id}
+                              className={`flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-muted/50 text-xs ${
+                                adminSelectedMembers.has(s.id) ? "bg-primary/5" : ""
+                              } ${slots > 0 && adminSelectedMembers.size >= slots && !adminSelectedMembers.has(s.id) ? "opacity-40 pointer-events-none" : ""}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={adminSelectedMembers.has(s.id)}
+                                onChange={() => {
+                                  setAdminSelectedMembers((prev) => {
+                                    const n = new Set(prev);
+                                    if (n.has(s.id)) n.delete(s.id); else n.add(s.id);
+                                    return n;
+                                  });
+                                }}
+                                className="rounded"
+                                disabled={slots > 0 && adminSelectedMembers.size >= slots && !adminSelectedMembers.has(s.id)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium">{s.users?.name || "—"}</span>
+                                <span className="text-muted-foreground ml-1.5">{s.users?.email}</span>
+                              </div>
+                            </label>
+                          ))}
+                        {samePeriodPending.filter((s) => {
+                          if (!adminMemberSearch) return true;
+                          const q = adminMemberSearch.toLowerCase();
+                          return s.users?.name?.toLowerCase().includes(q) || s.users?.email?.toLowerCase().includes(q) || s.users?.phone?.includes(q);
+                        }).length === 0 && (
+                          <p className="text-[10px] text-muted-foreground text-center py-2">No pending members for {payDialog.period}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="space-y-2">
                   {extractingDate && (
