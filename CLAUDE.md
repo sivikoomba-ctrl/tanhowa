@@ -115,7 +115,7 @@ tanhowa/
 │   ├── error-logger.ts         # logError() — server-side error logging to Supabase
 │   ├── db.ts                   # getSQL() — direct PostgreSQL via `postgres` package (requires DATABASE_URL)
 │   ├── telegram.ts             # Telegram Bot API helpers (sendTelegramMessage, notification functions)
-│   ├── tn-districts.ts         # TN_DISTRICTS, DISTRICT_NAMES, getBlocks() — 38 TN districts + blocks
+│   ├── tn-districts.ts         # TN_DISTRICTS, DISTRICT_NAMES, getBlocks(), TN_HORTICULTURE_FARMS — 38 TN districts + blocks + 30 state horticulture farms
 │   └── utils.ts                # cn() — clsx + tailwind-merge utility
 ├── supabase/
 │   └── schema.sql              # Base database schema (run in Supabase SQL editor)
@@ -210,7 +210,7 @@ export async function GET(req: NextRequest) {
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
 - `profile_nudge` (JSONB: `{ fields, message, requested_at, requested_by }`) — admin nudge for profile completion
-- `posting_details` includes `regular_district` used for district-wise reports
+- `posting_details` JSONB fields: `regular_district`, `regular_block`, `special_duty_district`, `special_duty_block`, `special_duty_place`, `special_designation` ("HO Tech (State Scheme)" / "HO Tech (GOI)" / "Farm Manager"), `special_farm` (TN horticulture farm name, shown when Farm Manager selected), `deputed_district`, `deputed_block`. When adding new subfields, update the `PostingDetails` interface and `emptyPosting` constant in both `app/onboarding/page.tsx` and `app/dashboard/profile/page.tsx` — no DB migration needed (JSONB).
 - `social_links` JSONB also stores: `title`, `gender`, `qualification`, `specialisation`, `skill_sets` (object), `languages` (object), `experience` (array of `{ institution, from, to, designation }`), `current_interest_area`, `date_of_joining`
 
 **Document columns:** `visibility` (TEXT, "all" or "selected") controls who can see each document.
