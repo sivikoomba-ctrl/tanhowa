@@ -1,5 +1,7 @@
 import nodemailer from "nodemailer";
 
+const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || "tanhowaadmin@tanhowa.in";
+
 function getTransporter() {
   const host = process.env.ZOHO_SMTP_HOST;
   const port = Number(process.env.ZOHO_SMTP_PORT);
@@ -26,7 +28,7 @@ export async function sendSubscriptionApprovedEmail(to: string, memberName: stri
   if (HOLD_MEMBER_EMAILS) return;
   const transporter = getTransporter();
   await transporter.sendMail({
-    from: `"TANHOWA" <${process.env.ZOHO_SMTP_USER}>`,
+    from: `"TANHOWA" <${FROM_EMAIL}>`,
     to,
     subject: `Your TANHOWA Subscription for ${period} is Approved!`,
     html: `
@@ -93,7 +95,7 @@ export async function sendBroadcastEmail(subject: string, bodyHtml: string) {
   if (emails.length === 0) return;
 
   const transporter = getTransporter();
-  const from = `"TANHOWA" <${process.env.ZOHO_SMTP_USER}>`;
+  const from = `"TANHOWA" <${FROM_EMAIL}>`;
   const BATCH_SIZE = 40;
 
   for (let i = 0; i < emails.length; i += BATCH_SIZE) {
@@ -210,7 +212,7 @@ export async function notifyAdminNewRegistration(memberName: string, memberEmail
     if (adminEmails.length === 0) return;
 
     const transporter = getTransporter();
-    const from = `"TANHOWA" <${process.env.ZOHO_SMTP_USER}>`;
+    const from = `"TANHOWA" <${FROM_EMAIL}>`;
     for (const email of adminEmails) {
       try {
         await transporter.sendMail({
@@ -240,7 +242,7 @@ export async function sendSubscriptionNotification(to: string, memberName: strin
   if (HOLD_MEMBER_EMAILS) return;
   const transporter = getTransporter();
   await transporter.sendMail({
-    from: `"TANHOWA" <${process.env.ZOHO_SMTP_USER}>`,
+    from: `"TANHOWA" <${FROM_EMAIL}>`,
     to,
     subject: `TANHOWA Subscription Reminder — ${period}`,
     html: wrapEmailTemplate(`
@@ -271,7 +273,7 @@ export async function sendSubscriptionNotification(to: string, memberName: strin
 export async function sendOTPEmail(to: string, otp: string) {
   const transporter = getTransporter();
   await transporter.sendMail({
-    from: `"TANHOWA" <${process.env.ZOHO_SMTP_USER}>`,
+    from: `"TANHOWA" <${FROM_EMAIL}>`,
     to,
     subject: "Your TANHOWA Login Code",
     html: `
