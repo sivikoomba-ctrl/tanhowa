@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Flower2, Mail } from "lucide-react";
+import { Flower2, Mail, Smartphone } from "lucide-react";
 
 const categories = [
   {
@@ -47,8 +47,11 @@ export default function LandingPage() {
   const [error, setError] = useState("");
   const [checkingSession, setCheckingSession] = useState(true);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [showMobileLogin, setShowMobileLogin] = useState(false);
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
+  const [mobileLoading, setMobileLoading] = useState(false);
   const router = useRouter();
 
   // Auto-redirect approved members who already have a valid session
@@ -123,6 +126,33 @@ export default function LandingPage() {
       setError("Something went wrong. Please try again.");
     } finally {
       setEmailLoading(false);
+    }
+  }
+
+  async function handleMobileSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setMobileLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/send-mobile-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to send OTP");
+        return;
+      }
+
+      router.push(`/verify?phone=${encodeURIComponent(phone)}&sid=${encodeURIComponent(data.sessionId)}`);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setMobileLoading(false);
     }
   }
 
@@ -241,10 +271,10 @@ export default function LandingPage() {
                   <div className="flex-1 h-px bg-primary/15" />
                 </div>
 
-                {/* Email OTP fallback */}
+                {/* Email OTP */}
                 {!showEmailLogin ? (
                   <Button
-                    onClick={() => setShowEmailLogin(true)}
+                    onClick={() => { setShowEmailLogin(true); setShowMobileLogin(false); }}
                     variant="outline"
                     className="w-full h-12 text-base font-semibold rounded-xl border-primary/30 hover:bg-primary/5 gap-3"
                   >
@@ -271,10 +301,42 @@ export default function LandingPage() {
                   </form>
                 )}
 
+                {/* Mobile OTP */}
+                {!showMobileLogin ? (
+                  <Button
+                    onClick={() => { setShowMobileLogin(true); setShowEmailLogin(false); }}
+                    variant="outline"
+                    className="w-full h-12 text-base font-semibold rounded-xl border-primary/30 hover:bg-primary/5 gap-3 mt-3"
+                  >
+                    <Smartphone className="w-5 h-5 shrink-0" />
+                    Continue with Mobile
+                  </Button>
+                ) : (
+                  <form onSubmit={handleMobileSubmit} className="space-y-3 mt-3">
+                    <Input
+                      type="tel"
+                      placeholder="9876543210"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/[^\d\+\-\s\(\)]/g, ""))}
+                      required
+                      className="h-12 text-base border-primary/30 focus-visible:ring-primary bg-white rounded-xl"
+                    />
+                    <Button
+                      type="submit"
+                      disabled={mobileLoading}
+                      className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 rounded-xl"
+                    >
+                      {mobileLoading ? "Sending OTP..." : "Send OTP to Mobile"}
+                    </Button>
+                  </form>
+                )}
+
                 <p className="mt-4 text-xs text-muted-foreground text-center">
                   {showEmailLogin
                     ? "We'll send a one-time verification code to your email"
-                    : "Use your Google or email account to sign in"}
+                    : showMobileLogin
+                    ? "We'll send a one-time verification code to your mobile"
+                    : "Use your Google, email, or mobile number to sign in"}
                 </p>
               </CardContent>
             </Card>

@@ -23,112 +23,14 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 | Icons | lucide-react | 0.575.x |
 | Toasts | sonner | 2.0.x |
 
-## Directory Structure
+## Key Directories
 
-```
-tanhowa/
-├── app/                        # Next.js App Router
-│   ├── layout.tsx              # Root layout (Poppins font, ErrorBoundary, ChatbotWidget, Toaster)
-│   ├── page.tsx                # Landing page — bento image grid + Google OAuth / email OTP login
-│   ├── globals.css             # Tailwind + horticulture theme (oklch colors)
-│   ├── favicon.ico
-│   ├── verify/page.tsx         # OTP verification page
-│   ├── onboarding/page.tsx     # Profile completion form (new users)
-│   ├── pending/page.tsx        # Awaiting admin approval page
-│   ├── dashboard/              # Member dashboard (sidebar layout)
-│   │   ├── layout.tsx          # Auth check, status redirect, sidebar nav
-│   │   ├── page.tsx            # Overview with stats
-│   │   ├── profile/page.tsx    # Edit own profile
-│   │   ├── members/page.tsx    # Member directory
-│   │   ├── announcements/page.tsx
-│   │   ├── events/page.tsx
-│   │   ├── documents/page.tsx  # View/download documents
-│   │   ├── subscriptions/page.tsx # View/pay subscriptions
-│   │   ├── grievances/page.tsx # Submit grievances
-│   │   └── todos/page.tsx      # To-Do List: task list + detail view (subtasks, notes, deliverables, vouchers)
-│   ├── admin/                  # Admin panel (sidebar layout, role-gated)
-│   │   ├── layout.tsx          # Admin role check, sidebar nav
-│   │   ├── page.tsx            # Admin dashboard stats
-│   │   ├── users/page.tsx      # Manage users (approve/reject/view details)
-│   │   ├── announcements/page.tsx
-│   │   ├── events/page.tsx
-│   │   ├── documents/page.tsx  # Upload/manage documents
-│   │   ├── subscriptions/page.tsx # Subscription payments (bulk create, verify, district report)
-│   │   ├── grievances/page.tsx # Review/respond to grievances
-│   │   ├── error-logs/page.tsx # Application error log viewer
-│   │   ├── todos/page.tsx      # To-Do List: Eisenhower Matrix + task detail (subtasks, notes, vouchers)
-│   │   └── settings/page.tsx   # Site settings (community name, tagline, about)
-│   └── api/                    # API routes (all server-side)
-│       ├── auth/
-│       │   ├── google/route.ts      # GET: initiate Google OAuth (CSRF state cookie → redirect to Google)
-│       │   ├── google/callback/route.ts # GET: OAuth callback (exchange code, create/find user, set JWT)
-│       │   ├── send-otp/route.ts    # POST: generate 6-digit OTP, send via Zoho SMTP
-│       │   ├── verify-otp/route.ts  # POST: verify OTP, create/find user, set JWT cookie
-│       │   └── logout/route.ts      # POST: delete session cookie
-│       ├── users/
-│       │   ├── route.ts             # GET: list users (admin sees all fields)
-│       │   └── me/route.ts          # GET: current user info, PUT: update own profile
-│       ├── admin/
-│       │   └── users/route.ts       # GET/POST: admin user management (approve/reject/role)
-│       ├── announcements/route.ts   # GET/POST/PUT/DELETE
-│       ├── events/route.ts          # GET/POST/PUT/DELETE
-│       ├── documents/route.ts       # GET/POST/PUT/DELETE
-│       ├── grievances/route.ts      # GET/POST/PUT/DELETE
-│       ├── subscriptions/
-│       │   ├── route.ts             # GET/POST/PUT/DELETE (auto-sync, bulk-create, verify)
-│       │   ├── bulk-verify/route.ts # POST: bulk verify payments
-│       │   ├── recent-payments/route.ts # GET: recent verified payments
-│       │   └── district-report/route.ts # GET: district-wise collection report
-│       ├── todos/
-│       │   ├── route.ts             # GET/POST/PUT/DELETE (tasks with subtask hierarchy + event_id)
-│       │   ├── notes/route.ts       # GET/POST/DELETE (task notes, reports, updates)
-│       │   ├── attachments/route.ts # GET/POST/DELETE (deliverable file uploads)
-│       │   └── vouchers/route.ts    # GET/POST/PUT/DELETE (cost/bill tracking with approval)
-│       ├── teams/route.ts           # GET/POST/PUT/DELETE (team management)
-│       ├── telegram/webhook/route.ts # POST: Telegram bot webhook (commands, account linking)
-│       ├── error-logs/route.ts      # GET/POST/DELETE (POST = client error submission)
-│       ├── upload/
-│       │   ├── avatar/route.ts            # POST: upload user avatar to Supabase Storage
-│       │   ├── document/route.ts          # POST: upload document file to Supabase Storage
-│       │   ├── qr-code/route.ts           # POST: upload QR code image for subscriptions
-│       │   └── payment-proof/
-│       │       ├── route.ts               # POST: upload payment proof image
-│       │       ├── signed-url/route.ts    # POST: get signed URL for payment proof
-│       │       └── extract-date/route.ts  # POST: extract date from payment proof via Gemini
-│       ├── chat/route.ts            # POST: Gemini AI chatbot
-│       ├── settings/route.ts        # GET/POST site settings
-│       └── stats/route.ts           # GET dashboard statistics
-├── components/
-│   ├── ui/                     # shadcn/ui components (DO NOT manually edit)
-│   │   ├── button.tsx, input.tsx, card.tsx, dialog.tsx
-│   │   ├── table.tsx, badge.tsx, tabs.tsx, avatar.tsx
-│   │   ├── dropdown-menu.tsx, separator.tsx, sheet.tsx
-│   │   ├── textarea.tsx, label.tsx, select.tsx, sonner.tsx
-│   │   └── (all auto-generated by shadcn CLI)
-│   ├── chatbot-widget.tsx      # Floating AI chatbot (Gemini-powered, multi-turn)
-│   └── error-boundary.tsx      # React ErrorBoundary + GlobalErrorCatcher (window.onerror)
-├── lib/
-│   ├── supabase.ts             # getSupabase() (anon client) + getServiceClient() (service role)
-│   ├── auth.ts                 # createSession, getSession, deleteSession (JWT + httpOnly cookie)
-│   ├── mail.ts                 # sendOTPEmail(), sendSubscriptionApprovedEmail(), notifyPaymentVerified() via Zoho SMTP
-│   ├── gemini.ts               # getGemini() + SYSTEM_PROMPT for chatbot
-│   ├── error-logger.ts         # logError() — server-side error logging to Supabase
-│   ├── db.ts                   # getSQL() — direct PostgreSQL via `postgres` package (requires DATABASE_URL)
-│   ├── telegram.ts             # Telegram Bot API helpers (sendTelegramMessage, notification functions)
-│   ├── tn-districts.ts         # TN_DISTRICTS, DISTRICT_NAMES, getBlocks(), TN_HORTICULTURE_FARMS — 38 TN districts + blocks + 30 state horticulture farms
-│   └── utils.ts                # cn() — clsx + tailwind-merge utility
-├── supabase/
-│   └── schema.sql              # Base database schema (run in Supabase SQL editor)
-├── public/                     # Static assets (SVGs, favicon)
-├── next.config.ts              # Remote image patterns (images.unsplash.com)
-├── tsconfig.json               # TypeScript config (strict, @/* path alias)
-├── postcss.config.mjs          # PostCSS with @tailwindcss/postcss
-├── components.json             # shadcn/ui config (new-york style, lucide icons)
-├── vercel.json                 # Vercel framework config
-├── eslint.config.mjs           # ESLint config
-├── package.json
-└── .env.local                  # Environment variables (gitignored)
-```
+- `app/` — Next.js App Router: pages (`dashboard/`, `admin/`, `onboarding/`, `verify/`, `pending/`) and API routes (`api/`)
+- `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
+- `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
+- `components/` — Custom components (`chatbot-widget.tsx`, `error-boundary.tsx`)
+- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`
+- `supabase/schema.sql` — Base database DDL (additional migrations documented below)
 
 ## Authentication Flow
 
@@ -217,96 +119,7 @@ export async function GET(req: NextRequest) {
 
 ### Migrations beyond base schema
 
-The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. The following must be applied separately:
-
-```sql
--- Users posting details
-ALTER TABLE users ADD COLUMN IF NOT EXISTS posting_details JSONB DEFAULT '{}';
-
--- Documents extras
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS category TEXT DEFAULT '';
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false;
-
--- Grievances table
-CREATE TABLE IF NOT EXISTS grievances (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  subject TEXT NOT NULL,
-  description TEXT NOT NULL,
-  category TEXT DEFAULT '',
-  status TEXT DEFAULT 'pending',
-  admin_remarks TEXT DEFAULT '',
-  submitted_by UUID REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Error logs table
-CREATE TABLE IF NOT EXISTS error_logs (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  type TEXT DEFAULT 'api',
-  message TEXT NOT NULL,
-  stack TEXT,
-  path TEXT,
-  method TEXT,
-  status_code INTEGER,
-  user_id UUID,
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Subscriptions table
-CREATE TABLE IF NOT EXISTS subscriptions (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  period TEXT NOT NULL,
-  amount NUMERIC DEFAULT 0,
-  due_date DATE,
-  status TEXT DEFAULT 'pending',
-  payment_method TEXT,
-  transaction_id TEXT,
-  payment_proof_url TEXT,
-  remarks TEXT,
-  paid_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Document access control
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS visibility TEXT DEFAULT 'all';
-CREATE TABLE IF NOT EXISTS document_access (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(document_id, user_id)
-);
-
--- Office address
-ALTER TABLE users ADD COLUMN IF NOT EXISTS office_address TEXT DEFAULT '';
-
--- Activity tracking & admin nudge
-ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ DEFAULT NULL;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_nudge JSONB DEFAULT NULL;
-
--- Subscription approval tracking
-ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id);
-ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
-
--- Teams
-CREATE TABLE IF NOT EXISTS teams (...);
-CREATE TABLE IF NOT EXISTS team_members (...);
-
--- To-Do List with subtasks, notes, attachments, vouchers
-CREATE TABLE IF NOT EXISTS todos (...);
-ALTER TABLE todos ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES todos(id) ON DELETE CASCADE;
-ALTER TABLE todos ADD COLUMN IF NOT EXISTS event_id TEXT UNIQUE;
-CREATE TABLE IF NOT EXISTS todo_notes (...);
-CREATE TABLE IF NOT EXISTS todo_attachments (...);
-CREATE TABLE IF NOT EXISTS todo_vouchers (...);
-```
-
-See `supabase/schema.sql` for the complete DDL.
+The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents) were applied separately via the Supabase SQL editor. See the Tables section above for current schema.
 
 ## Environment Variables
 
@@ -489,17 +302,6 @@ Clicking a task opens detail view with 4 tabs:
 
 ### Storage Bucket
 `todo-attachments` — auto-created on first upload. Files stored as `todo-{todoId}/{userId}-{timestamp}.{ext}`.
-
-## Key Conventions
-
-1. **All pages are client components** — every page.tsx has `"use client"` at the top. This project does not use React Server Components for pages.
-2. **API routes are server-only** — always use `getServiceClient()` for Supabase, `getSession()` for auth.
-3. **No middleware** — auth checks happen in page layouts via `useEffect` + fetch to `/api/users/me`, then redirect with `router.push()`.
-4. **Error logging** — use `logError()` from `lib/error-logger.ts` in API route catch blocks. Client errors auto-report via `GlobalErrorCatcher` component.
-5. **Status-based routing** — dashboard layout redirects `pending` users to `/pending`. Admin layout redirects non-admins to `/dashboard`.
-6. **Member vs Admin data scoping** — API routes filter by `session.userId` for members, return all records for admins.
-7. **Gemini model** — use `gemini-2.5-flash` (earlier models like `gemini-1.5-flash` and `gemini-2.0-flash` are deprecated for new users).
-8. **No dark mode** — single light theme only.
 
 ## Cross-Component Communication
 

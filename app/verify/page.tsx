@@ -21,14 +21,22 @@ function VerifyContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(60);
+  const [smsSessionId, setSmsSessionId] = useState("");
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
+  const phone = searchParams.get("phone") || "";
+  const sid = searchParams.get("sid") || "";
+  const isPhoneMode = !!phone;
 
   useEffect(() => {
-    if (!email) router.push("/");
-  }, [email, router]);
+    if (!email && !phone) router.push("/");
+  }, [email, phone, router]);
+
+  useEffect(() => {
+    if (sid) setSmsSessionId(sid);
+  }, [sid]);
 
   useEffect(() => {
     if (resendCooldown > 0) {
@@ -77,10 +85,15 @@ function VerifyContent() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/verify-otp", {
+      const endpoint = isPhoneMode ? "/api/auth/verify-mobile-otp" : "/api/auth/verify-otp";
+      const body = isPhoneMode
+        ? { phone, code: otpCode, sessionId: smsSessionId }
+        : { email, code: otpCode };
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code: otpCode }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
@@ -98,8 +111,8 @@ function VerifyContent() {
         router.push("/onboarding");
       } else if (data.user.status === "approved") {
         // Check mandatory fields — redirect to onboarding if missing
-        const { name, phone, occupation } = data.user;
-        if (!name || !phone || !occupation) {
+        const { name, phone: userPhone, occupation } = data.user;
+        if (!name || !userPhone || !occupation) {
           router.push("/onboarding");
         } else {
           router.push("/dashboard");
@@ -122,15 +135,33 @@ function VerifyContent() {
     setError("");
 
     try {
-      await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      if (isPhoneMode) {
+        const res = await fetch("/api/auth/send-mobile-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await res.json();
+        if (res.ok && data.sessionId) {
+          setSmsSessionId(data.sessionId);
+        }
+      } else {
+        await fetch("/api/auth/send-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+      }
     } catch {
       setError("Failed to resend OTP");
     }
   }
+
+  const displayIdentifier = isPhoneMode ? phone : email;
+  const verifyTitle = isPhoneMode ? "Verify Your Mobile" : "Verify Your Email";
+  const verifySubtitle = isPhoneMode
+    ? "We sent a 6-digit code to"
+    : "We sent a 6-digit code to";
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -143,9 +174,9 @@ function VerifyContent() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
               <Flower2 className="w-8 h-8 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold text-primary">Verify Your Email</h1>
+            <h1 className="text-3xl font-bold text-primary">{verifyTitle}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              We sent a 6-digit code to <span className="font-medium text-foreground">{email}</span>
+              {verifySubtitle} <span className="font-medium text-foreground">{displayIdentifier}</span>
             </p>
           </div>
 

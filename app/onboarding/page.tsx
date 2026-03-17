@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Flower2, Clock, ArrowLeft, ArrowRight, User, MapPin, Share2, Camera, AlertTriangle } from "lucide-react";
+import { Flower2, Clock, ArrowLeft, ArrowRight, User, MapPin, Share2, Camera, AlertTriangle, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
 
@@ -117,6 +117,12 @@ export default function OnboardingPage() {
   const [photoPreview, setPhotoPreview] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [loginCount, setLoginCount] = useState(0);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneOtpCode, setPhoneOtpCode] = useState("");
+  const [phoneSessionId, setPhoneSessionId] = useState("");
+  const [phoneVerifyLoading, setPhoneVerifyLoading] = useState(false);
+  const [phoneVerifyError, setPhoneVerifyError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { minDate, maxDate } = getDobLimits();
@@ -137,6 +143,7 @@ export default function OnboardingPage() {
         photo_url: data.user.photo_url || "", status: data.user.status || "",
       }));
       if (data.user.photo_url) setPhotoPreview(data.user.photo_url);
+      if (data.user.phone_verified) setPhoneVerified(true);
       if (data.user.name && data.user.status === "pending") setSubmitted(true);
     }).catch(() => {});
   }, [router]);
@@ -148,9 +155,49 @@ export default function OnboardingPage() {
       if (!profile.last_name.trim()) { setError("Last name / Initial is required"); return false; }
       if (!profile.phone.trim()) { setError("Phone number is required"); return false; }
       if (!isValidPhone(profile.phone)) { setError("Enter a valid Indian mobile number (10 digits starting with 6-9)"); return false; }
+      if (!phoneVerified) { setError("Please verify your phone number with OTP"); return false; }
       if (!profile.occupation || (profile.occupation === "Others" && !profile.occupation_other.trim())) { setError("Designation is required"); return false; }
     }
     return true;
+  }
+
+  async function handleSendPhoneOtp() {
+    if (!isValidPhone(profile.phone)) {
+      setPhoneVerifyError("Enter a valid Indian mobile number first");
+      return;
+    }
+    setPhoneVerifyLoading(true);
+    setPhoneVerifyError("");
+    try {
+      const res = await fetch("/api/auth/verify-phone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send", phone: profile.phone }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setPhoneVerifyError(data.error || "Failed to send OTP"); return; }
+      setPhoneSessionId(data.sessionId);
+      setPhoneOtpSent(true);
+    } catch { setPhoneVerifyError("Failed to send OTP"); }
+    finally { setPhoneVerifyLoading(false); }
+  }
+
+  async function handleVerifyPhoneOtp() {
+    if (phoneOtpCode.length !== 6) { setPhoneVerifyError("Enter the 6-digit OTP"); return; }
+    setPhoneVerifyLoading(true);
+    setPhoneVerifyError("");
+    try {
+      const res = await fetch("/api/auth/verify-phone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", code: phoneOtpCode, sessionId: phoneSessionId }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setPhoneVerifyError(data.error || "Invalid OTP"); return; }
+      setPhoneVerified(true);
+      setPhoneOtpSent(false);
+    } catch { setPhoneVerifyError("Verification failed"); }
+    finally { setPhoneVerifyLoading(false); }
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -283,9 +330,28 @@ export default function OnboardingPage() {
                       <Label htmlFor="last_name">Last Name / Initial *</Label>
                       <Input id="last_name" value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.toUpperCase() })} placeholder="e.g., K" required className="uppercase" />
                     </div>
-                    <div>
-                      <Label htmlFor="phone">Phone *</Label>
-                      <Input id="phone" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") })} placeholder="+91 9876543210" required />
+                    <div className="col-span-2">
+                      <Label htmlFor="phone">Phone * {phoneVerified && <span className="text-green-600 inline-flex items-center gap-1 ml-1"><CheckCircle2 size={14} /> Verified</span>}</Label>
+                      <div className="flex gap-2">
+                        <Input id="phone" value={profile.phone} onChange={(e) => { setProfile({ ...profile, phone: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") }); if (phoneVerified) { setPhoneVerified(false); setPhoneOtpSent(false); } }} placeholder="9876543210" required className="flex-1" disabled={phoneVerified} />
+                        {!phoneVerified && (
+                          <Button type="button" variant="outline" size="sm" onClick={handleSendPhoneOtp} disabled={phoneVerifyLoading || !isValidPhone(profile.phone)} className="shrink-0 h-10">
+                            {phoneVerifyLoading && !phoneOtpSent ? "Sending..." : phoneOtpSent ? "Resend OTP" : "Verify"}
+                          </Button>
+                        )}
+                      </div>
+                      {phoneOtpSent && !phoneVerified && (
+                        <div className="mt-2 space-y-2">
+                          <p className="text-xs text-muted-foreground">Enter the 6-digit OTP sent to your mobile</p>
+                          <div className="flex gap-2">
+                            <Input type="text" inputMode="numeric" maxLength={6} value={phoneOtpCode} onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Enter OTP" className="flex-1" />
+                            <Button type="button" size="sm" onClick={handleVerifyPhoneOtp} disabled={phoneVerifyLoading || phoneOtpCode.length !== 6} className="shrink-0 h-10 bg-primary hover:bg-primary/90">
+                              {phoneVerifyLoading ? "Verifying..." : "Confirm"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {phoneVerifyError && <p className="text-xs text-destructive mt-1">{phoneVerifyError}</p>}
                     </div>
                     <div>
                       <Label htmlFor="whatsapp">WhatsApp (if different)</Label>
