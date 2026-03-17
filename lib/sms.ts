@@ -28,7 +28,7 @@ export async function sendSmsOtp(phone: string): Promise<string> {
     throw new Error("Invalid Indian mobile number");
   }
 
-  const res = await fetch(`${BASE_URL}/${TWOFACTOR_API_KEY}/SMS/${normalized}/AUTOGEN2`, {
+  const res = await fetch(`${BASE_URL}/${TWOFACTOR_API_KEY}/SMS/${normalized}/AUTOGEN`, {
     method: "GET",
   });
 
