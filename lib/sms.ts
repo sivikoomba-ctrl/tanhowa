@@ -56,5 +56,7 @@ export async function verifySmsOtp(sessionId: string, otp: string): Promise<bool
 
   const data: TwoFactorResponse = await res.json();
 
+  console.log("[2Factor VERIFY3]", JSON.stringify(data));
+
   return data.Status === "Success" && data.Details === "OTP Matched";
 }
