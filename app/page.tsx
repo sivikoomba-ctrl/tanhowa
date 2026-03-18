@@ -301,42 +301,12 @@ export default function LandingPage() {
                   </form>
                 )}
 
-                {/* Mobile OTP */}
-                {!showMobileLogin ? (
-                  <Button
-                    onClick={() => { setShowMobileLogin(true); setShowEmailLogin(false); }}
-                    variant="outline"
-                    className="w-full h-12 text-base font-semibold rounded-xl border-primary/30 hover:bg-primary/5 gap-3 mt-3"
-                  >
-                    <Smartphone className="w-5 h-5 shrink-0" />
-                    Continue with Mobile
-                  </Button>
-                ) : (
-                  <form onSubmit={handleMobileSubmit} className="space-y-3 mt-3">
-                    <Input
-                      type="tel"
-                      placeholder="9876543210"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/[^\d\+\-\s\(\)]/g, ""))}
-                      required
-                      className="h-12 text-base border-primary/30 focus-visible:ring-primary bg-white rounded-xl"
-                    />
-                    <Button
-                      type="submit"
-                      disabled={mobileLoading}
-                      className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 rounded-xl"
-                    >
-                      {mobileLoading ? "Sending OTP..." : "Send OTP to Mobile"}
-                    </Button>
-                  </form>
-                )}
+                {/* Mobile OTP — hidden until DLT registration is complete */}
 
                 <p className="mt-4 text-xs text-muted-foreground text-center">
                   {showEmailLogin
                     ? "We'll send a one-time verification code to your email"
-                    : showMobileLogin
-                    ? "We'll send a one-time verification code to your mobile"
-                    : "Use your Google, email, or mobile number to sign in"}
+                    : "Use your Google account or email to sign in"}
                 </p>
               </CardContent>
             </Card>
