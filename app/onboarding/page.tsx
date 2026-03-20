@@ -155,7 +155,8 @@ export default function OnboardingPage() {
       if (!profile.last_name.trim()) { setError("Last name / Initial is required"); return false; }
       if (!profile.phone.trim()) { setError("Phone number is required"); return false; }
       if (!isValidPhone(profile.phone)) { setError("Enter a valid Indian mobile number (10 digits starting with 6-9)"); return false; }
-      if (!phoneVerified) { setError("Please verify your phone number with OTP"); return false; }
+      // Phone OTP verification disabled — pending DLT registration
+      // if (!phoneVerified) { setError("Please verify your phone number with OTP"); return false; }
       if (!profile.occupation || (profile.occupation === "Others" && !profile.occupation_other.trim())) { setError("Designation is required"); return false; }
     }
     return true;
@@ -331,27 +332,9 @@ export default function OnboardingPage() {
                       <Input id="last_name" value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.toUpperCase() })} placeholder="e.g., K" required className="uppercase" />
                     </div>
                     <div className="col-span-2">
-                      <Label htmlFor="phone">Phone * {phoneVerified && <span className="text-green-600 inline-flex items-center gap-1 ml-1"><CheckCircle2 size={14} /> Verified</span>}</Label>
-                      <div className="flex gap-2">
-                        <Input id="phone" value={profile.phone} onChange={(e) => { setProfile({ ...profile, phone: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") }); if (phoneVerified) { setPhoneVerified(false); setPhoneOtpSent(false); } }} placeholder="9876543210" required className="flex-1" disabled={phoneVerified} />
-                        {!phoneVerified && (
-                          <Button type="button" variant="outline" size="sm" onClick={handleSendPhoneOtp} disabled={phoneVerifyLoading || !isValidPhone(profile.phone)} className="shrink-0 h-10">
-                            {phoneVerifyLoading && !phoneOtpSent ? "Sending..." : phoneOtpSent ? "Resend OTP" : "Verify"}
-                          </Button>
-                        )}
-                      </div>
-                      {phoneOtpSent && !phoneVerified && (
-                        <div className="mt-2 space-y-2">
-                          <p className="text-xs text-muted-foreground">Enter the 6-digit OTP sent to your mobile</p>
-                          <div className="flex gap-2">
-                            <Input type="text" inputMode="numeric" maxLength={6} value={phoneOtpCode} onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Enter OTP" className="flex-1" />
-                            <Button type="button" size="sm" onClick={handleVerifyPhoneOtp} disabled={phoneVerifyLoading || phoneOtpCode.length !== 6} className="shrink-0 h-10 bg-primary hover:bg-primary/90">
-                              {phoneVerifyLoading ? "Verifying..." : "Confirm"}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                      {phoneVerifyError && <p className="text-xs text-destructive mt-1">{phoneVerifyError}</p>}
+                      <Label htmlFor="phone">Phone *</Label>
+                      <Input id="phone" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") })} placeholder="9876543210" required />
+                      {/* Phone OTP verification hidden — pending DLT registration */}
                     </div>
                     <div>
                       <Label htmlFor="whatsapp">WhatsApp (if different)</Label>

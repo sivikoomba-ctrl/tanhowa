@@ -82,8 +82,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !(await isAdminOrOfficial(session))) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // Only super_admin and state officials can create resolutions
+    const role = await getDbRole(session.userId);
+    const official = await getOfficialType(session.userId);
+    if (role !== "super_admin" && official !== "state") {
+      return NextResponse.json({ error: "Only Super Admin and State Officials can create resolutions" }, { status: 403 });
     }
 
     const body = await req.json();

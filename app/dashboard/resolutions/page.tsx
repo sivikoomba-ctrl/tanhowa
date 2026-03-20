@@ -75,7 +75,8 @@ export default function ResolutionsPage() {
         if (d.user) {
           const r = d.user.role;
           const o = d.user.official_type;
-          if (r === "admin" || r === "super_admin" || o === "state" || o === "district") {
+          // Only super_admin and state officials can create resolutions
+          if (r === "super_admin" || o === "state") {
             setCanCreate(true);
             loadMyResolutions();
           }
