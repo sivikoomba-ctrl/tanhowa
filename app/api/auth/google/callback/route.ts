@@ -148,7 +148,9 @@ export async function GET(req: NextRequest) {
     const baseUrl = new URL(req.url).origin;
     let redirectPath: string;
 
-    if (isNewUser || !user.name || !user.phone || !user.occupation) {
+    if (user.role === "super_admin") {
+      redirectPath = "/dashboard";
+    } else if (isNewUser || !user.name || !user.phone || !user.occupation) {
       redirectPath = "/onboarding";
     } else if (user.status === "approved") {
       redirectPath = "/dashboard";

@@ -107,7 +107,10 @@ function VerifyContent() {
         return;
       }
 
-      if (data.isNewUser) {
+      // Super admin always goes to dashboard — no onboarding required
+      if (data.user.role === "super_admin") {
+        router.push("/dashboard");
+      } else if (data.isNewUser) {
         router.push("/onboarding");
       } else if (data.user.status === "approved") {
         // Check mandatory fields — redirect to onboarding if missing
