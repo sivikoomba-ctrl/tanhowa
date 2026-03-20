@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || "admintanhowa@tanhowa.in";
+const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || "tanhowaadmin@tanhowa.in";
 
 function getTransporter() {
   const host = process.env.ZOHO_SMTP_HOST;
