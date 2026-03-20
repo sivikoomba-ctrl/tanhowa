@@ -10,9 +10,9 @@ import Image from "next/image";
 export default function PendingPage() {
   const router = useRouter();
 
-  // Poll every 30s to check if admin has approved
+  // Check immediately + poll every 30s
   useEffect(() => {
-    const interval = setInterval(() => {
+    function checkStatus() {
       fetch("/api/users/me")
         .then((r) => r.json())
         .then((d) => {
@@ -25,7 +25,9 @@ export default function PendingPage() {
           }
         })
         .catch(() => {});
-    }, 30000);
+    }
+    checkStatus(); // Check immediately on load
+    const interval = setInterval(checkStatus, 30000);
     return () => clearInterval(interval);
   }, [router]);
 
