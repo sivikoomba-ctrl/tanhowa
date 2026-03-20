@@ -17,6 +17,7 @@ import {
   UsersRound,
   ListTodo,
   BarChart3,
+  Vote,
   Settings,
   LogOut,
   ArrowLeft,
@@ -35,6 +36,7 @@ const adminNavItems = [
   { href: "/admin/documents", label: "Document Vault", icon: FileText },
   { href: "/admin/grievances", label: "Suggestions/Grievances", icon: MessageSquareWarning },
   { href: "/admin/subscriptions", label: "Subscriptions", icon: Wallet },
+  { href: "/admin/resolutions", label: "Resolutions", icon: Vote },
   { href: "/admin/todos", label: "To-Do List", icon: ListTodo },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/error-logs", label: "Error Logs", icon: AlertTriangle },
@@ -59,7 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       })
       .then((d) => {
         if (!d.user) router.push("/");
-        else if (d.user.role !== "admin") router.push("/dashboard");
+        else if (d.user.role !== "admin" && d.user.role !== "super_admin") router.push("/dashboard");
         else { setIsAdmin(true); setUser(d.user); }
       })
       .catch(() => router.push("/"));

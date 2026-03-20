@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter, Send, Clock } from "lucide-react";
+import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter, Send, Clock, Crown, Building2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
 
@@ -58,6 +58,7 @@ interface User {
   created_at: string;
   last_active_at: string | null;
   profile_nudge: { fields: string[]; message: string; requested_at: string } | null;
+  official_type: "state" | "district" | null;
 }
 
 export default function AdminUsersPage() {
@@ -143,6 +144,21 @@ export default function AdminUsersPage() {
     } else {
       const data = await res.json();
       toast.error(data.error || "Delete failed");
+    }
+  }
+
+  async function handleSetOfficial(userId: string, officialType: string | null) {
+    const label = officialType === "state" ? "State Official" : officialType === "district" ? "District Official" : "regular member";
+    const res = await fetch("/api/admin/users", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, action: "set-official", officialType }),
+    });
+    if (res.ok) {
+      toast.success(`User set as ${label}`);
+      loadUsers();
+    } else {
+      toast.error("Action failed");
     }
   }
 
@@ -262,9 +278,19 @@ export default function AdminUsersPage() {
                           <div>
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold uppercase">{u.name || "Unnamed"}</h3>
-                            <Badge variant={u.role === "admin" ? "default" : "outline"} className="text-xs">
-                              {u.role}
+                            <Badge variant={u.role === "admin" || u.role === "super_admin" ? "default" : "outline"} className={`text-xs ${u.role === "super_admin" ? "bg-amber-600 hover:bg-amber-600" : ""}`}>
+                              {u.role === "super_admin" ? "Super Admin" : u.role}
                             </Badge>
+                            {u.official_type === "state" && (
+                              <Badge className="text-xs bg-purple-600 hover:bg-purple-600 text-white">
+                                <Crown size={10} className="mr-1" />State Official
+                              </Badge>
+                            )}
+                            {u.official_type === "district" && (
+                              <Badge className="text-xs bg-blue-600 hover:bg-blue-600 text-white">
+                                <Building2 size={10} className="mr-1" />District Official
+                              </Badge>
+                            )}
                             {tab === "all" && (
                               <Badge className={`text-xs ${u.status === "approved" ? "bg-green-100 text-green-800 hover:bg-green-100" : u.status === "pending" ? "bg-amber-100 text-amber-800 hover:bg-amber-100" : "bg-red-100 text-red-800 hover:bg-red-100"}`}>
                                 {u.status}
@@ -306,7 +332,7 @@ export default function AdminUsersPage() {
                               </Button>
                             </>
                           )}
-                          {tab === "approved" && u.role !== "admin" && (
+                          {tab === "approved" && u.role !== "admin" && u.role !== "super_admin" && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -323,6 +349,21 @@ export default function AdminUsersPage() {
                               onClick={() => handleAction(u.id, "set-role", "member")}
                             >
                               Remove Admin
+                            </Button>
+                          )}
+                          {(tab === "approved" || (tab === "all" && u.status === "approved")) && !u.official_type && (
+                            <>
+                              <Button size="sm" variant="outline" className="text-purple-700 border-purple-300 hover:bg-purple-50" onClick={() => handleSetOfficial(u.id, "state")}>
+                                <Crown size={14} className="mr-1" />State Official
+                              </Button>
+                              <Button size="sm" variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => handleSetOfficial(u.id, "district")}>
+                                <Building2 size={14} className="mr-1" />District Official
+                              </Button>
+                            </>
+                          )}
+                          {(tab === "approved" || (tab === "all" && u.status === "approved")) && u.official_type && (
+                            <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleSetOfficial(u.id, null)}>
+                              <X size={14} className="mr-1" />Remove Official
                             </Button>
                           )}
                           {tab === "rejected" && (
@@ -345,7 +386,7 @@ export default function AdminUsersPage() {
                               Approve
                             </Button>
                           )}
-                          {tab === "all" && u.status === "approved" && u.role !== "admin" && (
+                          {tab === "all" && u.status === "approved" && u.role !== "admin" && u.role !== "super_admin" && (
                             <Button
                               size="sm"
                               variant="outline"

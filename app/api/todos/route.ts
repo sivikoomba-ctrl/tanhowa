@@ -278,7 +278,7 @@ export async function PUT(req: NextRequest) {
           const { data: admins } = await supabase
             .from("users")
             .select("telegram_chat_id")
-            .eq("role", "admin")
+            .in("role", ["admin", "super_admin"])
             .not("telegram_chat_id", "is", null);
           for (const admin of admins || []) {
             notifyTaskCommitted(admin.telegram_chat_id, taskFull.title, taskFull.event_id, memberName, body.estimated_time || "", body.estimated_amount || 0).catch(() => {});

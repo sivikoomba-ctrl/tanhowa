@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { notifyNewMemberRegistered } from "@/lib/mail";
 
@@ -72,7 +72,22 @@ export async function PUT(req: NextRequest) {
     } else if (action === "reject") {
       await supabase.from("users").update({ status: "rejected" }).eq("id", userId);
     } else if (action === "set-role" && role) {
+      // Prevent changing a super_admin's role
+      const targetRole = await getDbRole(userId);
+      if (targetRole === "super_admin") {
+        return NextResponse.json({ error: "Cannot change Super Admin role" }, { status: 403 });
+      }
+      // Prevent promoting to super_admin (only auto-assigned to default admin email)
+      if (role === "super_admin") {
+        return NextResponse.json({ error: "Cannot assign Super Admin role" }, { status: 403 });
+      }
       await supabase.from("users").update({ role }).eq("id", userId);
+    } else if (action === "set-official") {
+      const { officialType } = body; // "state", "district", or null (to remove)
+      if (officialType !== null && officialType !== "state" && officialType !== "district") {
+        return NextResponse.json({ error: "Invalid official type" }, { status: 400 });
+      }
+      await supabase.from("users").update({ official_type: officialType }).eq("id", userId);
     } else if (action === "nudge") {
       const { fields, message } = body;
       if (!fields || !Array.isArray(fields) || fields.length === 0) {
@@ -119,6 +134,13 @@ export async function DELETE(req: NextRequest) {
     }
 
     const supabase = getServiceClient();
+
+    // Prevent deleting a super_admin
+    const targetRole = await getDbRole(userId);
+    if (targetRole === "super_admin") {
+      return NextResponse.json({ error: "Cannot delete Super Admin" }, { status: 403 });
+    }
+
     await supabase.from("users").delete().eq("id", userId);
 
     return NextResponse.json({ message: "User deleted" });

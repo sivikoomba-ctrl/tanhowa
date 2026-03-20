@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { notifyNewEvent } from "@/lib/mail";
 
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !(await isAdmin(session))) {
+    if (!session || !(await isAdminOrOfficial(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

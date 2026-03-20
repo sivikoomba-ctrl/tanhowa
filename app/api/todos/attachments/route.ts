@@ -175,7 +175,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Attachment not found" }, { status: 404 });
     }
 
-    if (attachment.user_id !== session.userId && session.role !== "admin") {
+    if (attachment.user_id !== session.userId && session.role !== "admin" && session.role !== "super_admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -189,7 +189,7 @@ export default function AdminSubscriptionsPage() {
       .then((r) => r.json())
       .then((d) => {
         const members = (d.users || [])
-          .filter((u: { role: string }) => u.role !== "admin")
+          .filter((u: { role: string }) => u.role !== "admin" && u.role !== "super_admin")
           .map((u: { id: string; name: string; email: string }) => ({ id: u.id, name: u.name || "", email: u.email }));
         setPastMembers(members);
       })

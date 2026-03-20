@@ -17,6 +17,7 @@ interface Member {
   phone: string;
   photo_url: string;
   role: string;
+  official_type?: "state" | "district" | null;
   posting_details?: {
     regular_district?: string;
     regular_block?: string;
@@ -168,8 +169,14 @@ export default function MembersPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-sm truncate uppercase">{m.name || "Unnamed"}</h3>
-                    {m.role === "admin" && (
+                    {(m.role === "admin" || m.role === "super_admin") && (
                       <Badge className="bg-accent text-accent-foreground text-xs">Official</Badge>
+                    )}
+                    {m.official_type === "state" && (
+                      <Badge className="bg-purple-600 text-white text-xs">State</Badge>
+                    )}
+                    {m.official_type === "district" && (
+                      <Badge className="bg-blue-600 text-white text-xs">District</Badge>
                     )}
                   </div>
                   {m.occupation && (

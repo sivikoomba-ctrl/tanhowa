@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false });
 
     const dbRole = await getDbRole(session.userId);
-    if (dbRole === "admin") {
+    if (dbRole === "admin" || dbRole === "super_admin") {
       if (status && status !== "all") {
         query = query.eq("status", status);
       }

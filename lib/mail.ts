@@ -206,7 +206,7 @@ export async function notifyAdminNewRegistration(memberName: string, memberEmail
     const { data } = await supabase
       .from("users")
       .select("email")
-      .eq("role", "admin")
+      .in("role", ["admin", "super_admin"])
       .eq("status", "approved");
     const adminEmails = (data || []).map((u: { email: string }) => u.email).filter(Boolean);
     if (adminEmails.length === 0) return;

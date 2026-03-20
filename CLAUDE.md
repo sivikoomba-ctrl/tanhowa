@@ -45,7 +45,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 
 **Email OTP fallback:** Users without Google accounts can click "Continue with Email" on the landing page, which expands an email input → sends OTP via `/api/auth/send-otp` → verifies on `/verify` page via `/api/auth/verify-otp`.
 
-**Session payload:** `{ userId, email, role: "member"|"admin", status: "pending"|"approved"|"rejected" }`
+**Session payload:** `{ userId, email, role: "member"|"admin"|"super_admin", status: "pending"|"approved"|"rejected" }`
 
 **Session implementation:** JWT signed with HS256, stored in httpOnly cookie named `session`, 7-day expiry. Uses `jose` library (not jsonwebtoken) for Edge compatibility.
 
@@ -208,8 +208,10 @@ npm run lint     # ESLint
 
 ## Admin Auth Pattern
 
-- Use `isAdmin(session)` helper which checks DB role (not JWT which may be stale)
-- `DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in"` is auto-approved as admin on first login and **never goes through onboarding** — their `name`, `phone`, `occupation` may be empty. Don't assume admins have a complete profile.
+- Use `isAdmin(session)` helper which checks DB role (not JWT which may be stale) — returns true for both `admin` and `super_admin`
+- Use `isSuperAdmin(session)` to check specifically for super_admin role
+- `DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in"` is auto-assigned `super_admin` role on login — never goes through onboarding, cannot be demoted or deleted
+- Regular admins can be promoted/demoted by any admin; super_admin role is only auto-assigned to the default admin email
 - Admin user actions: approve, reject, nudge (profile completion), change role
 
 ## Known Field Name Gotchas

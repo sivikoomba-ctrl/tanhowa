@@ -21,6 +21,8 @@ import {
   AlertCircle,
   UsersRound,
   ListTodo,
+  Crown,
+  Vote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -43,9 +45,11 @@ const navItems = [
   { href: "/dashboard", label: "Overview", icon: Home },
   { href: "/dashboard/profile", label: "Profile", icon: User },
   { href: "/dashboard/members", label: "Members", icon: Users },
+  { href: "/dashboard/officials", label: "Officials", icon: Crown },
   { href: "/dashboard/teams", label: "Teams", icon: UsersRound },
   { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
   { href: "/dashboard/events", label: "Events", icon: Calendar },
+  { href: "/dashboard/resolutions", label: "Resolutions", icon: Vote },
   { href: "/dashboard/documents", label: "Document Vault", icon: FileText },
   { href: "/dashboard/grievances", label: "Suggestions/Grievances", icon: MessageSquareWarning },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
@@ -86,14 +90,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             return;
           }
           // Redirect truly unnamed users (no name at all) back to onboarding
-          if (!data.user.name && data.user.role !== "admin") {
+          if (!data.user.name && data.user.role !== "admin" && data.user.role !== "super_admin") {
             router.push("/onboarding");
             return;
           }
           setUser(data.user);
           // Check for missing mandatory fields
           const missing = getMissingFields(data.user);
-          if (missing.length > 0 && data.user.role !== "admin") {
+          if (missing.length > 0 && data.user.role !== "admin" && data.user.role !== "super_admin") {
             setMissingFields(missing);
             setShowIncomplete(true);
           }
@@ -131,7 +135,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           );
         })}
-        {user?.role === "admin" && (
+        {(user?.role === "admin" || user?.role === "super_admin") && (
           <Link
             href="/admin"
             onClick={onItemClick}

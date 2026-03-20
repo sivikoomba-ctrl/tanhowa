@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const { data: admins } = await supabase
     .from("users")
     .select("id, name, email, phone, photo_url, occupation")
-    .eq("role", "admin")
+    .in("role", ["admin", "super_admin"])
     .eq("status", "approved")
     .order("name");
 

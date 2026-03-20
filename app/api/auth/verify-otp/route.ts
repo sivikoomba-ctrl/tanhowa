@@ -43,10 +43,10 @@ export async function POST(req: NextRequest) {
     let user = existingUser;
     let isNewUser = false;
 
-    // Auto-promote default admin email if they exist but aren't admin yet
-    if (user && normalizedEmail === DEFAULT_ADMIN_EMAIL && (user.role !== "admin" || user.status !== "approved")) {
-      await supabase.from("users").update({ role: "admin", status: "approved" }).eq("id", user.id);
-      user = { ...user, role: "admin", status: "approved" };
+    // Auto-promote default admin email to super_admin if not already
+    if (user && normalizedEmail === DEFAULT_ADMIN_EMAIL && (user.role !== "super_admin" || user.status !== "approved")) {
+      await supabase.from("users").update({ role: "super_admin", status: "approved" }).eq("id", user.id);
+      user = { ...user, role: "super_admin", status: "approved" };
     }
 
     if (!user) {
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
         .from("users")
         .insert({
           email: normalizedEmail,
-          role: autoAdmin ? "admin" : "member",
+          role: isDefaultAdmin ? "super_admin" : (isFirstUser ? "admin" : "member"),
           status: autoAdmin ? "approved" : "pending",
         })
         .select()
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     }).eq("id", user.id);
 
     // Auto-delete accounts that never completed profile after 7+ logins
-    if (newLoginCount >= 7 && !user.name && user.role !== "admin") {
+    if (newLoginCount >= 7 && !user.name && user.role !== "admin" && user.role !== "super_admin") {
       await supabase.from("users").delete().eq("id", user.id);
       return NextResponse.json({ error: "account_deleted_incomplete_profile" }, { status: 403 });
     }

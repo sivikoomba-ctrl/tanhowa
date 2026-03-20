@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
       .select("*, users(name)")
       .order("created_at", { ascending: false });
 
-    if (dbRole === "admin") {
+    if (dbRole === "admin" || dbRole === "super_admin") {
       // Admin sees all, optionally filtered by approval status
       if (status === "pending") query = query.eq("approved", false);
       else if (status === "approved") query = query.eq("approved", true);
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
         file_type: body.file_type,
         category: body.category || "",
         uploaded_by: session.userId,
-        approved: role === "admin",
+        approved: role === "admin" || role === "super_admin",
         visibility,
       })
       .select()

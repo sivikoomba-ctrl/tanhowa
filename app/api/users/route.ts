@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   if (status) {
     query = query.eq("status", status);
-  } else if (dbRole !== "admin") {
+  } else if (dbRole !== "admin" && dbRole !== "super_admin") {
     query = query.eq("status", "approved");
   }
 

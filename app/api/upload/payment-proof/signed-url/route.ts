@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   // Members can only view their own payment proofs; admins can view all
   const role = await getDbRole(session.userId);
-  if (role !== "admin") {
+  if (role !== "admin" && role !== "super_admin") {
     const { data: sub } = await supabase
       .from("subscriptions")
       .select("user_id")

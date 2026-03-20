@@ -60,10 +60,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Auto-promote default admin email if needed
-    if (user.email === DEFAULT_ADMIN_EMAIL && (user.role !== "admin" || user.status !== "approved")) {
-      await supabase.from("users").update({ role: "admin", status: "approved" }).eq("id", user.id);
-      user = { ...user, role: "admin", status: "approved" };
+    // Auto-promote default admin email to super_admin if needed
+    if (user.email === DEFAULT_ADMIN_EMAIL && (user.role !== "super_admin" || user.status !== "approved")) {
+      await supabase.from("users").update({ role: "super_admin", status: "approved" }).eq("id", user.id);
+      user = { ...user, role: "super_admin", status: "approved" };
     }
 
     // Update last login timestamp, increment login count, mark phone verified
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     }).eq("id", user.id);
 
     // Auto-delete accounts that never completed profile after 7+ logins
-    if (newLoginCount >= 7 && !user.name && user.role !== "admin") {
+    if (newLoginCount >= 7 && !user.name && user.role !== "admin" && user.role !== "super_admin") {
       await supabase.from("users").delete().eq("id", user.id);
       return NextResponse.json({ error: "account_deleted_incomplete_profile" }, { status: 403 });
     }

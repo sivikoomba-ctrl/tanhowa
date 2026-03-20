@@ -10,7 +10,7 @@ export const DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in";
 export interface SessionPayload {
   userId: string;
   email: string;
-  role: "member" | "admin";
+  role: "member" | "admin" | "super_admin";
   status: "pending" | "approved" | "rejected";
 }
 
@@ -65,11 +65,50 @@ export async function getDbRole(userId: string): Promise<string | null> {
 }
 
 /**
- * Check if the current session user is an admin (verified against DB).
- * Returns true if admin, false otherwise.
+ * Get the user's official_type from the database.
+ * Returns "state", "district", or null.
+ */
+export async function getOfficialType(userId: string): Promise<string | null> {
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("users")
+    .select("official_type")
+    .eq("id", userId)
+    .single();
+  return data?.official_type || null;
+}
+
+/**
+ * Check if the user is a state or district official (or admin/super_admin).
+ * Used for features shared between admins and officials.
+ */
+export async function isAdminOrOfficial(session: SessionPayload | null): Promise<boolean> {
+  if (!session) return false;
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("users")
+    .select("role, official_type")
+    .eq("id", session.userId)
+    .single();
+  if (!data) return false;
+  return data.role === "admin" || data.role === "super_admin" || data.official_type === "state" || data.official_type === "district";
+}
+
+/**
+ * Check if the current session user is an admin or super_admin (verified against DB).
+ * Returns true if admin or super_admin, false otherwise.
  */
 export async function isAdmin(session: SessionPayload | null): Promise<boolean> {
   if (!session) return false;
   const role = await getDbRole(session.userId);
-  return role === "admin";
+  return role === "admin" || role === "super_admin";
+}
+
+/**
+ * Check if the current session user is a super_admin (verified against DB).
+ */
+export async function isSuperAdmin(session: SessionPayload | null): Promise<boolean> {
+  if (!session) return false;
+  const role = await getDbRole(session.userId);
+  return role === "super_admin";
 }
