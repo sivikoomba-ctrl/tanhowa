@@ -18,6 +18,7 @@ import {
   ListTodo,
   BarChart3,
   Vote,
+  Crown,
   Settings,
   LogOut,
   ArrowLeft,
@@ -30,6 +31,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 const adminNavItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Member Approval", icon: Users },
+  { href: "/admin/officials", label: "Officials", icon: Crown },
   { href: "/admin/teams", label: "Teams", icon: UsersRound },
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/events", label: "Events", icon: Calendar },
