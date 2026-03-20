@@ -93,10 +93,15 @@ export async function PUT(req: NextRequest) {
     // Check if this is a first-time onboarding (pending user with no name yet)
     const { data: currentUser } = await supabase
       .from("users")
-      .select("name, status")
+      .select("name, status, role")
       .eq("id", session.userId)
       .single();
     const isFirstOnboarding = currentUser && !currentUser.name && currentUser.status === "pending";
+
+    // Auto-approve super_admin and admin accounts on profile update
+    if (currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin") && currentUser.status !== "approved") {
+      await supabase.from("users").update({ status: "approved" }).eq("id", session.userId);
+    }
 
     const { error } = await supabase
       .from("users")
