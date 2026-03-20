@@ -5,7 +5,7 @@ import { getServiceClient } from "@/lib/supabase";
 const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
 // Default admin email — always auto-approved as admin on login
-export const DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in";
+export const DEFAULT_ADMIN_EMAIL = "admintanhowa@tanhowa.in";
 
 export interface SessionPayload {
   userId: string;

@@ -210,7 +210,7 @@ npm run lint     # ESLint
 
 - Use `isAdmin(session)` helper which checks DB role (not JWT which may be stale) — returns true for both `admin` and `super_admin`
 - Use `isSuperAdmin(session)` to check specifically for super_admin role
-- `DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in"` is auto-assigned `super_admin` role on login — never goes through onboarding, cannot be demoted or deleted
+- `DEFAULT_ADMIN_EMAIL = "admintanhowa@tanhowa.in"` is auto-assigned `super_admin` role on login — never goes through onboarding, cannot be demoted or deleted
 - Regular admins can be promoted/demoted by any admin; super_admin role is only auto-assigned to the default admin email
 - Admin user actions: approve, reject, nudge (profile completion), change role
 
