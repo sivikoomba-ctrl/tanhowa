@@ -330,6 +330,8 @@ export async function PUT(req: NextRequest) {
 
     if (dbRole === "admin") {
       // Admin can update all fields
+      if (body.title !== undefined) updates.title = body.title;
+      if (body.description !== undefined) updates.description = body.description;
       if (body.status !== undefined) updates.status = body.status;
       if (body.urgent !== undefined) updates.urgent = body.urgent;
       if (body.important !== undefined) updates.important = body.important;
