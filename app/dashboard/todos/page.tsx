@@ -1088,7 +1088,7 @@ export default function TodosPage() {
             const sc = statusConfig[todo.status] || statusConfig.pending;
             const StatusIcon = sc.icon;
             return (
-              <Card key={todo.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => openTaskDetail(todo)}>
+              <Card key={todo.id} className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 ${todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400"}`} onClick={() => openTaskDetail(todo)}>
                 <CardContent className="pt-4">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5">
@@ -1169,14 +1169,22 @@ export default function TodosPage() {
                         </span>
                       </div>
                       {todo.subtask_count > 0 && (
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex-1 h-2.5 rounded-full bg-muted/80 overflow-hidden">
                             <div
-                              className={`h-full rounded-full transition-all ${todo.subtask_completed === todo.subtask_count ? "bg-green-500" : "bg-primary"}`}
-                              style={{ width: `${(todo.subtask_completed / todo.subtask_count) * 100}%` }}
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                todo.subtask_completed === todo.subtask_count
+                                  ? "bg-gradient-to-r from-green-400 to-green-600"
+                                  : todo.subtask_completed > 0
+                                    ? "bg-gradient-to-r from-primary/70 to-primary"
+                                    : "bg-muted-foreground/20"
+                              }`}
+                              style={{ width: `${Math.max((todo.subtask_completed / todo.subtask_count) * 100, todo.subtask_completed > 0 ? 5 : 0)}%` }}
                             />
                           </div>
-                          <span className="text-[10px] text-muted-foreground">{Math.round((todo.subtask_completed / todo.subtask_count) * 100)}%</span>
+                          <span className={`text-[11px] font-medium ${todo.subtask_completed === todo.subtask_count ? "text-green-600" : "text-muted-foreground"}`}>
+                            {todo.subtask_completed}/{todo.subtask_count}
+                          </span>
                         </div>
                       )}
 

@@ -555,9 +555,10 @@ export default function AdminTodosPage() {
 
   function TodoCard({ todo, compact }: { todo: Todo; compact?: boolean }) {
     const sc = statusConfig[todo.status] || statusConfig.pending;
+    const borderColor = todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400";
     return (
       <div
-        className={`rounded-xl border bg-white p-3 hover:shadow-md transition-shadow cursor-pointer ${compact ? "text-xs" : ""}`}
+        className={`rounded-xl border border-l-4 ${borderColor} bg-white p-3 hover:shadow-md transition-shadow cursor-pointer ${compact ? "text-xs" : ""}`}
         onClick={() => openTaskDetail(todo)}
       >
         <div className="flex items-start justify-between gap-2">
@@ -626,14 +627,22 @@ export default function AdminTodosPage() {
           )}
         </div>
         {todo.subtask_count > 0 && (
-          <div className="mt-2 flex items-center gap-2">
-            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="mt-2.5 flex items-center gap-2">
+            <div className="flex-1 h-2.5 rounded-full bg-muted/80 overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${todo.subtask_completed === todo.subtask_count ? "bg-green-500" : "bg-primary"}`}
-                style={{ width: `${(todo.subtask_completed / todo.subtask_count) * 100}%` }}
+                className={`h-full rounded-full transition-all duration-500 ${
+                  todo.subtask_completed === todo.subtask_count
+                    ? "bg-gradient-to-r from-green-400 to-green-600"
+                    : todo.subtask_completed > 0
+                      ? "bg-gradient-to-r from-primary/70 to-primary"
+                      : "bg-muted-foreground/20"
+                }`}
+                style={{ width: `${Math.max((todo.subtask_completed / todo.subtask_count) * 100, todo.subtask_completed > 0 ? 5 : 0)}%` }}
               />
             </div>
-            <span className="text-[10px] text-muted-foreground">{Math.round((todo.subtask_completed / todo.subtask_count) * 100)}%</span>
+            <span className={`text-[11px] font-medium ${todo.subtask_completed === todo.subtask_count ? "text-green-600" : "text-muted-foreground"}`}>
+              {todo.subtask_completed}/{todo.subtask_count}
+            </span>
           </div>
         )}
         {!compact && todo.status === "pending" && (
