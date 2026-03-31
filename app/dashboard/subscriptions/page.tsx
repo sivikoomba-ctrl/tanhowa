@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface PendingMember {
@@ -48,6 +48,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   pending: { label: "Pending", color: "bg-amber-100 text-amber-700 border-amber-300", icon: Clock },
   overdue: { label: "Overdue", color: "bg-red-100 text-red-700 border-red-300", icon: AlertTriangle },
   rejected: { label: "Rejected", color: "bg-red-100 text-red-700 border-red-300", icon: AlertTriangle },
+  hold: { label: "On Hold", color: "bg-orange-100 text-orange-700 border-orange-300", icon: PauseCircle },
 };
 
 export default function SubscriptionsPage() {
@@ -399,7 +400,7 @@ export default function SubscriptionsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <Icon className={`w-5 h-5 ${sub.status === "paid" ? "text-green-600" : sub.status === "overdue" ? "text-red-600" : "text-amber-600"}`} />
+                        <Icon className={`w-5 h-5 ${sub.status === "paid" ? "text-green-600" : sub.status === "overdue" || sub.status === "rejected" ? "text-red-600" : sub.status === "hold" ? "text-orange-600" : "text-amber-600"}`} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">

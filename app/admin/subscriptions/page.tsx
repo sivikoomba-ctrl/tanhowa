@@ -317,7 +317,7 @@ export default function AdminSubscriptionsPage() {
         sub.transaction_id?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus =
         filterStatus === "all" ||
-        (filterStatus === "proof-uploaded" ? !!sub.payment_proof_url && sub.status !== "paid" : sub.status === filterStatus);
+        (filterStatus === "proof-uploaded" ? !!sub.payment_proof_url && sub.status !== "paid" && sub.status !== "rejected" && sub.status !== "hold" : sub.status === filterStatus);
       const matchesPeriod = filterPeriod === "all" || sub.period === filterPeriod;
       return matchesSearch && matchesStatus && matchesPeriod;
     });
@@ -455,6 +455,18 @@ export default function AdminSubscriptionsPage() {
       toast.error("Failed to load proof");
     }
     setPreviewLoading(false);
+  }
+
+  async function handleHold(id: string) {
+    const res = await fetch("/api/subscriptions", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status: "hold" }),
+    });
+    if (res.ok) {
+      toast.success("Payment put on hold");
+      load();
+    }
   }
 
   async function handleMarkOverdue(id: string) {
@@ -1074,6 +1086,7 @@ export default function AdminSubscriptionsPage() {
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="overdue">Overdue</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="hold">On Hold</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterPeriod} onValueChange={setFilterPeriod}>
@@ -1120,10 +1133,14 @@ export default function AdminSubscriptionsPage() {
                               ? "bg-green-100 text-green-700 border-green-300"
                               : sub.status === "overdue"
                                 ? "bg-red-100 text-red-700 border-red-300"
-                                : "bg-amber-100 text-amber-700 border-amber-300"
+                                : sub.status === "rejected"
+                                  ? "bg-red-100 text-red-700 border-red-300"
+                                  : sub.status === "hold"
+                                    ? "bg-orange-100 text-orange-700 border-orange-300"
+                                    : "bg-amber-100 text-amber-700 border-amber-300"
                           }
                         >
-                          {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
+                          {sub.status === "hold" ? "On Hold" : sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
                         </Badge>
                         {hasProof && sub.status !== "paid" && (
                           <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 text-[10px]">
@@ -1260,6 +1277,14 @@ export default function AdminSubscriptionsPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="h-7 text-xs text-orange-700 border-orange-300 hover:bg-orange-50"
+                                onClick={() => handleHold(sub.id)}
+                              >
+                                Hold
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
                                 className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50"
                                 onClick={() => { setRejectSub(sub); setRejectRemarks(""); }}
                               >
@@ -1267,17 +1292,17 @@ export default function AdminSubscriptionsPage() {
                               </Button>
                             </>
                           )}
-                          {sub.status === "overdue" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs"
-                              onClick={() => handleRevert(sub.id)}
-                            >
-                              Revert
-                            </Button>
-                          )}
                         </>
+                      )}
+                      {(sub.status === "overdue" || sub.status === "hold" || sub.status === "rejected") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => handleRevert(sub.id)}
+                        >
+                          Revert to Pending
+                        </Button>
                       )}
                       {sub.status === "paid" && (
                         <Button

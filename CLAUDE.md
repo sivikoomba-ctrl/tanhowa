@@ -179,7 +179,12 @@ npm run start    # Start production server
 npm run lint     # ESLint
 ```
 
-**No test framework** — there are no unit/integration tests. Verify changes with `npm run build`.
+```bash
+npm test         # Run tests once (vitest run)
+npm run test:watch  # Watch mode
+```
+
+Tests live in `lib/__tests__/`. Mocks for `next/headers` and `@/lib/supabase` are set up in each test file. `JWT_SECRET` is configured in `vitest.config.ts`.
 
 ## Git & Deployment
 
