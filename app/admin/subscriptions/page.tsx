@@ -466,6 +466,8 @@ export default function AdminSubscriptionsPage() {
     if (res.ok) {
       toast.success("Payment put on hold");
       load();
+    } else {
+      toast.error("Failed to put on hold");
     }
   }
 
