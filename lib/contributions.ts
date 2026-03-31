@@ -15,6 +15,7 @@ export type ContributionAction =
   | "grievance_responded"
   | "task_created"
   | "task_committed"
+  | "task_updated"
   | "task_note_added"
   | "task_report_added"
   | "voucher_submitted"
@@ -38,6 +39,7 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   grievance_responded:     { label: "Responded to grievance", minutes: 5 },
   task_created:            { label: "Created task", minutes: 5 },
   task_committed:          { label: "Committed to task", minutes: 2 },
+  task_updated:            { label: "Updated task", minutes: 3 },
   task_note_added:         { label: "Added task note", minutes: 5 },
   task_report_added:       { label: "Submitted task report", minutes: 5 },
   voucher_submitted:       { label: "Submitted task voucher", minutes: 5 },

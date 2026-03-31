@@ -30,6 +30,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   grievance_responded:       { label: "Grievance Response", color: "bg-green-100 text-green-700 border-green-300" },
   task_created:              { label: "Task Created", color: "bg-blue-100 text-blue-700 border-blue-300" },
   task_committed:            { label: "Task Committed", color: "bg-green-100 text-green-700 border-green-300" },
+  task_updated:              { label: "Task Updated", color: "bg-blue-100 text-blue-700 border-blue-300" },
   task_note_added:           { label: "Task Note", color: "bg-gray-100 text-gray-700 border-gray-300" },
   task_report_added:         { label: "Task Report", color: "bg-purple-100 text-purple-700 border-purple-300" },
   voucher_submitted:         { label: "Voucher", color: "bg-amber-100 text-amber-700 border-amber-300" },

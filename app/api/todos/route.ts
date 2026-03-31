@@ -381,6 +381,10 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Failed to update task" }, { status: 500 });
     }
 
+    // Log contribution for task update
+    const statusLabel = body.status ? ` → ${body.status}` : "";
+    logContribution(session.userId, "task_updated", `Updated task${statusLabel}`);
+
     // Fire-and-forget: notify on status change
     if (body.status && dbRole === "admin") {
       (async () => {
