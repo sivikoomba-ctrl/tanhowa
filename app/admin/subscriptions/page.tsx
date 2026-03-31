@@ -142,6 +142,11 @@ export default function AdminSubscriptionsPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
+  // Reject dialog
+  const [rejectSub, setRejectSub] = useState<Subscription | null>(null);
+  const [rejectRemarks, setRejectRemarks] = useState("");
+  const [rejectLoading, setRejectLoading] = useState(false);
+
   // Notify member dialog
   const [notifySub, setNotifySub] = useState<Subscription | null>(null);
   const [notifyMessage, setNotifyMessage] = useState("");
@@ -474,6 +479,26 @@ export default function AdminSubscriptionsPage() {
       toast.success("Reverted to pending");
       load();
     }
+  }
+
+  async function handleReject(e: React.FormEvent) {
+    e.preventDefault();
+    if (!rejectSub) return;
+    setRejectLoading(true);
+    const res = await fetch("/api/subscriptions", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: rejectSub.id, status: "rejected", remarks: rejectRemarks.trim() || "Payment rejected by admin" }),
+    });
+    if (res.ok) {
+      toast.success("Payment rejected");
+      setRejectSub(null);
+      setRejectRemarks("");
+      load();
+    } else {
+      toast.error("Failed to reject");
+    }
+    setRejectLoading(false);
   }
 
   async function handleDelete(id: string) {
@@ -1048,6 +1073,7 @@ export default function AdminSubscriptionsPage() {
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterPeriod} onValueChange={setFilterPeriod}>
@@ -1221,15 +1247,25 @@ export default function AdminSubscriptionsPage() {
                           >
                             Verify & Approve
                           </Button>
-                          {sub.status === "pending" && (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="h-7 text-xs"
-                              onClick={() => handleMarkOverdue(sub.id)}
-                            >
-                              Mark Overdue
-                            </Button>
+                          {(sub.status === "pending" || sub.status === "overdue") && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-7 text-xs"
+                                onClick={() => handleMarkOverdue(sub.id)}
+                              >
+                                Mark Overdue
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50"
+                                onClick={() => { setRejectSub(sub); setRejectRemarks(""); }}
+                              >
+                                Reject
+                              </Button>
+                            </>
                           )}
                           {sub.status === "overdue" && (
                             <Button
@@ -1950,6 +1986,38 @@ export default function AdminSubscriptionsPage() {
               {bulkVerifyLoading ? "Verifying..." : `Verify ${bulkVerifySelected.size} Member(s) as Paid`}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Payment Dialog */}
+      <Dialog open={!!rejectSub} onOpenChange={(open) => !open && setRejectSub(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Payment</DialogTitle>
+          </DialogHeader>
+          {rejectSub && (
+            <form onSubmit={handleReject} className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Reject payment from <span className="font-medium text-foreground">{rejectSub.users?.name}</span> for {rejectSub.period} (&#8377;{rejectSub.amount?.toLocaleString("en-IN")}).
+              </p>
+              <div>
+                <Label>Reason / Remarks *</Label>
+                <Textarea
+                  value={rejectRemarks}
+                  onChange={(e) => setRejectRemarks(e.target.value)}
+                  placeholder="e.g. Payment proof is unclear, amount mismatch, duplicate entry..."
+                  rows={3}
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setRejectSub(null)}>Cancel</Button>
+                <Button type="submit" variant="destructive" disabled={rejectLoading || !rejectRemarks.trim()}>
+                  {rejectLoading ? "Rejecting..." : "Reject Payment"}
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   period TEXT NOT NULL,
   amount NUMERIC DEFAULT 0,
   due_date DATE,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue')),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue', 'rejected')),
   payment_proof_url TEXT,
   verified_by UUID REFERENCES users(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),

@@ -47,6 +47,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   paid: { label: "Paid", color: "bg-green-100 text-green-700 border-green-300", icon: CheckCircle2 },
   pending: { label: "Pending", color: "bg-amber-100 text-amber-700 border-amber-300", icon: Clock },
   overdue: { label: "Overdue", color: "bg-red-100 text-red-700 border-red-300", icon: AlertTriangle },
+  rejected: { label: "Rejected", color: "bg-red-100 text-red-700 border-red-300", icon: AlertTriangle },
 };
 
 export default function SubscriptionsPage() {
