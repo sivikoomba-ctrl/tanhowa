@@ -238,6 +238,7 @@ export async function PUT(req: NextRequest) {
       };
       if (body.estimated_time !== undefined) commitUpdates.estimated_time = body.estimated_time;
       if (body.estimated_amount !== undefined) commitUpdates.estimated_amount = body.estimated_amount;
+      if (body.timebox_hours !== undefined) commitUpdates.timebox_hours = body.timebox_hours;
 
       const { error: commitError } = await supabase.from("todos").update(commitUpdates).eq("id", body.id);
       if (commitError) {
@@ -270,7 +271,7 @@ export async function PUT(req: NextRequest) {
               .eq("id", taskFull.submitted_by)
               .single();
             if (submitter?.telegram_chat_id) {
-              notifyTaskCommitted(submitter.telegram_chat_id, taskFull.title, taskFull.event_id, memberName, body.estimated_time || "", body.estimated_amount || 0).catch(() => {});
+              notifyTaskCommitted(submitter.telegram_chat_id, taskFull.title, taskFull.event_id, memberName, body.estimated_time || "", body.estimated_amount || 0, body.timebox_hours).catch(() => {});
             }
           }
 
@@ -281,7 +282,7 @@ export async function PUT(req: NextRequest) {
             .in("role", ["admin", "super_admin"])
             .not("telegram_chat_id", "is", null);
           for (const admin of admins || []) {
-            notifyTaskCommitted(admin.telegram_chat_id, taskFull.title, taskFull.event_id, memberName, body.estimated_time || "", body.estimated_amount || 0).catch(() => {});
+            notifyTaskCommitted(admin.telegram_chat_id, taskFull.title, taskFull.event_id, memberName, body.estimated_time || "", body.estimated_amount || 0, body.timebox_hours).catch(() => {});
           }
         } catch { /* silent */ }
       })();
@@ -299,6 +300,7 @@ export async function PUT(req: NextRequest) {
         committed_at: null,
         estimated_time: "",
         estimated_amount: 0,
+        timebox_hours: null,
         updated_at: new Date().toISOString(),
       }).eq("id", body.id);
       if (releaseError) {
@@ -322,6 +324,7 @@ export async function PUT(req: NextRequest) {
       if (body.assigned_to) updates.assigned_team_id = null;
       if (body.admin_remarks !== undefined) updates.admin_remarks = body.admin_remarks;
       if (body.due_date !== undefined) updates.due_date = body.due_date || null;
+      if (body.timebox_hours !== undefined) updates.timebox_hours = body.timebox_hours || null;
 
       if (body.status === "approved" || body.status === "in_progress") {
         updates.approved_by = session.userId;

@@ -33,6 +33,7 @@ import {
   HandMetal,
   Timer,
   IndianRupee,
+  Hourglass,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -67,6 +68,7 @@ interface Todo {
   committed_at: string | null;
   estimated_time: string;
   estimated_amount: number;
+  timebox_hours: number | null;
   submitter: TodoUser | null;
   assignee: TodoUser | null;
   committer: TodoUser | null;
@@ -108,6 +110,47 @@ interface TodoVoucher {
   submitter: TodoUser | null;
 }
 
+interface TimeEntry {
+  id: string;
+  todo_id: string;
+  user_id: string;
+  hours: number;
+  description: string;
+  logged_at: string;
+  created_at: string;
+  users: TodoUser | null;
+}
+
+function TimeboxProgress({ totalHours, timeboxHours, contributors }: { totalHours: number; timeboxHours: number; contributors: number }) {
+  const percent = Math.min((totalHours / timeboxHours) * 100, 150);
+  const isOverdue = totalHours > timeboxHours;
+  const isWarning = percent >= 75 && !isOverdue;
+  const barColor = isOverdue ? "bg-red-500" : isWarning ? "bg-amber-500" : "bg-green-500";
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="flex items-center gap-1">
+          <Hourglass size={11} />
+          {totalHours.toFixed(1)}h / {timeboxHours}h
+          {contributors > 0 && <span className="text-muted-foreground">({contributors} contributor{contributors !== 1 ? "s" : ""})</span>}
+        </span>
+        {isOverdue && (
+          <span className="text-red-600 font-medium">
+            Overdue by {(totalHours - timeboxHours).toFixed(1)}h
+          </span>
+        )}
+      </div>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${barColor}`}
+          style={{ width: `${Math.min(percent, 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   pending: { label: "Pending", color: "bg-amber-100 text-amber-800 border-amber-200", icon: Clock },
   approved: { label: "Approved", color: "bg-blue-100 text-blue-800 border-blue-200", icon: CheckCircle2 },
@@ -146,7 +189,7 @@ export default function TodosPage() {
   const [notes, setNotes] = useState<TodoNote[]>([]);
   const [attachments, setAttachments] = useState<TodoAttachment[]>([]);
   const [vouchers, setVouchers] = useState<TodoVoucher[]>([]);
-  const [detailTab, setDetailTab] = useState<"subtasks" | "notes" | "files" | "vouchers">("subtasks");
+  const [detailTab, setDetailTab] = useState<"subtasks" | "notes" | "files" | "vouchers" | "timelog">("subtasks");
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Subtask creation
@@ -167,7 +210,16 @@ export default function TodosPage() {
   const [showCommitForm, setShowCommitForm] = useState(false);
   const [commitEstTime, setCommitEstTime] = useState("");
   const [commitEstAmount, setCommitEstAmount] = useState("");
+  const [commitTimeboxHours, setCommitTimeboxHours] = useState("");
   const [committing, setCommitting] = useState(false);
+
+  // Time entries
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [timeEntryTotalHours, setTimeEntryTotalHours] = useState(0);
+  const [timeEntryContributors, setTimeEntryContributors] = useState(0);
+  const [timeLogHours, setTimeLogHours] = useState("");
+  const [timeLogDesc, setTimeLogDesc] = useState("");
+  const [timeLogSaving, setTimeLogSaving] = useState(false);
 
   const fetchTodos = useCallback(async () => {
     try {
@@ -185,6 +237,16 @@ export default function TodosPage() {
     fetchTodos();
   }, [fetchTodos]);
 
+  async function fetchTimeEntries(todoId: string) {
+    try {
+      const res = await fetch(`/api/todos/time-entries?todo_id=${todoId}`);
+      const data = await res.json();
+      setTimeEntries(data.entries || []);
+      setTimeEntryTotalHours(data.totalHours || 0);
+      setTimeEntryContributors(data.contributors || 0);
+    } catch { /* silent */ }
+  }
+
   async function openTaskDetail(todo: Todo) {
     setSelectedTodo(todo);
     setDetailTab("subtasks");
@@ -197,6 +259,7 @@ export default function TodosPage() {
         fetch(`/api/todos/attachments?todo_id=${todo.id}`).then((r) => r.json()),
         fetch(`/api/todos/vouchers?todo_id=${todo.id}`).then((r) => r.json()),
       ]);
+      fetchTimeEntries(todo.id);
       setSubtasks(subtasksRes.todos || []);
       setNotes(notesRes.notes || []);
       setAttachments(attachmentsRes.attachments || []);
@@ -355,6 +418,7 @@ export default function TodosPage() {
           action: "commit",
           estimated_time: commitEstTime.trim(),
           estimated_amount: commitEstAmount ? parseFloat(commitEstAmount) : 0,
+          timebox_hours: commitTimeboxHours ? parseFloat(commitTimeboxHours) : null,
         }),
       });
       if (!res.ok) {
@@ -365,6 +429,7 @@ export default function TodosPage() {
       setShowCommitForm(false);
       setCommitEstTime("");
       setCommitEstAmount("");
+      setCommitTimeboxHours("");
       // Refresh
       fetchTodos();
       openTaskDetail({ ...selectedTodo, status: "in_progress" });
@@ -494,7 +559,15 @@ export default function TodosPage() {
                   {selectedTodo.estimated_amount > 0 && (
                     <span className="flex items-center gap-1"><IndianRupee size={11} /> Est. Amount: ₹{Number(selectedTodo.estimated_amount).toLocaleString("en-IN")}</span>
                   )}
+                  {selectedTodo.timebox_hours && (
+                    <span className="flex items-center gap-1"><Hourglass size={11} /> Timebox: {selectedTodo.timebox_hours}h</span>
+                  )}
                 </div>
+                {selectedTodo.timebox_hours && (
+                  <div className="mt-2">
+                    <TimeboxProgress totalHours={timeEntryTotalHours} timeboxHours={selectedTodo.timebox_hours} contributors={timeEntryContributors} />
+                  </div>
+                )}
               </div>
             ) : (selectedTodo.status === "approved" || selectedTodo.status === "in_progress") && (
               <div className="space-y-2">
@@ -513,10 +586,14 @@ export default function TodosPage() {
                       <HandMetal size={14} /> Commit to Task
                     </h4>
                     <p className="text-xs text-muted-foreground">Once you commit, this task will be locked to you. Provide your estimates below.</p>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Estimated Time</Label>
                         <Input placeholder="e.g. 2 days, 4 hours" value={commitEstTime} onChange={(e) => setCommitEstTime(e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Timebox (hours)</Label>
+                        <Input type="number" step="0.5" min="0.5" placeholder="e.g. 8" value={commitTimeboxHours} onChange={(e) => setCommitTimeboxHours(e.target.value)} />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Estimated Amount (₹)</Label>
@@ -554,6 +631,7 @@ export default function TodosPage() {
             { key: "notes", label: "Notes & Reports", icon: MessageSquare, count: notes.length },
             { key: "files", label: "Deliverables", icon: Paperclip, count: attachments.length },
             { key: "vouchers", label: "Vouchers/Bills", icon: Receipt, count: vouchers.length },
+            { key: "timelog", label: "Time Log", icon: Hourglass, count: timeEntries.length },
           ] as const).map((tab) => (
             <button
               key={tab.key}
@@ -825,6 +903,106 @@ export default function TodosPage() {
                       </div>
                     </CardContent>
                   </Card>
+                )}
+              </div>
+            )}
+
+            {/* Time Log Tab */}
+            {detailTab === "timelog" && (
+              <div className="space-y-3">
+                {selectedTodo.timebox_hours && (
+                  <TimeboxProgress totalHours={timeEntryTotalHours} timeboxHours={selectedTodo.timebox_hours} contributors={timeEntryContributors} />
+                )}
+
+                {/* Log Time Form */}
+                {(selectedTodo.status === "in_progress" || selectedTodo.status === "approved") && (
+                  <Card className="border-primary/30">
+                    <CardContent className="pt-4 space-y-3">
+                      <h4 className="text-sm font-semibold flex items-center gap-2"><Hourglass size={14} /> Log Time</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Hours *</Label>
+                          <Input type="number" step="0.5" min="0.5" placeholder="e.g. 2.5" value={timeLogHours} onChange={(e) => setTimeLogHours(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">What did you work on?</Label>
+                          <Input placeholder="Brief description" value={timeLogDesc} onChange={(e) => setTimeLogDesc(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          disabled={!timeLogHours || parseFloat(timeLogHours) <= 0 || timeLogSaving}
+                          onClick={async () => {
+                            setTimeLogSaving(true);
+                            try {
+                              const res = await fetch("/api/todos/time-entries", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ todo_id: selectedTodo.id, hours: parseFloat(timeLogHours), description: timeLogDesc }),
+                              });
+                              if (!res.ok) {
+                                const data = await res.json();
+                                throw new Error(data.error || "Failed");
+                              }
+                              toast.success("Time logged");
+                              setTimeLogHours("");
+                              setTimeLogDesc("");
+                              fetchTimeEntries(selectedTodo.id);
+                            } catch (err) {
+                              toast.error(err instanceof Error ? err.message : "Failed to log time");
+                            } finally {
+                              setTimeLogSaving(false);
+                            }
+                          }}
+                        >
+                          {timeLogSaving ? "Saving..." : "Log Time"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Time Entries List */}
+                {timeEntries.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No time entries yet</p>
+                ) : (
+                  timeEntries.map((entry) => (
+                    <Card key={entry.id}>
+                      <CardContent className="pt-3 pb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-6 h-6">
+                              <AvatarFallback className="text-[8px]">{entry.users?.name?.charAt(0) || "?"}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">{entry.users?.name || "Unknown"}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {entry.hours}h{entry.description && ` — ${entry.description}`}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{new Date(entry.logged_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive h-7 w-7 p-0"
+                            onClick={async () => {
+                              const res = await fetch(`/api/todos/time-entries?id=${entry.id}`, { method: "DELETE" });
+                              if (res.ok) {
+                                toast.success("Entry deleted");
+                                fetchTimeEntries(selectedTodo.id);
+                              } else {
+                                toast.error("Failed to delete");
+                              }
+                            }}
+                          >
+                            <Trash2 size={12} />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
                 )}
               </div>
             )}

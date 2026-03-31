@@ -35,9 +35,10 @@ export async function notifyTaskAssigned(chatId: string | number, taskTitle: str
   return sendTelegramMessage(chatId, msg);
 }
 
-export async function notifyTaskCommitted(chatId: string | number, taskTitle: string, eventId: string, memberName: string, estTime: string, estAmount: number) {
+export async function notifyTaskCommitted(chatId: string | number, taskTitle: string, eventId: string, memberName: string, estTime: string, estAmount: number, timeboxHours?: number | null) {
   let msg = `🤝 <b>Task Committed</b>\n\n<b>${eventId}</b> — ${escapeHtml(taskTitle)}\nCommitted by: ${escapeHtml(memberName)}`;
   if (estTime) msg += `\nEst. Time: ${escapeHtml(estTime)}`;
+  if (timeboxHours) msg += `\nTimebox: ${timeboxHours}h`;
   if (estAmount > 0) msg += `\nEst. Amount: ₹${estAmount.toLocaleString("en-IN")}`;
   msg += `\n\n<a href="https://tanhowa.in/dashboard/todos">View in Dashboard</a>`;
   return sendTelegramMessage(chatId, msg);

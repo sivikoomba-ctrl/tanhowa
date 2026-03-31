@@ -281,6 +281,21 @@ ALTER TABLE todos ADD COLUMN IF NOT EXISTS estimated_time TEXT DEFAULT ''; -- e.
 ALTER TABLE todos ADD COLUMN IF NOT EXISTS estimated_amount NUMERIC DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_todos_committed_by ON todos(committed_by);
 
+-- Timeboxing: fixed time allocation for tasks
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS timebox_hours NUMERIC DEFAULT NULL;
+
+-- Time entries: team members log hours against shared task timebox
+CREATE TABLE IF NOT EXISTS todo_time_entries (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  todo_id UUID REFERENCES todos(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  hours NUMERIC NOT NULL CHECK (hours > 0),
+  description TEXT DEFAULT '',
+  logged_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_todo_time_entries_todo ON todo_time_entries(todo_id);
+
 -- Telegram integration: store chat_id for bot notifications
 ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT DEFAULT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_telegram_chat_id ON users(telegram_chat_id);
