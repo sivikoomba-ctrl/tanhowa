@@ -48,63 +48,59 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update all selected subscriptions
-    let successCount = 0;
-    for (const id of subscriptionIds) {
-      const updates: Record<string, string> = {
-        status: "paid",
-        paid_at: paidAt,
-        updated_at: new Date().toISOString(),
-        approved_by: session.userId,
-        approved_at: new Date().toISOString(),
-      };
-      if (proofPath) updates.payment_proof_url = proofPath;
-      if (remarks) updates.remarks = remarks;
+    // Batch update all selected subscriptions in a single query
+    const updates: Record<string, string> = {
+      status: "paid",
+      paid_at: paidAt,
+      updated_at: new Date().toISOString(),
+      approved_by: session.userId,
+      approved_at: new Date().toISOString(),
+    };
+    if (proofPath) updates.payment_proof_url = proofPath;
+    if (remarks) updates.remarks = remarks;
 
-      const { error } = await supabase
-        .from("subscriptions")
-        .update(updates)
-        .eq("id", id);
+    const { error: batchError } = await supabase
+      .from("subscriptions")
+      .update(updates)
+      .in("id", subscriptionIds);
 
-      if (!error) successCount++;
+    const successCount = batchError ? 0 : subscriptionIds.length;
+    if (batchError) {
+      await logError({ type: "api", message: batchError.message, path: "/api/subscriptions/bulk-verify", method: "POST", status_code: 500 });
     }
 
-    // Send approval email to each verified member
+    // Fire-and-forget: send approval emails (don't block the response)
     if (successCount > 0) {
-      try {
-        const { data: verifiedSubs } = await supabase
-          .from("subscriptions")
-          .select("period, amount, users!subscriptions_user_id_fkey(name, email)")
-          .in("id", subscriptionIds)
-          .eq("status", "paid");
+      (async () => {
+        try {
+          const { data: verifiedSubs } = await supabase
+            .from("subscriptions")
+            .select("period, amount, users!subscriptions_user_id_fkey(name, email)")
+            .in("id", subscriptionIds)
+            .eq("status", "paid");
 
-        if (verifiedSubs) {
-          const names: string[] = [];
-          for (const sub of verifiedSubs) {
-            try {
-              const user = sub.users as unknown as { name: string; email: string };
-              if (user?.email) {
-                await sendSubscriptionApprovedEmail(
-                  user.email,
-                  user.name || "Member",
-                  sub.period,
-                  sub.amount || 0
-                );
-                names.push(user.name || "Member");
-              }
-            } catch {
-              // Continue sending to others even if one fails
+          if (verifiedSubs) {
+            const names: string[] = [];
+            for (const sub of verifiedSubs) {
+              try {
+                const user = sub.users as unknown as { name: string; email: string };
+                if (user?.email) {
+                  await sendSubscriptionApprovedEmail(
+                    user.email,
+                    user.name || "Member",
+                    sub.period,
+                    sub.amount || 0
+                  );
+                  names.push(user.name || "Member");
+                }
+              } catch { /* continue */ }
+            }
+            if (names.length > 0 && verifiedSubs[0]) {
+              notifyPaymentVerified(names.join(", "), verifiedSubs[0].period);
             }
           }
-          // Broadcast to all members about verified payments
-          if (names.length > 0 && verifiedSubs[0]) {
-            notifyPaymentVerified(names.join(", "), verifiedSubs[0].period);
-          }
-        }
-      } catch (emailErr) {
-        const emailMsg = emailErr instanceof Error ? emailErr.message : "Email send failed";
-        await logError({ type: "api", message: emailMsg, path: "/api/subscriptions/bulk-verify", method: "POST", status_code: 200, metadata: { context: "bulk-approval-email" } });
-      }
+        } catch { /* silent */ }
+      })();
     }
 
     return NextResponse.json({ message: `Verified ${successCount} of ${subscriptionIds.length} subscriptions`, count: successCount });
