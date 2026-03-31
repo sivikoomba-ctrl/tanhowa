@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Award, Clock, Activity, TrendingUp } from "lucide-react";
+import { Award, Clock, Activity, TrendingUp, Trophy, Medal, Star, Flame } from "lucide-react";
 
 interface Contribution {
   id: string;
@@ -48,6 +48,17 @@ function formatMinutes(minutes: number) {
   return `${h}h ${m}m`;
 }
 
+// Award badges based on contribution stats
+function getAwardBadges(count: number, minutes: number, actionTypes: number) {
+  const badges: { icon: typeof Trophy; label: string; color: string }[] = [];
+  if (count >= 100)      badges.push({ icon: Trophy, label: "Century", color: "text-yellow-500" });
+  else if (count >= 50)  badges.push({ icon: Medal, label: "Half Century", color: "text-gray-400" });
+  else if (count >= 25)  badges.push({ icon: Star, label: "Rising Star", color: "text-amber-600" });
+  if (minutes >= 300)    badges.push({ icon: Flame, label: "Dedicated", color: "text-orange-500" });
+  if (actionTypes >= 10) badges.push({ icon: Award, label: "All-Rounder", color: "text-purple-500" });
+  return badges;
+}
+
 export default function ContributionsPage() {
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [totalMinutes, setTotalMinutes] = useState(0);
@@ -73,6 +84,19 @@ export default function ContributionsPage() {
   const topActions = Object.entries(actionCounts)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5);
+
+  const awards = getAwardBadges(contributions.length, totalMinutes, Object.keys(actionCounts).length);
+
+  // Group contributions by date
+  const groupedByDate = useMemo(() => {
+    const groups = new Map<string, Contribution[]>();
+    for (const c of contributions) {
+      const dateKey = new Date(c.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      if (!groups.has(dateKey)) groups.set(dateKey, []);
+      groups.get(dateKey)!.push(c);
+    }
+    return Array.from(groups.entries());
+  }, [contributions]);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -115,6 +139,23 @@ export default function ContributionsPage() {
         </Card>
       </div>
 
+      {/* Award Badges */}
+      {awards.length > 0 && (
+        <Card className="border-primary/30">
+          <CardContent className="pt-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><Trophy size={14} /> Awards Earned</h3>
+            <div className="flex flex-wrap gap-3">
+              {awards.map((a) => (
+                <div key={a.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/50">
+                  <a.icon className={`w-5 h-5 ${a.color}`} />
+                  <span className="text-sm font-medium">{a.label}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Top Actions */}
       {topActions.length > 0 && (
         <Card>
@@ -134,7 +175,7 @@ export default function ContributionsPage() {
         </Card>
       )}
 
-      {/* Activity Feed */}
+      {/* Activity Feed — grouped by date */}
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -146,26 +187,39 @@ export default function ContributionsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {contributions.map((c) => {
-            const config = ACTION_LABELS[c.action] || { label: c.action, color: "bg-gray-100 text-gray-700 border-gray-300" };
+        <div className="space-y-4">
+          {groupedByDate.map(([date, items]) => {
+            const dayMinutes = items.reduce((sum, c) => sum + c.estimated_minutes, 0);
             return (
-              <Card key={c.id}>
-                <CardContent className="py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className={`${config.color} text-[10px] shrink-0`}>
-                      {config.label}
-                    </Badge>
-                    <div>
-                      <p className="text-sm">{c.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(c.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0">+{c.estimated_minutes}m</span>
-                </CardContent>
-              </Card>
+              <div key={date}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{date}</h3>
+                  <span className="text-xs text-muted-foreground">{items.length} actions &middot; {formatMinutes(dayMinutes)}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {items.map((c) => {
+                    const config = ACTION_LABELS[c.action] || { label: c.action, color: "bg-gray-100 text-gray-700 border-gray-300" };
+                    return (
+                      <Card key={c.id}>
+                        <CardContent className="py-2.5 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline" className={`${config.color} text-[10px] shrink-0`}>
+                              {config.label}
+                            </Badge>
+                            <div>
+                              <p className="text-sm">{c.description}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(c.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0">+{c.estimated_minutes}m</span>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </div>

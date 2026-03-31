@@ -304,6 +304,34 @@ Standalone expense claims not tied to tasks. Table: `expense_vouchers`.
 - Admin reviews at `/admin/vouchers` — can also create on behalf of officials
 - API: `/api/vouchers` (GET/POST/PUT/DELETE) — POST requires `isAdminOrOfficial()`
 
+## Resolutions (Voting System)
+
+Table: `resolutions` + `resolution_votes`. Members can propose resolutions that go through admin approval and member voting.
+
+**Workflow:** Draft → Submitted → Approved (by admin) → Voting Open → Passed/Failed
+
+- **Create:** Super Admin and State Officials only (`POST /api/resolutions`)
+- **Vote:** All approved members can vote/unvote while voting is open
+- **Quorum:** `votes_required = floor(total_members / 2) + 1` — recalculated when voting opens
+- **Close voting:** Admin closes voting → auto-determines passed/failed based on vote count vs required
+
+**Statuses:** `draft`, `submitted`, `approved`, `rejected`, `voting_open`, `passed`, `failed`
+
+**Access control:**
+- Members see `voting_open`, `passed`, `failed` resolutions only
+- Admins and officials see all statuses
+- Cannot delete resolutions that have entered voting
+
+## Contributions Tracking
+
+Table: `contributions`. Auto-logs portal actions with estimated time for each member.
+
+- **Tracked actions:** Payment verification, member approval, task creation/updates, announcements, events, documents, grievances, vouchers, profile updates (21 action types)
+- **Member page:** `/dashboard/contributions` — personal activity feed grouped by date, award badges (Century, Half Century, Rising Star, Dedicated, All-Rounder)
+- **Admin page:** `/admin/contributions` — leaderboard ranked by total contribution time
+- **API:** `/api/contributions` (GET) — `?me=true` for own, `?period=week|month|all` filter
+- **Lib:** `logContribution(userId, action, description?, metadata?)` from `lib/contributions.ts` — fire-and-forget
+
 ## Special Subscriptions
 
 Beyond yearly subscriptions (period = "2025", "2026"), admins can create special subscriptions:

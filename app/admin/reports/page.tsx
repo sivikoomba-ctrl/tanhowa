@@ -5,12 +5,146 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Download, FileText, IndianRupee, Users, CheckCircle, Clock, AlertTriangle, FileDown } from "lucide-react";
+import { Download, FileText, IndianRupee, Users, CheckCircle, Clock, AlertTriangle, FileDown, BarChart3, ListTodo, Activity, TrendingUp, Lightbulb, MessageSquareWarning, Award } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
+
+// ---------------------------------------------------------------------------
+// Overview Dashboard
+// ---------------------------------------------------------------------------
+interface OverviewData {
+  members: { total: number; pending: number; activeThisWeek: number; newThisMonth: number };
+  subscriptions: { totalCollected: number; collectionRate: number; byPeriod: { period: string; paid: number; pending: number; overdue: number; hold: number; rejected: number; collected: number; total: number }[] };
+  tasks: { total: number; completionRate: number; breakdown: Record<string, number> };
+  grievances: { total: number; suggestions: number; resolutionRate: number };
+  contributions: { actionsThisMonth: number; minutesThisMonth: number };
+}
+
+function formatMinutes(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+function OverviewTab() {
+  const [data, setData] = useState<OverviewData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/reports/overview")
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+  if (!data) return <p className="text-center text-muted-foreground py-8">Failed to load overview.</p>;
+
+  const taskStatusLabels: Record<string, string> = { pending: "Pending", approved: "Approved", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" };
+
+  return (
+    <div className="space-y-6">
+      {/* Members */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2"><Users size={14} /> Members</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">{data.members.total}</p><p className="text-xs text-muted-foreground">Total Approved</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-green-700">{data.members.activeThisWeek}</p><p className="text-xs text-muted-foreground">Active This Week</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-blue-700">{data.members.newThisMonth}</p><p className="text-xs text-muted-foreground">New This Month</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-amber-700">{data.members.pending}</p><p className="text-xs text-muted-foreground">Pending Approval</p></CardContent></Card>
+        </div>
+      </div>
+
+      {/* Subscriptions / Collection */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2"><IndianRupee size={14} /> Collection</h3>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">₹{data.subscriptions.totalCollected.toLocaleString("en-IN")}</p><p className="text-xs text-muted-foreground">Total Collected</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">{data.subscriptions.collectionRate}%</p><p className="text-xs text-muted-foreground">Collection Rate</p></CardContent></Card>
+        </div>
+        {data.subscriptions.byPeriod.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Collection by Period</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Period</TableHead>
+                    <TableHead className="text-center">Total</TableHead>
+                    <TableHead className="text-center text-green-700">Paid</TableHead>
+                    <TableHead className="text-center text-amber-700">Pending</TableHead>
+                    <TableHead className="text-center text-red-700">Overdue</TableHead>
+                    <TableHead className="text-right">Collected</TableHead>
+                    <TableHead className="text-right">Rate</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.subscriptions.byPeriod.map((p) => (
+                    <TableRow key={p.period}>
+                      <TableCell className="font-medium">{p.period}</TableCell>
+                      <TableCell className="text-center">{p.total}</TableCell>
+                      <TableCell className="text-center text-green-700">{p.paid}</TableCell>
+                      <TableCell className="text-center text-amber-700">{p.pending}</TableCell>
+                      <TableCell className="text-center text-red-700">{p.overdue}</TableCell>
+                      <TableCell className="text-right">₹{p.collected.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right">{p.total > 0 ? Math.round((p.paid / p.total) * 100) : 0}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Tasks */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2"><ListTodo size={14} /> Tasks</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">{data.tasks.total}</p><p className="text-xs text-muted-foreground">Total Tasks</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-green-700">{data.tasks.completionRate}%</p><p className="text-xs text-muted-foreground">Completion Rate</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">{data.tasks.breakdown["in_progress"] || 0}</p><p className="text-xs text-muted-foreground">In Progress</p></CardContent></Card>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(data.tasks.breakdown).map(([status, count]) => (
+            <Badge key={status} variant="outline" className="text-xs">
+              {taskStatusLabels[status] || status}: {count}
+            </Badge>
+          ))}
+        </div>
+      </div>
+
+      {/* Grievances & Suggestions */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2"><MessageSquareWarning size={14} /> Grievances & Suggestions</h3>
+        <div className="grid grid-cols-3 gap-4">
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">{data.grievances.total}</p><p className="text-xs text-muted-foreground">Grievances</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">{data.grievances.suggestions}</p><p className="text-xs text-muted-foreground">Suggestions</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-green-700">{data.grievances.resolutionRate}%</p><p className="text-xs text-muted-foreground">Resolved</p></CardContent></Card>
+        </div>
+      </div>
+
+      {/* Contributions */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2"><Award size={14} /> Contributions (This Month)</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">{data.contributions.actionsThisMonth}</p><p className="text-xs text-muted-foreground">Actions</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">{formatMinutes(data.contributions.minutesThisMonth)}</p><p className="text-xs text-muted-foreground">Est. Time</p></CardContent></Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Subscriptions Report (existing)
+// ---------------------------------------------------------------------------
 
 interface ReportRow {
   id: string;
@@ -183,9 +317,20 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Reports</h1>
-        <div className="flex items-center gap-2">
+      <h1 className="text-2xl font-bold">Reports</h1>
+
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview" className="flex items-center gap-1.5"><BarChart3 size={14} /> Overview</TabsTrigger>
+          <TabsTrigger value="subscriptions" className="flex items-center gap-1.5"><IndianRupee size={14} /> Subscriptions</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-4">
+          <OverviewTab />
+        </TabsContent>
+
+        <TabsContent value="subscriptions" className="mt-4 space-y-6">
+      <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={downloadPDF} disabled={members.length === 0}>
             <FileDown size={14} className="mr-2" />
             PDF
@@ -194,7 +339,6 @@ export default function ReportsPage() {
             <Download size={14} className="mr-2" />
             CSV
           </Button>
-        </div>
       </div>
 
       {/* Filters */}
@@ -374,6 +518,8 @@ export default function ReportsPage() {
       {!loading && members.length === 0 && (
         <p className="text-center text-muted-foreground py-8">No subscription records found for the selected filters.</p>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
