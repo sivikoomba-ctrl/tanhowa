@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       if (sync === "true") {
         try {
           const [{ data: allMembers }, { data: allSubs }] = await Promise.all([
-            supabase.from("users").select("id").eq("status", "approved").neq("role", "admin"),
+            supabase.from("users").select("id").eq("status", "approved").neq("role", "super_admin"),
             supabase.from("subscriptions").select("user_id, period, amount, due_date").order("created_at", { ascending: false }),
           ]);
 
@@ -120,12 +120,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     if (body.action === "bulk-create") {
-      // Get all approved members (exclude admins)
+      // Get all approved members including admins (exclude super_admin)
       const { data: users } = await supabase
         .from("users")
         .select("id")
         .eq("status", "approved")
-        .neq("role", "admin");
+        .neq("role", "super_admin");
 
       if (!users || users.length === 0) {
         return NextResponse.json({ error: "No approved members found" }, { status: 400 });
