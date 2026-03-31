@@ -296,6 +296,24 @@ CREATE TABLE IF NOT EXISTS todo_time_entries (
 );
 CREATE INDEX IF NOT EXISTS idx_todo_time_entries_todo ON todo_time_entries(todo_id);
 
+-- Standalone expense vouchers (officials only, not tied to tasks)
+CREATE TABLE IF NOT EXISTS expense_vouchers (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  submitted_by UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  description TEXT DEFAULT '',
+  receipt_url TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  approved_at TIMESTAMPTZ,
+  remarks TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_expense_vouchers_submitted_by ON expense_vouchers(submitted_by);
+CREATE INDEX IF NOT EXISTS idx_expense_vouchers_status ON expense_vouchers(status);
+
 -- Telegram integration: store chat_id for bot notifications
 ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT DEFAULT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_telegram_chat_id ON users(telegram_chat_id);

@@ -14,6 +14,7 @@ import {
   FileText,
   MessageSquareWarning,
   Lightbulb,
+  Receipt,
   Wallet,
   LogOut,
   Menu,
@@ -36,6 +37,7 @@ interface UserData {
   role: string;
   phone?: string;
   occupation?: string;
+  official_type?: string | null;
   posting_details?: {
     regular_district?: string;
     regular_block?: string;
@@ -55,6 +57,7 @@ const navItems = [
   { href: "/dashboard/suggestions", label: "Suggestions", icon: Lightbulb },
   { href: "/dashboard/grievances", label: "Grievances", icon: MessageSquareWarning },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
+  { href: "/dashboard/vouchers", label: "Expense Vouchers", icon: Receipt, officialOnly: true },
   { href: "/dashboard/todos", label: "Task List", icon: ListTodo },
 ];
 
@@ -119,7 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   function NavLinks({ onItemClick }: { onItemClick?: () => void }) {
     return (
       <>
-        {navItems.map((item) => {
+        {navItems.filter((item) => !("officialOnly" in item && item.officialOnly) || user?.official_type === "state" || user?.official_type === "district" || user?.role === "admin" || user?.role === "super_admin").map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
