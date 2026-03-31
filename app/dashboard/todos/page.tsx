@@ -133,12 +133,12 @@ function TimeboxProgress({ totalHours, timeboxHours, contributors }: { totalHour
       <div className="flex items-center justify-between text-xs">
         <span className="flex items-center gap-1">
           <Hourglass size={11} />
-          {totalHours.toFixed(1)}h / {timeboxHours}h
+          {Math.floor(totalHours)}h {Math.round((totalHours % 1) * 60)}m / {timeboxHours}h
           {contributors > 0 && <span className="text-muted-foreground">({contributors} contributor{contributors !== 1 ? "s" : ""})</span>}
         </span>
         {isOverdue && (
           <span className="text-red-600 font-medium">
-            Overdue by {(totalHours - timeboxHours).toFixed(1)}h
+            Overdue by {Math.floor(totalHours - timeboxHours)}h {Math.round(((totalHours - timeboxHours) % 1) * 60)}m
           </span>
         )}
       </div>
@@ -219,6 +219,7 @@ export default function TodosPage() {
   const [timeEntryTotalHours, setTimeEntryTotalHours] = useState(0);
   const [timeEntryContributors, setTimeEntryContributors] = useState(0);
   const [timeLogHours, setTimeLogHours] = useState("");
+  const [timeLogMinutes, setTimeLogMinutes] = useState("");
   const [timeLogDesc, setTimeLogDesc] = useState("");
   const [timeLogSaving, setTimeLogSaving] = useState(false);
 
@@ -920,10 +921,14 @@ export default function TodosPage() {
                   <Card className="border-primary/30">
                     <CardContent className="pt-4 space-y-3">
                       <h4 className="text-sm font-semibold flex items-center gap-2"><Hourglass size={14} /> Log Time</h4>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs">Hours *</Label>
-                          <Input type="number" step="0.5" min="0.5" placeholder="e.g. 2.5" value={timeLogHours} onChange={(e) => setTimeLogHours(e.target.value)} />
+                          <Label className="text-xs">Hours</Label>
+                          <Input type="number" min="0" placeholder="0" value={timeLogHours} onChange={(e) => setTimeLogHours(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Minutes</Label>
+                          <Input type="number" min="0" max="59" placeholder="0" value={timeLogMinutes} onChange={(e) => setTimeLogMinutes(e.target.value)} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">What did you work on?</Label>
@@ -933,14 +938,15 @@ export default function TodosPage() {
                       <div className="flex justify-end">
                         <Button
                           size="sm"
-                          disabled={!timeLogHours || parseFloat(timeLogHours) <= 0 || timeLogSaving}
+                          disabled={((parseFloat(timeLogHours) || 0) + (parseFloat(timeLogMinutes) || 0)) <= 0 || timeLogSaving}
                           onClick={async () => {
                             setTimeLogSaving(true);
+                            const totalHours = (parseFloat(timeLogHours) || 0) + (parseFloat(timeLogMinutes) || 0) / 60;
                             try {
                               const res = await fetch("/api/todos/time-entries", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ todo_id: selectedTodo.id, hours: parseFloat(timeLogHours), description: timeLogDesc }),
+                                body: JSON.stringify({ todo_id: selectedTodo.id, hours: Math.round(totalHours * 100) / 100, description: timeLogDesc }),
                               });
                               if (!res.ok) {
                                 const data = await res.json();
@@ -948,6 +954,7 @@ export default function TodosPage() {
                               }
                               toast.success("Time logged");
                               setTimeLogHours("");
+                              setTimeLogMinutes("");
                               setTimeLogDesc("");
                               fetchTimeEntries(selectedTodo.id);
                             } catch (err) {
@@ -979,7 +986,7 @@ export default function TodosPage() {
                             <div>
                               <p className="text-sm font-medium">{entry.users?.name || "Unknown"}</p>
                               <p className="text-xs text-muted-foreground">
-                                {entry.hours}h{entry.description && ` — ${entry.description}`}
+                                {Math.floor(entry.hours)}h {Math.round((entry.hours % 1) * 60)}m{entry.description && ` — ${entry.description}`}
                               </p>
                               <p className="text-xs text-muted-foreground">{new Date(entry.logged_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
                             </div>
