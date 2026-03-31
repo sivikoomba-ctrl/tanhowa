@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, isAdminOrOfficial, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 
 export async function GET(req: NextRequest) {
   try {
@@ -82,6 +83,8 @@ export async function POST(req: NextRequest) {
       await logError({ type: "api", message: error.message, path: "/api/vouchers", method: "POST", status_code: 500 });
       return NextResponse.json({ error: "Failed to create voucher" }, { status: 500 });
     }
+
+    logContribution(session.userId, "expense_voucher_submitted", "Submitted expense voucher: " + body.title);
 
     return NextResponse.json({ voucher: data });
   } catch (error) {

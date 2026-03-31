@@ -25,6 +25,7 @@ import {
   ListTodo,
   Crown,
   Vote,
+  Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -59,6 +60,7 @@ const navItems = [
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/dashboard/vouchers", label: "Expense Vouchers", icon: Receipt, officialOnly: true },
   { href: "/dashboard/todos", label: "Task List", icon: ListTodo },
+  { href: "/dashboard/contributions", label: "Contributions", icon: Award },
 ];
 
 function getMissingFields(u: UserData): string[] {

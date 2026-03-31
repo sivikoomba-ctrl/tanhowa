@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 import { notifyNewEvent } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
 
     if (data) {
       notifyNewEvent(data.title, data.date, data.location);
+      logContribution(session.userId, "event_created", "Created event: " + data.title);
     }
 
     return NextResponse.json({ event: data });

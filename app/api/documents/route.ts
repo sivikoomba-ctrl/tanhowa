@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 
 export async function GET(req: NextRequest) {
   try {
@@ -116,6 +117,8 @@ export async function POST(req: NextRequest) {
       }));
       await supabase.from("document_access").insert(rows);
     }
+
+    logContribution(session.userId, "document_uploaded", "Uploaded document: " + body.title);
 
     return NextResponse.json({ document: data });
   } catch (error) {

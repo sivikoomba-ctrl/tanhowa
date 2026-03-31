@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 import { notifyTaskCommitted, notifyTaskStatusChanged } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
@@ -205,6 +206,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Failed to create task: ${error.message}` }, { status: 500 });
     }
 
+    logContribution(session.userId, "task_created", "Created task: " + body.title);
+
     return NextResponse.json({ todo: data });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -306,6 +309,8 @@ export async function PUT(req: NextRequest) {
           }
         } catch { /* silent */ }
       })();
+
+      logContribution(session.userId, "task_committed", "Committed to task");
 
       return NextResponse.json({ message: "Committed" });
     }

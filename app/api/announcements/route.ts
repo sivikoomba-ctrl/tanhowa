@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 import { notifyNewAnnouncement } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
@@ -60,6 +61,8 @@ export async function POST(req: NextRequest) {
     if (data.published) {
       notifyNewAnnouncement(data.title, data.content);
     }
+
+    logContribution(session.userId, "announcement_created", "Created announcement: " + body.title);
 
     return NextResponse.json({ announcement: data });
   } catch (error) {

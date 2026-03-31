@@ -26,6 +26,7 @@ import {
   ArrowLeft,
   Menu,
   X,
+  Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -44,6 +45,7 @@ const adminNavItems = [
   { href: "/admin/resolutions", label: "Resolutions", icon: Vote },
   { href: "/admin/todos", label: "Task List", icon: ListTodo },
   { href: "/admin/vouchers", label: "Expense Vouchers", icon: Receipt },
+  { href: "/admin/contributions", label: "Contributions", icon: Award },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/error-logs", label: "Error Logs", icon: AlertTriangle },
   { href: "/admin/settings", label: "Settings", icon: Settings },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 import { notifyVoucherAction } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
@@ -81,6 +82,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create voucher" }, { status: 500 });
     }
 
+    logContribution(session.userId, "voucher_submitted", "Submitted task voucher");
+
     return NextResponse.json({ voucher: data });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -135,6 +138,13 @@ export async function PUT(req: NextRequest) {
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/todos/vouchers", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update voucher" }, { status: 500 });
+    }
+
+    // Log contribution for voucher status changes
+    if (dbRole === "admin" && body.status === "approved") {
+      logContribution(session.userId, "voucher_approved", "Approved voucher");
+    } else if (dbRole === "admin" && body.status === "rejected") {
+      logContribution(session.userId, "voucher_rejected", "Rejected voucher");
     }
 
     // Fire-and-forget: notify voucher submitter on approval/rejection

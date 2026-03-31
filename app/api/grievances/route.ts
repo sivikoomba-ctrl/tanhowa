@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 
 export async function GET(req: NextRequest) {
   try {
@@ -77,6 +78,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to submit grievance" }, { status: 500 });
     }
 
+    logContribution(session.userId, body.category === "Suggestion" ? "suggestion_submitted" : "grievance_submitted", "Submitted: " + body.subject);
+
     return NextResponse.json({ grievance: data });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -107,6 +110,10 @@ export async function PUT(req: NextRequest) {
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/grievances", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+    }
+
+    if (body.status || body.admin_remarks !== undefined) {
+      logContribution(session.userId, "grievance_responded", "Responded to grievance");
     }
 
     return NextResponse.json({ message: "Updated" });

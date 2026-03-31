@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 import { notifyNewNote } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
@@ -103,6 +104,8 @@ export async function POST(req: NextRequest) {
         }
       } catch { /* silent */ }
     })();
+
+    logContribution(session.userId, (body.type || "note") === "report" ? "task_report_added" : "task_note_added", (body.type || "note") === "report" ? "Submitted task report" : "Added task note");
 
     return NextResponse.json({ note: data });
   } catch (error) {

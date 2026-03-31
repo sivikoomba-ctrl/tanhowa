@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 import { notifyNewMemberRegistered } from "@/lib/mail";
 
 export async function PUT(req: NextRequest) {
@@ -69,8 +70,11 @@ export async function PUT(req: NextRequest) {
 
       // Notify all members about the new member (fire-and-forget)
       notifyNewMemberRegistered(userData?.name || userData?.email || "New Member");
+
+      logContribution(session.userId, "member_approved", "Approved member: " + (userData?.name || userData?.email || "Unknown"));
     } else if (action === "reject") {
       await supabase.from("users").update({ status: "rejected" }).eq("id", userId);
+      logContribution(session.userId, "member_rejected", "Rejected member");
     } else if (action === "set-role" && role) {
       // Prevent changing a super_admin's role
       const targetRole = await getDbRole(userId);

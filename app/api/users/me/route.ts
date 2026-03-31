@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 import { notifyAdminNewRegistration } from "@/lib/mail";
 
 export async function GET() {
@@ -128,6 +129,8 @@ export async function PUT(req: NextRequest) {
     if (isFirstOnboarding) {
       notifyAdminNewRegistration(name, session.email).catch(() => {});
     }
+
+    logContribution(session.userId, "profile_updated", "Updated profile");
 
     return NextResponse.json({ message: "Profile updated" });
   } catch (error) {

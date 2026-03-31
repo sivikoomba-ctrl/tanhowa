@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution } from "@/lib/contributions";
 import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
@@ -331,6 +332,10 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ error: "Failed to update" }, { status: 500 });
       }
 
+      if (body.payment_proof_url !== undefined) {
+        logContribution(session.userId, "payment_proof_uploaded", "Uploaded payment proof");
+      }
+
       return NextResponse.json({ message: "Updated" });
     }
 
@@ -361,6 +366,17 @@ export async function PUT(req: NextRequest) {
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+    }
+
+    // Log contribution for status changes
+    if (body.status === "paid") {
+      const { data: sub } = await supabase.from("subscriptions").select("period").eq("id", body.id).single();
+      logContribution(session.userId, "payment_verified", "Verified payment for " + (sub?.period || "unknown period"));
+    } else if (body.status === "rejected") {
+      const { data: sub } = await supabase.from("subscriptions").select("period").eq("id", body.id).single();
+      logContribution(session.userId, "payment_rejected", "Rejected payment for " + (sub?.period || "unknown period"));
+    } else if (body.status === "hold") {
+      logContribution(session.userId, "payment_hold", "Put payment on hold");
     }
 
     // Send email notification when subscription is approved (marked as paid)
