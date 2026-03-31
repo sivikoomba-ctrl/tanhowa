@@ -119,6 +119,11 @@ export default function AdminSubscriptionsPage() {
   const [districtGrandTotal, setDistrictGrandTotal] = useState<DistrictRow | null>(null);
   const [districtLoading, setDistrictLoading] = useState(false);
 
+  // Special subscription dialog
+  const [specialOpen, setSpecialOpen] = useState(false);
+  const [specialForm, setSpecialForm] = useState({ period: "For UATT 2.0 Case 2025", amount: "3000", due_date: "" });
+  const [specialLoading, setSpecialLoading] = useState(false);
+
   // Past year subscription dialog
   const [pastOpen, setPastOpen] = useState(false);
   const [pastForm, setPastForm] = useState({ period: String(currentYear - 1), amount: "", due_date: "", status: "paid", paid_at: "", remarks: "" });
@@ -336,6 +341,31 @@ export default function AdminSubscriptionsPage() {
       toast.error(data.error || "Failed");
     }
     setBulkLoading(false);
+  }
+
+  async function handleSpecialCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setSpecialLoading(true);
+    const res = await fetch("/api/subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "bulk-create",
+        period: specialForm.period,
+        amount: parseFloat(specialForm.amount) || 3000,
+        due_date: specialForm.due_date || null,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      toast.success(`Created ${data.count} special subscription entries`);
+      setSpecialOpen(false);
+      setSpecialForm({ period: "For UATT 2.0 Case 2025", amount: "3000", due_date: "" });
+      load();
+    } else {
+      toast.error(data.error || "Failed");
+    }
+    setSpecialLoading(false);
   }
 
   async function handleVerifyPaid(e: React.FormEvent) {
@@ -820,6 +850,52 @@ export default function AdminSubscriptionsPage() {
                 </div>
                 <Button type="submit" disabled={pastLoading || pastSelected.size === 0} className="w-full bg-primary hover:bg-primary/90">
                   {pastLoading ? "Creating..." : `Create for ${pastSelected.size} Member${pastSelected.size !== 1 ? "s" : ""}`}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={specialOpen} onOpenChange={setSpecialOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-accent text-accent hover:bg-accent/10">
+                <Plus size={16} className="mr-1" />
+                Special Subscription
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Special Subscription</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">This creates a pending special subscription entry for every approved member. Use for legal case funds, one-time levies, etc.</p>
+              <form onSubmit={handleSpecialCreate} className="space-y-4">
+                <div>
+                  <Label>Label *</Label>
+                  <Input
+                    value={specialForm.period}
+                    onChange={(e) => setSpecialForm({ ...specialForm, period: e.target.value })}
+                    placeholder="e.g. For UATT 2.0 Case 2025"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Amount (&#8377;) *</Label>
+                  <Input
+                    type="number"
+                    value={specialForm.amount}
+                    onChange={(e) => setSpecialForm({ ...specialForm, amount: e.target.value })}
+                    placeholder="3000"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Due Date</Label>
+                  <Input
+                    type="date"
+                    value={specialForm.due_date}
+                    onChange={(e) => setSpecialForm({ ...specialForm, due_date: e.target.value })}
+                  />
+                </div>
+                <Button type="submit" disabled={specialLoading} className="w-full bg-accent hover:bg-accent/90 text-white">
+                  {specialLoading ? "Creating..." : "Create for All Members"}
                 </Button>
               </form>
             </DialogContent>
