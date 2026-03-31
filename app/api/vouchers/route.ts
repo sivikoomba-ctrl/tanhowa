@@ -65,10 +65,14 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from("expense_vouchers")
       .insert({
-        submitted_by: session.userId,
+        submitted_by: body.submitted_by || session.userId,
         title: body.title,
         amount: parseFloat(body.amount) || 0,
         description: body.description || "",
+        invoice_number: body.invoice_number || "",
+        vendor_name: body.vendor_name || "",
+        expense_date: body.expense_date || null,
+        category: body.category || "",
         receipt_url: body.receipt_url || null,
       })
       .select("*, submitter:submitted_by(id, name, email, official_type)")
@@ -118,6 +122,10 @@ export async function PUT(req: NextRequest) {
       if (body.title !== undefined) updates.title = body.title;
       if (body.amount !== undefined) updates.amount = body.amount;
       if (body.description !== undefined) updates.description = body.description;
+      if (body.invoice_number !== undefined) updates.invoice_number = body.invoice_number;
+      if (body.vendor_name !== undefined) updates.vendor_name = body.vendor_name;
+      if (body.expense_date !== undefined) updates.expense_date = body.expense_date;
+      if (body.category !== undefined) updates.category = body.category;
       if (body.receipt_url !== undefined) updates.receipt_url = body.receipt_url;
     }
 

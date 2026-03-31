@@ -149,31 +149,31 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Find max existing sibling number to avoid duplicate event_ids
-      const { data: siblings } = await supabase
+      // Find max existing event_id with this prefix globally (not just children)
+      const prefix = parent.event_id + "-";
+      const { data: matching } = await supabase
         .from("todos")
         .select("event_id")
-        .eq("parent_id", body.parent_id);
+        .like("event_id", `${parent.event_id}-%`);
 
       let maxNum = 0;
-      const prefix = parent.event_id + "-";
-      for (const s of siblings || []) {
+      for (const s of matching || []) {
         if (s.event_id?.startsWith(prefix)) {
-          const suffix = s.event_id.slice(prefix.length);
+          const suffix = s.event_id.slice(prefix.length).split("-")[0];
           const num = parseInt(suffix, 10);
           if (!isNaN(num) && num > maxNum) maxNum = num;
         }
       }
       eventId = `${parent.event_id}-${String(maxNum + 1).padStart(2, "0")}`;
     } else {
-      // Top-level task: find max existing ET-XXX number
-      const { data: topTasks } = await supabase
+      // Top-level task: find max existing ET-XXX number globally
+      const { data: allTasks } = await supabase
         .from("todos")
         .select("event_id")
-        .is("parent_id", null);
+        .like("event_id", "ET-%");
 
       let maxNum = 0;
-      for (const t of topTasks || []) {
+      for (const t of allTasks || []) {
         const match = t.event_id?.match(/^ET-(\d+)$/);
         if (match) {
           const num = parseInt(match[1], 10);

@@ -7,16 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Receipt, Plus, Upload, Eye, Trash2, IndianRupee, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+
+const expenseCategories = ["Travel", "Printing", "Food & Refreshments", "Stationery", "Communication", "Venue & Hall", "Transport", "Miscellaneous"];
 
 interface Voucher {
   id: string;
   title: string;
   amount: number;
   description: string;
+  invoice_number: string;
+  vendor_name: string;
+  expense_date: string | null;
+  category: string;
   receipt_url: string | null;
   status: string;
   remarks: string;
@@ -36,15 +43,13 @@ export default function VouchersPage() {
   const [isOfficial, setIsOfficial] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", amount: "", description: "" });
+  const [form, setForm] = useState({ title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "" });
   const [submitting, setSubmitting] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user is an official
     fetch("/api/users/me")
       .then((r) => r.json())
       .then((d) => {
@@ -69,10 +74,8 @@ export default function VouchersPage() {
     e.preventDefault();
     setSubmitting(true);
 
-    // Upload receipt first if provided
     let receiptUrl: string | null = null;
     if (receiptFile) {
-      setUploading(true);
       const formData = new FormData();
       formData.append("file", receiptFile);
       const uploadRes = await fetch("/api/upload/document", { method: "POST", body: formData });
@@ -82,10 +85,8 @@ export default function VouchersPage() {
       } else {
         toast.error("Failed to upload receipt");
         setSubmitting(false);
-        setUploading(false);
         return;
       }
-      setUploading(false);
     }
 
     const res = await fetch("/api/vouchers", {
@@ -95,13 +96,17 @@ export default function VouchersPage() {
         title: form.title,
         amount: parseFloat(form.amount) || 0,
         description: form.description,
+        invoice_number: form.invoice_number,
+        vendor_name: form.vendor_name,
+        expense_date: form.expense_date || null,
+        category: form.category,
         receipt_url: receiptUrl,
       }),
     });
 
     if (res.ok) {
       toast.success("Voucher submitted");
-      setForm({ title: "", amount: "", description: "" });
+      setForm({ title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "" });
       setReceiptFile(null);
       setDialogOpen(false);
       load();
@@ -149,62 +154,65 @@ export default function VouchersPage() {
               New Voucher
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Submit Expense Voucher</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label>Expense Title *</Label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="e.g. Travel to district meeting"
-                  required
-                />
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Travel to district meeting" required />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Amount (&#8377;) *</Label>
+                  <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" required />
+                </div>
+                <div>
+                  <Label>Category</Label>
+                  <Select value={form.category} onValueChange={(val) => setForm({ ...form, category: val })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {expenseCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Invoice Number</Label>
+                  <Input value={form.invoice_number} onChange={(e) => setForm({ ...form, invoice_number: e.target.value })} placeholder="e.g. INV-2026-001" />
+                </div>
+                <div>
+                  <Label>Vendor / Payee</Label>
+                  <Input value={form.vendor_name} onChange={(e) => setForm({ ...form, vendor_name: e.target.value })} placeholder="e.g. ABC Travels" />
+                </div>
               </div>
               <div>
-                <Label>Amount (&#8377;) *</Label>
-                <Input
-                  type="number"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  placeholder="0"
-                  required
-                />
+                <Label>Date of Expense</Label>
+                <Input type="date" value={form.expense_date} onChange={(e) => setForm({ ...form, expense_date: e.target.value })} />
               </div>
               <div>
                 <Label>Description</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Details about the expense"
-                  rows={3}
-                />
+                <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Details about the expense" rows={2} />
               </div>
               <div>
-                <Label>Receipt / Proof (optional)</Label>
+                <Label>Receipt / Invoice (optional)</Label>
                 <div className="flex items-center gap-2 mt-1">
                   <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                     <Upload size={14} className="mr-1" />
                     {receiptFile ? receiptFile.name : "Upload Receipt"}
                   </Button>
-                  {receiptFile && (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setReceiptFile(null)}>
-                      Remove
-                    </Button>
-                  )}
+                  {receiptFile && <Button type="button" variant="ghost" size="sm" onClick={() => setReceiptFile(null)}>Remove</Button>}
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  className="hidden"
-                  onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                />
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
               </div>
-              <Button type="submit" disabled={submitting || uploading} className="w-full bg-primary hover:bg-primary/90">
-                {uploading ? "Uploading receipt..." : submitting ? "Submitting..." : "Submit Voucher"}
+              <Button type="submit" disabled={submitting} className="w-full bg-primary hover:bg-primary/90">
+                {submitting ? "Submitting..." : "Submit Voucher"}
               </Button>
             </form>
           </DialogContent>
@@ -259,25 +267,22 @@ export default function VouchersPage() {
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-sm">{v.title}</h3>
-                          <Badge variant="outline" className={config.color}>
-                            {config.label}
-                          </Badge>
+                          <Badge variant="outline" className={config.color}>{config.label}</Badge>
+                          {v.category && <Badge variant="outline" className="text-[10px]">{v.category}</Badge>}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-3 mt-0.5">
                           <span className="text-sm font-medium flex items-center gap-0.5">
                             <IndianRupee size={12} />
                             {v.amount?.toLocaleString("en-IN") || 0}
                           </span>
-                          <span className="text-xs text-muted-foreground">{formatDate(v.created_at)}</span>
+                          {v.invoice_number && <span className="text-xs text-muted-foreground">Invoice: {v.invoice_number}</span>}
+                          {v.vendor_name && <span className="text-xs text-muted-foreground">Vendor: {v.vendor_name}</span>}
                         </div>
-                        {v.description && (
-                          <p className="text-xs text-muted-foreground mt-1">{v.description}</p>
-                        )}
+                        {v.expense_date && <p className="text-xs text-muted-foreground mt-0.5">Expense date: {formatDate(v.expense_date)}</p>}
+                        {v.description && <p className="text-xs text-muted-foreground mt-1">{v.description}</p>}
+                        <span className="text-xs text-muted-foreground mt-1 block">{formatDate(v.created_at)}</span>
                         {v.receipt_url && (
-                          <button
-                            onClick={() => setPreviewUrl(v.receipt_url)}
-                            className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
-                          >
+                          <button onClick={() => setPreviewUrl(v.receipt_url)} className="flex items-center gap-1 text-xs text-primary hover:underline mt-1">
                             <Eye size={12} /> View receipt
                           </button>
                         )}
@@ -295,12 +300,7 @@ export default function VouchersPage() {
                       </div>
                     </div>
                     {v.status === "pending" && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive h-8 w-8 p-0 shrink-0"
-                        onClick={() => handleDelete(v.id)}
-                      >
+                      <Button size="sm" variant="ghost" className="text-destructive h-8 w-8 p-0 shrink-0" onClick={() => handleDelete(v.id)}>
                         <Trash2 size={14} />
                       </Button>
                     )}
