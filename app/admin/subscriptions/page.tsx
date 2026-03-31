@@ -571,30 +571,35 @@ export default function AdminSubscriptionsPage() {
     }
     setBulkVerifyLoading(true);
 
-    const time = bulkVerifyForm.payment_time || "12:00";
-    const paidAt = bulkVerifyForm.payment_date
-      ? new Date(`${bulkVerifyForm.payment_date}T${time}:00`).toISOString()
-      : new Date().toISOString();
+    try {
+      const time = bulkVerifyForm.payment_time || "12:00";
+      const paidAt = bulkVerifyForm.payment_date
+        ? new Date(`${bulkVerifyForm.payment_date}T${time}:00`).toISOString()
+        : new Date().toISOString();
 
-    const formData = new FormData();
-    if (bulkVerifyFile) formData.append("file", bulkVerifyFile);
-    formData.append("subscription_ids", JSON.stringify(Array.from(bulkVerifySelected)));
-    formData.append("paid_at", paidAt);
-    formData.append("remarks", bulkVerifyForm.remarks);
+      const formData = new FormData();
+      if (bulkVerifyFile) formData.append("file", bulkVerifyFile);
+      formData.append("subscription_ids", JSON.stringify(Array.from(bulkVerifySelected)));
+      formData.append("paid_at", paidAt);
+      formData.append("remarks", bulkVerifyForm.remarks);
 
-    const res = await fetch("/api/subscriptions/bulk-verify", { method: "POST", body: formData });
-    const data = await res.json();
-    if (res.ok) {
-      toast.success(data.message);
-      setBulkVerifyOpen(false);
-      setBulkVerifySelected(new Set());
-      setBulkVerifyFile(null);
-      setBulkVerifyForm({ payment_date: "", payment_time: "", remarks: "" });
-      load();
-    } else {
-      toast.error(data.error || "Failed");
+      const res = await fetch("/api/subscriptions/bulk-verify", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message);
+        setBulkVerifyOpen(false);
+        setBulkVerifySelected(new Set());
+        setBulkVerifyFile(null);
+        setBulkVerifyForm({ payment_date: "", payment_time: "", remarks: "" });
+        load();
+      } else {
+        toast.error(data.error || "Bulk verify failed");
+      }
+    } catch {
+      toast.error("Request failed — please try again");
+    } finally {
+      setBulkVerifyLoading(false);
     }
-    setBulkVerifyLoading(false);
   }
 
   if (pageLoading) {
