@@ -504,7 +504,10 @@ export default function AdminTodosPage() {
           parent_id: selectedTodo.id,
         }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed");
+      }
       toast.success("Sub-task created");
       setShowCreateSubtask(false);
       setSubtaskTitle("");
@@ -513,8 +516,8 @@ export default function AdminTodosPage() {
       const subtasksRes = await fetch(`/api/todos?parent_id=${selectedTodo.id}`).then((r) => r.json());
       setSubtasks(subtasksRes.todos || []);
       fetchData();
-    } catch {
-      toast.error("Failed to create sub-task");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create sub-task");
     } finally {
       setSaving(false);
     }

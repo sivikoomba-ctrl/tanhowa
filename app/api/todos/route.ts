@@ -197,8 +197,8 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      await logError({ type: "api", message: error.message, path: "/api/todos", method: "POST", status_code: 500 });
-      return NextResponse.json({ error: "Failed to create task" }, { status: 500 });
+      await logError({ type: "api", message: error.message, path: "/api/todos", method: "POST", status_code: 500, metadata: { event_id: eventId, parent_id: body.parent_id || null } });
+      return NextResponse.json({ error: `Failed to create task: ${error.message}` }, { status: 500 });
     }
 
     return NextResponse.json({ todo: data });
