@@ -143,7 +143,7 @@ export default function AdminTodosPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
-  const [viewMode, setViewMode] = useState<"list" | "matrix">("matrix");
+  const [viewMode, setViewMode] = useState<"list" | "matrix">("list");
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
   const [editStatus, setEditStatus] = useState("");
   const [editUrgent, setEditUrgent] = useState(false);

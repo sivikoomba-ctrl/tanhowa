@@ -867,7 +867,7 @@ export default function TodosPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">To-Do List</h1>
+        <h1 className="text-2xl font-bold">Task List</h1>
         <Button onClick={() => { setShowCreate(true); setSubtaskParentId(null); }} className="gap-2">
           <Plus size={16} />
           Submit Task
