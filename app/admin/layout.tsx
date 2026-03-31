@@ -14,7 +14,6 @@ import {
   MessageSquareWarning,
   Lightbulb,
   Receipt,
-  AlertTriangle,
   Wallet,
   UsersRound,
   ListTodo,
@@ -47,7 +46,6 @@ const adminNavItems = [
   { href: "/admin/vouchers", label: "Expense Vouchers", icon: Receipt },
   { href: "/admin/contributions", label: "Contributions", icon: Award },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
-  { href: "/admin/error-logs", label: "Error Logs", icon: AlertTriangle },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

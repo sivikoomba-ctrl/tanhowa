@@ -4,7 +4,10 @@ import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Award, Clock, Activity, TrendingUp, Trophy, Medal, Star, Flame } from "lucide-react";
+import { Award, Clock, Activity, TrendingUp, Trophy, Medal, Star, Flame, FileDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Contribution {
   id: string;
@@ -98,20 +101,58 @@ export default function ContributionsPage() {
     return Array.from(groups.entries());
   }, [contributions]);
 
+  function downloadPDF() {
+    if (contributions.length === 0) return;
+    const doc = new jsPDF();
+    const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const periodLabel = period === "week" ? "This Week" : period === "month" ? "This Month" : "All Time";
+
+    doc.setFontSize(16);
+    doc.text("TANHOWA - My Contributions", 14, 15);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Period: ${periodLabel}  |  Generated: ${today}`, 14, 22);
+    doc.text(`Total Actions: ${contributions.length}  |  Est. Time: ${formatMinutes(totalMinutes)}`, 14, 28);
+    doc.setTextColor(0);
+
+    autoTable(doc, {
+      startY: 34,
+      head: [["#", "Date", "Action", "Description", "Time"]],
+      body: contributions.map((c, i) => [
+        i + 1,
+        new Date(c.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+        (ACTION_LABELS[c.action]?.label || c.action),
+        c.description,
+        `${c.estimated_minutes}m`,
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [45, 106, 79], fontSize: 8 },
+      bodyStyles: { fontSize: 7 },
+      margin: { left: 14 },
+    });
+
+    doc.save(`Contributions-${periodLabel.replace(/\s+/g, "-")}.pdf`);
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">My Contributions</h1>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="month">This Month</SelectItem>
-            <SelectItem value="all">All Time</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={downloadPDF} disabled={contributions.length === 0}>
+            <FileDown size={14} className="mr-1" /> PDF
+          </Button>
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Summary Cards */}

@@ -5,7 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Award, Clock, Activity, Trophy, Medal, Star, Users } from "lucide-react";
+import { Award, Clock, Activity, Trophy, Medal, Star, Users, FileDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface LeaderboardEntry {
   user_id: string;
@@ -50,20 +53,57 @@ export default function AdminContributionsPage() {
 
   const totalMinutes = leaderboard.reduce((sum, e) => sum + e.total_minutes, 0);
 
+  function downloadPDF() {
+    if (leaderboard.length === 0) return;
+    const doc = new jsPDF();
+    const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const periodLabel = period === "week" ? "This Week" : period === "month" ? "This Month" : "All Time";
+
+    doc.setFontSize(16);
+    doc.text("TANHOWA - Contributions Leaderboard", 14, 15);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Period: ${periodLabel}  |  Generated: ${today}  |  Contributors: ${leaderboard.length}  |  Total Time: ${formatMinutes(totalMinutes)}`, 14, 22);
+    doc.setTextColor(0);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [["Rank", "Name", "Email", "Actions", "Est. Time"]],
+      body: leaderboard.map((e, i) => [
+        i + 1,
+        e.name,
+        e.email,
+        e.action_count,
+        formatMinutes(e.total_minutes),
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [45, 106, 79], fontSize: 9 },
+      bodyStyles: { fontSize: 8 },
+      margin: { left: 14 },
+    });
+
+    doc.save(`Contributions-Leaderboard-${periodLabel.replace(/\s+/g, "-")}.pdf`);
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Contributions Leaderboard</h1>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="month">This Month</SelectItem>
-            <SelectItem value="all">All Time</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={downloadPDF} disabled={leaderboard.length === 0}>
+            <FileDown size={14} className="mr-1" /> PDF
+          </Button>
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Summary */}
