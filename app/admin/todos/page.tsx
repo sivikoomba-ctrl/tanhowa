@@ -37,6 +37,7 @@ import {
   Unlock,
   Timer,
   IndianRupee,
+  Pencil,
   Hourglass,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -218,6 +219,16 @@ export default function AdminTodosPage() {
   const [noteContent, setNoteContent] = useState("");
   const [noteType, setNoteType] = useState<"note" | "report" | "update">("note");
 
+  // Create task
+  const [showCreate, setShowCreate] = useState(false);
+  const [createTitle, setCreateTitle] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createDueDate, setCreateDueDate] = useState("");
+
+  // Inline title editing
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [inlineTitle, setInlineTitle] = useState("");
+
   // Subtask creation
   const [showCreateSubtask, setShowCreateSubtask] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState("");
@@ -313,6 +324,33 @@ export default function AdminTodosPage() {
       fetchData();
     } catch {
       toast.error("Failed to update task");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleCreateTask() {
+    if (!createTitle.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: createTitle.trim(),
+          description: createDescription.trim(),
+          due_date: createDueDate || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create task");
+      toast.success("Task created");
+      setShowCreate(false);
+      setCreateTitle("");
+      setCreateDescription("");
+      setCreateDueDate("");
+      fetchData();
+    } catch {
+      toast.error("Failed to create task");
     } finally {
       setSaving(false);
     }
@@ -524,7 +562,17 @@ export default function AdminTodosPage() {
             </Badge>
             <h4 className={`font-medium ${compact ? "text-xs" : "text-sm"} line-clamp-1`}>{todo.title}</h4>
           </div>
-          <Badge variant="outline" className={`text-[10px] shrink-0 ${sc.color}`}>{sc.label}</Badge>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
+              onClick={(e) => { e.stopPropagation(); openEdit(todo); }}
+            >
+              <Pencil size={12} />
+            </Button>
+            <Badge variant="outline" className={`text-[10px] ${sc.color}`}>{sc.label}</Badge>
+          </div>
         </div>
         {!compact && todo.description && (
           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{todo.description}</p>
@@ -630,7 +678,42 @@ export default function AdminTodosPage() {
                 </Badge>
               )}
             </div>
-            <h2 className="text-lg font-bold">{selectedTodo.title}</h2>
+            {editingTitle ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={inlineTitle}
+                  onChange={(e) => setInlineTitle(e.target.value)}
+                  className="text-lg font-bold h-9"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      if (inlineTitle.trim() && inlineTitle !== selectedTodo.title) {
+                        handleUpdateTodo(selectedTodo.id, { title: inlineTitle.trim() });
+                        setSelectedTodo({ ...selectedTodo, title: inlineTitle.trim() });
+                      }
+                      setEditingTitle(false);
+                    } else if (e.key === "Escape") {
+                      setEditingTitle(false);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (inlineTitle.trim() && inlineTitle !== selectedTodo.title) {
+                      handleUpdateTodo(selectedTodo.id, { title: inlineTitle.trim() });
+                      setSelectedTodo({ ...selectedTodo, title: inlineTitle.trim() });
+                    }
+                    setEditingTitle(false);
+                  }}
+                />
+              </div>
+            ) : (
+              <h2
+                className="text-lg font-bold cursor-pointer hover:text-primary/80 flex items-center gap-2 group"
+                onClick={() => { setInlineTitle(selectedTodo.title); setEditingTitle(true); }}
+              >
+                {selectedTodo.title}
+                <Pencil size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />
+              </h2>
+            )}
             {selectedTodo.description && <p className="text-sm text-muted-foreground">{selectedTodo.description}</p>}
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -1153,8 +1236,11 @@ export default function AdminTodosPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Eisenhower Matrix</h1>
+        <h1 className="text-2xl font-bold">Task List</h1>
         <div className="flex items-center gap-2">
+          <Button size="sm" className="gap-1.5" onClick={() => setShowCreate(true)}>
+            <Plus size={14} /> Create Task
+          </Button>
           <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")} className="gap-1.5">
             <List size={14} /> List
           </Button>
@@ -1163,6 +1249,35 @@ export default function AdminTodosPage() {
           </Button>
         </div>
       </div>
+
+      {/* Create Task Dialog */}
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Title *</Label>
+              <Input placeholder="What needs to be done?" value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Description (optional)</Label>
+              <Textarea placeholder="Provide details..." value={createDescription} onChange={(e) => setCreateDescription(e.target.value)} rows={3} />
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date (optional)</Label>
+              <Input type="date" value={createDueDate} onChange={(e) => setCreateDueDate(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+              <Button onClick={handleCreateTask} disabled={saving || !createTitle.trim()}>
+                {saving ? "Creating..." : "Create Task"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {viewMode === "list" ? (
         <>
