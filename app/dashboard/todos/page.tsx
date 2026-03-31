@@ -76,6 +76,7 @@ interface Todo {
   created_at: string;
   completed_at: string | null;
   subtask_count: number;
+  subtask_completed: number;
 }
 
 interface TodoNote {
@@ -1153,13 +1154,24 @@ export default function TodosPage() {
                         {todo.subtask_count > 0 && (
                           <span className="flex items-center gap-1">
                             <GitBranch size={12} />
-                            {todo.subtask_count} sub-task(s)
+                            {todo.subtask_completed}/{todo.subtask_count} sub-tasks
                           </span>
                         )}
                         <span>
                           {new Date(todo.created_at).toLocaleDateString("en-IN")}
                         </span>
                       </div>
+                      {todo.subtask_count > 0 && (
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${todo.subtask_completed === todo.subtask_count ? "bg-green-500" : "bg-primary"}`}
+                              style={{ width: `${(todo.subtask_completed / todo.subtask_count) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{Math.round((todo.subtask_completed / todo.subtask_count) * 100)}%</span>
+                        </div>
+                      )}
 
                       {todo.admin_remarks && (
                         <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs">

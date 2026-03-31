@@ -79,24 +79,28 @@ export async function GET(req: NextRequest) {
       }, {} as Record<string, { id: string; name: string; icon: string }>);
     }
 
-    // Fetch subtask counts for each todo
+    // Fetch subtask counts and completed counts for each todo
     const todoIds = (todos || []).map((t) => t.id);
-    let subtaskCounts: Record<string, number> = {};
+    const subtaskCounts: Record<string, number> = {};
+    const subtaskCompletedCounts: Record<string, number> = {};
     if (todoIds.length > 0) {
       const { data: children } = await supabase
         .from("todos")
-        .select("parent_id")
+        .select("parent_id, status")
         .in("parent_id", todoIds);
-      subtaskCounts = (children || []).reduce((acc, c) => {
-        acc[c.parent_id] = (acc[c.parent_id] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      for (const c of children || []) {
+        subtaskCounts[c.parent_id] = (subtaskCounts[c.parent_id] || 0) + 1;
+        if (c.status === "completed") {
+          subtaskCompletedCounts[c.parent_id] = (subtaskCompletedCounts[c.parent_id] || 0) + 1;
+        }
+      }
     }
 
     const todosWithTeams = (todos || []).map((t) => ({
       ...t,
       assigned_team: t.assigned_team_id ? teamsMap[t.assigned_team_id] || null : null,
       subtask_count: subtaskCounts[t.id] || 0,
+      subtask_completed: subtaskCompletedCounts[t.id] || 0,
     }));
 
     return NextResponse.json({ todos: todosWithTeams });

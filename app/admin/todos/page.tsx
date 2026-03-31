@@ -83,6 +83,7 @@ interface Todo {
   completed_at: string | null;
   created_at: string;
   subtask_count: number;
+  subtask_completed: number;
 }
 
 interface TodoNote {
@@ -619,10 +620,21 @@ export default function AdminTodosPage() {
           {todo.subtask_count > 0 && (
             <span className="flex items-center gap-0.5">
               <GitBranch size={10} />
-              {todo.subtask_count}
+              {todo.subtask_completed}/{todo.subtask_count}
             </span>
           )}
         </div>
+        {todo.subtask_count > 0 && (
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${todo.subtask_completed === todo.subtask_count ? "bg-green-500" : "bg-primary"}`}
+                style={{ width: `${(todo.subtask_completed / todo.subtask_count) * 100}%` }}
+              />
+            </div>
+            <span className="text-[10px] text-muted-foreground">{Math.round((todo.subtask_completed / todo.subtask_count) * 100)}%</span>
+          </div>
+        )}
         {!compact && todo.status === "pending" && (
           <div className="flex items-center gap-2 mt-2">
             <Button size="sm" variant="outline" className="h-6 text-xs text-green-700 border-green-300 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); quickAction(todo, "approved"); }}>
