@@ -13,6 +13,7 @@ import {
   Calendar,
   FileText,
   MessageSquareWarning,
+  Lightbulb,
   Wallet,
   LogOut,
   Menu,
@@ -51,9 +52,10 @@ const navItems = [
   { href: "/dashboard/events", label: "Events", icon: Calendar },
   { href: "/dashboard/resolutions", label: "Resolutions", icon: Vote },
   { href: "/dashboard/documents", label: "Document Vault", icon: FileText },
-  { href: "/dashboard/grievances", label: "Suggestions/Grievances", icon: MessageSquareWarning },
+  { href: "/dashboard/suggestions", label: "Suggestions", icon: Lightbulb },
+  { href: "/dashboard/grievances", label: "Grievances", icon: MessageSquareWarning },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
-  { href: "/dashboard/todos", label: "To-Do List", icon: ListTodo },
+  { href: "/dashboard/todos", label: "Task List", icon: ListTodo },
 ];
 
 function getMissingFields(u: UserData): string[] {

@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url);
     const status = url.searchParams.get("status");
+    const type = url.searchParams.get("type");
 
     const supabase = getServiceClient();
 
@@ -19,6 +20,13 @@ export async function GET(req: NextRequest) {
       .from("grievances")
       .select("*, users(name)")
       .order("created_at", { ascending: false });
+
+    // Filter by type: "suggestion" shows only Suggestion category, "grievance" excludes it
+    if (type === "suggestion") {
+      query = query.eq("category", "Suggestion");
+    } else if (type === "grievance") {
+      query = query.neq("category", "Suggestion");
+    }
 
     const dbRole = await getDbRole(session.userId);
     if (dbRole === "admin" || dbRole === "super_admin") {

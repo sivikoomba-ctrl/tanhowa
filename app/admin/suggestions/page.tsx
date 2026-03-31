@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { MessageSquareWarning, Trash2 } from "lucide-react";
+import { Lightbulb, Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 const statusOptions = [
@@ -25,7 +25,7 @@ const statusColors: Record<string, string> = {
   rejected: "destructive",
 };
 
-interface Grievance {
+interface Suggestion {
   id: string;
   subject: string;
   description: string;
@@ -38,15 +38,15 @@ interface Grievance {
   users?: { name: string };
 }
 
-export default function AdminGrievancesPage() {
-  const [grievances, setGrievances] = useState<Grievance[]>([]);
+export default function AdminSuggestionsPage() {
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [tab, setTab] = useState("pending");
   const [remarks, setRemarks] = useState<Record<string, string>>({});
 
   function load() {
-    fetch("/api/grievances?type=grievance&status=" + tab)
+    fetch("/api/grievances?type=suggestion&status=" + tab)
       .then((r) => r.json())
-      .then((d) => setGrievances(d.grievances || []))
+      .then((d) => setSuggestions(d.grievances || []))
       .catch(() => {});
   }
 
@@ -79,7 +79,7 @@ export default function AdminGrievancesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this grievance?")) return;
+    if (!confirm("Delete this suggestion?")) return;
     const res = await fetch(`/api/grievances?id=${id}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Deleted");
@@ -89,7 +89,7 @@ export default function AdminGrievancesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Grievances</h1>
+      <h1 className="text-2xl font-bold">Suggestions</h1>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
@@ -100,21 +100,21 @@ export default function AdminGrievancesPage() {
         </TabsList>
 
         <TabsContent value={tab} className="mt-4">
-          {grievances.length === 0 ? (
+          {suggestions.length === 0 ? (
             <div className="text-center py-12">
-              <MessageSquareWarning className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground">No {tab === "all" ? "" : tab.replace("_", " ")} grievances</p>
+              <Lightbulb className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground">No {tab === "all" ? "" : tab.replace("_", " ")} suggestions</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {grievances.map((g) => (
+              {suggestions.map((g) => (
                 <Card key={g.id}>
                   <CardContent className="pt-4">
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div className="flex items-start gap-3 flex-1">
-                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <MessageSquareWarning className="w-5 h-5 text-primary" />
+                          <div className="w-10 h-10 rounded-lg bg-secondary/30 flex items-center justify-center shrink-0">
+                            <Lightbulb className="w-5 h-5 text-secondary-foreground" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
@@ -125,7 +125,6 @@ export default function AdminGrievancesPage() {
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">{g.description}</p>
                             <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                              {g.category && <Badge variant="outline" className="text-xs">{g.category}</Badge>}
                               {g.users?.name && <span className="text-xs text-muted-foreground uppercase">by {g.users.name}</span>}
                               <span className="text-xs text-muted-foreground">
                                 {formatDate(g.created_at)}
