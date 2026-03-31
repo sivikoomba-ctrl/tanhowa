@@ -14,7 +14,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 |-------|-----------|---------|
 | Framework | Next.js (App Router, TypeScript) | 15.5.x |
 | React | React with `"use client"` directives | 19.2.x |
-| Database | Supabase (PostgreSQL) | SDK 2.98.x |
+| Database | Supabase (PostgreSQL) + direct `postgres` package | SDK 2.98.x / 3.4.x |
 | Auth | Custom JWT sessions via `jose` (no Supabase Auth) | 6.1.x |
 | Email | Zoho Mail SMTP via `nodemailer` | 8.0.x |
 | AI Chatbot | Google Gemini API (`gemini-2.5-flash`) | 0.24.x |
@@ -92,22 +92,24 @@ export async function GET(req: NextRequest) {
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `users` | Members and admins | email, name, phone, occupation, posting_details (JSONB), social_links (JSONB), role, status, last_active_at, profile_nudge (JSONB), telegram_chat_id |
+| `users` | Members and admins | email, name, phone, occupation, posting_details (JSONB), social_links (JSONB), role, status, official_type (state/district/null), last_active_at, profile_nudge (JSONB), telegram_chat_id |
 | `otp_codes` | Temporary OTP storage | email, code, expires_at, used |
 | `announcements` | News/announcements | title, content, author_id, published (boolean) |
 | `events` | Calendar events | title, description, date, location, image_url |
 | `documents` | Uploaded files | title, file_url, file_type, description, category, approved |
-| `grievances` | Member complaints/suggestions | subject, description, category, status (pending/in_progress/resolved/rejected), admin_remarks, submitted_by |
+| `grievances` | Suggestions (category="Suggestion") and grievances (others) | subject, description, category, status (pending/in_progress/resolved/rejected), admin_remarks, submitted_by |
 | `subscriptions` | Member payment tracking | user_id, period, amount, due_date, status (pending/paid/overdue), payment_method, transaction_id, payment_proof_url, remarks, paid_at, approved_by, approved_at |
 | `document_access` | Per-member document access | document_id, user_id (junction table for visibility="selected" documents) |
 | `error_logs` | Application error tracking | type (api/client/auth), message, stack, path, method, status_code, user_id, metadata (JSONB) |
 | `site_settings` | Key-value site config | key (unique), value |
 | `teams` | Member teams | name, description, icon, sort_order, created_by |
 | `team_members` | Team membership (junction) | team_id, user_id, role, added_by |
-| `todos` | Tasks with Eisenhower Matrix | title, description, status, urgent, important, due_date, event_id, parent_id, submitted_by, assigned_to, assigned_team_id, committed_by, committed_at, estimated_time, estimated_amount, admin_remarks |
+| `todos` | Tasks with Eisenhower Matrix | title, description, status, urgent, important, due_date, event_id, parent_id, submitted_by, assigned_to, assigned_team_id, committed_by, committed_at, estimated_time, estimated_amount, timebox_hours, admin_remarks |
 | `todo_notes` | Task messages/reports | todo_id, user_id, content, type (note/report/update) |
 | `todo_attachments` | Task deliverable files | todo_id, user_id, file_url, file_name, file_type |
 | `todo_vouchers` | Task cost/bill tracking | todo_id, submitted_by, title, amount, receipt_url, status (pending/approved/rejected), approved_by, remarks |
+| `todo_time_entries` | Team time logging against tasks | todo_id, user_id, hours, description, logged_at |
+| `expense_vouchers` | Standalone expense claims (officials) | submitted_by, title, amount, invoice_number, vendor_name, expense_date, category, receipt_url, status, approved_by, remarks |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -160,7 +162,7 @@ Custom horticulture theme using oklch colors defined in `app/globals.css`:
 
 ### Design rules
 - **Border radius:** Clean rounded corners only — use `rounded-2xl` for cards, `rounded-xl` for inputs/buttons. **Never use blob, egg, or organic shapes.**
-- **Images:** Unsplash via `next/image` with `fill` + `object-cover`. Remote pattern for `images.unsplash.com` is configured in `next.config.ts`
+- **Images:** Unsplash via `next/image` with `fill` + `object-cover`. Remote patterns for `images.unsplash.com` and `*.supabase.co` (storage buckets) configured in `next.config.ts`
 - **Background images:** Subtle horticulture photos at 3-6% opacity on dashboard, admin, verify, onboarding, and pending pages
 - **Landing page:** Bento mosaic grid layout with horticulture domain images flanking a centered login card
 - **No dark mode** — light theme only
@@ -176,6 +178,8 @@ npm run build    # Production build — always run before pushing to verify
 npm run start    # Start production server
 npm run lint     # ESLint
 ```
+
+**No test framework** — there are no unit/integration tests. Verify changes with `npm run build`.
 
 ## Git & Deployment
 
@@ -266,7 +270,44 @@ API routes use fire-and-forget async IIFE to send notifications without blocking
 ### Domain Note
 `tanhowa.in` returns 307 redirect to `www.tanhowa.in`. Telegram doesn't follow redirects, so always use `https://www.tanhowa.in/api/telegram/webhook` as the webhook URL.
 
-## To-Do List / Task Management System
+## Suggestions & Grievances (Split)
+
+Previously a single page, now split into two:
+- **Suggestions** — `/dashboard/suggestions`, `/admin/suggestions` (category = "Suggestion")
+- **Grievances** — `/dashboard/grievances`, `/admin/grievances` (category ≠ "Suggestion")
+
+Both use the same `grievances` table and `/api/grievances` route. The API accepts `?type=suggestion|grievance` to filter. Sidebar shows Lightbulb icon for Suggestions, MessageSquareWarning for Grievances.
+
+## Officials System
+
+Users can be designated as **state** or **district** officials via `official_type` column on `users` table.
+
+- `isAdminOrOfficial(session)` — returns true for admins + officials
+- `getOfficialType(userId)` — returns "state", "district", or null
+- Admin manages officials at `/admin/officials` (set/remove via `PUT /api/admin/users` with `action: "set-official"`)
+- Officials directory visible to all members at `/dashboard/officials`
+
+## Expense Vouchers (Officials Only)
+
+Standalone expense claims not tied to tasks. Table: `expense_vouchers`.
+
+**Fields:** title, amount, description, invoice_number, vendor_name, expense_date, category, receipt_url, status (pending/approved/rejected), remarks
+
+**Categories:** Travel, Printing, Food & Refreshments, Stationery, Communication, Venue & Hall, Transport, Miscellaneous
+
+- Officials submit at `/dashboard/vouchers` (sidebar hidden for non-officials)
+- Admin reviews at `/admin/vouchers` — can also create on behalf of officials
+- API: `/api/vouchers` (GET/POST/PUT/DELETE) — POST requires `isAdminOrOfficial()`
+
+## Special Subscriptions
+
+Beyond yearly subscriptions (period = "2025", "2026"), admins can create special subscriptions:
+- **Legal case fund:** e.g., "For UATT 2.0 Case 2025" at Rs.3000 — mandatory for all members
+- **Voluntary contributions:** Period starts with "Volunteer" (e.g., "Volunteer Special Contribution 2026 (VSC 2026)") — members can set their own amount
+
+Admin creates via "Special Subscription" button on `/admin/subscriptions`. District report column headers auto-shorten special periods (strips "For " prefix and " Case YYYY" suffix).
+
+## Task Management System
 
 ### Event ID Format
 Every task gets a unique, human-readable Event ID auto-generated on creation:
@@ -280,13 +321,14 @@ Every task gets a unique, human-readable Event ID auto-generated on creation:
 - API enforces max depth of 2 (task → subtask → sub-subtask)
 
 ### Task Workflow
-1. Member submits task → status `pending`
+1. Member or admin submits task → status `pending`
 2. Admin sets Eisenhower priority (urgent/important), assigns to team/member, approves
-3. Member **commits** to the task (PUT with `action: "commit"`) → sets `committed_by`, `committed_at`, optional `estimated_time` and `estimated_amount`, status becomes `in_progress`
-4. Any member on the assigned team can add notes, upload deliverables, raise vouchers
+3. Member **commits** to the task (PUT with `action: "commit"`) → sets `committed_by`, `committed_at`, `estimated_time`, `estimated_amount`, and optional `timebox_hours`, status becomes `in_progress`
+4. Any member on the assigned team can add notes, upload deliverables, raise vouchers, and **log time entries**
 5. On completion, member submits a report (as a note of type `report`)
 6. If costs involved, member raises a voucher → Finance Team (admin) approves/rejects
 7. Admin can **release commitment** (PUT with `action: "release_commitment"`) to reassign
+8. Admin can **inline edit** task title by clicking it in the detail view
 
 ### Eisenhower Matrix (Admin View)
 2×2 grid based on `urgent` + `important` boolean flags:
@@ -295,9 +337,23 @@ Every task gets a unique, human-readable Event ID auto-generated on creation:
 - Delegate (urgent + not important, amber)
 - Eliminate (neither, gray)
 
+### Timeboxing & Team Time Tracking
+
+Tasks can have a `timebox_hours` (numeric) set at commitment or by admin override. Team members log hours via the **Time Log** tab using `todo_time_entries` table.
+
+- **Progress bar:** green (<75%), amber (75-100%), red (>100% = overdue)
+- **API:** `/api/todos/time-entries` (GET/POST/DELETE) — authorized for assignee, submitter, team members, or admins
+- **No auto-status changes** — timeboxing is advisory only
+- Admin can adjust timebox via inline input in the task detail view
+
+### Event ID Generation
+
+Uses global `LIKE` query to find max existing suffix — prevents duplicate `event_id` unique constraint violations when tasks are deleted and re-created.
+
 ### Task Detail View (Both Admin & Member)
-Clicking a task opens detail view with 4 tabs:
-- **Sub-Tasks** — nested tasks with their own Event IDs
+Clicking a task opens detail view with 5 tabs:
+- **Sub-Tasks** — nested tasks with their own Event IDs + progress bar (completed/total)
+- **Time Log** — log hours, view entries by contributor, timebox progress bar
 - **Notes & Reports** — messages with types: `note`, `report`, `update`
 - **Deliverables** — file uploads to `todo-attachments` Supabase Storage bucket
 - **Vouchers/Bills** — cost tracking with Finance Team approval (pending/approved/rejected)
