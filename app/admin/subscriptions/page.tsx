@@ -1103,6 +1103,9 @@ export default function AdminSubscriptionsPage() {
                       <p className="text-xs text-muted-foreground truncate">{sub.users?.email} {sub.users?.phone && `| ${sub.users.phone}`}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
                         <Badge variant="secondary" className="text-xs">{sub.period}</Badge>
+                        {sub.period.toLowerCase().startsWith("volunteer") && (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">Voluntary</Badge>
+                        )}
                         <span className="text-sm font-semibold">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
                         {sub.due_date && <span className="text-xs text-muted-foreground">Due: {formatDate(sub.due_date)}</span>}
                         {sub.paid_at && <span className="text-xs text-green-600">Paid: {formatDateTime(sub.paid_at)}</span>}
@@ -1849,6 +1852,9 @@ export default function AdminSubscriptionsPage() {
                       </div>
                       <div className="text-right shrink-0">
                         <Badge variant="secondary" className="text-[10px]">{sub.period}</Badge>
+                        {sub.period.toLowerCase().startsWith("volunteer") && (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px] ml-1">Voluntary</Badge>
+                        )}
                         <p className="text-xs font-semibold">&#8377;{sub.amount?.toLocaleString("en-IN")}</p>
                       </div>
                     </label>

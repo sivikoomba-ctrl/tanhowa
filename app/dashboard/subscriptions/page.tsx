@@ -401,11 +401,16 @@ export default function SubscriptionsPage() {
                         <Icon className={`w-5 h-5 ${sub.status === "paid" ? "text-green-600" : sub.status === "overdue" ? "text-red-600" : "text-amber-600"}`} />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold">{sub.period}</h3>
                           <Badge variant="outline" className={config.color}>
                             {config.label}
                           </Badge>
+                          {sub.period.toLowerCase().startsWith("volunteer") && (
+                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">
+                              Voluntary
+                            </Badge>
+                          )}
                           {hasProof && sub.status !== "paid" && (
                             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-[10px]">
                               Proof Uploaded
@@ -572,9 +577,14 @@ export default function SubscriptionsPage() {
                     onChange={(e) => setDetailsForm({ ...detailsForm, amount: e.target.value })}
                     placeholder={extracting ? "Extracting from proof..." : "e.g. 3000"}
                   />
-                  {detailsSub.amount && detailsForm.amount && parseFloat(detailsForm.amount) !== detailsSub.amount && (
+                  {detailsSub.amount && detailsForm.amount && parseFloat(detailsForm.amount) !== detailsSub.amount && !detailsSub.period.toLowerCase().startsWith("volunteer") && (
                     <p className="text-xs text-amber-600 mt-1">
                       Subscription amount is &#8377;{detailsSub.amount.toLocaleString("en-IN")} — you entered &#8377;{parseFloat(detailsForm.amount).toLocaleString("en-IN")}
+                    </p>
+                  )}
+                  {detailsSub.period.toLowerCase().startsWith("volunteer") && (
+                    <p className="text-xs text-purple-600 mt-1">
+                      This is a voluntary contribution — you may enter any amount.
                     </p>
                   )}
                 </div>

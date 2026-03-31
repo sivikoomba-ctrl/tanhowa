@@ -303,11 +303,23 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      const memberUpdates: Record<string, string | null> = { updated_at: new Date().toISOString() };
+      const memberUpdates: Record<string, string | number | null> = { updated_at: new Date().toISOString() };
       if (body.payment_method !== undefined) memberUpdates.payment_method = body.payment_method;
       if (body.transaction_id !== undefined) memberUpdates.transaction_id = body.transaction_id;
       if (body.remarks !== undefined) memberUpdates.remarks = body.remarks;
       if (body.payment_proof_url !== undefined) memberUpdates.payment_proof_url = body.payment_proof_url;
+
+      // Allow members to set amount on voluntary subscriptions
+      if (body.amount !== undefined) {
+        const { data: fullSub } = await supabase
+          .from("subscriptions")
+          .select("period")
+          .eq("id", body.id)
+          .single();
+        if (fullSub?.period?.toLowerCase().startsWith("volunteer")) {
+          memberUpdates.amount = parseFloat(body.amount) || 0;
+        }
+      }
 
       const { error } = await supabase
         .from("subscriptions")
