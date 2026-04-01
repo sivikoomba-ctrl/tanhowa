@@ -33,6 +33,7 @@ import {
   History,
   Send,
   X,
+  ChevronDown,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
@@ -1707,100 +1708,115 @@ export default function AdminSubscriptionsPage() {
                   )}
                 </div>
 
-                {/* Admin member picker for bulk payments */}
-                {payDialog && payForm.amount && payDialog.amount && parseFloat(payForm.amount) > payDialog.amount && (() => {
-                  const slots = Math.floor(parseFloat(payForm.amount) / payDialog.amount) - 1;
-                  if (slots <= 0) return null;
+                {/* Admin member picker for bulk payments — always available */}
+                {payDialog && (() => {
                   const samePeriodPending = subscriptions.filter(
                     (s) => s.period === payDialog.period && s.user_id !== payDialog.user_id && (s.status === "pending" || s.status === "overdue")
                   );
+                  const hasAmountHint = payForm.amount && payDialog.amount && parseFloat(payForm.amount) > payDialog.amount;
+                  const slots = hasAmountHint ? Math.floor(parseFloat(payForm.amount) / payDialog.amount) - 1 : 0;
+                  const isExpanded = adminSelectedMembers.size > 0 || adminMemberSearch.length > 0;
                   return (
                     <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3 space-y-2">
-                      <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 w-full text-left"
+                        onClick={() => {
+                          if (!isExpanded) setAdminMemberSearch(" ");
+                          else { setAdminMemberSearch(""); setAdminSelectedMembers(new Set()); }
+                        }}
+                      >
                         <Users className="w-4 h-4 text-blue-600" />
-                        <p className="text-xs font-semibold text-blue-800">
-                          This payment covers up to {slots + 1} members — select members ({adminSelectedMembers.size} selected, up to {slots})
+                        <p className="text-xs font-semibold text-blue-800 flex-1">
+                          Link other members to this payment
+                          {adminSelectedMembers.size > 0 && ` (${adminSelectedMembers.size} selected)`}
+                          {hasAmountHint && slots > 0 && ` — amount covers up to ${slots + 1} members`}
                         </p>
-                      </div>
-                      {adminSelectedMembers.size > 0 && (() => {
-                        const matchedAmt = (adminSelectedMembers.size + 1) * payDialog!.amount;
-                        const totalAmt = parseFloat(payForm.amount) || 0;
-                        const bal = totalAmt - matchedAmt;
-                        if (bal <= 0) return null;
-                        return (
-                          <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
-                            <Info className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-amber-700">
-                              Matched: <span className="font-semibold">&#8377;{matchedAmt.toLocaleString("en-IN")}</span> ({adminSelectedMembers.size + 1} members) — Balance: <span className="font-semibold">&#8377;{bal.toLocaleString("en-IN")}</span> pending
-                            </p>
-                          </div>
-                        );
-                      })()}
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <Input
-                          value={adminMemberSearch}
-                          onChange={(e) => setAdminMemberSearch(e.target.value)}
-                          placeholder="Search by name, email, phone..."
-                          className="pl-8 h-8 text-xs"
-                        />
-                      </div>
-                      {adminSelectedMembers.size > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {samePeriodPending
-                            .filter((s) => adminSelectedMembers.has(s.id))
-                            .map((s) => (
-                              <Badge key={s.id} variant="secondary" className="gap-1 pr-1 text-[10px]">
-                                {s.users?.name || s.users?.email}
-                                <button type="button" onClick={() => {
-                                  setAdminSelectedMembers((prev) => { const n = new Set(prev); n.delete(s.id); return n; });
-                                }} className="hover:bg-muted rounded-full p-0.5">
-                                  <X size={10} />
-                                </button>
-                              </Badge>
-                            ))}
-                        </div>
-                      )}
-                      <div className="max-h-32 overflow-y-auto border rounded-lg divide-y bg-white">
-                        {samePeriodPending
-                          .filter((s) => {
-                            if (!adminMemberSearch) return true;
-                            const q = adminMemberSearch.toLowerCase();
-                            return s.users?.name?.toLowerCase().includes(q) || s.users?.email?.toLowerCase().includes(q) || s.users?.phone?.includes(q);
-                          })
-                          .map((s) => (
-                            <label
-                              key={s.id}
-                              className={`flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-muted/50 text-xs ${
-                                adminSelectedMembers.has(s.id) ? "bg-primary/5" : ""
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={adminSelectedMembers.has(s.id)}
-                                onChange={() => {
-                                  setAdminSelectedMembers((prev) => {
-                                    const n = new Set(prev);
-                                    if (n.has(s.id)) n.delete(s.id); else n.add(s.id);
-                                    return n;
-                                  });
-                                }}
-                                className="rounded"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <span className="font-medium">{s.users?.name || "—"}</span>
-                                <span className="text-muted-foreground ml-1.5">{s.users?.email}</span>
+                        <ChevronDown className={`w-4 h-4 text-blue-600 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                      </button>
+                      {isExpanded && (
+                        <>
+                          {adminSelectedMembers.size > 0 && payForm.amount && payDialog.amount && (() => {
+                            const matchedAmt = (adminSelectedMembers.size + 1) * payDialog!.amount;
+                            const totalAmt = parseFloat(payForm.amount) || 0;
+                            const bal = totalAmt - matchedAmt;
+                            if (bal <= 0) return null;
+                            return (
+                              <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
+                                <Info className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                <p className="text-[10px] text-amber-700">
+                                  Matched: <span className="font-semibold">&#8377;{matchedAmt.toLocaleString("en-IN")}</span> ({adminSelectedMembers.size + 1} members) — Balance: <span className="font-semibold">&#8377;{bal.toLocaleString("en-IN")}</span> pending
+                                </p>
                               </div>
-                            </label>
-                          ))}
-                        {samePeriodPending.filter((s) => {
-                          if (!adminMemberSearch) return true;
-                          const q = adminMemberSearch.toLowerCase();
-                          return s.users?.name?.toLowerCase().includes(q) || s.users?.email?.toLowerCase().includes(q) || s.users?.phone?.includes(q);
-                        }).length === 0 && (
-                          <p className="text-[10px] text-muted-foreground text-center py-2">No pending members for {payDialog.period}</p>
-                        )}
-                      </div>
+                            );
+                          })()}
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                            <Input
+                              value={adminMemberSearch.trim()}
+                              onChange={(e) => setAdminMemberSearch(e.target.value)}
+                              placeholder="Search by name, email, phone..."
+                              className="pl-8 h-8 text-xs"
+                            />
+                          </div>
+                          {adminSelectedMembers.size > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {samePeriodPending
+                                .filter((s) => adminSelectedMembers.has(s.id))
+                                .map((s) => (
+                                  <Badge key={s.id} variant="secondary" className="gap-1 pr-1 text-[10px]">
+                                    {s.users?.name || s.users?.email}
+                                    <button type="button" onClick={() => {
+                                      setAdminSelectedMembers((prev) => { const n = new Set(prev); n.delete(s.id); return n; });
+                                    }} className="hover:bg-muted rounded-full p-0.5">
+                                      <X size={10} />
+                                    </button>
+                                  </Badge>
+                                ))}
+                            </div>
+                          )}
+                          <div className="max-h-32 overflow-y-auto border rounded-lg divide-y bg-white">
+                            {samePeriodPending
+                              .filter((s) => {
+                                if (!adminMemberSearch.trim()) return true;
+                                const q = adminMemberSearch.trim().toLowerCase();
+                                return s.users?.name?.toLowerCase().includes(q) || s.users?.email?.toLowerCase().includes(q) || s.users?.phone?.includes(q);
+                              })
+                              .map((s) => (
+                                <label
+                                  key={s.id}
+                                  className={`flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-muted/50 text-xs ${
+                                    adminSelectedMembers.has(s.id) ? "bg-primary/5" : ""
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={adminSelectedMembers.has(s.id)}
+                                    onChange={() => {
+                                      setAdminSelectedMembers((prev) => {
+                                        const n = new Set(prev);
+                                        if (n.has(s.id)) n.delete(s.id); else n.add(s.id);
+                                        return n;
+                                      });
+                                    }}
+                                    className="rounded"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <span className="font-medium">{s.users?.name || "—"}</span>
+                                    <span className="text-muted-foreground ml-1.5">{s.users?.email}</span>
+                                  </div>
+                                </label>
+                              ))}
+                            {samePeriodPending.filter((s) => {
+                              if (!adminMemberSearch.trim()) return true;
+                              const q = adminMemberSearch.trim().toLowerCase();
+                              return s.users?.name?.toLowerCase().includes(q) || s.users?.email?.toLowerCase().includes(q) || s.users?.phone?.includes(q);
+                            }).length === 0 && (
+                              <p className="text-[10px] text-muted-foreground text-center py-2">No pending members for {payDialog.period}</p>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })()}
