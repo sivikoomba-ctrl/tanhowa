@@ -63,6 +63,7 @@ const navItems = [
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/dashboard/vouchers", label: "Expense Vouchers", icon: Receipt, officialOnly: true },
   { href: "/dashboard/verify-payments", label: "Verify Payments", icon: ShieldCheck, officialOnly: true },
+  { href: "/dashboard/nearby", label: "Nearby Members", icon: Navigation },
   { href: "/dashboard/todos", label: "Task List", icon: ListTodo },
   { href: "/dashboard/contributions", label: "Contributions", icon: Award },
 ];
