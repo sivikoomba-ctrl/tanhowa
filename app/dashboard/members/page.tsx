@@ -240,6 +240,7 @@ export default function MembersPage() {
           </button>
           {viewPhoto && (
             <div className="flex flex-col items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={viewPhoto.url}
                 alt={viewPhoto.name}

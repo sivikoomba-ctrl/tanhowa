@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,27 +62,27 @@ export default function AdminDocumentsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function load() {
+  const load = useCallback(() => {
     fetch("/api/documents?status=" + tab)
       .then((r) => r.json())
       .then((d) => setDocuments(d.documents || []))
       .catch(() => toast.error("Failed to load documents"));
-  }
+  }, [tab]);
 
-  function loadMembers() {
+  const loadMembers = useCallback(() => {
     fetch("/api/users?status=approved")
       .then((r) => r.json())
       .then((d) => setMembers(d.users || []))
       .catch(() => {});
-  }
+  }, []);
 
   useEffect(() => {
     load();
-  }, [tab]);
+  }, [load]);
 
   useEffect(() => {
     loadMembers();
-  }, []);
+  }, [loadMembers]);
 
   const filteredMembers = members.filter((m) => {
     if (!memberSearch) return true;

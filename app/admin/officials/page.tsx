@@ -8,10 +8,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Crown, Building2, Phone, Mail, MapPin, Briefcase, Plus, X, Search } from "lucide-react";
-import { DISTRICT_NAMES } from "@/lib/tn-districts";
 
 interface User {
   id: string;
@@ -35,8 +33,6 @@ export default function AdminOfficialsPage() {
   const [tab, setTab] = useState("state");
   const [showAdd, setShowAdd] = useState(false);
   const [addType, setAddType] = useState<"state" | "district">("state");
-  const [search, setSearch] = useState("");
-  const [members, setMembers] = useState<User[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
 
   function loadUsers() {

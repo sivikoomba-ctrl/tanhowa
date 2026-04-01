@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -61,9 +61,7 @@ export function ExpensesTab() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterOfficial, setFilterOfficial] = useState("all");
 
-  useEffect(() => { loadExpenses(); }, [filterCategory, filterStatus, filterOfficial]);
-
-  async function loadExpenses() {
+  const loadExpenses = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -85,7 +83,9 @@ export function ExpensesTab() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filterCategory, filterStatus, filterOfficial]);
+
+  useEffect(() => { loadExpenses(); }, [loadExpenses]);
 
   function downloadExpensePDF() {
     if (vouchers.length === 0) { toast.error("No data to download"); return; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,16 +43,16 @@ export default function AdminGrievancesPage() {
   const [tab, setTab] = useState("pending");
   const [remarks, setRemarks] = useState<Record<string, string>>({});
 
-  function load() {
+  const load = useCallback(() => {
     fetch("/api/grievances?type=grievance&status=" + tab)
       .then((r) => r.json())
       .then((d) => setGrievances(d.grievances || []))
       .catch(() => toast.error("Failed to load grievances"));
-  }
+  }, [tab]);
 
   useEffect(() => {
     load();
-  }, [tab]);
+  }, [load]);
 
   async function handleStatusChange(id: string, status: string) {
     const res = await fetch("/api/grievances", {

@@ -154,11 +154,14 @@ export default function DocumentsPage() {
           </DialogHeader>
           <div className="flex-1 overflow-auto px-6 pb-5">
             {previewDoc && getPreviewType(previewDoc) === "image" && (
-              <img
-                src={previewDoc.file_url}
-                alt={previewDoc.title}
-                className="w-full h-auto rounded-xl"
-              />
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewDoc.file_url}
+                  alt={previewDoc.title}
+                  className="w-full h-auto rounded-xl"
+                />
+              </>
             )}
             {previewDoc && getPreviewType(previewDoc) === "pdf" && (
               <iframe

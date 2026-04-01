@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin, getDbRole } from "@/lib/auth";
+import { getSession, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 export async function GET(req: NextRequest) {

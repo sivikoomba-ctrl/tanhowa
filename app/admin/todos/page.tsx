@@ -42,7 +42,6 @@ import {
   Copy,
   CheckSquare,
   Square,
-  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -206,7 +205,6 @@ export default function AdminTodosPage() {
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkLoading, setBulkLoading] = useState(false);
 
   // Task detail view
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
@@ -401,29 +399,6 @@ export default function AdminTodosPage() {
       else next.add(id);
       return next;
     });
-  }
-
-  async function handleBulkStatus(status: string) {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
-    if (!confirm(`Set ${ids.length} task(s) to "${status}"?`)) return;
-
-    setBulkLoading(true);
-    try {
-      const res = await fetch("/api/todos", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "bulk_status", ids, status }),
-      });
-      if (!res.ok) throw new Error("Failed");
-      toast.success(`${ids.length} task(s) updated to ${status}`);
-      setSelectedIds(new Set());
-      fetchData();
-    } catch {
-      toast.error("Bulk update failed");
-    } finally {
-      setBulkLoading(false);
-    }
   }
 
   async function handleClone(id: string) {

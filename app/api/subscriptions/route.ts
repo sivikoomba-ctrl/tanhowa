@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin, getDbRole, getOfficialInfo } from "@/lib/auth";
+import { getSession, isAdmin, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification } from "@/lib/mail";
@@ -23,8 +23,6 @@ export async function GET(req: NextRequest) {
     const isStateOfficialGet = officialGet.official_type === "state";
     const sync = url.searchParams.get("sync");
     const me = url.searchParams.get("me");
-    const districtFilter = url.searchParams.get("district");
-
     if ((isAdminGet || isDistrictOfficialGet || isStateOfficialGet) && me !== "true") {
       // Auto-sync only when explicitly requested (admin only)
       if (sync === "true" && isAdminGet) {
@@ -83,16 +81,37 @@ export async function GET(req: NextRequest) {
         await logError({ type: "api", message: subError.message, path: "/api/subscriptions", method: "GET", status_code: 200, metadata: { context: "subscription-query" } });
       }
 
-      const totalCollected = (totalAmountRes.data || []).reduce((sum: number, r: { amount: number }) => sum + (r.amount || 0), 0);
+      let visibleSubscriptions = subscriptions || [];
+      if (isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet) {
+        visibleSubscriptions = visibleSubscriptions.filter((sub) => {
+          const user = sub.users as { posting_details?: { regular_district?: string } | null } | null;
+          return user?.posting_details?.regular_district === officialGet.district;
+        });
+      }
+
+      const totalCollected = isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet
+        ? visibleSubscriptions
+            .filter((sub) => sub.status === "paid")
+            .reduce((sum, sub) => sum + (sub.amount || 0), 0)
+        : (totalAmountRes.data || []).reduce((sum: number, r: { amount: number }) => sum + (r.amount || 0), 0);
+
+      const stats = isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet
+        ? {
+            paid: visibleSubscriptions.filter((sub) => sub.status === "paid").length,
+            pending: visibleSubscriptions.filter((sub) => sub.status === "pending").length,
+            overdue: visibleSubscriptions.filter((sub) => sub.status === "overdue").length,
+            totalCollected,
+          }
+        : {
+            paid: paidRes.count || 0,
+            pending: pendingRes.count || 0,
+            overdue: overdueRes.count || 0,
+            totalCollected,
+          };
 
       return NextResponse.json({
-        subscriptions: subscriptions || [],
-        stats: {
-          paid: paidRes.count || 0,
-          pending: pendingRes.count || 0,
-          overdue: overdueRes.count || 0,
-          totalCollected,
-        },
+        subscriptions: visibleSubscriptions,
+        stats,
       });
     } else {
       const { data: subscriptions } = await supabase

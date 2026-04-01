@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import ChatbotWidget from "@/components/chatbot-widget";
@@ -21,7 +21,6 @@ export const metadata: Metadata = {
   description:
     "TANHOWA - Tamil Nadu Horticultural Officers Welfare Association. Connecting horticultural officers and professionals.",
   manifest: "/manifest.json",
-  themeColor: "#2d6a4f",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -30,6 +29,10 @@ export const metadata: Metadata = {
   other: {
     "mobile-web-app-capable": "yes",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2d6a4f",
 };
 
 export default function RootLayout({

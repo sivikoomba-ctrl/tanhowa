@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Vote, Plus, ThumbsUp, Check, X, Clock, Send, FileText } from "lucide-react";
+import { Vote, Plus, ThumbsUp, Check, X, Send, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 interface Resolution {

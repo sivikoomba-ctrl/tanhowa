@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Flower2, Mail, Smartphone } from "lucide-react";
+import { Flower2, Mail } from "lucide-react";
 
 const categories = [
   {
@@ -47,11 +47,8 @@ export default function LandingPage() {
   const [error, setError] = useState("");
   const [checkingSession, setCheckingSession] = useState(true);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
-  const [showMobileLogin, setShowMobileLogin] = useState(false);
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
-  const [mobileLoading, setMobileLoading] = useState(false);
   const router = useRouter();
 
   // Auto-redirect approved members who already have a valid session
@@ -126,33 +123,6 @@ export default function LandingPage() {
       setError("Something went wrong. Please try again.");
     } finally {
       setEmailLoading(false);
-    }
-  }
-
-  async function handleMobileSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setMobileLoading(true);
-
-    try {
-      const res = await fetch("/api/auth/send-mobile-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Failed to send OTP");
-        return;
-      }
-
-      router.push(`/verify?phone=${encodeURIComponent(phone)}&sid=${encodeURIComponent(data.sessionId)}`);
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setMobileLoading(false);
     }
   }
 
@@ -274,7 +244,7 @@ export default function LandingPage() {
                 {/* Email OTP */}
                 {!showEmailLogin ? (
                   <Button
-                    onClick={() => { setShowEmailLogin(true); setShowMobileLogin(false); }}
+                    onClick={() => { setShowEmailLogin(true); }}
                     variant="outline"
                     className="w-full h-12 text-base font-semibold rounded-xl border-primary/30 hover:bg-primary/5 gap-3"
                   >

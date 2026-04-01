@@ -102,7 +102,6 @@ export default function AdminSubscriptionsPage() {
 
   // Proof preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
 
   // QR code
   const [qrUrl, setQrUrl] = useState<string | null>(null);
@@ -483,7 +482,6 @@ export default function AdminSubscriptionsPage() {
 
   async function viewProof(sub: Subscription) {
     if (!sub.payment_proof_url) return;
-    setPreviewLoading(true);
     try {
       const res = await fetch("/api/upload/payment-proof/signed-url", {
         method: "POST",
@@ -499,7 +497,6 @@ export default function AdminSubscriptionsPage() {
     } catch {
       toast.error("Failed to load proof");
     }
-    setPreviewLoading(false);
   }
 
   async function handleHold(id: string) {
@@ -743,6 +740,7 @@ export default function AdminSubscriptionsPage() {
               <p className="text-sm text-muted-foreground">Upload the UPI/bank payment QR code image. Members will see this on their subscriptions page.</p>
               {qrUrl && (
                 <div className="rounded-xl overflow-hidden border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={qrUrl} alt="Current QR code" className="w-full max-w-[250px] mx-auto" />
                   <p className="text-xs text-center text-muted-foreground py-2">Current QR code</p>
                 </div>
@@ -1695,6 +1693,7 @@ export default function AdminSubscriptionsPage() {
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Payment Proof Image</h3>
                   <div className="rounded-xl overflow-hidden border bg-white">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={payProofUrl} alt="Payment proof" className="w-full" />
                   </div>
                 </div>
@@ -2018,6 +2017,7 @@ export default function AdminSubscriptionsPage() {
           </DialogHeader>
           {previewUrl && (
             <div className="rounded-xl overflow-hidden border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={previewUrl} alt="Payment proof" className="w-full" />
             </div>
           )}

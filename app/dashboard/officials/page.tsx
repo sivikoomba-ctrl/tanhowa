@@ -67,8 +67,6 @@ export default function OfficialsPage() {
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [districtOfficials]);
 
-  const current = tab === "state" ? stateOfficials : districtOfficials;
-
   return (
     <div className="space-y-6">
       <div>
@@ -129,6 +127,7 @@ export default function OfficialsPage() {
       {/* Photo Zoom */}
       {zoomPhoto && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer" onClick={() => setZoomPhoto(null)}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={zoomPhoto} alt="Official" className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
       )}

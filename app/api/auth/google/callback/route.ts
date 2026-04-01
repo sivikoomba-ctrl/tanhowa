@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
         .insert({
           email: normalizedEmail,
           name: googleUser.name || "",
-          avatar_url: googleUser.picture || "",
+          photo_url: googleUser.picture || "",
           role: isDefaultAdmin ? "super_admin" : (isFirstUser ? "admin" : "member"),
           status: autoAdmin ? "approved" : "pending",
         })

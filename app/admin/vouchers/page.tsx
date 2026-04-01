@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,13 +58,12 @@ export default function AdminVouchersPage() {
 
   // Bulk selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkLoading, setBulkLoading] = useState(false);
-
+  const [, setBulkLoading] = useState(false);
   // Officials list for "on behalf of"
   const [officials, setOfficials] = useState<{ id: string; name: string; email: string; official_type: string }[]>([]);
   const [selectedOfficial, setSelectedOfficial] = useState("");
 
-  function load() {
+  const load = useCallback(() => {
     setLoading(true);
     setSelected(new Set());
     fetch("/api/vouchers?status=" + tab)
@@ -72,7 +71,7 @@ export default function AdminVouchersPage() {
       .then((d) => setVouchers(d.vouchers || []))
       .catch(() => toast.error("Failed to load vouchers"))
       .finally(() => setLoading(false));
-  }
+  }, [tab]);
 
   function loadOfficials() {
     if (officials.length > 0) return;
@@ -89,7 +88,7 @@ export default function AdminVouchersPage() {
 
   useEffect(() => {
     load();
-  }, [tab]);
+  }, [load]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -357,10 +356,10 @@ export default function AdminVouchersPage() {
                       </div>
                       {selected.size > 0 && (
                         <div className="flex items-center gap-2">
-                          <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" disabled={bulkLoading} onClick={() => handleBulkAction("approved")}>
+                          <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => handleBulkAction("approved")}>
                             <CheckCircle2 size={12} className="mr-1" /> Approve ({selected.size})
                           </Button>
-                          <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50" disabled={bulkLoading} onClick={() => handleBulkAction("rejected")}>
+                          <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50" onClick={() => handleBulkAction("rejected")}>
                             <XCircle size={12} className="mr-1" /> Reject ({selected.size})
                           </Button>
                         </div>
@@ -476,7 +475,10 @@ export default function AdminVouchersPage() {
               {previewUrl.toLowerCase().endsWith(".pdf") ? (
                 <iframe src={previewUrl} className="w-full h-[70vh]" title="Receipt PDF" />
               ) : (
-                <img src={previewUrl} alt="Receipt" className="w-full" />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={previewUrl} alt="Receipt" className="w-full" />
+                </>
               )}
             </div>
           )}

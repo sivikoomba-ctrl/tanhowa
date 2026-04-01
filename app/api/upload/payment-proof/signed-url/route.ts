@@ -15,24 +15,30 @@ export async function POST(req: NextRequest) {
 
   const supabase = getServiceClient();
 
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("user_id, payment_proof_url")
+    .eq("id", subscription_id)
+    .single();
+
+  if (!sub || !sub.payment_proof_url) {
+    return NextResponse.json({ error: "Payment proof not found" }, { status: 404 });
+  }
+
+  if (sub.payment_proof_url !== file_path) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // Members can only view their own payment proofs; admins can view all
   const role = await getDbRole(session.userId);
-  if (role !== "admin" && role !== "super_admin") {
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("user_id")
-      .eq("id", subscription_id)
-      .single();
-
-    if (!sub || sub.user_id !== session.userId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  if (role !== "admin" && role !== "super_admin" && sub.user_id !== session.userId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Generate a signed URL valid for 5 minutes
   const { data, error } = await supabase.storage
     .from("payment-proofs")
-    .createSignedUrl(file_path, 300);
+    .createSignedUrl(sub.payment_proof_url, 300);
 
   if (error || !data?.signedUrl) {
     return NextResponse.json({ error: "Failed to generate URL" }, { status: 500 });

@@ -35,7 +35,6 @@ import {
   IndianRupee,
   Hourglass,
   Search,
-  Copy,
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";

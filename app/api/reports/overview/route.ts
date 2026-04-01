@@ -18,7 +18,6 @@ export async function GET() {
       pendingRes,
       activeRes,
       subsRes,
-      tasksRes,
       tasksByStatusRes,
       grievancesRes,
       contributionsRes,
@@ -33,8 +32,6 @@ export async function GET() {
         .gte("last_active_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
       // Subscriptions summary
       supabase.from("subscriptions").select("status, amount, period"),
-      // All tasks
-      supabase.from("todos").select("id, status, created_at, parent_id", { count: "exact" }),
       // Tasks by status
       supabase.from("todos").select("status"),
       // Grievances/suggestions

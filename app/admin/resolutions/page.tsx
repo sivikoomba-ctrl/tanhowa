@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Vote, Check, X, Play, Square, Trash2, FileText, Send, Clock } from "lucide-react";
+import { Check, X, Play, Square, Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 interface Resolution {

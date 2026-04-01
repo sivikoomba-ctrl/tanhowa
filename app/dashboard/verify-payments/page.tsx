@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +18,7 @@ import {
   Phone,
   ChevronDown,
   ChevronUp,
-  Bell,
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
 
 interface Subscription {
   id: string;
@@ -58,11 +56,7 @@ export default function VerifyPaymentsPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [filterPeriod]);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -81,7 +75,11 @@ export default function VerifyPaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filterPeriod]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   async function handleVerify(subId: string, status: "paid" | "rejected") {
     const res = await fetch("/api/subscriptions", {
@@ -262,7 +260,10 @@ export default function VerifyPaymentsPage() {
               {previewUrl.toLowerCase().endsWith(".pdf") ? (
                 <iframe src={previewUrl} className="w-full h-[70vh]" title="Payment Proof PDF" />
               ) : (
-                <img src={previewUrl} alt="Payment Proof" className="w-full" />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={previewUrl} alt="Payment Proof" className="w-full" />
+                </>
               )}
             </div>
           )}

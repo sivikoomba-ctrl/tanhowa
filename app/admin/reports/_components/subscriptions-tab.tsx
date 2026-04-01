@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -49,9 +49,7 @@ export function SubscriptionsTab() {
   const [summary, setSummary] = useState<Summary>({ total: 0, paid: 0, pending: 0, overdue: 0, totalAmount: 0 });
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { loadReport(); }, [district, period, status]);
-
-  async function loadReport() {
+  const loadReport = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -72,7 +70,9 @@ export function SubscriptionsTab() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [district, period, status]);
+
+  useEffect(() => { loadReport(); }, [loadReport]);
 
   const statusBadge = (s: string) => {
     switch (s) {

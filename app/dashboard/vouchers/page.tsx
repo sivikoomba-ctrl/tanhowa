@@ -320,6 +320,7 @@ export default function VouchersPage() {
           </DialogHeader>
           {previewUrl && (
             <div className="rounded-xl overflow-hidden border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={previewUrl} alt="Receipt" className="w-full" />
             </div>
           )}

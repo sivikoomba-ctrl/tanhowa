@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
   Camera, Plus, X, AlertCircle, User, Briefcase, MapPin,
-  GraduationCap, Languages, Heart, Globe, Save, Building2, ChevronDown, ChevronUp, Navigation,
+  GraduationCap, Globe, Save, Building2, ChevronDown, ChevronUp, Navigation,
 } from "lucide-react";
 import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
 
@@ -253,7 +253,10 @@ export default function ProfilePage() {
               onClick={() => photoPreview ? setShowPhotoZoom(true) : fileInputRef.current?.click()}
             >
               {photoPreview ? (
-                <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" />
+                </>
               ) : (
                 <User className="w-8 h-8 text-muted-foreground" />
               )}
@@ -776,6 +779,7 @@ export default function ProfilePage() {
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer"
           onClick={() => setShowPhotoZoom(false)}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={photoPreview}
             alt="Profile"

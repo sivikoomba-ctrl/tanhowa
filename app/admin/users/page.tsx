@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -74,19 +75,19 @@ export default function AdminUsersPage() {
   const [editForm, setEditForm] = useState({ name: "", phone: "", occupation: "", address: "", office_address: "", regular_district: "", regular_block: "" });
   const [editSaving, setEditSaving] = useState(false);
 
-  function loadUsers() {
+  const loadUsers = useCallback(() => {
     fetch("/api/users?status=" + (tab === "all" ? "" : tab))
       .then((r) => r.json())
       .then((d) => setUsers(d.users || []))
       .catch(() => toast.error("Failed to load users"));
-  }
+  }, [tab]);
 
   useEffect(() => {
     loadUsers();
     setExpandedId(null);
     setSearch("");
     setDistrictFilter("all");
-  }, [tab]);
+  }, [loadUsers]);
 
   const filteredUsers = useMemo(() => {
     let result = users;
@@ -318,7 +319,7 @@ export default function AdminUsersPage() {
                         >
                           <div className="relative shrink-0">
                             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                              {u.photo_url ? <img src={u.photo_url} alt={u.name} className="w-full h-full object-cover" /> : <span className="text-sm font-semibold text-primary">{u.name?.charAt(0)?.toUpperCase() || "?"}</span>}
+                              {u.photo_url ? <Image src={u.photo_url} alt={u.name} width={80} height={80} unoptimized className="w-full h-full object-cover" /> : <span className="text-sm font-semibold text-primary">{u.name?.charAt(0)?.toUpperCase() || "?"}</span>}
                             </div>
                             <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${getActivityStatus(u.last_active_at).dot}`} title={getActivityStatus(u.last_active_at).label} />
                           </div>

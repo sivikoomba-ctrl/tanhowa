@@ -56,7 +56,6 @@ export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
@@ -239,7 +238,6 @@ export default function SubscriptionsPage() {
 
   async function viewProof(sub: Subscription) {
     if (!sub.payment_proof_url) return;
-    setPreviewLoading(true);
     try {
       const res = await fetch("/api/upload/payment-proof/signed-url", {
         method: "POST",
@@ -255,7 +253,6 @@ export default function SubscriptionsPage() {
     } catch {
       toast.error("Failed to load proof");
     }
-    setPreviewLoading(false);
   }
 
   function openEditDetails(sub: Subscription) {
@@ -280,7 +277,10 @@ export default function SubscriptionsPage() {
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
               {member?.avatar_url ? (
-                <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
+                </>
               ) : (
                 <User className="w-6 h-6 text-primary" />
               )}
@@ -325,6 +325,7 @@ export default function SubscriptionsPage() {
             >
               {qrUrl ? (
                 <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={qrUrl} alt="Payment QR Code" className="w-full h-full object-contain p-1" />
                   <p className="text-[10px] text-primary/60 -mt-5 mb-1">Tap to enlarge</p>
                 </>
@@ -494,7 +495,10 @@ export default function SubscriptionsPage() {
           </DialogHeader>
           {previewUrl && (
             <div className="rounded-xl overflow-hidden border">
-              <img src={previewUrl} alt="Payment proof" className="w-full" />
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={previewUrl} alt="Payment proof" className="w-full" />
+              </>
             </div>
           )}
         </DialogContent>
@@ -508,6 +512,7 @@ export default function SubscriptionsPage() {
           </DialogHeader>
           {qrUrl && (
             <div className="bg-white rounded-xl p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qrUrl} alt="Payment QR Code" className="w-full h-auto" />
             </div>
           )}
@@ -529,6 +534,7 @@ export default function SubscriptionsPage() {
               </p>
               {detailsSub.payment_proof_url && (
                 <div className="rounded-lg overflow-hidden border max-h-40">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={detailsSub.payment_proof_url} alt="Proof" className="w-full object-contain max-h-40" />
                 </div>
               )}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 /**

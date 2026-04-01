@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { AlertTriangle, Trash2, ChevronLeft, ChevronRight, RefreshCw, CheckCircle2, Clock } from "lucide-react";
+import { AlertTriangle, Trash2, ChevronLeft, ChevronRight, RefreshCw, CheckCircle2 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 
 const typeColors: Record<string, string> = {

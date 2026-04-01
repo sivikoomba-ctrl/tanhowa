@@ -105,6 +105,10 @@ export async function GET(req: NextRequest) {
     }
 
     if (me !== "true") {
+      if (!admin) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
       // Admin: leaderboard — aggregate by user
       let query = supabase
         .from("contributions")

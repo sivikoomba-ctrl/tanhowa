@@ -170,6 +170,7 @@ export default function TeamsPage() {
           </button>
           {viewPhoto && (
             <div className="flex flex-col items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={viewPhoto.url} alt={viewPhoto.name} className="w-full max-h-[70vh] object-contain bg-black/5" />
               <p className="py-3 text-sm font-semibold text-center uppercase">{viewPhoto.name}</p>
             </div>

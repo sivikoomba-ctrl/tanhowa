@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Megaphone, Plus, Clock, User } from "lucide-react";
+import { Megaphone, Plus, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/utils";
 import { EmptyState } from "@/components/empty-state";
 
 interface Announcement {
