@@ -16,7 +16,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 | React | React with `"use client"` directives | 19.2.x |
 | Database | Supabase (PostgreSQL) + direct `postgres` package | SDK 2.98.x / 3.4.x |
 | Auth | Custom JWT sessions via `jose` (no Supabase Auth) | 6.1.x |
-| Email | Zoho Mail SMTP via `nodemailer` | 8.0.x |
+| Email | ZeptoMail API (Zoho transactional email) | REST API |
 | AI Chatbot | Google Gemini API (`gemini-2.5-flash`) | 0.24.x |
 | UI Components | shadcn/ui (new-york style) + Radix UI primitives | — |
 | CSS | Tailwind CSS v4 + `tw-animate-css` | 4.x |
@@ -136,10 +136,8 @@ NEXT_PUBLIC_SUPABASE_URL=       # Supabase project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=  # Supabase anonymous/public key
 SUPABASE_SERVICE_ROLE_KEY=      # Supabase service role key (server-only, never expose)
 JWT_SECRET=                     # Random secret for signing JWT tokens
-ZOHO_SMTP_HOST=                 # smtp.zoho.in
-ZOHO_SMTP_PORT=                 # 465
-ZOHO_SMTP_USER=                 # admin@tanhowa.in
-ZOHO_SMTP_PASS=                 # Zoho app password
+ZEPTOMAIL_TOKEN=                # ZeptoMail Send Mail Token (from ZeptoMail Agent → SMTP/API tab)
+ZEPTOMAIL_FROM_EMAIL=           # Sender email (default: tanhowaadmin@tanhowa.in)
 GOOGLE_GEMINI_API_KEY=          # Google Generative AI API key
 GOOGLE_CLIENT_ID=               # Google OAuth client ID (from Google Cloud Console)
 GOOGLE_CLIENT_SECRET=           # Google OAuth client secret
@@ -207,6 +205,8 @@ Tests live in `lib/__tests__/`. Mocks for `next/headers` and `@/lib/supabase` ar
 
 ## Email System (`lib/mail.ts`)
 
+Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP, no nodemailer dependency. All emails go through `sendZeptoMail()` which calls `https://api.zeptomail.com/v1.1/email` with the `ZEPTOMAIL_TOKEN` env var.
+
 - `sendOTPEmail(to, otp)` — OTP delivery
 - `sendSubscriptionApprovedEmail(to, memberName, period, amount)` — Payment approval confirmation
 - `sendSubscriptionNotification(to, memberName, period, amount, message)` — Custom admin→member notification
@@ -215,7 +215,7 @@ Tests live in `lib/__tests__/`. Mocks for `next/headers` and `@/lib/supabase` ar
 - `notifyPaymentVerified(memberName, period)` — Broadcast payment verification
 - `notifyNewMemberRegistered(memberName)` — Broadcast new member welcome
 - `notifyNewEvent(title, date, location?)` — Broadcast event notification
-- `sendBroadcastEmail(subject, bodyHtml)` — Generic broadcast (BCC batched at 40 recipients per email for Zoho limits)
+- `sendBroadcastEmail(subject, bodyHtml)` — Generic broadcast (BCC batched at 40 recipients per email)
 
 **Flag:** `HOLD_MEMBER_EMAILS = true` disables all member-facing emails except OTP.
 
