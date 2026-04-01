@@ -27,6 +27,7 @@ import {
   Vote,
   Award,
   Bell,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,7 @@ const navItems = [
   { href: "/dashboard/grievances", label: "Grievances", icon: MessageSquareWarning },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/dashboard/vouchers", label: "Expense Vouchers", icon: Receipt, officialOnly: true },
+  { href: "/dashboard/verify-payments", label: "Verify Payments", icon: ShieldCheck, officialOnly: true },
   { href: "/dashboard/todos", label: "Task List", icon: ListTodo },
   { href: "/dashboard/contributions", label: "Contributions", icon: Award },
 ];

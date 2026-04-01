@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin, getDbRole } from "@/lib/auth";
+import { getSession, isAdmin, getDbRole, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification } from "@/lib/mail";
@@ -17,13 +17,17 @@ export async function GET(req: NextRequest) {
     const period = url.searchParams.get("period");
     const status = url.searchParams.get("status");
 
-    const dbRole = await getDbRole(session.userId);
+    const officialGet = await getOfficialInfo(session.userId);
+    const isAdminGet = officialGet.role === "admin" || officialGet.role === "super_admin";
+    const isDistrictOfficialGet = officialGet.official_type === "district" && !!officialGet.district;
+    const isStateOfficialGet = officialGet.official_type === "state";
     const sync = url.searchParams.get("sync");
     const me = url.searchParams.get("me");
+    const districtFilter = url.searchParams.get("district");
 
-    if (dbRole === "admin" && me !== "true") {
-      // Auto-sync only when explicitly requested (not on every page load)
-      if (sync === "true") {
+    if ((isAdminGet || isDistrictOfficialGet || isStateOfficialGet) && me !== "true") {
+      // Auto-sync only when explicitly requested (admin only)
+      if (sync === "true" && isAdminGet) {
         try {
           const [{ data: allMembers }, { data: allSubs }] = await Promise.all([
             supabase.from("users").select("id").eq("status", "approved").neq("role", "super_admin"),
@@ -292,8 +296,14 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const supabase = getServiceClient();
 
-    const putRole = await getDbRole(session.userId);
-    if (putRole !== "admin") {
+    const officialInfo = await getOfficialInfo(session.userId);
+    const isAdminRole = officialInfo.role === "admin" || officialInfo.role === "super_admin";
+    const isDistrictOfficial = officialInfo.official_type === "district" && !!officialInfo.district;
+    const isStateOfficial = officialInfo.official_type === "state";
+    const canVerify = isAdminRole || isDistrictOfficial || isStateOfficial;
+
+    if (!canVerify) {
+      // Regular member — can only update own subscription (payment proof, method, etc.)
       const { data: sub } = await supabase
         .from("subscriptions")
         .select("user_id")
@@ -337,6 +347,23 @@ export async function PUT(req: NextRequest) {
       }
 
       return NextResponse.json({ message: "Updated" });
+    }
+
+    // District official: verify they can only approve members in their district
+    if (isDistrictOfficial && !isAdminRole && body.status) {
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("user_id, users!subscriptions_user_id_fkey(posting_details)")
+        .eq("id", body.id)
+        .single();
+
+      if (sub) {
+        const memberPd = (sub.users as unknown as { posting_details: { regular_district?: string } | null })?.posting_details;
+        const memberDistrict = memberPd?.regular_district || "";
+        if (memberDistrict !== officialInfo.district) {
+          return NextResponse.json({ error: "You can only verify payments for members in your district" }, { status: 403 });
+        }
+      }
     }
 
     const updates: Record<string, string | number | null> = { updated_at: new Date().toISOString() };

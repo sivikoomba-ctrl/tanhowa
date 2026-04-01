@@ -282,6 +282,48 @@ export async function sendSubscriptionNotification(to: string, memberName: strin
   `));
 }
 
+export async function sendVoucherStatusEmail(to: string, officialName: string, title: string, amount: number, status: "approved" | "rejected", remarks?: string) {
+  if (HOLD_MEMBER_EMAILS) return;
+  const isApproved = status === "approved";
+  const statusColor = isApproved ? "#16a34a" : "#dc2626";
+  const statusLabel = isApproved ? "Approved" : "Rejected";
+  const bgColor = isApproved ? "#f0fdf4" : "#fef2f2";
+  const remarksHtml = remarks ? `
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      <strong>Admin Remarks:</strong> ${remarks}
+    </p>` : "";
+
+  await sendEmail(to, `Expense Voucher ${statusLabel}: ${title}`, wrapEmailTemplate(`
+    <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Expense Voucher ${statusLabel}</h2>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      Dear <strong>${officialName}</strong>,
+    </p>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      Your expense voucher has been <strong style="color: ${statusColor}">${statusLabel.toLowerCase()}</strong> by the admin.
+    </p>
+    <div style="background: ${bgColor}; border-radius: 8px; padding: 16px; margin: 0 0 16px;">
+      <table style="width: 100%; font-size: 14px; color: #333;">
+        <tr>
+          <td style="padding: 4px 0; color: #666;">Expense</td>
+          <td style="padding: 4px 0; font-weight: 600; text-align: right;">${title}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #666;">Amount</td>
+          <td style="padding: 4px 0; font-weight: 600; text-align: right;">&#8377;${amount.toLocaleString("en-IN")}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #666;">Status</td>
+          <td style="padding: 4px 0; font-weight: 600; text-align: right; color: ${statusColor};">${statusLabel}</td>
+        </tr>
+      </table>
+    </div>
+    ${remarksHtml}
+    <div style="text-align: center;">
+      <a href="https://tanhowa.in/dashboard/vouchers" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">View My Vouchers</a>
+    </div>
+  `));
+}
+
 export async function sendOTPEmail(to: string, otp: string) {
   await sendEmail(to, "Your TANHOWA Login Code", `
     <div style="font-family: 'Poppins', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #fefae0; border-radius: 12px;">

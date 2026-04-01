@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, isAdminOrOfficial, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { sendVoucherStatusEmail } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
   try {
@@ -102,7 +103,10 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    if (!body.id) {
+
+    // Support bulk operations: ids[] array OR single id
+    const ids: string[] = body.ids || (body.id ? [body.id] : []);
+    if (ids.length === 0) {
       return NextResponse.json({ error: "Voucher ID is required" }, { status: 400 });
     }
 
@@ -132,7 +136,7 @@ export async function PUT(req: NextRequest) {
       if (body.receipt_url !== undefined) updates.receipt_url = body.receipt_url;
     }
 
-    let query = supabase.from("expense_vouchers").update(updates).eq("id", body.id);
+    let query = supabase.from("expense_vouchers").update(updates).in("id", ids);
     if (!admin) {
       query = query.eq("submitted_by", session.userId).eq("status", "pending");
     }
@@ -144,7 +148,25 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Failed to update voucher" }, { status: 500 });
     }
 
-    return NextResponse.json({ message: "Updated" });
+    // Send email notifications for status changes (fire-and-forget)
+    if (admin && body.status && (body.status === "approved" || body.status === "rejected")) {
+      (async () => {
+        try {
+          const { data: updatedVouchers } = await supabase
+            .from("expense_vouchers")
+            .select("title, amount, remarks, submitter:submitted_by(name, email)")
+            .in("id", ids);
+          for (const v of updatedVouchers || []) {
+            const sub = v.submitter as unknown as { name: string; email: string } | null;
+            if (sub?.email) {
+              sendVoucherStatusEmail(sub.email, sub.name, v.title, v.amount, body.status, v.remarks || body.remarks || "").catch(() => {});
+            }
+          }
+        } catch { /* silent */ }
+      })();
+    }
+
+    return NextResponse.json({ message: "Updated", count: ids.length });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/vouchers", method: "PUT", status_code: 500 });

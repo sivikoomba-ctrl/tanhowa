@@ -39,6 +39,10 @@ import {
   IndianRupee,
   Pencil,
   Hourglass,
+  Copy,
+  CheckSquare,
+  Square,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -171,6 +175,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
   pending: { label: "Pending", color: "bg-amber-100 text-amber-800", icon: Clock },
   approved: { label: "Approved", color: "bg-blue-100 text-blue-800", icon: CheckCircle2 },
   in_progress: { label: "In Progress", color: "bg-indigo-100 text-indigo-800", icon: Zap },
+  review: { label: "Under Review", color: "bg-purple-100 text-purple-800", icon: Clock },
   completed: { label: "Completed", color: "bg-green-100 text-green-800", icon: CheckCircle2 },
   rejected: { label: "Rejected", color: "bg-red-100 text-red-800", icon: XCircle },
 };
@@ -198,6 +203,10 @@ export default function AdminTodosPage() {
   const [editDueDate, setEditDueDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   // Task detail view
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
@@ -385,6 +394,54 @@ export default function AdminTodosPage() {
     }
   }
 
+  function toggleSelectTask(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkStatus(status: string) {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!confirm(`Set ${ids.length} task(s) to "${status}"?`)) return;
+
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/todos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "bulk_status", ids, status }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success(`${ids.length} task(s) updated to ${status}`);
+      setSelectedIds(new Set());
+      fetchData();
+    } catch {
+      toast.error("Bulk update failed");
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  async function handleClone(id: string) {
+    try {
+      const res = await fetch("/api/todos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "clone" }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      toast.success(`Task cloned as ${data.todo.event_id}`);
+      fetchData();
+    } catch {
+      toast.error("Failed to clone task");
+    }
+  }
+
   async function quickAction(todo: Todo, status: string) {
     try {
       const res = await fetch("/api/todos", {
@@ -530,6 +587,7 @@ export default function AdminTodosPage() {
     { key: "pending", label: "Pending" },
     { key: "approved", label: "Approved" },
     { key: "in_progress", label: "In Progress" },
+    { key: "review", label: "Review" },
     { key: "completed", label: "Completed" },
     { key: "rejected", label: "Rejected" },
   ];
@@ -573,10 +631,25 @@ export default function AdminTodosPage() {
               variant="ghost"
               size="sm"
               className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
+              onClick={(e) => { e.stopPropagation(); handleClone(todo.id); }}
+              title="Clone task"
+            >
+              <Copy size={12} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
               onClick={(e) => { e.stopPropagation(); openEdit(todo); }}
             >
               <Pencil size={12} />
             </Button>
+            <button
+              className="text-muted-foreground hover:text-primary"
+              onClick={(e) => { e.stopPropagation(); toggleSelectTask(todo.id); }}
+            >
+              {selectedIds.has(todo.id) ? <CheckSquare size={14} className="text-primary" /> : <Square size={14} />}
+            </button>
             <Badge variant="outline" className={`text-[10px] ${sc.color}`}>{sc.label}</Badge>
           </div>
         </div>

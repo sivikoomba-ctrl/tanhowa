@@ -34,6 +34,9 @@ import {
   Timer,
   IndianRupee,
   Hourglass,
+  Search,
+  Copy,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -156,6 +159,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
   pending: { label: "Pending", color: "bg-amber-100 text-amber-800 border-amber-200", icon: Clock },
   approved: { label: "Approved", color: "bg-blue-100 text-blue-800 border-blue-200", icon: CheckCircle2 },
   in_progress: { label: "In Progress", color: "bg-indigo-100 text-indigo-800 border-indigo-200", icon: Zap },
+  review: { label: "Under Review", color: "bg-purple-100 text-purple-800 border-purple-200", icon: Clock },
   completed: { label: "Completed", color: "bg-green-100 text-green-800 border-green-200", icon: CheckCircle2 },
   rejected: { label: "Rejected", color: "bg-red-100 text-red-800 border-red-200", icon: XCircle },
 };
@@ -183,6 +187,7 @@ export default function TodosPage() {
   const [formDueDate, setFormDueDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Task detail view
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
@@ -447,11 +452,13 @@ export default function TodosPage() {
     { key: "pending", label: "Pending" },
     { key: "approved", label: "Approved" },
     { key: "in_progress", label: "In Progress" },
+    { key: "review", label: "Under Review" },
     { key: "completed", label: "Completed" },
     { key: "rejected", label: "Rejected" },
   ];
 
-  const filtered = activeTab === "all" ? todos : todos.filter((t) => t.status === activeTab);
+  const filtered = (activeTab === "all" ? todos : todos.filter((t) => t.status === activeTab))
+    .filter((t) => !searchQuery || t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.event_id.toLowerCase().includes(searchQuery.toLowerCase()));
 
   if (loading) {
     return (
@@ -610,6 +617,40 @@ export default function TodosPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Request Completion Review */}
+            {selectedTodo.status === "in_progress" && selectedTodo.committed_by && (
+              <Button
+                variant="outline"
+                className="gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                onClick={async () => {
+                  const res = await fetch("/api/todos", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: selectedTodo.id, action: "request_review" }),
+                  });
+                  if (res.ok) {
+                    toast.success("Completion review requested — admin will be notified");
+                    setSelectedTodo({ ...selectedTodo, status: "review" });
+                    fetchTodos();
+                  } else {
+                    const data = await res.json();
+                    toast.error(data.error || "Failed to request review");
+                  }
+                }}
+              >
+                <Eye size={16} />
+                Request Completion Review
+              </Button>
+            )}
+
+            {selectedTodo.status === "review" && (
+              <div className="rounded-lg bg-purple-50 border border-purple-200 p-3">
+                <p className="text-sm text-purple-700 font-medium flex items-center gap-2">
+                  <Clock size={14} /> Awaiting admin review for completion
+                </p>
               </div>
             )}
 
@@ -1060,10 +1101,22 @@ export default function TodosPage() {
         </Button>
       </div>
 
+      {/* Search */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search tasks by title or event ID..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       {/* Status Tabs */}
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => {
           const count = tab.key === "all" ? todos.length : todos.filter((t) => t.status === tab.key).length;
+          if (count === 0 && tab.key !== "all") return null;
           return (
             <button
               key={tab.key}

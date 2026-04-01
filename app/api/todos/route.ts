@@ -315,6 +315,51 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: "Committed" });
     }
 
+    // Handle request_review: member requests task completion review
+    if (body.action === "request_review") {
+      const { data: task } = await supabase
+        .from("todos")
+        .select("id, status, committed_by, submitted_by, title, event_id")
+        .eq("id", body.id)
+        .single();
+
+      if (!task) {
+        return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      }
+
+      if (task.status !== "in_progress") {
+        return NextResponse.json({ error: "Only in-progress tasks can be submitted for review" }, { status: 400 });
+      }
+
+      const { error: reviewError } = await supabase.from("todos").update({
+        status: "review",
+        updated_at: new Date().toISOString(),
+      }).eq("id", body.id);
+
+      if (reviewError) {
+        await logError({ type: "api", message: reviewError.message, path: "/api/todos", method: "PUT", status_code: 500 });
+        return NextResponse.json({ error: "Failed to request review" }, { status: 500 });
+      }
+
+      logContribution(session.userId, "task_updated", "Requested completion review for: " + task.title);
+
+      // Fire-and-forget: notify admins
+      (async () => {
+        try {
+          const { data: admins } = await supabase
+            .from("users")
+            .select("telegram_chat_id")
+            .in("role", ["admin", "super_admin"])
+            .not("telegram_chat_id", "is", null);
+          for (const admin of admins || []) {
+            notifyTaskStatusChanged(admin.telegram_chat_id, task.title, task.event_id, "review").catch(() => {});
+          }
+        } catch { /* silent */ }
+      })();
+
+      return NextResponse.json({ message: "Review requested" });
+    }
+
     // Handle release commitment (admin only)
     if (body.action === "release_commitment") {
       if (dbRole !== "admin") {
@@ -333,6 +378,101 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ error: "Failed to release" }, { status: 500 });
       }
       return NextResponse.json({ message: "Commitment released" });
+    }
+
+    // Handle bulk status update (admin only)
+    if (body.action === "bulk_status" && body.ids && Array.isArray(body.ids)) {
+      if (dbRole !== "admin") {
+        return NextResponse.json({ error: "Only admins can bulk update" }, { status: 403 });
+      }
+      const bulkUpdates: Record<string, unknown> = {
+        status: body.status,
+        updated_at: new Date().toISOString(),
+      };
+      if (body.status === "approved" || body.status === "in_progress") {
+        bulkUpdates.approved_by = session.userId;
+        bulkUpdates.approved_at = new Date().toISOString();
+      }
+      if (body.status === "completed") {
+        bulkUpdates.completed_at = new Date().toISOString();
+      }
+      const { error: bulkError } = await supabase.from("todos").update(bulkUpdates).in("id", body.ids);
+      if (bulkError) {
+        await logError({ type: "api", message: bulkError.message, path: "/api/todos", method: "PUT", status_code: 500 });
+        return NextResponse.json({ error: "Bulk update failed" }, { status: 500 });
+      }
+      logContribution(session.userId, "task_updated", `Bulk updated ${body.ids.length} tasks → ${body.status}`);
+      return NextResponse.json({ message: "Bulk updated", count: body.ids.length });
+    }
+
+    // Handle clone action
+    if (body.action === "clone") {
+      const { data: original } = await supabase
+        .from("todos")
+        .select("*")
+        .eq("id", body.id)
+        .single();
+      if (!original) {
+        return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      }
+
+      // Generate new event_id
+      const { data: allTasks } = await supabase
+        .from("todos")
+        .select("event_id")
+        .like("event_id", "ET-%");
+      let maxNum = 0;
+      for (const t of allTasks || []) {
+        const match = t.event_id?.match(/^ET-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      const newEventId = `ET-${String(maxNum + 1).padStart(3, "0")}`;
+
+      const { data: cloned, error: cloneError } = await supabase
+        .from("todos")
+        .insert({
+          title: original.title + " (Copy)",
+          description: original.description || "",
+          submitted_by: session.userId,
+          due_date: original.due_date,
+          urgent: original.urgent,
+          important: original.important,
+          event_id: newEventId,
+        })
+        .select()
+        .single();
+
+      if (cloneError) {
+        await logError({ type: "api", message: cloneError.message, path: "/api/todos", method: "PUT", status_code: 500 });
+        return NextResponse.json({ error: "Clone failed" }, { status: 500 });
+      }
+
+      // Clone subtasks if any
+      const { data: childTasks } = await supabase
+        .from("todos")
+        .select("*")
+        .eq("parent_id", body.id);
+
+      if (childTasks && childTasks.length > 0) {
+        for (let i = 0; i < childTasks.length; i++) {
+          const child = childTasks[i];
+          const childEventId = `${newEventId}-${String(i + 1).padStart(2, "0")}`;
+          await supabase.from("todos").insert({
+            title: child.title,
+            description: child.description || "",
+            submitted_by: session.userId,
+            due_date: child.due_date,
+            parent_id: cloned.id,
+            event_id: childEventId,
+          });
+        }
+      }
+
+      logContribution(session.userId, "task_created", "Cloned task: " + original.title);
+      return NextResponse.json({ todo: cloned });
     }
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };

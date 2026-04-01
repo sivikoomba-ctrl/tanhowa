@@ -79,6 +79,26 @@ export async function getOfficialType(userId: string): Promise<string | null> {
 }
 
 /**
+ * Get the user's official details: type, role, and district.
+ * Used for district-level authorization (e.g., subscription verification).
+ */
+export async function getOfficialInfo(userId: string): Promise<{ role: string; official_type: string | null; district: string | null }> {
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("users")
+    .select("role, official_type, posting_details")
+    .eq("id", userId)
+    .single();
+  if (!data) return { role: "member", official_type: null, district: null };
+  const pd = data.posting_details as { regular_district?: string } | null;
+  return {
+    role: data.role || "member",
+    official_type: data.official_type || null,
+    district: pd?.regular_district || null,
+  };
+}
+
+/**
  * Check if the user is a state or district official (or admin/super_admin).
  * Used for features shared between admins and officials.
  */

@@ -11,10 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload } from "lucide-react";
+import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 const expenseCategories = ["Travel", "Printing", "Food & Refreshments", "Stationery", "Communication", "Venue & Hall", "Transport", "Miscellaneous"];
+const HIGH_AMOUNT_THRESHOLD = 10000;
 
 interface Voucher {
   id: string;
@@ -55,12 +56,17 @@ export default function AdminVouchersPage() {
   const [creating, setCreating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Bulk selection
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+
   // Officials list for "on behalf of"
   const [officials, setOfficials] = useState<{ id: string; name: string; email: string; official_type: string }[]>([]);
   const [selectedOfficial, setSelectedOfficial] = useState("");
 
   function load() {
     setLoading(true);
+    setSelected(new Set());
     fetch("/api/vouchers?status=" + tab)
       .then((r) => r.json())
       .then((d) => setVouchers(d.vouchers || []))
@@ -168,6 +174,49 @@ export default function AdminVouchersPage() {
     }
   }
 
+  // Bulk selection helpers
+  const pendingVouchers = vouchers.filter((v) => v.status === "pending");
+  const selectableIds = pendingVouchers.map((v) => v.id);
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+  const someSelected = selectableIds.some((id) => selected.has(id));
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(selectableIds));
+    }
+  }
+
+  async function handleBulkAction(status: "approved" | "rejected") {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    if (!confirm(`${status === "approved" ? "Approve" : "Reject"} ${ids.length} voucher(s)?`)) return;
+
+    setBulkLoading(true);
+    const res = await fetch("/api/vouchers", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, status }),
+    });
+    if (res.ok) {
+      toast.success(`${ids.length} voucher(s) ${status}`);
+      load();
+    } else {
+      toast.error("Bulk action failed");
+    }
+    setBulkLoading(false);
+  }
+
   const totalPending = vouchers.filter((v) => v.status === "pending").reduce((sum, v) => sum + (v.amount || 0), 0);
 
   return (
@@ -216,6 +265,11 @@ export default function AdminVouchersPage() {
                 <div>
                   <Label>Amount (&#8377;) *</Label>
                   <Input type="number" value={createForm.amount} onChange={(e) => setCreateForm({ ...createForm, amount: e.target.value })} placeholder="0" required />
+                  {parseFloat(createForm.amount) > HIGH_AMOUNT_THRESHOLD && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                      <AlertTriangle size={12} /> High amount — ensure receipt is attached
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label>Category</Label>
@@ -291,7 +345,27 @@ export default function AdminVouchersPage() {
               {tab === "pending" && totalPending > 0 && (
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-sm text-muted-foreground">Pending approval total: <span className="font-bold text-foreground">&#8377;{totalPending.toLocaleString("en-IN")}</span></p>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <button onClick={toggleSelectAll} className="text-primary hover:text-primary/80 shrink-0" title={allSelected ? "Deselect all" : "Select all pending"}>
+                          {allSelected ? <CheckSquare size={18} /> : someSelected ? <MinusSquare size={18} /> : <Square size={18} />}
+                        </button>
+                        <p className="text-sm text-muted-foreground">
+                          Pending approval total: <span className="font-bold text-foreground">&#8377;{totalPending.toLocaleString("en-IN")}</span>
+                          {selected.size > 0 && <span className="ml-2 text-primary font-medium">({selected.size} selected)</span>}
+                        </p>
+                      </div>
+                      {selected.size > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" disabled={bulkLoading} onClick={() => handleBulkAction("approved")}>
+                            <CheckCircle2 size={12} className="mr-1" /> Approve ({selected.size})
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50" disabled={bulkLoading} onClick={() => handleBulkAction("rejected")}>
+                            <XCircle size={12} className="mr-1" /> Reject ({selected.size})
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -303,6 +377,11 @@ export default function AdminVouchersPage() {
                       <div className="flex flex-col gap-3">
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                           <div className="flex items-start gap-3 flex-1">
+                            {v.status === "pending" && (
+                              <button onClick={() => toggleSelect(v.id)} className="mt-2.5 text-primary hover:text-primary/80 shrink-0">
+                                {selected.has(v.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                              </button>
+                            )}
                             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                               <Receipt className="w-5 h-5 text-primary" />
                             </div>
@@ -322,6 +401,14 @@ export default function AdminVouchersPage() {
                                   <IndianRupee size={12} />
                                   {v.amount?.toLocaleString("en-IN") || 0}
                                 </span>
+                                {v.amount > HIGH_AMOUNT_THRESHOLD && (
+                                  <span className="text-xs text-amber-600 flex items-center gap-0.5" title={`Amount exceeds ₹${HIGH_AMOUNT_THRESHOLD.toLocaleString("en-IN")} threshold`}>
+                                    <AlertTriangle size={12} /> High
+                                  </span>
+                                )}
+                                {v.amount > HIGH_AMOUNT_THRESHOLD && !v.receipt_url && v.status === "pending" && (
+                                  <span className="text-xs text-red-600 flex items-center gap-0.5">No receipt</span>
+                                )}
                                 {v.invoice_number && <span className="text-xs text-muted-foreground">Invoice: {v.invoice_number}</span>}
                                 {v.vendor_name && <span className="text-xs text-muted-foreground">Vendor: {v.vendor_name}</span>}
                               </div>
@@ -380,13 +467,24 @@ export default function AdminVouchersPage() {
 
       {/* Receipt Preview Dialog */}
       <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Receipt</DialogTitle>
           </DialogHeader>
           {previewUrl && (
             <div className="rounded-xl overflow-hidden border">
-              <img src={previewUrl} alt="Receipt" className="w-full" />
+              {previewUrl.toLowerCase().endsWith(".pdf") ? (
+                <iframe src={previewUrl} className="w-full h-[70vh]" title="Receipt PDF" />
+              ) : (
+                <img src={previewUrl} alt="Receipt" className="w-full" />
+              )}
+            </div>
+          )}
+          {previewUrl && (
+            <div className="flex justify-end">
+              <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                Open in new tab
+              </a>
             </div>
           )}
         </DialogContent>
