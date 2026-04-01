@@ -22,7 +22,8 @@ export type ContributionAction =
   | "voucher_approved"
   | "voucher_rejected"
   | "profile_updated"
-  | "expense_voucher_submitted";
+  | "expense_voucher_submitted"
+  | "member_profile_edited";
 
 const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number }> = {
   payment_proof_uploaded:  { label: "Uploaded payment proof", minutes: 5 },
@@ -47,6 +48,7 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   voucher_rejected:        { label: "Rejected voucher", minutes: 3 },
   profile_updated:         { label: "Updated profile", minutes: 3 },
   expense_voucher_submitted: { label: "Submitted expense voucher", minutes: 5 },
+  member_profile_edited:    { label: "Edited member profile", minutes: 3 },
 };
 
 export function getActionConfig(action: ContributionAction) {

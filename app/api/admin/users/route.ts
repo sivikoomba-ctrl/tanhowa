@@ -92,6 +92,22 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ error: "Invalid official type" }, { status: 400 });
       }
       await supabase.from("users").update({ official_type: officialType }).eq("id", userId);
+    } else if (action === "edit-profile") {
+      const updates: Record<string, unknown> = {};
+      if (body.name !== undefined) updates.name = body.name;
+      if (body.phone !== undefined) updates.phone = body.phone;
+      if (body.occupation !== undefined) updates.occupation = body.occupation;
+      if (body.address !== undefined) updates.address = body.address;
+      if (body.office_address !== undefined) updates.office_address = body.office_address;
+      if (body.posting_details !== undefined) updates.posting_details = body.posting_details;
+      if (body.social_links !== undefined) updates.social_links = body.social_links;
+
+      if (Object.keys(updates).length === 0) {
+        return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+      }
+
+      await supabase.from("users").update(updates).eq("id", userId);
+      logContribution(session.userId, "member_profile_edited", "Edited profile for user: " + userId);
     } else if (action === "nudge") {
       const { fields, message } = body;
       if (!fields || !Array.isArray(fields) || fields.length === 0) {

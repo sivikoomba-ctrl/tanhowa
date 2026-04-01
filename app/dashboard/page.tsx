@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Megaphone, Calendar, FileText, UserCheck,
   Wallet, ListTodo, Award, Lightbulb, IndianRupee,
-  ArrowRight,
+  ArrowRight, Trophy,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -44,6 +44,7 @@ export default function DashboardHome() {
   const [adminContacts, setAdminContacts] = useState<{ id: string; name: string; email: string; phone: string; photo_url: string; occupation: string }[]>([]);
   const [mySubscriptions, setMySubscriptions] = useState<MySubscription[]>([]);
   const [myContributions, setMyContributions] = useState({ count: 0, minutes: 0 });
+  const [topContributors, setTopContributors] = useState<{ name: string; action_count: number; total_minutes: number }[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
@@ -76,6 +77,11 @@ export default function DashboardHome() {
       })
       .catch(() => setErrors((e) => ({ ...e, contributions: true })))
       .finally(() => setLoaded(true));
+
+    // Fetch top contributors this month (leaderboard)
+    fetch("/api/contributions?period=month").then((r) => r.json())
+      .then((d) => setTopContributors((d.leaderboard || []).slice(0, 5)))
+      .catch(() => {});
   }
 
   useEffect(() => { loadData(); }, []);
@@ -127,6 +133,30 @@ export default function DashboardHome() {
           </Link>
         ))}
       </div>
+
+      {/* Top Contributors This Month */}
+      {topContributors.length > 0 && (
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Trophy size={14} className="text-amber-500" /> Top Contributors This Month
+              </h3>
+              <Link href="/dashboard/contributions" className="text-xs text-primary hover:underline flex items-center gap-1">
+                View All <ArrowRight size={12} />
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {topContributors.map((c, i) => (
+                <Badge key={c.name} variant="outline" className={`text-xs py-1 px-2.5 ${i === 0 ? "bg-amber-50 text-amber-800 border-amber-300" : i === 1 ? "bg-gray-50 text-gray-700 border-gray-300" : i === 2 ? "bg-orange-50 text-orange-700 border-orange-300" : ""}`}>
+                  {i < 3 && <span className="mr-1">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>}
+                  {c.name} <span className="ml-1 text-muted-foreground">({c.action_count})</span>
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Announcements + Upcoming Events */}
       <div className="grid md:grid-cols-2 gap-4">

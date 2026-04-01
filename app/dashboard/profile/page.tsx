@@ -323,7 +323,6 @@ export default function ProfilePage() {
                         {titleOptions.filter(Boolean).map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <p className="text-[10px] text-muted-foreground mt-1">PhD holders only</p>
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">First Name *</Label>

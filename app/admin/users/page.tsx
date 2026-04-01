@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter, Send, Clock, Crown, Building2 } from "lucide-react";
+import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter, Send, Clock, Crown, Building2, Pencil } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
 
@@ -70,6 +70,9 @@ export default function AdminUsersPage() {
   const [nudgeUserId, setNudgeUserId] = useState<string | null>(null);
   const [nudgeFields, setNudgeFields] = useState<string[]>([]);
   const [nudgeMessage, setNudgeMessage] = useState("");
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", phone: "", occupation: "", address: "", office_address: "", regular_district: "", regular_block: "" });
+  const [editSaving, setEditSaving] = useState(false);
 
   function loadUsers() {
     fetch("/api/users?status=" + (tab === "all" ? "" : tab))
@@ -180,6 +183,50 @@ export default function AdminUsersPage() {
     } else {
       toast.error("Failed to send request");
     }
+  }
+
+  function openEditDialog(u: User) {
+    setEditUser(u);
+    setEditForm({
+      name: u.name || "",
+      phone: u.phone || "",
+      occupation: u.occupation || "",
+      address: u.address || "",
+      office_address: u.office_address || "",
+      regular_district: u.posting_details?.regular_district || "",
+      regular_block: u.posting_details?.regular_block || "",
+    });
+  }
+
+  async function handleEditSave() {
+    if (!editUser) return;
+    setEditSaving(true);
+    const res = await fetch("/api/admin/users", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: editUser.id,
+        action: "edit-profile",
+        name: editForm.name,
+        phone: editForm.phone,
+        occupation: editForm.occupation,
+        address: editForm.address,
+        office_address: editForm.office_address,
+        posting_details: {
+          ...editUser.posting_details,
+          regular_district: editForm.regular_district,
+          regular_block: editForm.regular_block,
+        },
+      }),
+    });
+    if (res.ok) {
+      toast.success("Profile updated");
+      setEditUser(null);
+      loadUsers();
+    } else {
+      toast.error("Failed to update");
+    }
+    setEditSaving(false);
   }
 
   function getActivityStatus(lastActive: string | null): { label: string; color: string; dot: string } {
@@ -499,15 +546,26 @@ export default function AdminUsersPage() {
                                   {u.profile_nudge.message && <p className="text-amber-600 text-xs mt-1">{u.profile_nudge.message}</p>}
                                 </div>
                               )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => { setNudgeUserId(u.id); setNudgeFields([]); setNudgeMessage(""); }}
-                                className="text-amber-700 border-amber-300 hover:bg-amber-50"
-                              >
-                                <Send size={14} className="mr-1" />
-                                {u.profile_nudge ? "Send New Request" : "Request Profile Update"}
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openEditDialog(u)}
+                                  className="text-primary border-primary/30 hover:bg-primary/5"
+                                >
+                                  <Pencil size={14} className="mr-1" />
+                                  Edit Profile
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => { setNudgeUserId(u.id); setNudgeFields([]); setNudgeMessage(""); }}
+                                  className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                                >
+                                  <Send size={14} className="mr-1" />
+                                  {u.profile_nudge ? "Send New Request" : "Request Update"}
+                                </Button>
+                              </div>
                             </div>
                           )}
 
@@ -578,6 +636,58 @@ export default function AdminUsersPage() {
             <Button onClick={handleNudge} disabled={nudgeFields.length === 0} className="w-full bg-primary hover:bg-primary/90">
               <Send size={14} className="mr-2" />
               Send Request
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Member Profile</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm">Name</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">Phone</Label>
+                <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-sm">Designation</Label>
+                <Input value={editForm.occupation} onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">District</Label>
+                <Select value={editForm.regular_district} onValueChange={(v) => setEditForm({ ...editForm, regular_district: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
+                  <SelectContent>
+                    {DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm">Block</Label>
+                <Input value={editForm.regular_block} onChange={(e) => setEditForm({ ...editForm, regular_block: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm">Home Address</Label>
+              <Textarea value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} rows={2} />
+            </div>
+            <div>
+              <Label className="text-sm">Office Address</Label>
+              <Textarea value={editForm.office_address} onChange={(e) => setEditForm({ ...editForm, office_address: e.target.value })} rows={2} />
+            </div>
+            <Button onClick={handleEditSave} disabled={editSaving} className="w-full bg-primary hover:bg-primary/90">
+              <Pencil size={14} className="mr-2" />
+              {editSaving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </DialogContent>

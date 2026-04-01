@@ -26,6 +26,7 @@ interface Official {
 export default function OfficialsPage() {
   const [officials, setOfficials] = useState<Official[]>([]);
   const [tab, setTab] = useState("state");
+  const [zoomPhoto, setZoomPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/users?status=approved")
@@ -95,7 +96,7 @@ export default function OfficialsPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {stateOfficials.map((o) => (
-                <OfficialCard key={o.id} official={o} />
+                <OfficialCard key={o.id} official={o} onPhotoClick={setZoomPhoto} />
               ))}
             </div>
           )}
@@ -115,7 +116,7 @@ export default function OfficialsPage() {
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {members.map((o) => (
-                      <OfficialCard key={o.id} official={o} />
+                      <OfficialCard key={o.id} official={o} onPhotoClick={setZoomPhoto} />
                     ))}
                   </div>
                 </div>
@@ -124,16 +125,23 @@ export default function OfficialsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Photo Zoom */}
+      {zoomPhoto && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer" onClick={() => setZoomPhoto(null)}>
+          <img src={zoomPhoto} alt="Official" className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   );
 }
 
-function OfficialCard({ official: o }: { official: Official }) {
+function OfficialCard({ official: o, onPhotoClick }: { official: Official; onPhotoClick?: (url: string) => void }) {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="pt-5">
         <div className="flex items-start gap-3">
-          <Avatar className="w-14 h-14 border-2 border-primary/20">
+          <Avatar className="w-14 h-14 border-2 border-primary/20 cursor-pointer" onClick={() => o.avatar_url && onPhotoClick?.(o.avatar_url)}>
             {o.avatar_url && <AvatarImage src={o.avatar_url} alt={o.name} />}
             <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
               {o.name?.charAt(0)?.toUpperCase() || "?"}

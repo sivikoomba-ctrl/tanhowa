@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       since = d.toISOString();
     }
 
-    if (admin && me !== "true") {
+    if (me !== "true") {
       // Admin: leaderboard — aggregate by user
       let query = supabase
         .from("contributions")
