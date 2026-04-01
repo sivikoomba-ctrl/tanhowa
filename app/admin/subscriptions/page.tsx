@@ -95,6 +95,8 @@ export default function AdminSubscriptionsPage() {
   // Admin member picker for bulk payments
   const [adminSelectedMembers, setAdminSelectedMembers] = useState<Set<string>>(new Set());
   const [adminMemberSearch, setAdminMemberSearch] = useState("");
+  // Same member, other periods (split payment across years)
+  const [adminSelectedPeriods, setAdminSelectedPeriods] = useState<Set<string>>(new Set());
 
   // Proof preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -400,9 +402,32 @@ export default function AdminSubscriptionsPage() {
       }),
     });
     if (res.ok) {
-      // Also verify admin-selected linked members
+      let extraCount = 0;
+
+      // Also verify same member's other periods (split payment across years)
+      if (adminSelectedPeriods.size > 0) {
+        for (const subId of adminSelectedPeriods) {
+          try {
+            const periodRes = await fetch("/api/subscriptions", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: subId,
+                status: "paid",
+                paid_at: paidAt,
+                payment_proof_url: payDialog.payment_proof_url,
+                transaction_id: payForm.transaction_id || payDialog.transaction_id,
+                payment_method: payForm.payment_method || payDialog.payment_method,
+                remarks: `Split payment — same proof as ${payDialog.period}`,
+              }),
+            });
+            if (periodRes.ok) extraCount++;
+          } catch { /* continue */ }
+        }
+      }
+
+      // Also verify admin-selected linked members (other members, same period)
       if (adminSelectedMembers.size > 0) {
-        let verifiedCount = 0;
         for (const subId of adminSelectedMembers) {
           try {
             const linkedRes = await fetch("/api/subscriptions", {
@@ -419,10 +444,13 @@ export default function AdminSubscriptionsPage() {
                 ...(payDialog.amount ? { amount: payDialog.amount } : {}),
               }),
             });
-            if (linkedRes.ok) verifiedCount++;
+            if (linkedRes.ok) extraCount++;
           } catch { /* continue */ }
         }
-        toast.success(`Payment verified + ${verifiedCount} linked member${verifiedCount > 1 ? "s" : ""}`);
+      }
+
+      if (extraCount > 0) {
+        toast.success(`Payment verified + ${extraCount} additional subscription${extraCount > 1 ? "s" : ""}`);
       } else {
         toast.success("Payment verified and marked as paid");
       }
@@ -430,6 +458,7 @@ export default function AdminSubscriptionsPage() {
       setPayForm({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
       setAdminSelectedMembers(new Set());
       setAdminMemberSearch("");
+      setAdminSelectedPeriods(new Set());
       load();
     } else {
       toast.error("Failed to update");
@@ -1707,6 +1736,65 @@ export default function AdminSubscriptionsPage() {
                     </p>
                   )}
                 </div>
+
+                {/* Same member, other periods (split payment across years) */}
+                {payDialog && (() => {
+                  const sameMemberOtherPeriods = subscriptions.filter(
+                    (s) => s.user_id === payDialog.user_id && s.id !== payDialog.id && (s.status === "pending" || s.status === "overdue")
+                  );
+                  if (sameMemberOtherPeriods.length === 0) return null;
+                  return (
+                    <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <History className="w-4 h-4 text-purple-600" />
+                        <p className="text-xs font-semibold text-purple-800">
+                          Also verify other periods for {payDialog.users?.name || "this member"}
+                          {adminSelectedPeriods.size > 0 && ` (${adminSelectedPeriods.size} selected)`}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        {sameMemberOtherPeriods.map((s) => (
+                          <label
+                            key={s.id}
+                            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-purple-100/50 text-xs ${
+                              adminSelectedPeriods.has(s.id) ? "bg-purple-100" : ""
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={adminSelectedPeriods.has(s.id)}
+                              onChange={() => {
+                                setAdminSelectedPeriods((prev) => {
+                                  const n = new Set(prev);
+                                  if (n.has(s.id)) n.delete(s.id); else n.add(s.id);
+                                  return n;
+                                });
+                              }}
+                              className="rounded"
+                            />
+                            <div className="flex-1 flex items-center justify-between">
+                              <span className="font-semibold">{s.period}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">&#8377;{(s.amount || 0).toLocaleString("en-IN")}</span>
+                                <Badge variant="outline" className="text-[10px] h-5 capitalize">{s.status}</Badge>
+                              </div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      {adminSelectedPeriods.size > 0 && (
+                        <p className="text-[10px] text-purple-700">
+                          Total: &#8377;{(
+                            (payDialog.amount || 0) +
+                            sameMemberOtherPeriods
+                              .filter((s) => adminSelectedPeriods.has(s.id))
+                              .reduce((sum, s) => sum + (s.amount || 0), 0)
+                          ).toLocaleString("en-IN")} ({adminSelectedPeriods.size + 1} periods)
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Admin member picker for bulk payments — always available */}
                 {payDialog && (() => {
