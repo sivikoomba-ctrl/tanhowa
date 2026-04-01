@@ -51,6 +51,7 @@ interface Subscription {
   remarks: string | null;
   approved_by: string | null;
   approved_at: string | null;
+  payment_group_id: string | null;
   created_at: string;
   users?: { name: string; email: string; phone: string };
   approver?: { name: string } | null;
@@ -388,6 +389,10 @@ export default function AdminSubscriptionsPage() {
       paidAt = new Date(`${payForm.payment_date}T${time}:00`).toISOString();
     }
 
+    // Generate a payment_group_id if there are linked members or split periods
+    const hasLinked = adminSelectedMembers.size > 0 || adminSelectedPeriods.size > 0;
+    const groupId = hasLinked ? crypto.randomUUID() : undefined;
+
     const res = await fetch("/api/subscriptions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -399,6 +404,7 @@ export default function AdminSubscriptionsPage() {
         transaction_id: payForm.transaction_id || payDialog.transaction_id,
         payment_method: payForm.payment_method || payDialog.payment_method,
         ...(payForm.amount ? { amount: parseFloat(payForm.amount) } : {}),
+        ...(groupId ? { payment_group_id: groupId } : {}),
       }),
     });
     if (res.ok) {
@@ -419,6 +425,7 @@ export default function AdminSubscriptionsPage() {
                 transaction_id: payForm.transaction_id || payDialog.transaction_id,
                 payment_method: payForm.payment_method || payDialog.payment_method,
                 remarks: `Split payment — same proof as ${payDialog.period}`,
+                ...(groupId ? { payment_group_id: groupId } : {}),
               }),
             });
             if (periodRes.ok) extraCount++;
@@ -442,6 +449,7 @@ export default function AdminSubscriptionsPage() {
                 payment_method: payForm.payment_method || payDialog.payment_method,
                 remarks: `Bulk payment by ${payDialog.users?.name || payDialog.users?.email}`,
                 ...(payDialog.amount ? { amount: payDialog.amount } : {}),
+                ...(groupId ? { payment_group_id: groupId } : {}),
               }),
             });
             if (linkedRes.ok) extraCount++;
@@ -1203,6 +1211,27 @@ export default function AdminSubscriptionsPage() {
                           {sub.approver?.name && <> by <span className="font-medium">{sub.approver.name}</span></>}
                         </p>
                       )}
+                      {sub.payment_group_id && (() => {
+                        const grouped = subscriptions.filter(
+                          (s) => s.payment_group_id === sub.payment_group_id && s.id !== sub.id
+                        );
+                        if (grouped.length === 0) return null;
+                        return (
+                          <div className="mt-2 rounded-lg bg-blue-50 border border-blue-200 p-2">
+                            <p className="text-xs font-medium text-blue-700 mb-1">
+                              Linked Payment ({grouped.length + 1} total)
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {grouped.map((g) => (
+                                <span key={g.id} className="inline-flex items-center gap-1 text-[11px] bg-white border border-blue-200 rounded px-1.5 py-0.5">
+                                  <span className="font-medium">{g.users?.name || "Unknown"}</span>
+                                  <span className="text-muted-foreground">{g.period}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       {hasProof && (

@@ -384,6 +384,7 @@ export async function PUT(req: NextRequest) {
     if (body.transaction_id !== undefined) updates.transaction_id = body.transaction_id;
     if (body.remarks !== undefined) updates.remarks = body.remarks;
     if (body.payment_proof_url !== undefined) updates.payment_proof_url = body.payment_proof_url;
+    if (body.payment_group_id !== undefined) updates.payment_group_id = body.payment_group_id;
 
     const { error } = await supabase
       .from("subscriptions")
