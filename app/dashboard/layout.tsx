@@ -26,8 +26,10 @@ import {
   Crown,
   Vote,
   Award,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -79,6 +81,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showIncomplete, setShowIncomplete] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0 });
   const router = useRouter();
   const pathname = usePathname();
 
@@ -114,6 +118,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       })
       .catch(() => router.push("/"))
       .finally(() => setLoading(false));
+
+    // Fetch notification counts
+    fetch("/api/notifications")
+      .then((r) => r.json())
+      .then((d) => { if (d.total !== undefined) setNotifications(d); })
+      .catch(() => {});
   }, [router]);
 
   async function handleLogout() {
@@ -169,10 +179,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col h-screen sticky top-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
         <div className="p-4 border-b border-sidebar-border">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <Flower2 className="w-7 h-7 text-sidebar-primary" />
-            <span className="text-lg font-bold text-sidebar-foreground">TANHOWA</span>
-          </Link>
+          <div className="flex items-center justify-between">
+            <Link href="/dashboard" className="flex items-center gap-2">
+              <Flower2 className="w-7 h-7 text-sidebar-primary" />
+              <span className="text-lg font-bold text-sidebar-foreground">TANHOWA</span>
+            </Link>
+            <button className="relative p-1.5 rounded-lg hover:bg-sidebar-accent/50 transition-colors" onClick={() => setShowNotifications(true)}>
+              <Bell size={16} className="text-sidebar-foreground/70" />
+              {notifications.total > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-0.5">
+                  {notifications.total > 99 ? "99+" : notifications.total}
+                </span>
+              )}
+            </button>
+          </div>
           {user?.name && (
             <p className="mt-1.5 text-xs text-sidebar-foreground/60 truncate">{user.name}</p>
           )}
@@ -212,12 +232,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Flower2 className="w-6 h-6 text-primary" />
             <span className="font-bold text-primary">TANHOWA</span>
           </Link>
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-              </Button>
-            </SheetTrigger>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="relative" onClick={() => setShowNotifications(true)}>
+              <Bell size={18} />
+              {notifications.total > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">
+                  {notifications.total > 99 ? "99+" : notifications.total}
+                </span>
+              )}
+            </Button>
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+                </Button>
+              </SheetTrigger>
             <SheetContent side="left" className="w-64 bg-sidebar text-sidebar-foreground p-0">
               <div className="p-4 border-b border-sidebar-border">
                 <div className="flex items-center gap-2">
@@ -243,6 +272,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </SheetContent>
           </Sheet>
+          </div>
         </header>
 
         <main className="flex-1 p-6 bg-background overflow-auto relative">
@@ -250,6 +280,74 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="relative z-10">{children}</div>
         </main>
       </div>
+
+      {/* Notifications Dialog */}
+      <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" />
+              Notifications
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {notifications.total === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">You&apos;re all caught up!</p>
+            ) : (
+              <>
+                {notifications.announcements > 0 && (
+                  <Link
+                    href="/dashboard/announcements"
+                    onClick={() => setShowNotifications(false)}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                      <Megaphone size={16} className="text-accent" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">New Announcements</p>
+                      <p className="text-xs text-muted-foreground">{notifications.announcements} since your last visit</p>
+                    </div>
+                    <Badge className="bg-accent/10 text-accent border-0 text-xs">{notifications.announcements}</Badge>
+                  </Link>
+                )}
+                {notifications.subscriptions > 0 && (
+                  <Link
+                    href="/dashboard/subscriptions"
+                    onClick={() => setShowNotifications(false)}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                      <Wallet size={16} className="text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Subscriptions Due</p>
+                      <p className="text-xs text-muted-foreground">{notifications.subscriptions} pending payment{notifications.subscriptions > 1 ? "s" : ""}</p>
+                    </div>
+                    <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">{notifications.subscriptions}</Badge>
+                  </Link>
+                )}
+                {notifications.tasks > 0 && (
+                  <Link
+                    href="/dashboard/todos"
+                    onClick={() => setShowNotifications(false)}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                      <ListTodo size={16} className="text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Active Tasks</p>
+                      <p className="text-xs text-muted-foreground">{notifications.tasks} task{notifications.tasks > 1 ? "s" : ""} assigned to you</p>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-700 border-0 text-xs">{notifications.tasks}</Badge>
+                  </Link>
+                )}
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Incomplete Profile Dialog */}
       <Dialog open={showIncomplete} onOpenChange={setShowIncomplete}>
