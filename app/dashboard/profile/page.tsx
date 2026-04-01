@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
   Camera, Plus, X, AlertCircle, User, Briefcase, MapPin,
-  GraduationCap, Languages, Heart, Globe, Save, Building2, ChevronDown, ChevronUp,
+  GraduationCap, Languages, Heart, Globe, Save, Building2, ChevronDown, ChevronUp, Navigation,
 } from "lucide-react";
 import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
 
@@ -114,6 +114,8 @@ function SectionHeader({ icon: Icon, title, subtitle, color = "text-primary" }: 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
+  const [locationSharing, setLocationSharing] = useState(false);
+  const [locationToggling, setLocationToggling] = useState(false);
   const [photoPreview, setPhotoPreview] = useState("");
   const [nudge, setNudge] = useState<{ fields: string[]; message: string } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -157,6 +159,7 @@ export default function ProfilePage() {
         });
         if (d.user.photo_url) setPhotoPreview(d.user.photo_url);
         if (d.user.profile_nudge) setNudge(d.user.profile_nudge);
+        if (d.user.location_sharing) setLocationSharing(true);
       }
     }).catch(() => toast.error("Failed to load profile"));
   }, []);
@@ -695,6 +698,77 @@ export default function ProfilePage() {
           </Button>
         </div>
       </form>
+
+      {/* Location Sharing (outside form — independent toggle) */}
+      <Card className="mt-4">
+        <CardContent className="pt-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Navigation size={18} className="text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Location Sharing</p>
+                <p className="text-xs text-muted-foreground">
+                  {locationSharing ? "Your location is shared when you open the app" : "Enable to get alerts for nearby meetings & events"}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant={locationSharing ? "default" : "outline"}
+              size="sm"
+              disabled={locationToggling}
+              className={locationSharing ? "bg-blue-600 hover:bg-blue-700" : ""}
+              onClick={async () => {
+                setLocationToggling(true);
+                if (!locationSharing) {
+                  // Request permission first
+                  if (!navigator.geolocation) {
+                    toast.error("Geolocation not supported on this device");
+                    setLocationToggling(false);
+                    return;
+                  }
+                  navigator.geolocation.getCurrentPosition(
+                    async (pos) => {
+                      // Enable sharing + send initial location
+                      await fetch("/api/location", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ sharing: true }),
+                      });
+                      await fetch("/api/location", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                      });
+                      setLocationSharing(true);
+                      toast.success("Location sharing enabled");
+                      setLocationToggling(false);
+                    },
+                    () => {
+                      toast.error("Location permission denied. Please allow location access in your browser settings.");
+                      setLocationToggling(false);
+                    },
+                    { enableHighAccuracy: true, timeout: 15000 }
+                  );
+                } else {
+                  // Disable sharing
+                  await fetch("/api/location", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sharing: false }),
+                  });
+                  setLocationSharing(false);
+                  toast.success("Location sharing disabled");
+                  setLocationToggling(false);
+                }
+              }}
+            >
+              {locationToggling ? "..." : locationSharing ? "Enabled" : "Enable"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

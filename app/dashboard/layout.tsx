@@ -126,6 +126,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then((r) => r.json())
       .then((d) => { if (d.total !== undefined) setNotifications(d); })
       .catch(() => {});
+
+    // Silently update location if sharing is enabled
+    if (navigator.geolocation) {
+      fetch("/api/users/me").then((r) => r.json()).then((d) => {
+        if (d.user?.location_sharing) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              fetch("/api/location", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+              }).catch(() => {});
+            },
+            () => {}, // silent fail
+            { enableHighAccuracy: false, timeout: 10000 }
+          );
+        }
+      }).catch(() => {});
+    }
   }, [router]);
 
   async function handleLogout() {
