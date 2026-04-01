@@ -116,6 +116,15 @@ export async function GET(req: NextRequest) {
         .single();
 
       if (createError || !newUser) {
+        await logError({
+          type: "auth",
+          message: `Account creation failed: ${createError?.message || "No user returned"}`,
+          stack: createError?.details || createError?.hint || "",
+          path: "/api/auth/google/callback",
+          method: "GET",
+          status_code: 500,
+          metadata: { email: normalizedEmail, code: createError?.code },
+        });
         return NextResponse.redirect(new URL("/?error=account_creation_failed", req.url));
       }
 
