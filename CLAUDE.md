@@ -29,7 +29,8 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
 - `components/` — Custom components (`chatbot-widget.tsx`, `error-boundary.tsx`)
-- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`
+- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`
+- `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
 - `supabase/schema.sql` — Base database DDL (additional migrations documented below)
 
 ## Authentication Flow
@@ -98,7 +99,7 @@ export async function GET(req: NextRequest) {
 | `events` | Calendar events | title, description, date, location, image_url |
 | `documents` | Uploaded files | title, file_url, file_type, description, category, approved |
 | `grievances` | Suggestions (category="Suggestion") and grievances (others) | subject, description, category, status (pending/in_progress/resolved/rejected), admin_remarks, submitted_by |
-| `subscriptions` | Member payment tracking | user_id, period, amount, due_date, status (pending/paid/overdue), payment_method, transaction_id, payment_proof_url, remarks, paid_at, approved_by, approved_at |
+| `subscriptions` | Member payment tracking | user_id, period, amount, due_date, status (pending/paid/overdue/hold/rejected), payment_method, transaction_id, payment_proof_url, remarks, paid_at, approved_by, approved_at |
 | `document_access` | Per-member document access | document_id, user_id (junction table for visibility="selected" documents) |
 | `error_logs` | Application error tracking | type (api/client/auth), message, stack, path, method, status_code, user_id, metadata (JSONB) |
 | `site_settings` | Key-value site config | key (unique), value |
@@ -110,6 +111,9 @@ export async function GET(req: NextRequest) {
 | `todo_vouchers` | Task cost/bill tracking | todo_id, submitted_by, title, amount, receipt_url, status (pending/approved/rejected), approved_by, remarks |
 | `todo_time_entries` | Team time logging against tasks | todo_id, user_id, hours, description, logged_at |
 | `expense_vouchers` | Standalone expense claims (officials) | submitted_by, title, amount, invoice_number, vendor_name, expense_date, category, receipt_url, status, approved_by, remarks |
+| `resolutions` | Member-proposed resolutions | title, description, category, status (draft/submitted/approved/rejected/voting_open/passed/failed), submitted_by, approved_by, votes_required, total_members |
+| `resolution_votes` | Individual votes on resolutions | resolution_id, user_id (unique per resolution) |
+| `contributions` | Auto-logged portal actions | user_id, action, description, estimated_minutes, metadata (JSONB) |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -435,4 +439,4 @@ mkdir -p app/api/<feature>
 # Follow the pattern in app/api/grievances/route.ts
 ```
 
-Always include: session check, getServiceClient(), proper error handling with `logError()`, and JSON responses.
+Always include: session check, getServiceClient(), proper error handling with `logError()`, JSON responses, and `logContribution()` calls for trackable actions.
