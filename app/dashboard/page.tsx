@@ -144,7 +144,7 @@ export default function DashboardHome() {
           { label: "Documents", icon: FileText, href: "/dashboard/documents", color: "text-blue-600" },
           { label: "Subscriptions", icon: Wallet, href: "/dashboard/subscriptions", color: "text-amber-600", badge: pendingSubs > 0 ? `${pendingSubs} due` : undefined },
           { label: "Suggestions", icon: Lightbulb, href: "/dashboard/suggestions", color: "text-yellow-600" },
-          { label: "Tasks", icon: ListTodo, href: "/dashboard/tasks", color: "text-green-600" },
+          { label: "Tasks", icon: ListTodo, href: "/dashboard/todos", color: "text-green-600" },
         ].map((item) => (
           <Link key={item.label} href={item.href}>
             <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
