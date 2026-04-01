@@ -7,6 +7,7 @@ const mockLogError = vi.fn();
 const subscriptionRows = [
   {
     id: "sub-salem",
+    user_id: "member-salem",
     amount: 100,
     status: "pending",
     users: {
@@ -15,6 +16,7 @@ const subscriptionRows = [
   },
   {
     id: "sub-madurai",
+    user_id: "member-madurai",
     amount: 200,
     status: "paid",
     users: {
@@ -27,6 +29,11 @@ function makeSupabaseMock() {
   const query = {
     eq: vi.fn(() => query),
     order: vi.fn(async () => ({ data: subscriptionRows, error: null })),
+  };
+
+  const ownSubscriptionQuery = {
+    eq: vi.fn(() => ownSubscriptionQuery),
+    order: vi.fn(async () => ({ data: [subscriptionRows[0]], error: null })),
   };
 
   return {
@@ -50,6 +57,10 @@ function makeSupabaseMock() {
               return {
                 eq: vi.fn(async () => ({ data: [{ amount: 200 }] })),
               };
+            }
+
+            if (columns === "*") {
+              return ownSubscriptionQuery;
             }
 
             return query;
@@ -118,5 +129,27 @@ describe("GET /api/subscriptions", () => {
       overdue: 0,
       totalCollected: 0,
     });
+  });
+
+  it("returns only the current user's subscriptions for regular members", async () => {
+    mockGetSession.mockResolvedValue({
+      userId: "member-salem",
+      email: "member@example.com",
+      role: "member",
+      status: "approved",
+    });
+    mockGetOfficialInfo.mockResolvedValue({
+      role: "member",
+      official_type: null,
+      district: null,
+    });
+
+    const { GET } = await import("../subscriptions/route");
+    const response = await GET({ url: "https://example.com/api/subscriptions" } as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.subscriptions).toEqual([subscriptionRows[0]]);
+    expect(body.stats).toBeUndefined();
   });
 });

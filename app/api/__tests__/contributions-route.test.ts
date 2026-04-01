@@ -37,4 +37,20 @@ describe("GET /api/contributions", () => {
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
   });
+
+  it("rejects non-admin users requesting breakdown data", async () => {
+    mockGetSession.mockResolvedValue({
+      userId: "user-1",
+      email: "member@example.com",
+      role: "member",
+      status: "approved",
+    });
+    mockIsAdmin.mockResolvedValue(false);
+
+    const { GET } = await import("../contributions/route");
+    const response = await GET({ url: "https://example.com/api/contributions?breakdown=true" } as never);
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
+  });
 });
