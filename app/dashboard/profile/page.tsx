@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
 
-const titleOptions = ["", "Dr."];
+const titleOptions = ["", "Mr.", "Mrs.", "Miss.", "Dr."];
 
 const occupationOptions = [
   "Horticultural Officer",
@@ -116,6 +116,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [locationSharing, setLocationSharing] = useState(false);
   const [locationToggling, setLocationToggling] = useState(false);
+  const [showPhotoZoom, setShowPhotoZoom] = useState(false);
   const [photoPreview, setPhotoPreview] = useState("");
   const [nudge, setNudge] = useState<{ fields: string[]; message: string } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -249,7 +250,7 @@ export default function ProfilePage() {
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-10">
             <div
               className="relative w-24 h-24 rounded-full bg-background border-4 border-background shadow-lg flex items-center justify-center cursor-pointer overflow-hidden group"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => photoPreview ? setShowPhotoZoom(true) : fileInputRef.current?.click()}
             >
               {photoPreview ? (
                 <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" />
@@ -769,6 +770,21 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Photo Zoom Overlay */}
+      {showPhotoZoom && photoPreview && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setShowPhotoZoom(false)}
+        >
+          <img
+            src={photoPreview}
+            alt="Profile"
+            className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

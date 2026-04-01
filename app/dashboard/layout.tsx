@@ -85,6 +85,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0 });
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const [locationEnabling, setLocationEnabling] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -127,10 +129,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then((d) => { if (d.total !== undefined) setNotifications(d); })
       .catch(() => {});
 
-    // Silently update location if sharing is enabled
+    // Location: silently update if enabled, or prompt if never asked
     if (navigator.geolocation) {
       fetch("/api/users/me").then((r) => r.json()).then((d) => {
         if (d.user?.location_sharing) {
+          // Already enabled — silently update
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               fetch("/api/location", {
@@ -139,9 +142,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
               }).catch(() => {});
             },
-            () => {}, // silent fail
+            () => {},
             { enableHighAccuracy: false, timeout: 10000 }
           );
+        } else if (d.user?.location_sharing === false && !localStorage.getItem("location_prompt_dismissed")) {
+          // Never enabled and not dismissed — show prompt
+          setShowLocationPrompt(true);
         }
       }).catch(() => {});
     }
@@ -298,6 +304,56 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <main className="flex-1 p-6 bg-background overflow-auto relative">
           <Image src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.03] pointer-events-none" />
+          {/* Location sharing prompt */}
+          {showLocationPrompt && (
+            <div className="relative z-20 mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                <ShieldCheck size={18} className="text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-800">Enable Location Sharing?</p>
+                <p className="text-xs text-blue-600 mt-0.5">Get notified about nearby meetings and events. Your location is only shared when you open the app.</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-xs h-8"
+                  disabled={locationEnabling}
+                  onClick={() => {
+                    if (!navigator.geolocation) return;
+                    setLocationEnabling(true);
+                    navigator.geolocation.getCurrentPosition(
+                      async (pos) => {
+                        await fetch("/api/location", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sharing: true }) });
+                        await fetch("/api/location", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }) });
+                        setShowLocationPrompt(false);
+                        setLocationEnabling(false);
+                      },
+                      () => {
+                        setShowLocationPrompt(false);
+                        localStorage.setItem("location_prompt_dismissed", "1");
+                        setLocationEnabling(false);
+                      },
+                      { enableHighAccuracy: true, timeout: 15000 }
+                    );
+                  }}
+                >
+                  {locationEnabling ? "Enabling..." : "Enable"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs h-8 text-blue-600"
+                  onClick={() => {
+                    setShowLocationPrompt(false);
+                    localStorage.setItem("location_prompt_dismissed", "1");
+                  }}
+                >
+                  Not now
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="relative z-10">{children}</div>
         </main>
       </div>
