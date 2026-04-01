@@ -60,6 +60,14 @@ export default function AdminOfficialsPage() {
       if (!groups[district]) groups[district] = [];
       groups[district].push(o);
     }
+    // Sort within each district: Secretary before Joint Secretary
+    for (const members of Object.values(groups)) {
+      members.sort((a, b) => {
+        const aIsSecretary = a.posting_details?.official_designation === "District Secretary" ? 0 : 1;
+        const bIsSecretary = b.posting_details?.official_designation === "District Secretary" ? 0 : 1;
+        return aIsSecretary - bIsSecretary;
+      });
+    }
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [districtOfficials]);
 
