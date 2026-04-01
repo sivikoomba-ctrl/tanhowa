@@ -9,11 +9,14 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Users, Megaphone, Calendar, FileText, UserCheck, UserX, Bell, Check, X,
-  ArrowRight, Wallet, IndianRupee, CalendarDays, Phone, Mail, Shield,
-  ListTodo, Award, TrendingUp, CheckCircle, Clock, AlertTriangle,
+  Users, Megaphone, Calendar, FileText, UserCheck, Bell, Check, X,
+  ArrowRight, Wallet, IndianRupee, CalendarDays,
+  ListTodo, Award, TrendingUp, AlertTriangle,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { MetricCard } from "@/components/metric-card";
+import { AdminContacts } from "@/components/admin-contacts";
+import { SectionError } from "@/components/section-error";
 
 interface PendingUser {
   id: string;
@@ -170,54 +173,10 @@ export default function AdminDashboard() {
 
       {/* Key Metrics — 4 highlight cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-primary">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Members</p>
-                <p className="text-3xl font-bold">{overview?.members.total || 0}</p>
-                <p className="text-xs text-green-600 mt-1">+{overview?.members.newThisMonth || 0} this month</p>
-              </div>
-              <UserCheck className="w-8 h-8 text-primary/40" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-green-500">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Collected</p>
-                <p className="text-3xl font-bold">₹{(overview?.subscriptions.totalCollected || 0).toLocaleString("en-IN")}</p>
-                <p className="text-xs text-green-600 mt-1">{overview?.subscriptions.collectionRate || 0}% rate</p>
-              </div>
-              <IndianRupee className="w-8 h-8 text-green-500/40" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Tasks</p>
-                <p className="text-3xl font-bold">{overview?.tasks.total || 0}</p>
-                <p className="text-xs text-blue-600 mt-1">{overview?.tasks.completionRate || 0}% completed</p>
-              </div>
-              <ListTodo className="w-8 h-8 text-blue-500/40" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-purple-500">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Contributions</p>
-                <p className="text-3xl font-bold">{overview?.contributions.actionsThisMonth || 0}</p>
-                <p className="text-xs text-purple-600 mt-1">{formatMinutes(overview?.contributions.minutesThisMonth || 0)} this month</p>
-              </div>
-              <Award className="w-8 h-8 text-purple-500/40" />
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard label="Members" value={overview?.members.total || 0} subtitle={`+${overview?.members.newThisMonth || 0} this month`} icon={UserCheck} loading={!overview} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-green-600" />
+        <MetricCard label="Collected" value={`₹${(overview?.subscriptions.totalCollected || 0).toLocaleString("en-IN")}`} subtitle={`${overview?.subscriptions.collectionRate || 0}% rate`} icon={IndianRupee} loading={!overview} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
+        <MetricCard label="Tasks" value={overview?.tasks.total || 0} subtitle={`${overview?.tasks.completionRate || 0}% completed`} icon={ListTodo} loading={!overview} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
+        <MetricCard label="Contributions" value={overview?.contributions.actionsThisMonth || 0} subtitle={`${formatMinutes(overview?.contributions.minutesThisMonth || 0)} this month`} icon={Award} loading={!overview} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
       </div>
 
       {/* Quick Links */}
@@ -354,35 +313,7 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Shield className="w-5 h-5 text-primary" />
-              <h2 className="text-sm font-semibold">Admin Contacts</h2>
-            </div>
-            <div className="space-y-2">
-              {adminContacts.map((a) => (
-                <div key={a.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
-                  <Avatar className="w-9 h-9">
-                    {a.photo_url && <AvatarImage src={a.photo_url} alt={a.name} />}
-                    <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-                      {a.name?.charAt(0)?.toUpperCase() || "?"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate uppercase">{a.name || "Admin"}</p>
-                    {a.occupation && <p className="text-[10px] text-muted-foreground">{a.occupation}</p>}
-                    <div className="flex flex-wrap items-center gap-x-3 mt-0.5">
-                      {a.phone && <a href={`tel:${a.phone}`} className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"><Phone size={9} /> {a.phone}</a>}
-                      <a href={`mailto:${a.email}`} className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"><Mail size={9} /> {a.email}</a>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {adminContacts.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No admin contacts found</p>}
-            </div>
-          </CardContent>
-        </Card>
+        <AdminContacts contacts={adminContacts} />
       </div>
 
       {/* Most Active Members */}
