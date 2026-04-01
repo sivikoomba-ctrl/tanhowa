@@ -154,11 +154,11 @@ export default function OnboardingPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="first_name">First Name *</Label>
-                  <Input id="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value.toUpperCase())} placeholder="e.g., SIVAKUMAR" required className="uppercase" />
+                  <Input id="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase())} placeholder="e.g., SIVAKUMAR" required className="uppercase" />
                 </div>
                 <div>
                   <Label htmlFor="last_name">Last Name / Initial *</Label>
-                  <Input id="last_name" value={lastName} onChange={(e) => setLastName(e.target.value.toUpperCase())} placeholder="e.g., K" required className="uppercase" />
+                  <Input id="last_name" value={lastName} onChange={(e) => setLastName(e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase())} placeholder="e.g., K" required className="uppercase" />
                 </div>
               </div>
 

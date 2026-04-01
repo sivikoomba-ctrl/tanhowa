@@ -19,7 +19,7 @@ interface User {
   email: string;
   phone: string;
   occupation: string;
-  avatar_url: string;
+  photo_url: string;
   role: string;
   official_type: "state" | "district" | null;
   status: string;
@@ -184,7 +184,7 @@ export default function AdminOfficialsPage() {
                   <div key={u.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border hover:bg-muted/50">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Avatar className="w-9 h-9">
-                        {u.avatar_url && <AvatarImage src={u.avatar_url} />}
+                        {u.photo_url && <AvatarImage src={u.photo_url} />}
                         <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
                           {u.name?.charAt(0)?.toUpperCase() || "?"}
                         </AvatarFallback>
@@ -225,7 +225,7 @@ function OfficialRow({ user: u, onRemove }: { user: User; onRemove: () => void }
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <Avatar className="w-11 h-11 border-2 border-primary/20">
-              {u.avatar_url && <AvatarImage src={u.avatar_url} />}
+              {u.photo_url && <AvatarImage src={u.photo_url} />}
               <AvatarFallback className="bg-primary/10 text-primary font-bold">
                 {u.name?.charAt(0)?.toUpperCase() || "?"}
               </AvatarFallback>

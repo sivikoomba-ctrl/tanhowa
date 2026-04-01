@@ -14,7 +14,7 @@ interface Official {
   email: string;
   phone: string;
   occupation: string;
-  avatar_url: string;
+  photo_url: string;
   official_type: "state" | "district";
   posting_details: {
     regular_district?: string;
@@ -141,8 +141,8 @@ function OfficialCard({ official: o, onPhotoClick }: { official: Official; onPho
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="pt-5">
         <div className="flex items-start gap-3">
-          <Avatar className="w-14 h-14 border-2 border-primary/20 cursor-pointer" onClick={() => o.avatar_url && onPhotoClick?.(o.avatar_url)}>
-            {o.avatar_url && <AvatarImage src={o.avatar_url} alt={o.name} />}
+          <Avatar className="w-14 h-14 border-2 border-primary/20 cursor-pointer" onClick={() => o.photo_url && onPhotoClick?.(o.photo_url)}>
+            {o.photo_url && <AvatarImage src={o.photo_url} alt={o.name} />}
             <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
               {o.name?.charAt(0)?.toUpperCase() || "?"}
             </AvatarFallback>

@@ -326,11 +326,11 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">First Name *</Label>
-                    <Input value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value.toUpperCase() })} placeholder="SIVAKUMAR" required className="uppercase mt-1" />
+                    <Input value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder="SIVAKUMAR" required className="uppercase mt-1" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">Last Name / Initial *</Label>
-                    <Input value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.toUpperCase() })} placeholder="K" required className="uppercase mt-1" />
+                    <Input value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder="K" required className="uppercase mt-1" />
                   </div>
                 </div>
                 <Separator />
