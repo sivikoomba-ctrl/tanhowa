@@ -70,26 +70,37 @@ export default function AdminDashboard() {
   const [toDate, setToDate] = useState("");
   const [filteredCollection, setFilteredCollection] = useState<{ total: number; count: number } | null>(null);
   const [loadingPayments, setLoadingPayments] = useState(false);
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   function loadData() {
-    Promise.all([
-      fetch("/api/reports/overview").then((r) => r.json()),
-      fetch("/api/stats").then((r) => r.json()),
-      fetch("/api/users?status=pending").then((r) => r.json()),
-      fetch("/api/users?status=approved").then((r) => r.json()),
-    ]).then(([ov, s, p, a]) => {
-      setOverview(ov);
-      setStats({ totalCollection: s.totalCollection || 0, totalPayments: s.totalPayments || 0 });
-      setPendingUsers(p.users || []);
-      setAdminContacts(s.admins || []);
-      const approved = (a.users || []) as ActiveUser[];
-      setActiveUsers(
-        approved
-          .filter((u: ActiveUser) => u.login_count > 0)
-          .sort((a: ActiveUser, b: ActiveUser) => (b.login_count || 0) - (a.login_count || 0))
-          .slice(0, 5)
-      );
-    }).catch(() => toast.error("Failed to load dashboard data"));
+    setErrors({});
+
+    fetch("/api/reports/overview").then((r) => r.json())
+      .then((ov) => setOverview(ov))
+      .catch(() => setErrors((e) => ({ ...e, overview: true })));
+
+    fetch("/api/stats").then((r) => r.json())
+      .then((s) => {
+        setStats({ totalCollection: s.totalCollection || 0, totalPayments: s.totalPayments || 0 });
+        setAdminContacts(s.admins || []);
+      })
+      .catch(() => setErrors((e) => ({ ...e, stats: true })));
+
+    fetch("/api/users?status=pending").then((r) => r.json())
+      .then((p) => setPendingUsers(p.users || []))
+      .catch(() => setErrors((e) => ({ ...e, pending: true })));
+
+    fetch("/api/users?status=approved").then((r) => r.json())
+      .then((a) => {
+        const approved = (a.users || []) as ActiveUser[];
+        setActiveUsers(
+          approved
+            .filter((u: ActiveUser) => u.login_count > 0)
+            .sort((a: ActiveUser, b: ActiveUser) => (b.login_count || 0) - (a.login_count || 0))
+            .slice(0, 5)
+        );
+      })
+      .catch(() => setErrors((e) => ({ ...e, users: true })));
   }
 
   useEffect(() => { loadData(); }, []);
@@ -129,7 +140,8 @@ export default function AdminDashboard() {
       <h1 className="text-2xl font-bold">Admin Dashboard</h1>
 
       {/* Pending Members Alert */}
-      {pendingUsers.length > 0 && (
+      {errors.pending && <SectionError message="Failed to load pending members" onRetry={loadData} />}
+      {!errors.pending && pendingUsers.length > 0 && (
         <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
           <div className="flex items-center gap-3 mb-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100">
@@ -172,12 +184,16 @@ export default function AdminDashboard() {
       )}
 
       {/* Key Metrics — 4 highlight cards */}
+      {errors.overview ? (
+        <SectionError message="Failed to load overview metrics" onRetry={loadData} />
+      ) : (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard label="Members" value={overview?.members.total || 0} subtitle={`+${overview?.members.newThisMonth || 0} this month`} icon={UserCheck} loading={!overview} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-green-600" />
         <MetricCard label="Collected" value={`₹${(overview?.subscriptions.totalCollected || 0).toLocaleString("en-IN")}`} subtitle={`${overview?.subscriptions.collectionRate || 0}% rate`} icon={IndianRupee} loading={!overview} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
         <MetricCard label="Tasks" value={overview?.tasks.total || 0} subtitle={`${overview?.tasks.completionRate || 0}% completed`} icon={ListTodo} loading={!overview} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
         <MetricCard label="Contributions" value={overview?.contributions.actionsThisMonth || 0} subtitle={`${formatMinutes(overview?.contributions.minutesThisMonth || 0)} this month`} icon={Award} loading={!overview} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
       </div>
+      )}
 
       {/* Quick Links */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3">

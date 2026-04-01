@@ -6,7 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { UsersRound, X } from "lucide-react";
+import { UsersRound, X, Users, MapPin, Phone, Mail } from "lucide-react";
+import { MetricCard } from "@/components/metric-card";
+import { EmptyState } from "@/components/empty-state";
 
 interface TeamMember {
   id: string;
@@ -36,27 +38,26 @@ export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [activeTeam, setActiveTeam] = useState<string>("");
   const [viewPhoto, setViewPhoto] = useState<{ url: string; name: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/teams")
       .then((r) => r.json())
       .then((d) => {
         setTeams(d.teams || []);
-        if (d.teams?.length > 0) {
-          setActiveTeam(d.teams[0].id);
-        }
+        if (d.teams?.length > 0) setActiveTeam(d.teams[0].id);
       })
       .catch(() => toast.error("Failed to load teams"))
-      .finally(() => setLoading(false));
+      .finally(() => setLoaded(true));
   }, []);
 
   const currentTeam = teams.find((t) => t.id === activeTeam);
+  const totalMembers = teams.reduce((sum, t) => sum + t.members.length, 0);
 
-  if (loading) {
+  if (!loaded) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -65,11 +66,7 @@ export default function TeamsPage() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Teams</h1>
-        <div className="text-center py-16 text-muted-foreground">
-          <UsersRound className="w-12 h-12 mx-auto mb-3 opacity-40" />
-          <p>No teams have been created yet.</p>
-          <p className="text-sm mt-1">Teams will appear here once an admin sets them up.</p>
-        </div>
+        <EmptyState icon={UsersRound} title="No teams yet" description="Teams will appear here once an admin sets them up" />
       </div>
     );
   }
@@ -77,6 +74,13 @@ export default function TeamsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Teams</h1>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <MetricCard label="Teams" value={teams.length} icon={UsersRound} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" />
+        <MetricCard label="Total Members" value={totalMembers} icon={Users} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" />
+        <MetricCard label="Current Team" value={currentTeam?.members.length || 0} subtitle={currentTeam?.name} icon={UsersRound} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
+      </div>
 
       {/* Team Tabs */}
       <div className="flex flex-wrap gap-2">
@@ -96,7 +100,6 @@ export default function TeamsPage() {
         ))}
       </div>
 
-      {/* Team Description */}
       {currentTeam?.description && (
         <p className="text-sm text-muted-foreground">{currentTeam.description}</p>
       )}
@@ -105,44 +108,50 @@ export default function TeamsPage() {
       {currentTeam && currentTeam.members.length > 0 ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {currentTeam.members.map((m) => (
-            <Card key={m.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="pt-4">
+            <Card key={m.id} className="hover:shadow-md transition-all hover:border-primary/20 group">
+              <CardContent className="pt-4 pb-4">
                 <div className="flex items-start gap-3">
                   <Avatar
-                    className="w-12 h-12 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+                    className="w-14 h-14 cursor-pointer ring-2 ring-transparent group-hover:ring-primary/20 transition-all"
                     onClick={() => m.photo_url && setViewPhoto({ url: m.photo_url, name: m.name })}
                   >
                     {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
-                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
                       {m.name?.charAt(0)?.toUpperCase() || "?"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <h3 className="font-semibold text-sm truncate uppercase">{m.name || "Unnamed"}</h3>
-                      {(m.role === "admin" || m.role === "super_admin") && (
-                        <Badge className="bg-accent text-accent-foreground text-xs">Official</Badge>
+                      {m.team_role && m.team_role !== "member" && (
+                        <Badge className="bg-primary/10 text-primary border-0 text-[10px] px-1.5 py-0">{m.team_role}</Badge>
                       )}
                       {m.official_type === "state" && (
-                        <Badge className="bg-purple-600 text-white text-xs">State</Badge>
+                        <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-[10px] px-1.5 py-0">State</Badge>
                       )}
                       {m.official_type === "district" && (
-                        <Badge className="bg-blue-600 text-white text-xs">District</Badge>
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-[10px] px-1.5 py-0">District</Badge>
                       )}
                     </div>
-                    {m.team_role && m.team_role !== "member" && (
-                      <Badge variant="outline" className="text-xs mt-0.5">{m.team_role}</Badge>
-                    )}
-                    {m.occupation && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{m.occupation}</p>
-                    )}
+                    {m.occupation && <p className="text-xs text-muted-foreground mt-1">{m.occupation}</p>}
                     {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {[m.posting_details.regular_district, m.posting_details.regular_block].filter(Boolean).join(" | ")}
-                      </p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <MapPin size={10} className="text-muted-foreground shrink-0" />
+                        <p className="text-xs text-muted-foreground truncate">
+                          {[m.posting_details.regular_district, m.posting_details.regular_block].filter(Boolean).join(", ")}
+                        </p>
+                      </div>
                     )}
-                    {m.phone && <p className="text-xs text-muted-foreground mt-0.5">{m.phone}</p>}
-                    <p className="text-xs text-muted-foreground mt-0.5">{m.email}</p>
+                    <div className="flex flex-wrap items-center gap-x-3 mt-1.5">
+                      {m.phone && (
+                        <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+                          <Phone size={10} /> {m.phone}
+                        </a>
+                      )}
+                      <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline truncate">
+                        <Mail size={10} /> {m.email}
+                      </a>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -150,25 +159,18 @@ export default function TeamsPage() {
           ))}
         </div>
       ) : (
-        <p className="text-center text-muted-foreground py-8">No members in this team yet.</p>
+        <EmptyState icon={Users} title="No members in this team" description="Members will appear here once assigned" />
       )}
 
-      {/* Photo Viewer Dialog */}
+      {/* Photo Viewer */}
       <Dialog open={!!viewPhoto} onOpenChange={() => setViewPhoto(null)}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-2xl">
-          <button
-            onClick={() => setViewPhoto(null)}
-            className="absolute right-3 top-3 z-10 rounded-full bg-black/50 p-1.5 text-white hover:bg-black/70 transition-colors"
-          >
+          <button onClick={() => setViewPhoto(null)} className="absolute right-3 top-3 z-10 rounded-full bg-black/50 p-1.5 text-white hover:bg-black/70 transition-colors" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
           {viewPhoto && (
             <div className="flex flex-col items-center">
-              <img
-                src={viewPhoto.url}
-                alt={viewPhoto.name}
-                className="w-full max-h-[70vh] object-contain bg-black/5"
-              />
+              <img src={viewPhoto.url} alt={viewPhoto.name} className="w-full max-h-[70vh] object-contain bg-black/5" />
               <p className="py-3 text-sm font-semibold text-center uppercase">{viewPhoto.name}</p>
             </div>
           )}

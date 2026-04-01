@@ -28,7 +28,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/` — Next.js App Router: pages (`dashboard/`, `admin/`, `onboarding/`, `verify/`, `pending/`) and API routes (`api/`)
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
-- `components/` — Custom components (`chatbot-widget.tsx`, `error-boundary.tsx`)
+- `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`
 - `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`
 - `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
 - `supabase/schema.sql` — Base database DDL (additional migrations documented below)
@@ -397,6 +397,33 @@ Clicking a task opens detail view with 5 tabs:
 
 ### Storage Bucket
 `todo-attachments` — auto-created on first upload. Files stored as `todo-{todoId}/{userId}-{timestamp}.{ext}`.
+
+## In-App Notifications
+
+`GET /api/notifications` returns counts of items needing attention: new announcements since `last_active_at`, pending/overdue subscriptions, and active tasks assigned to the user. Dashboard layout fetches this on mount and shows a bell icon with total count badge. Clicking opens a dialog with categorized links.
+
+## Shared UI Components
+
+When building new pages, use these instead of duplicating patterns:
+- `<MetricCard>` — stat card with `border-l-4` accent, skeleton loading state. Props: `label`, `value`, `icon`, `borderColor`, `loading`.
+- `<StatusBadge>` — universal badge for any status string (paid, pending, overdue, in_progress, etc.). Handles color mapping internally.
+- `<EmptyState>` — consistent "nothing here" placeholder with icon.
+- `<AdminContacts>` — admin contacts list card (used in both member and admin dashboards).
+- `<SectionError>` — per-section error card with retry button. Use when fetching per-section independently.
+
+## Loading & Error Patterns
+
+- Each major route has a `loading.tsx` file with skeleton loaders matching the page layout
+- Dashboard fetches sections independently so one failure doesn't block others — use `SectionError` for failed sections
+- Primary data fetches show `toast.error()` on failure; supplementary fetches (tickers, settings) fail silently
+
+## PWA & Service Worker
+
+`public/sw.js` (v3) implements:
+- **API cache** (`tanhowa-api-v1`): announcements and events responses cached for offline viewing
+- **Static cache** (`tanhowa-v3`): images, fonts, icons (cache-first)
+- **Pages**: network-first, falls back to cached version or `/offline` page
+- Bump `CACHE_NAME` version when changing caching behavior
 
 ## Cross-Component Communication
 

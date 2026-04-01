@@ -184,7 +184,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Flower2 className="w-7 h-7 text-sidebar-primary" />
               <span className="text-lg font-bold text-sidebar-foreground">TANHOWA</span>
             </Link>
-            <button className="relative p-1.5 rounded-lg hover:bg-sidebar-accent/50 transition-colors" onClick={() => setShowNotifications(true)}>
+            <button className="relative p-1.5 rounded-lg hover:bg-sidebar-accent/50 transition-colors" onClick={() => setShowNotifications(true)} aria-label="Notifications">
               <Bell size={16} className="text-sidebar-foreground/70" />
               {notifications.total > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-0.5">
@@ -233,7 +233,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="font-bold text-primary">TANHOWA</span>
           </Link>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="relative" onClick={() => setShowNotifications(true)}>
+            <Button variant="ghost" size="icon" className="relative" onClick={() => setShowNotifications(true)} aria-label="Notifications">
               <Bell size={18} />
               {notifications.total > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">
@@ -243,7 +243,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Button>
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" aria-label="Menu">
                   {mobileOpen ? <X size={20} /> : <Menu size={20} />}
                 </Button>
               </SheetTrigger>

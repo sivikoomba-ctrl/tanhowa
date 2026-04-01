@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,24 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { MessageSquareWarning, Plus } from "lucide-react";
+import { MessageSquareWarning, Plus, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { MetricCard } from "@/components/metric-card";
+import { StatusBadge } from "@/components/status-badge";
+import { EmptyState } from "@/components/empty-state";
 
 const categories = ["General", "Administrative", "Technical", "Others"];
-
-const statusColors: Record<string, string> = {
-  pending: "secondary",
-  in_progress: "default",
-  resolved: "outline",
-  rejected: "destructive",
-};
-
-const statusLabels: Record<string, string> = {
-  pending: "Pending",
-  in_progress: "In Progress",
-  resolved: "Resolved",
-  rejected: "Rejected",
-};
 
 interface Grievance {
   id: string;
@@ -45,28 +34,33 @@ export default function GrievancesPage() {
   const [form, setForm] = useState({ subject: "", description: "", category: "" });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   function load() {
     fetch("/api/grievances?type=grievance")
       .then((r) => r.json())
       .then((d) => setGrievances(d.grievances || []))
-      .catch(() => toast.error("Failed to load grievances"));
+      .catch(() => toast.error("Failed to load grievances"))
+      .finally(() => setLoaded(true));
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
+
+  const stats = useMemo(() => {
+    const pending = grievances.filter((g) => g.status === "pending").length;
+    const inProgress = grievances.filter((g) => g.status === "in_progress").length;
+    const resolved = grievances.filter((g) => g.status === "resolved").length;
+    return { total: grievances.length, pending, inProgress, resolved };
+  }, [grievances]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-
     const res = await fetch("/api/grievances", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-
     if (res.ok) {
       toast.success("Grievance submitted successfully");
       setForm({ subject: "", description: "", category: "" });
@@ -81,93 +75,68 @@ export default function GrievancesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Grievances</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Grievances</h1>
+          {grievances.length > 0 && (
+            <p className="text-sm text-muted-foreground mt-0.5">{grievances.length} grievance{grievances.length !== 1 ? "s" : ""}</p>
+          )}
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
-              <Plus size={16} className="mr-1" />
-              Submit Grievance
+              <Plus size={16} className="mr-1" />Submit
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Submit Grievance</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Submit Grievance</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label>Subject *</Label>
-                <Input
-                  value={form.subject}
-                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                  placeholder="Brief subject of your grievance"
-                  required
-                />
-              </div>
-              <div>
-                <Label>Description *</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Describe your grievance in detail"
-                  rows={4}
-                  required
-                />
-              </div>
+              <div><Label>Subject *</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="Brief subject" required /></div>
+              <div><Label>Description *</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe in detail" rows={4} required /></div>
               <div>
                 <Label>Category</Label>
-                <Select
-                  value={form.category}
-                  onValueChange={(val) => setForm({ ...form, category: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
+                <Select value={form.category} onValueChange={(val) => setForm({ ...form, category: val })}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>{categories.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90">
-                {loading ? "Submitting..." : "Submit Grievance"}
-              </Button>
+              <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90">{loading ? "Submitting..." : "Submit Grievance"}</Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {grievances.length === 0 ? (
-        <div className="text-center py-12">
-          <MessageSquareWarning className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground">No grievances submitted yet</p>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <MetricCard label="Total" value={stats.total} icon={MessageSquareWarning} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" />
+        <MetricCard label="Pending" value={stats.pending} icon={Clock} loading={!loaded} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
+        <MetricCard label="In Progress" value={stats.inProgress} icon={AlertTriangle} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" />
+        <MetricCard label="Resolved" value={stats.resolved} icon={CheckCircle2} loading={!loaded} borderColor="border-l-green-500" iconColor="text-green-500/40" />
+      </div>
+
+      {grievances.length === 0 && loaded ? (
+        <EmptyState icon={MessageSquareWarning} title="No grievances submitted yet" description="Submit a grievance to get started" />
       ) : (
         <div className="space-y-3">
           {grievances.map((g) => (
-            <Card key={g.id}>
+            <Card key={g.id} className="hover:shadow-sm transition-shadow">
               <CardContent className="pt-4">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                     <MessageSquareWarning className="w-5 h-5 text-primary" />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-medium text-sm">{g.subject}</h3>
-                      <Badge variant={statusColors[g.status] as "default" | "secondary" | "outline" | "destructive"} className="text-xs">
-                        {statusLabels[g.status] || g.status}
-                      </Badge>
+                      <StatusBadge status={g.status} />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{g.description}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{g.description}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                       {g.category && <Badge variant="outline" className="text-xs">{g.category}</Badge>}
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(g.created_at)}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{formatDate(g.created_at)}</span>
                     </div>
                     {g.admin_remarks && (
-                      <div className="mt-2 p-2 bg-muted rounded-md">
-                        <p className="text-xs font-medium text-muted-foreground">Admin Remarks:</p>
+                      <div className="mt-2 p-2.5 bg-muted/50 rounded-lg border-l-2 border-l-primary/30">
+                        <p className="text-xs font-medium text-muted-foreground">Admin Remarks</p>
                         <p className="text-xs mt-0.5">{g.admin_remarks}</p>
                       </div>
                     )}
