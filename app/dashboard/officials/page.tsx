@@ -19,6 +19,7 @@ interface Official {
   posting_details: {
     regular_district?: string;
     regular_block?: string;
+    official_designation?: string;
   };
 }
 
@@ -137,13 +138,15 @@ function OfficialCard({ official: o }: { official: Official }) {
               className={`text-xs mt-1 ${
                 o.official_type === "state"
                   ? "bg-purple-600 hover:bg-purple-600 text-white"
-                  : "bg-blue-600 hover:bg-blue-600 text-white"
+                  : o.posting_details?.official_designation?.includes("Joint")
+                    ? "bg-teal-600 hover:bg-teal-600 text-white"
+                    : "bg-blue-600 hover:bg-blue-600 text-white"
               }`}
             >
               {o.official_type === "state" ? (
                 <><Crown size={10} className="mr-1" />State Official</>
               ) : (
-                <><Building2 size={10} className="mr-1" />District Official</>
+                <><Building2 size={10} className="mr-1" />{o.posting_details?.official_designation || "District Official"}</>
               )}
             </Badge>
           </div>
