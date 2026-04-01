@@ -53,7 +53,7 @@ interface Subscription {
   approved_at: string | null;
   payment_group_id: string | null;
   created_at: string;
-  users?: { name: string; email: string; phone: string };
+  users?: { name: string; email: string; phone: string; posting_details?: { regular_district?: string } };
   approver?: { name: string } | null;
 }
 
@@ -80,6 +80,7 @@ export default function AdminSubscriptionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPeriod, setFilterPeriod] = useState("all");
+  const [filterDistrict, setFilterDistrict] = useState("all");
 
   // Bulk create dialog
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -311,6 +312,11 @@ export default function AdminSubscriptionsPage() {
     return Array.from(set).sort().reverse();
   }, [subscriptions]);
 
+  const districts = useMemo(() => {
+    const set = new Set(subscriptions.map((s) => s.users?.posting_details?.regular_district).filter(Boolean) as string[]);
+    return Array.from(set).sort();
+  }, [subscriptions]);
+
   const filtered = useMemo(() => {
     return subscriptions.filter((sub) => {
       const matchesSearch =
@@ -323,9 +329,10 @@ export default function AdminSubscriptionsPage() {
         filterStatus === "all" ||
         (filterStatus === "proof-uploaded" ? !!sub.payment_proof_url && sub.status !== "paid" && sub.status !== "rejected" && sub.status !== "hold" : sub.status === filterStatus);
       const matchesPeriod = filterPeriod === "all" || sub.period === filterPeriod;
-      return matchesSearch && matchesStatus && matchesPeriod;
+      const matchesDistrict = filterDistrict === "all" || sub.users?.posting_details?.regular_district === filterDistrict;
+      return matchesSearch && matchesStatus && matchesPeriod && matchesDistrict;
     });
-  }, [subscriptions, searchQuery, filterStatus, filterPeriod]);
+  }, [subscriptions, searchQuery, filterStatus, filterPeriod, filterDistrict]);
 
   async function handleBulkCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -1137,6 +1144,17 @@ export default function AdminSubscriptionsPage() {
                   <SelectItem value="all">All Years</SelectItem>
                   {periods.map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterDistrict} onValueChange={setFilterDistrict}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Districts</SelectItem>
+                  {districts.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

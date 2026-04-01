@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
       // Build query — fetch subscriptions and stats in parallel
       let query = supabase
         .from("subscriptions")
-        .select("*, users!subscriptions_user_id_fkey(name, email, phone), approver:users!subscriptions_approved_by_fkey(name)")
+        .select("*, users!subscriptions_user_id_fkey(name, email, phone, posting_details), approver:users!subscriptions_approved_by_fkey(name)")
         .order("created_at", { ascending: false });
 
       if (period) query = query.eq("period", period);
