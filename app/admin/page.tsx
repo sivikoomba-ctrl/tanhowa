@@ -13,7 +13,10 @@ import {
   ArrowRight, Wallet, IndianRupee, CalendarDays,
   ListTodo, Award, TrendingUp, AlertTriangle,
 } from "lucide-react";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { Cell, Pie, PieChart, Bar, BarChart } from "recharts";
+import { ChartContainer } from "@/components/ui/chart";
+import { taskStatusConfig, CHART_COLORS } from "@/lib/chart-config";
+import { formatDate } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
 import { AdminContacts } from "@/components/admin-contacts";
 import { SectionError } from "@/components/section-error";
@@ -223,23 +226,46 @@ export default function AdminDashboard() {
           <Card>
             <CardContent className="pt-4">
               <h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><ListTodo size={14} /> Task Breakdown</h3>
-              <div className="space-y-2">
-                {Object.entries(overview.tasks.breakdown).map(([status, count]) => {
-                  const labels: Record<string, { label: string; color: string }> = {
-                    pending: { label: "Pending", color: "bg-amber-100 text-amber-700" },
-                    approved: { label: "Approved", color: "bg-blue-100 text-blue-700" },
-                    in_progress: { label: "In Progress", color: "bg-blue-100 text-blue-700" },
-                    completed: { label: "Completed", color: "bg-green-100 text-green-700" },
-                    cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-700" },
-                  };
-                  const cfg = labels[status] || { label: status, color: "bg-gray-100 text-gray-700" };
-                  return (
-                    <div key={status} className="flex items-center justify-between">
-                      <Badge variant="outline" className={`${cfg.color} text-xs`}>{cfg.label}</Badge>
-                      <span className="text-sm font-semibold">{count}</span>
-                    </div>
-                  );
-                })}
+              <div className="flex items-start gap-4">
+                {/* Mini donut */}
+                <ChartContainer config={taskStatusConfig} className="h-[100px] w-[100px] shrink-0">
+                  <PieChart>
+                    <Pie
+                      data={Object.entries(overview.tasks.breakdown).map(([status, count]) => ({
+                        name: status,
+                        value: count,
+                        fill: (taskStatusConfig[status] as { color?: string })?.color || "#9ca3af",
+                      }))}
+                      dataKey="value"
+                      innerRadius={25}
+                      outerRadius={40}
+                      strokeWidth={1}
+                      stroke="#fff"
+                    >
+                      {Object.entries(overview.tasks.breakdown).map(([status]) => (
+                        <Cell key={status} fill={(taskStatusConfig[status] as { color?: string })?.color || "#9ca3af"} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+                <div className="space-y-1.5 flex-1">
+                  {Object.entries(overview.tasks.breakdown).map(([status, count]) => {
+                    const labels: Record<string, { label: string; color: string }> = {
+                      pending: { label: "Pending", color: "bg-amber-100 text-amber-700" },
+                      approved: { label: "Approved", color: "bg-blue-100 text-blue-700" },
+                      in_progress: { label: "In Progress", color: "bg-blue-100 text-blue-700" },
+                      completed: { label: "Completed", color: "bg-green-100 text-green-700" },
+                      cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-700" },
+                    };
+                    const cfg = labels[status] || { label: status, color: "bg-gray-100 text-gray-700" };
+                    return (
+                      <div key={status} className="flex items-center justify-between">
+                        <Badge variant="outline" className={`${cfg.color} text-xs`}>{cfg.label}</Badge>
+                        <span className="text-sm font-semibold">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -302,6 +328,31 @@ export default function AdminDashboard() {
                 <p className="text-[10px] text-green-600">Total Collection</p>
               </div>
             </div>
+            {/* Collection rate bar */}
+            {overview && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-muted-foreground">Collection Rate</span>
+                  <span className="text-xs font-semibold text-green-700">{overview.subscriptions.collectionRate}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${overview.subscriptions.collectionRate}%` }} />
+                </div>
+              </div>
+            )}
+            {/* Mini collection sparkline by period */}
+            {overview && overview.subscriptions.byPeriod.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs text-muted-foreground mb-2">Collection by Period</p>
+                <ChartContainer config={{ collected: { label: "Collected", color: CHART_COLORS.paid } }} className="h-[60px] w-full">
+                  <BarChart data={overview.subscriptions.byPeriod.slice().reverse()} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                    <Bar dataKey="collected" radius={[3, 3, 0, 0]}>
+                      {overview.subscriptions.byPeriod.map((_, i) => <Cell key={i} fill={CHART_COLORS.paid} />)}
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </div>
+            )}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-4 h-4 text-muted-foreground" />

@@ -20,6 +20,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 | AI Chatbot | Google Gemini API (`gemini-2.5-flash`) | 0.24.x |
 | UI Components | shadcn/ui (new-york style) + Radix UI primitives | — |
 | CSS | Tailwind CSS v4 + `tw-animate-css` | 4.x |
+| Charts | recharts (via shadcn `chart` component) | 2.x |
 | Icons | lucide-react | 0.575.x |
 | Toasts | sonner | 2.0.x |
 
@@ -29,7 +30,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
 - `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`
-- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`
+- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`
 - `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
 - `supabase/schema.sql` — Base database DDL (additional migrations documented below)
 
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
 | `events` | Calendar events | title, description, date, location, image_url |
 | `documents` | Uploaded files | title, file_url, file_type, description, category, approved |
 | `grievances` | Suggestions (category="Suggestion") and grievances (others) | subject, description, category, status (pending/in_progress/resolved/rejected), admin_remarks, submitted_by |
-| `subscriptions` | Member payment tracking | user_id, period, amount, due_date, status (pending/paid/overdue/hold/rejected), payment_method, transaction_id, payment_proof_url, remarks, paid_at, approved_by, approved_at |
+| `subscriptions` | Member payment tracking | user_id, period, amount, due_date, status (pending/paid/overdue/hold/rejected), payment_method, transaction_id, payment_proof_url, remarks, paid_at, approved_by, approved_at, payment_group_id (UUID, links bulk/split payments) |
 | `document_access` | Per-member document access | document_id, user_id (junction table for visibility="selected" documents) |
 | `error_logs` | Application error tracking | type (api/client/auth), message, stack, path, method, status_code, user_id, metadata (JSONB) |
 | `site_settings` | Key-value site config | key (unique), value |
@@ -170,7 +171,7 @@ Custom horticulture theme using oklch colors defined in `app/globals.css`:
 - **No dark mode** — light theme only
 
 ### shadcn/ui components in use
-`button`, `input`, `card`, `dialog`, `table`, `badge`, `tabs`, `avatar`, `dropdown-menu`, `separator`, `sheet`, `textarea`, `label`, `select`, `sonner`
+`button`, `input`, `card`, `dialog`, `table`, `badge`, `tabs`, `avatar`, `dropdown-menu`, `separator`, `sheet`, `textarea`, `label`, `select`, `sonner`, `chart`
 
 ## Development Commands
 
@@ -205,11 +206,12 @@ Tests live in `lib/__tests__/`. Mocks for `next/headers` and `@/lib/supabase` ar
 
 ## Email System (`lib/mail.ts`)
 
-Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP, no nodemailer dependency. All emails go through `sendZeptoMail()` which calls `https://api.zeptomail.com/v1.1/email` with the `ZEPTOMAIL_TOKEN` env var.
+Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP, no nodemailer dependency. All emails go through `sendZeptoMail()` which calls `https://api.zeptomail.in/v1.1/email` (India region — NOT `.com`) with the `ZEPTOMAIL_TOKEN` env var.
 
 - `sendOTPEmail(to, otp)` — OTP delivery
 - `sendSubscriptionApprovedEmail(to, memberName, period, amount)` — Payment approval confirmation
 - `sendSubscriptionNotification(to, memberName, period, amount, message)` — Custom admin→member notification
+- `sendVoucherStatusEmail(to, officialName, title, amount, status, remarks?)` — Expense voucher approve/reject notification
 - `notifyAdminNewRegistration(memberName, memberEmail)` — Alert admins of pending registrations
 - `notifyNewAnnouncement(title, content)` — Broadcast to all members
 - `notifyPaymentVerified(memberName, period)` — Broadcast payment verification
@@ -229,12 +231,24 @@ Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP
 
 ## Known Field Name Gotchas
 
-- **User avatar:** DB column is `avatar_url`, not `photo_url`. Always use `avatar_url` in TypeScript interfaces and code that reads user records.
+- **User photo:** DB column is `photo_url`, not `avatar_url`. Always use `photo_url` in TypeScript interfaces and code that reads user records.
 - **`GET /api/subscriptions?me=true`** — forces user-scoped results even for admins. The member dashboard always appends `?me=true`; the admin panel omits it to receive all members' data.
 
-## PDF Generation (Admin Reports)
+## Reports & Analytics (`/admin/reports`)
 
-Uses `jspdf` + `jspdf-autotable` for client-side PDF export. Pattern: create landscape doc → header text → autoTable for district summary → autoTable for member details → color-coded status text. Theme color: `fillColor: [45, 106, 79]` (deep green).
+The reports page is organized into 5 tabs, each in its own component under `app/admin/reports/_components/`:
+
+| Tab | Component | Data Source | Charts |
+|-----|-----------|-------------|--------|
+| Overview | `overview-tab.tsx` | `/api/reports/overview` | Stacked bar (collection by period), Task donut, Collection rate ring |
+| Subscriptions | `subscriptions-tab.tsx` | `/api/reports/subscriptions` | District comparison horizontal bar |
+| Expenses | `expenses-tab.tsx` | `/api/reports/expenses` | Category pie, Status bar |
+| Contributions | `contributions-tab.tsx` | `/api/contributions?breakdown=true` | Monthly trend area, Action type pie + time bar |
+| Members | `members-tab.tsx` | `/api/reports/members` | Registration trend area, District bar, Profile completion donut |
+
+**Charts:** Use recharts via the shadcn `chart` component (`ChartContainer`, `ChartTooltip`, `ChartTooltipContent`). Brand colors are defined in `lib/chart-config.ts` — use `CHART_COLORS` for status colors and `CATEGORY_PALETTE` for category/district breakdowns.
+
+**PDF export:** Uses `jspdf` + `jspdf-autotable` for client-side PDF export. Pattern: create landscape doc → header text → autoTable for district summary → autoTable for member details → color-coded status text. Theme color: `fillColor: [45, 106, 79]` (deep green).
 
 ## Subscription Auto-Sync
 
@@ -289,12 +303,23 @@ Both use the same `grievances` table and `/api/grievances` route. The API accept
 
 ## Officials System
 
-Users can be designated as **state** or **district** officials via `official_type` column on `users` table.
+Users can be designated as **state** or **district** officials via `official_type` column on `users` table. District officials (DS/DJS) also have `role=admin` for admin panel access.
 
 - `isAdminOrOfficial(session)` — returns true for admins + officials
 - `getOfficialType(userId)` — returns "state", "district", or null
+- `getOfficialInfo(userId)` — returns `{ role, official_type, district }` for district-scoped authorization
 - Admin manages officials at `/admin/officials` (set/remove via `PUT /api/admin/users` with `action: "set-official"`)
 - Officials directory visible to all members at `/dashboard/officials`
+- `posting_details.official_designation` — "District Secretary" or "District Joint Secretary" (shown as blue/teal badges)
+- District officials can verify subscription payments for members in their district at `/dashboard/verify-payments`
+
+### District-Level Payment Verification
+
+District Secretaries (DS) and District Joint Secretaries (DJS) can approve/reject subscription payments for members posted in their district. State officials see pending payments across all districts with DS/DJS contact info for follow-up.
+
+- **API:** `GET /api/subscriptions/district-pending` — pending payments grouped by district
+- **Page:** `/dashboard/verify-payments` — district-scoped verification UI
+- **Authorization:** Server validates `member.posting_details.regular_district === official.district`
 
 ## Expense Vouchers (Officials Only)
 
@@ -333,7 +358,7 @@ Table: `contributions`. Auto-logs portal actions with estimated time for each me
 - **Tracked actions:** Payment verification, member approval, task creation/updates, announcements, events, documents, grievances, vouchers, profile updates (21 action types)
 - **Member page:** `/dashboard/contributions` — personal activity feed grouped by date, award badges (Century, Half Century, Rising Star, Dedicated, All-Rounder)
 - **Admin page:** `/admin/contributions` — leaderboard ranked by total contribution time
-- **API:** `/api/contributions` (GET) — `?me=true` for own, `?period=week|month|all` filter
+- **API:** `/api/contributions` (GET) — `?me=true` for own, `?period=week|month|all` filter, `?breakdown=true` for action-type aggregation + monthly trend (admin only)
 - **Lib:** `logContribution(userId, action, description?, metadata?)` from `lib/contributions.ts` — fire-and-forget
 
 ## Special Subscriptions
@@ -366,6 +391,9 @@ Every task gets a unique, human-readable Event ID auto-generated on creation:
 6. If costs involved, member raises a voucher → Finance Team (admin) approves/rejects
 7. Admin can **release commitment** (PUT with `action: "release_commitment"`) to reassign
 8. Admin can **inline edit** task title by clicking it in the detail view
+9. Member can **request completion review** (PUT with `action: "request_review"`) → status becomes `review` (purple)
+10. Admin can **bulk update statuses** (PUT with `action: "bulk_status"`, `ids[]`, `status`)
+11. Admin can **clone a task** (PUT with `action: "clone"`) — duplicates task with subtasks, generates new Event IDs
 
 ### Eisenhower Matrix (Admin View)
 2×2 grid based on `urgent` + `important` boolean flags:
@@ -397,6 +425,19 @@ Clicking a task opens detail view with 5 tabs:
 
 ### Storage Bucket
 `todo-attachments` — auto-created on first upload. Files stored as `todo-{todoId}/{userId}-{timestamp}.{ext}`.
+
+## Location Sharing & Nearby Members
+
+Opt-in location sharing via Browser Geolocation API. Members toggle sharing on/off from their profile page. Location is silently updated on app open if sharing is enabled.
+
+- **API:** `PUT /api/location` (update coords / toggle sharing), `GET /api/location?lat=X&lng=Y&radius=25` (nearby search)
+- **Pages:** `/dashboard/nearby` and `/admin/nearby` — find nearby members using Haversine formula
+- **Storage:** `users.location` JSONB (`{ lat, lng, sharing, updated_at }`)
+- **Privacy:** One-time prompt banner on first login (dismissable via localStorage), no tracking without consent
+
+## Payment Group Linking
+
+Bulk/split payments are linked via `subscriptions.payment_group_id` (UUID). When admin verifies related subscriptions together (same member multiple periods, or multiple members same period), all get the same group ID. Admin subscriptions page shows "Linked Payment (N total)" indicator with grouped member names.
 
 ## In-App Notifications
 
