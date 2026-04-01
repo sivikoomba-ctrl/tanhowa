@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, MapPin, Plus } from "lucide-react";
+import { Calendar, MapPin, Plus, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/empty-state";
 
 interface Event {
   id: string;
@@ -70,10 +71,21 @@ export default function EventsPage() {
     }
   }
 
+  const now = new Date();
+  const upcoming = events.filter((e) => new Date(e.date) >= now);
+  const past = events.filter((e) => new Date(e.date) < now);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Events</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Events</h1>
+          {events.length > 0 && (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {upcoming.length} upcoming{past.length > 0 ? ` · ${past.length} past` : ""}
+            </p>
+          )}
+        </div>
         {canCreate && (
           <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90">
             <Plus size={16} className="mr-1" />New Event
@@ -97,50 +109,108 @@ export default function EventsPage() {
       </Dialog>
 
       {events.length === 0 ? (
-        <div className="text-center py-12">
-          <Calendar className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground">No events scheduled</p>
-        </div>
+        <EmptyState icon={Calendar} title="No events scheduled" description="Events will appear here when created" />
       ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {events.map((ev) => {
-            const eventDate = new Date(ev.date);
-            const isPast = eventDate < new Date();
-            return (
-              <Card key={ev.id} className={isPast ? "opacity-60" : ""}>
-                <CardContent className="pt-4">
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-secondary/10 flex flex-col items-center justify-center">
-                      <span className="text-xs font-medium text-secondary">
-                        {eventDate.toLocaleDateString("en", { month: "short" })}
-                      </span>
-                      <span className="text-2xl font-bold text-secondary leading-none">
-                        {eventDate.getDate()}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                        <h3 className="font-semibold">{ev.title}</h3>
-                        {isPast && <Badge variant="outline">Past</Badge>}
-                      </div>
-                      {ev.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{ev.description}</p>
-                      )}
-                      {ev.location && (
-                        <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                          <MapPin size={12} />
-                          {ev.location}
+        <div className="space-y-8">
+          {/* Upcoming Events */}
+          {upcoming.length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <Badge className="bg-green-100 text-green-700 border-green-300 text-xs px-3 py-1">Upcoming</Badge>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {upcoming.map((ev) => {
+                  const eventDate = new Date(ev.date);
+                  const daysUntil = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                  const isToday = daysUntil === 0;
+                  const isSoon = daysUntil <= 3;
+                  return (
+                    <Card key={ev.id} className={`transition-all hover:shadow-md ${isToday ? "border-green-300 bg-green-50/30" : isSoon ? "border-amber-200" : ""}`}>
+                      <CardContent className="pt-5 pb-5">
+                        <div className="flex gap-4">
+                          <div className={`flex-shrink-0 w-16 h-16 rounded-xl flex flex-col items-center justify-center ${isToday ? "bg-green-100" : isSoon ? "bg-amber-50" : "bg-secondary/10"}`}>
+                            <span className={`text-xs font-medium ${isToday ? "text-green-700" : isSoon ? "text-amber-700" : "text-secondary"}`}>
+                              {eventDate.toLocaleDateString("en", { month: "short" })}
+                            </span>
+                            <span className={`text-2xl font-bold leading-none ${isToday ? "text-green-700" : isSoon ? "text-amber-700" : "text-secondary"}`}>
+                              {eventDate.getDate()}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold leading-snug">{ev.title}</h3>
+                              {isToday && <Badge className="bg-green-100 text-green-700 border-0 text-[10px] shrink-0">Today</Badge>}
+                              {!isToday && isSoon && <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] shrink-0">In {daysUntil}d</Badge>}
+                            </div>
+                            {ev.description && (
+                              <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">{ev.description}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-3 mt-2">
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock size={11} />
+                                {eventDate.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}
+                              </div>
+                              {ev.location && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <MapPin size={11} />
+                                  {ev.location}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {eventDate.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Past Events */}
+          {past.length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <Badge variant="outline" className="text-xs px-3 py-1 text-muted-foreground">Past Events</Badge>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {past.map((ev) => {
+                  const eventDate = new Date(ev.date);
+                  return (
+                    <Card key={ev.id} className="opacity-60 hover:opacity-80 transition-opacity">
+                      <CardContent className="pt-4 pb-4">
+                        <div className="flex gap-3">
+                          <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-muted/50 flex flex-col items-center justify-center">
+                            <span className="text-[10px] font-medium text-muted-foreground">
+                              {eventDate.toLocaleDateString("en", { month: "short" })}
+                            </span>
+                            <span className="text-lg font-bold text-muted-foreground leading-none">
+                              {eventDate.getDate()}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-sm">{ev.title}</h3>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-xs text-muted-foreground">
+                                {eventDate.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                              {ev.location && (
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <MapPin size={10} /> {ev.location}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

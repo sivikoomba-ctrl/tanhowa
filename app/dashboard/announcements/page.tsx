@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Megaphone, Plus } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Megaphone, Plus, Clock, User } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
+import { EmptyState } from "@/components/empty-state";
 
 interface Announcement {
   id: string;
@@ -35,7 +38,6 @@ export default function AnnouncementsPage() {
 
   useEffect(() => {
     loadAnnouncements();
-    // Check if user is admin or official
     fetch("/api/users/me")
       .then((r) => r.json())
       .then((d) => {
@@ -70,13 +72,32 @@ export default function AnnouncementsPage() {
     }
   }
 
+  // Group by month/year
+  function groupByMonth(items: Announcement[]) {
+    const groups: Record<string, Announcement[]> = {};
+    items.forEach((a) => {
+      const d = new Date(a.created_at);
+      const key = `${d.toLocaleDateString("en", { month: "long" })} ${d.getFullYear()}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(a);
+    });
+    return Object.entries(groups);
+  }
+
+  const grouped = groupByMonth(announcements);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Announcements</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Announcements</h1>
+          {announcements.length > 0 && (
+            <p className="text-sm text-muted-foreground mt-0.5">{announcements.length} announcement{announcements.length !== 1 ? "s" : ""}</p>
+          )}
+        </div>
         {canCreate && (
           <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90">
-            <Plus size={16} className="mr-1" />New Announcement
+            <Plus size={16} className="mr-1" />New
           </Button>
         )}
       </div>
@@ -95,28 +116,67 @@ export default function AnnouncementsPage() {
       </Dialog>
 
       {announcements.length === 0 ? (
-        <div className="text-center py-12">
-          <Megaphone className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground">No announcements yet</p>
-        </div>
+        <EmptyState icon={Megaphone} title="No announcements yet" description="Check back later for updates" />
       ) : (
-        <div className="space-y-4">
-          {announcements.map((a) => (
-            <Card key={a.id}>
-              <CardContent className="pt-4">
-                <h2 className="text-lg font-semibold">{a.title}</h2>
-                <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{a.content}</p>
-                <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-                  <span>{formatDate(a.created_at)}</span>
-                  {a.users?.name && (
-                    <>
-                      <span>&middot;</span>
-                      <span>by {a.users.name}</span>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+        <div className="space-y-8">
+          {grouped.map(([month, items]) => (
+            <div key={month}>
+              <div className="flex items-center gap-3 mb-4">
+                <Badge variant="outline" className="text-xs font-medium bg-muted/50 px-3 py-1">{month}</Badge>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+              <div className="space-y-4">
+                {items.map((a, index) => {
+                  const date = new Date(a.created_at);
+                  const isLatest = index === 0 && month === grouped[0][0];
+                  return (
+                    <Card key={a.id} className={`transition-all hover:shadow-md ${isLatest ? "border-primary/30 bg-primary/[0.02]" : ""}`}>
+                      <CardContent className="pt-5 pb-5">
+                        <div className="flex gap-4">
+                          {/* Date column */}
+                          <div className="flex-shrink-0 w-14 text-center">
+                            <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center ${isLatest ? "bg-primary/10" : "bg-muted/50"}`}>
+                              <span className={`text-[10px] font-medium uppercase ${isLatest ? "text-primary" : "text-muted-foreground"}`}>
+                                {date.toLocaleDateString("en", { month: "short" })}
+                              </span>
+                              <span className={`text-xl font-bold leading-none ${isLatest ? "text-primary" : "text-foreground"}`}>
+                                {date.getDate()}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <h2 className="text-base font-semibold leading-snug">{a.title}</h2>
+                              {isLatest && <Badge className="bg-primary/10 text-primary border-0 text-[10px] shrink-0">New</Badge>}
+                            </div>
+                            {a.content && (
+                              <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap leading-relaxed">{a.content}</p>
+                            )}
+                            <div className="flex items-center gap-3 mt-3">
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock size={11} />
+                                {date.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}
+                              </div>
+                              {a.users?.name && (
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <Avatar className="w-4 h-4">
+                                    <AvatarFallback className="bg-primary/10 text-primary text-[8px]">
+                                      {a.users.name.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  {a.users.name}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </div>
       )}

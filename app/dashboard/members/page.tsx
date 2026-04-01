@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, Filter, IndianRupee, X } from "lucide-react";
+import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase } from "lucide-react";
+import { MetricCard } from "@/components/metric-card";
+import { EmptyState } from "@/components/empty-state";
 
 interface Member {
   id: string;
@@ -38,13 +40,15 @@ export default function MembersPage() {
   const [filterOccupation, setFilterOccupation] = useState("all");
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
   const [viewPhoto, setViewPhoto] = useState<{ url: string; name: string } | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/users")
       .then((r) => r.json())
       .then((d) => setMembers(d.users || []))
-      .catch(() => toast.error("Failed to load members"));
+      .catch(() => toast.error("Failed to load members"))
+      .finally(() => setLoaded(true));
     fetch("/api/subscriptions/recent-payments")
       .then((r) => r.json())
       .then((d) => setRecentPayments(d.payments || []))
@@ -80,27 +84,36 @@ export default function MembersPage() {
     return matchesSearch && matchesDistrict && matchesOccupation;
   });
 
+  const adminCount = members.filter((m) => m.role === "admin" || m.role === "super_admin").length;
+  const officialCount = members.filter((m) => m.official_type === "state" || m.official_type === "district").length;
+
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h1 className="text-2xl font-bold">Member Directory</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} member{filtered.length !== 1 ? "s" : ""}</p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name, phone, district, block..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+      <h1 className="text-2xl font-bold">Member Directory</h1>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <MetricCard label="Total Members" value={members.length} icon={Users} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-primary" />
+        <MetricCard label="Districts" value={districts.length} icon={MapPin} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
+        <MetricCard label="Officials" value={officialCount} icon={Briefcase} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
+        <MetricCard label="Admins" value={adminCount} icon={Users} loading={!loaded} borderColor="border-l-amber-500" iconColor="text-amber-500/40" subtitleColor="text-amber-600" />
+      </div>
+
+      {/* Search & Filters */}
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, phone, district, block..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
             <Select value={filterDistrict} onValueChange={setFilterDistrict}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="All Districts" />
               </SelectTrigger>
               <SelectContent>
@@ -111,7 +124,7 @@ export default function MembersPage() {
               </SelectContent>
             </Select>
             <Select value={filterOccupation} onValueChange={setFilterOccupation}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="All Designations" />
               </SelectTrigger>
               <SelectContent>
@@ -122,8 +135,11 @@ export default function MembersPage() {
               </SelectContent>
             </Select>
           </div>
-        </div>
-      </div>
+          {(search || filterDistrict !== "all" || filterOccupation !== "all") && (
+            <p className="text-xs text-muted-foreground mt-2">{filtered.length} of {members.length} members shown</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Recent Payments Scrolling Ticker */}
       {recentPayments.length > 0 && (
@@ -153,52 +169,64 @@ export default function MembersPage() {
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((m) => (
-          <Card key={m.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="pt-4">
-              <div className="flex items-start gap-3">
-                <Avatar
-                  className="w-12 h-12 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
-                  onClick={() => m.photo_url && setViewPhoto({ url: m.photo_url, name: m.name })}
-                >
-                  {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
-                  <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                    {m.name?.charAt(0)?.toUpperCase() || "?"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm truncate uppercase">{m.name || "Unnamed"}</h3>
-                    {(m.role === "admin" || m.role === "super_admin") && (
-                      <Badge className="bg-accent text-accent-foreground text-xs">Official</Badge>
+      {/* Members Grid */}
+      {filtered.length === 0 && loaded ? (
+        <EmptyState icon={Users} title="No members found" description={search ? "Try a different search term" : undefined} />
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((m) => (
+            <Card key={m.id} className="hover:shadow-md transition-all hover:border-primary/20 group">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-start gap-3">
+                  <Avatar
+                    className="w-14 h-14 cursor-pointer ring-2 ring-transparent group-hover:ring-primary/20 transition-all"
+                    onClick={() => m.photo_url && setViewPhoto({ url: m.photo_url, name: m.name })}
+                  >
+                    {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
+                      {m.name?.charAt(0)?.toUpperCase() || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-semibold text-sm truncate uppercase">{m.name || "Unnamed"}</h3>
+                      {(m.role === "admin" || m.role === "super_admin") && (
+                        <Badge className="bg-accent/15 text-accent border-accent/30 text-[10px] px-1.5 py-0">Admin</Badge>
+                      )}
+                      {m.official_type === "state" && (
+                        <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-[10px] px-1.5 py-0">State</Badge>
+                      )}
+                      {m.official_type === "district" && (
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-[10px] px-1.5 py-0">District</Badge>
+                      )}
+                    </div>
+                    {m.occupation && (
+                      <p className="text-xs text-muted-foreground mt-1">{m.occupation}</p>
                     )}
-                    {m.official_type === "state" && (
-                      <Badge className="bg-purple-600 text-white text-xs">State</Badge>
+                    {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <MapPin size={10} className="text-muted-foreground shrink-0" />
+                        <p className="text-xs text-muted-foreground truncate">
+                          {[m.posting_details.regular_district, m.posting_details.regular_block].filter(Boolean).join(", ")}
+                        </p>
+                      </div>
                     )}
-                    {m.official_type === "district" && (
-                      <Badge className="bg-blue-600 text-white text-xs">District</Badge>
-                    )}
+                    <div className="flex flex-wrap items-center gap-x-3 mt-1.5">
+                      {m.phone && (
+                        <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+                          <Phone size={10} /> {m.phone}
+                        </a>
+                      )}
+                      <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline truncate">
+                        <Mail size={10} /> {m.email}
+                      </a>
+                    </div>
                   </div>
-                  {m.occupation && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{m.occupation}</p>
-                  )}
-                  {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {[m.posting_details.regular_district, m.posting_details.regular_block].filter(Boolean).join(" | ")}
-                    </p>
-                  )}
-                  {m.phone && <p className="text-xs text-muted-foreground mt-0.5">{m.phone}</p>}
-                  <p className="text-xs text-muted-foreground mt-0.5">{m.email}</p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <p className="text-center text-muted-foreground py-8">No members found</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       {/* Photo Viewer Dialog */}

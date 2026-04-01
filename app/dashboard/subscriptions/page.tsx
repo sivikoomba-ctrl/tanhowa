@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { MetricCard } from "@/components/metric-card";
 
 interface PendingMember {
   id: string;
@@ -352,24 +353,9 @@ export default function SubscriptionsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Paid</p>
-            <p className="text-2xl font-bold text-green-600">{paid}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Due</p>
-            <p className="text-2xl font-bold text-amber-600">{pending}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Total Paid</p>
-            <p className="text-2xl font-bold">&#8377;{totalPaid.toLocaleString("en-IN")}</p>
-          </CardContent>
-        </Card>
+        <MetricCard label="Paid" value={paid} icon={CheckCircle2} borderColor="border-l-green-500" iconColor="text-green-500/40" />
+        <MetricCard label="Due" value={pending} icon={Clock} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
+        <MetricCard label="Total Paid" value={`₹${totalPaid.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-primary" iconColor="text-primary/40" />
       </div>
 
       {/* Hidden file input */}
