@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { Search, Filter, IndianRupee, X } from "lucide-react";
 
 interface Member {
@@ -43,7 +44,7 @@ export default function MembersPage() {
     fetch("/api/users")
       .then((r) => r.json())
       .then((d) => setMembers(d.users || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load members"));
     fetch("/api/subscriptions/recent-payments")
       .then((r) => r.json())
       .then((d) => setRecentPayments(d.payments || []))

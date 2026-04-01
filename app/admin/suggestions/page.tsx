@@ -47,7 +47,7 @@ export default function AdminSuggestionsPage() {
     fetch("/api/grievances?type=suggestion&status=" + tab)
       .then((r) => r.json())
       .then((d) => setSuggestions(d.grievances || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load suggestions"));
   }
 
   useEffect(() => {

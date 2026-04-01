@@ -32,7 +32,7 @@ export default function EventsPage() {
     fetch("/api/events")
       .then((r) => r.json())
       .then((d) => setEvents(d.events || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load events"));
   }
 
   useEffect(() => {

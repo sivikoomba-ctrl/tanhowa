@@ -177,7 +177,7 @@ export default function AdminSubscriptionsPage() {
         const s = settingsData.settings || {};
         if (s.payment_qr_url) setQrUrl(s.payment_qr_url);
       })
-      .catch(() => {})
+      .catch(() => toast.error("Failed to load subscriptions"))
       .finally(() => setPageLoading(false));
   }
 

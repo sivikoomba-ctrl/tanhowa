@@ -54,7 +54,7 @@ export default function AdminErrorLogsPage() {
         setUnresolvedCount(d.unresolvedCount || 0);
         setLastRefreshed(new Date());
       })
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load error logs"));
   }, [tab, page]);
 
   useEffect(() => {

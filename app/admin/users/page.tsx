@@ -75,7 +75,7 @@ export default function AdminUsersPage() {
     fetch("/api/users?status=" + (tab === "all" ? "" : tab))
       .then((r) => r.json())
       .then((d) => setUsers(d.users || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load users"));
   }
 
   useEffect(() => {

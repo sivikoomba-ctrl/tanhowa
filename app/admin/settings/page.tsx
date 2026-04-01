@@ -22,7 +22,7 @@ export default function AdminSettingsPage() {
       .then((d) => {
         if (d.settings) setSettings(d.settings);
       })
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load settings"));
   }, []);
 
   async function handleSave(e: React.FormEvent) {

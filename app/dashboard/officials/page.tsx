@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import { Crown, Building2, Phone, Mail, MapPin, Briefcase } from "lucide-react";
 
 interface Official {
@@ -34,7 +35,7 @@ export default function OfficialsPage() {
         );
         setOfficials(list);
       })
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load officials"));
   }, []);
 
   const stateOfficials = useMemo(

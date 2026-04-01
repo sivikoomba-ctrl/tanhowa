@@ -86,7 +86,7 @@ export default function AdminDashboard() {
           .sort((a: ActiveUser, b: ActiveUser) => (b.login_count || 0) - (a.login_count || 0))
           .slice(0, 5)
       );
-    }).catch(() => {});
+    }).catch(() => toast.error("Failed to load dashboard data"));
   }
 
   useEffect(() => { loadData(); }, []);

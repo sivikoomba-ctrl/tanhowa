@@ -64,7 +64,7 @@ export default function AdminVouchersPage() {
     fetch("/api/vouchers?status=" + tab)
       .then((r) => r.json())
       .then((d) => setVouchers(d.vouchers || []))
-      .catch(() => {})
+      .catch(() => toast.error("Failed to load vouchers"))
       .finally(() => setLoading(false));
   }
 

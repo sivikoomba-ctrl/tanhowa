@@ -66,7 +66,7 @@ export default function VouchersPage() {
     fetch("/api/vouchers")
       .then((r) => r.json())
       .then((d) => setVouchers(d.vouchers || []))
-      .catch(() => {})
+      .catch(() => toast.error("Failed to load vouchers"))
       .finally(() => setLoading(false));
   }
 

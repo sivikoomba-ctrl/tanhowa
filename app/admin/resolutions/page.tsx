@@ -62,7 +62,7 @@ export default function AdminResolutionsPage() {
     fetch("/api/resolutions")
       .then((r) => r.json())
       .then((d) => setResolutions(d.resolutions || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load resolutions"));
   }
 
   useEffect(() => {

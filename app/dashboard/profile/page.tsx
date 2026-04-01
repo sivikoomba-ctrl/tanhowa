@@ -158,7 +158,7 @@ export default function ProfilePage() {
         if (d.user.photo_url) setPhotoPreview(d.user.photo_url);
         if (d.user.profile_nudge) setNudge(d.user.profile_nudge);
       }
-    }).catch(() => {});
+    }).catch(() => toast.error("Failed to load profile"));
   }, []);
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {

@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 import { Award, Clock, Activity, TrendingUp, Trophy, Medal, Star, Flame, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
@@ -76,6 +77,7 @@ export default function ContributionsPage() {
         setContributions(data.contributions || []);
         setTotalMinutes(data.totalMinutes || 0);
       })
+      .catch(() => toast.error("Failed to load contributions"))
       .finally(() => setLoading(false));
   }, [period]);
 

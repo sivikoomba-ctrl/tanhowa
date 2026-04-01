@@ -30,7 +30,7 @@ export default function AnnouncementsPage() {
     fetch("/api/announcements")
       .then((r) => r.json())
       .then((d) => setAnnouncements(d.announcements || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load announcements"));
   }
 
   useEffect(() => {

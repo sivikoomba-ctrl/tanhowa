@@ -50,7 +50,7 @@ export default function GrievancesPage() {
     fetch("/api/grievances?type=grievance")
       .then((r) => r.json())
       .then((d) => setGrievances(d.grievances || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load grievances"));
   }
 
   useEffect(() => {

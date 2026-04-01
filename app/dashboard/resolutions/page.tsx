@@ -57,7 +57,7 @@ export default function ResolutionsPage() {
     fetch("/api/resolutions")
       .then((r) => r.json())
       .then((d) => setResolutions(d.resolutions || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load resolutions"));
   }
 
   function loadMyResolutions() {

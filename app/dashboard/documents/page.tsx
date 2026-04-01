@@ -52,7 +52,7 @@ export default function DocumentsPage() {
     fetch("/api/documents")
       .then((r) => r.json())
       .then((d) => setDocuments(d.documents || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load documents"));
   }
 
   useEffect(() => {

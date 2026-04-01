@@ -66,7 +66,7 @@ export default function AdminDocumentsPage() {
     fetch("/api/documents?status=" + tab)
       .then((r) => r.json())
       .then((d) => setDocuments(d.documents || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load documents"));
   }
 
   function loadMembers() {

@@ -24,7 +24,7 @@ export default function AdminAnnouncementsPage() {
     fetch("/api/announcements")
       .then((r) => r.json())
       .then((d) => setAnnouncements(d.announcements || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load announcements"));
   }
 
   useEffect(() => {

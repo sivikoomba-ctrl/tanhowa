@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
 import {
   Users, Megaphone, Calendar, FileText, UserCheck, IndianRupee,
   Wallet, ListTodo, Award, Phone, Mail, Shield, Lightbulb,
@@ -50,6 +52,7 @@ export default function DashboardHome() {
   const [adminContacts, setAdminContacts] = useState<AdminContact[]>([]);
   const [mySubscriptions, setMySubscriptions] = useState<MySubscription[]>([]);
   const [myContributions, setMyContributions] = useState({ count: 0, minutes: 0 });
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -67,7 +70,8 @@ export default function DashboardHome() {
       const contributions = contrib.contributions || [];
       const totalMinutes = contributions.reduce((sum: number, c: { estimated_minutes: number }) => sum + (c.estimated_minutes || 0), 0);
       setMyContributions({ count: contributions.length, minutes: totalMinutes });
-    }).catch(() => {});
+    }).catch(() => toast.error("Failed to load dashboard data"))
+      .finally(() => setLoaded(true));
   }, []);
 
   function formatMinutes(minutes: number) {
@@ -91,7 +95,7 @@ export default function DashboardHome() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Members</p>
-                <p className="text-3xl font-bold">{stats.members}</p>
+                {loaded ? <p className="text-3xl font-bold">{stats.members}</p> : <Skeleton className="h-8 w-14 my-0.5" />}
                 <p className="text-xs text-primary mt-1">Active members</p>
               </div>
               <UserCheck className="w-8 h-8 text-primary/40" />
@@ -103,7 +107,7 @@ export default function DashboardHome() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Announcements</p>
-                <p className="text-3xl font-bold">{stats.announcements}</p>
+                {loaded ? <p className="text-3xl font-bold">{stats.announcements}</p> : <Skeleton className="h-8 w-14 my-0.5" />}
                 <p className="text-xs text-green-600 mt-1">Published</p>
               </div>
               <Megaphone className="w-8 h-8 text-green-500/40" />
@@ -115,7 +119,7 @@ export default function DashboardHome() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Events</p>
-                <p className="text-3xl font-bold">{stats.events}</p>
+                {loaded ? <p className="text-3xl font-bold">{stats.events}</p> : <Skeleton className="h-8 w-14 my-0.5" />}
                 <p className="text-xs text-blue-600 mt-1">Total events</p>
               </div>
               <Calendar className="w-8 h-8 text-blue-500/40" />
@@ -127,8 +131,8 @@ export default function DashboardHome() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Contributions</p>
-                <p className="text-3xl font-bold">{myContributions.count}</p>
-                <p className="text-xs text-purple-600 mt-1">{formatMinutes(myContributions.minutes)} this month</p>
+                {loaded ? <p className="text-3xl font-bold">{myContributions.count}</p> : <Skeleton className="h-8 w-14 my-0.5" />}
+                <p className="text-xs text-purple-600 mt-1">{loaded ? `${formatMinutes(myContributions.minutes)} this month` : ""}</p>
               </div>
               <Award className="w-8 h-8 text-purple-500/40" />
             </div>

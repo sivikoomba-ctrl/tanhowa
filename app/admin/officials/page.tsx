@@ -42,7 +42,7 @@ export default function AdminOfficialsPage() {
     fetch("/api/users?status=approved")
       .then((r) => r.json())
       .then((d) => setUsers(d.users || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load officials"));
   }
 
   useEffect(() => {

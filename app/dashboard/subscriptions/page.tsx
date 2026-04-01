@@ -77,7 +77,7 @@ export default function SubscriptionsPage() {
     fetch("/api/subscriptions?me=true")
       .then((r) => r.json())
       .then((d) => setSubscriptions(d.subscriptions || []))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load subscriptions"));
     fetch("/api/settings")
       .then((r) => r.json())
       .then((d) => {

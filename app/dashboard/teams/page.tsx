@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { UsersRound, X } from "lucide-react";
 
 interface TeamMember {
@@ -46,7 +47,7 @@ export default function TeamsPage() {
           setActiveTeam(d.teams[0].id);
         }
       })
-      .catch(() => {})
+      .catch(() => toast.error("Failed to load teams"))
       .finally(() => setLoading(false));
   }, []);
 
