@@ -26,6 +26,7 @@ interface User {
   posting_details?: {
     regular_district?: string;
     regular_block?: string;
+    official_designation?: string;
   };
 }
 
@@ -224,8 +225,8 @@ function OfficialRow({ user: u, onRemove }: { user: User; onRemove: () => void }
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-sm uppercase truncate">{u.name || "Unnamed"}</h3>
-                <Badge className={`text-xs ${u.official_type === "state" ? "bg-purple-600 hover:bg-purple-600 text-white" : "bg-blue-600 hover:bg-blue-600 text-white"}`}>
-                  {u.official_type === "state" ? <><Crown size={10} className="mr-1" />State</> : <><Building2 size={10} className="mr-1" />District</>}
+                <Badge className={`text-xs ${u.official_type === "state" ? "bg-purple-600 hover:bg-purple-600 text-white" : u.posting_details?.official_designation?.includes("Joint") ? "bg-teal-600 hover:bg-teal-600 text-white" : "bg-blue-600 hover:bg-blue-600 text-white"}`}>
+                  {u.official_type === "state" ? <><Crown size={10} className="mr-1" />State</> : <><Building2 size={10} className="mr-1" />{u.posting_details?.official_designation || "District"}</>}
                 </Badge>
               </div>
               <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1 flex-wrap">
