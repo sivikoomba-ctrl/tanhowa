@@ -24,7 +24,7 @@ async function sendZeptoMail(payload: ZeptoMailPayload) {
     throw new Error("ZEPTOMAIL_TOKEN not configured");
   }
 
-  const res = await fetch("https://api.zeptomail.com/v1.1/email", {
+  const res = await fetch("https://api.zeptomail.in/v1.1/email", {
     method: "POST",
     headers: {
       "Accept": "application/json",
