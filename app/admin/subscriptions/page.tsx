@@ -1218,12 +1218,19 @@ export default function AdminSubscriptionsPage() {
                         <p className="text-xs text-muted-foreground">Method: {sub.payment_method}</p>
                       )}
                       {sub.remarks && <p className="text-xs text-muted-foreground">Note: {sub.remarks}</p>}
-                      {sub.approved_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Approved: {formatDateTime(sub.approved_at)}
-                          {sub.approver?.name && <> by <span className="font-medium">{sub.approver.name}</span></>}
-                        </p>
-                      )}
+                      {/* Payment Timeline */}
+                      <div className="flex flex-wrap items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
+                        <span className="bg-muted px-1.5 py-0.5 rounded">Created {formatDate(sub.created_at)}</span>
+                        {hasProof && <><span>&rarr;</span><span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">Proof Uploaded</span></>}
+                        {sub.remarks?.startsWith("Verified by") && <><span>&rarr;</span><span className="bg-green-50 text-green-600 px-1.5 py-0.5 rounded">{sub.remarks.split(" on ")[0]}</span></>}
+                        {sub.approved_at && (
+                          <><span>&rarr;</span><span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                            Approved {formatDate(sub.approved_at)}{sub.approver?.name ? ` by ${sub.approver.name}` : ""}
+                          </span></>
+                        )}
+                        {sub.status === "rejected" && <><span>&rarr;</span><span className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded">Rejected</span></>}
+                        {sub.status === "hold" && <><span>&rarr;</span><span className="bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded">On Hold</span></>}
+                      </div>
                       {sub.payment_group_id && (() => {
                         const grouped = subscriptions.filter(
                           (s) => s.payment_group_id === sub.payment_group_id && s.id !== sub.id

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, MapPin, Plus, Clock } from "lucide-react";
+import { Calendar, MapPin, Plus, Clock, UserCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 
@@ -28,6 +28,39 @@ export default function EventsPage() {
   const [newDate, setNewDate] = useState("");
   const [newLocation, setNewLocation] = useState("");
   const [creating, setCreating] = useState(false);
+  const [rsvpCounts, setRsvpCounts] = useState<Record<string, number>>({});
+  const [myRsvps, setMyRsvps] = useState<Record<string, string>>({});
+
+  function loadRsvps() {
+    fetch("/api/events/rsvp")
+      .then((r) => r.json())
+      .then((d) => {
+        setRsvpCounts(d.counts || {});
+        setMyRsvps(d.myRsvps || {});
+      })
+      .catch(() => {});
+  }
+
+  async function handleRsvp(eventId: string) {
+    const isGoing = myRsvps[eventId] === "going";
+    const res = await fetch("/api/events/rsvp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event_id: eventId, status: isGoing ? "cancel" : "going" }),
+    });
+    if (res.ok) {
+      setMyRsvps((prev) => {
+        const next = { ...prev };
+        if (isGoing) delete next[eventId]; else next[eventId] = "going";
+        return next;
+      });
+      setRsvpCounts((prev) => ({
+        ...prev,
+        [eventId]: (prev[eventId] || 0) + (isGoing ? -1 : 1),
+      }));
+      toast.success(isGoing ? "RSVP cancelled" : "You're going!");
+    }
+  }
 
   function loadEvents() {
     fetch("/api/events")
@@ -38,6 +71,7 @@ export default function EventsPage() {
 
   useEffect(() => {
     loadEvents();
+    loadRsvps();
     fetch("/api/users/me")
       .then((r) => r.json())
       .then((d) => {
@@ -156,6 +190,22 @@ export default function EventsPage() {
                                   <MapPin size={11} />
                                   {ev.location}
                                 </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2.5">
+                              <Button
+                                size="sm"
+                                variant={myRsvps[ev.id] === "going" ? "default" : "outline"}
+                                className={`h-7 text-xs gap-1 ${myRsvps[ev.id] === "going" ? "bg-green-600 hover:bg-green-700" : ""}`}
+                                onClick={() => handleRsvp(ev.id)}
+                              >
+                                <UserCheck size={12} />
+                                {myRsvps[ev.id] === "going" ? "Going" : "RSVP"}
+                              </Button>
+                              {(rsvpCounts[ev.id] || 0) > 0 && (
+                                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                  <Users size={11} /> {rsvpCounts[ev.id]} going
+                                </span>
                               )}
                             </div>
                           </div>

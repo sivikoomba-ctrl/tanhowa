@@ -111,6 +111,26 @@ function SectionHeader({ icon: Icon, title, subtitle, color = "text-primary" }: 
   );
 }
 
+function getProfileCompletion(p: Profile): { percent: number; missing: string[] } {
+  const checks: [boolean, string][] = [
+    [!!p.first_name, "First Name"],
+    [!!p.last_name, "Last Name / Initial"],
+    [!!p.phone, "Phone"],
+    [!!p.occupation, "Designation"],
+    [!!p.posting_details.regular_district, "District"],
+    [!!p.posting_details.regular_block, "Block"],
+    [!!p.photo_url, "Profile Photo"],
+    [!!p.dob, "Date of Birth"],
+    [!!p.gender, "Gender"],
+    [!!p.qualification, "Qualification"],
+    [!!p.date_of_joining, "Date of Joining"],
+    [!!p.address || !!p.office_address, "Address"],
+  ];
+  const filled = checks.filter(([ok]) => ok).length;
+  const missing = checks.filter(([ok]) => !ok).map(([, name]) => name);
+  return { percent: Math.round((filled / checks.length) * 100), missing };
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -304,6 +324,32 @@ export default function ProfilePage() {
           <p className="text-[10px] text-muted-foreground mt-2 text-center sm:text-right">JPEG, PNG or WebP. Max 2MB.</p>
         </CardContent>
       </Card>
+
+      {/* Profile Completion */}
+      {profile && (() => {
+        const { percent, missing } = getProfileCompletion(profile);
+        return (
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Profile Completion</span>
+                <span className={`text-sm font-bold ${percent === 100 ? "text-green-600" : percent >= 75 ? "text-primary" : "text-amber-600"}`}>{percent}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${percent === 100 ? "bg-green-500" : percent >= 75 ? "bg-primary" : "bg-amber-500"}`}
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+              {missing.length > 0 && (
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Missing: {missing.join(", ")}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       <form onSubmit={handleSave} className="space-y-4">
         {/* Personal Information */}

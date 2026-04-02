@@ -374,26 +374,24 @@ export default function DocumentsPage() {
         </CardContent>
       </Card>
 
-      {/* Category Summary Tags */}
+      {/* Category Tabs */}
       {documents.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          <Badge
-            variant={filterCategory === "all" ? "default" : "outline"}
-            className="cursor-pointer"
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+          <button
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${filterCategory === "all" ? "bg-primary text-white" : "bg-muted hover:bg-muted/80 text-foreground"}`}
             onClick={() => setFilterCategory("all")}
           >
             All ({documents.length})
-          </Badge>
+          </button>
           {docCategories.map((cat) =>
             categoryCounts[cat] ? (
-              <Badge
+              <button
                 key={cat}
-                variant={filterCategory === cat ? "default" : "outline"}
-                className="cursor-pointer"
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${filterCategory === cat ? "bg-primary text-white" : "bg-muted hover:bg-muted/80 text-foreground"}`}
                 onClick={() => setFilterCategory(cat)}
               >
                 {cat} ({categoryCounts[cat]})
-              </Badge>
+              </button>
             ) : null
           )}
         </div>

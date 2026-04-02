@@ -77,6 +77,8 @@ export default function AdminUsersPage() {
   const [nudgeUserId, setNudgeUserId] = useState<string | null>(null);
   const [nudgeFields, setNudgeFields] = useState<string[]>([]);
   const [nudgeMessage, setNudgeMessage] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState({ name: "", phone: "", occupation: "", address: "", office_address: "", dob: "", gender: "", regular_district: "", regular_block: "", special_duty_district: "", special_duty_block: "", deputed_district: "", deputed_block: "" });
   const [editSaving, setEditSaving] = useState(false);
@@ -95,6 +97,7 @@ export default function AdminUsersPage() {
     setDistrictFilter("all");
     setJoinedFilter("all");
     setVisibleCount(PAGE_SIZE);
+    setSelectedIds(new Set());
   }, [loadUsers]);
 
   const filteredUsers = useMemo(() => {
@@ -157,6 +160,43 @@ export default function AdminUsersPage() {
       window.dispatchEvent(new Event("admin-users-changed"));
     } else {
       toast.error("Action failed");
+    }
+  }
+
+  async function handleBulkAction(action: string) {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${selectedIds.size} user(s)?`)) return;
+    setBulkLoading(true);
+    let success = 0;
+    for (const userId of selectedIds) {
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, action }),
+      });
+      if (res.ok) success++;
+    }
+    toast.success(`${success} user(s) ${action}d`);
+    setSelectedIds(new Set());
+    setBulkLoading(false);
+    loadUsers();
+    window.dispatchEvent(new Event("admin-users-changed"));
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    const visible = filteredUsers.slice(0, visibleCount);
+    if (selectedIds.size === visible.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(visible.map((u) => u.id)));
     }
   }
 
@@ -343,6 +383,10 @@ export default function AdminUsersPage() {
           </div>
           {users.length > 0 && (
             <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground">
+                <input type="checkbox" checked={selectedIds.size > 0 && selectedIds.size === Math.min(visibleCount, filteredUsers.length)} onChange={toggleSelectAll} className="accent-primary" />
+                Select All
+              </label>
               <p className="text-sm text-muted-foreground">
                 {filteredUsers.length !== users.length
                   ? `Showing ${Math.min(visibleCount, filteredUsers.length)} of ${filteredUsers.length} (filtered from ${users.length})`
@@ -355,6 +399,24 @@ export default function AdminUsersPage() {
               </p>
             </div>
           )}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+              <span className="text-sm font-medium text-primary">{selectedIds.size} selected</span>
+              {(tab === "pending" || tab === "all") && (
+                <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" disabled={bulkLoading} onClick={() => handleBulkAction("approve")}>
+                  Approve All
+                </Button>
+              )}
+              {(tab === "pending" || tab === "all") && (
+                <Button size="sm" variant="destructive" className="h-7 text-xs" disabled={bulkLoading} onClick={() => handleBulkAction("reject")}>
+                  Reject All
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSelectedIds(new Set())}>
+                Clear
+              </Button>
+            </div>
+          )}
           {filteredUsers.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center">
               {users.length === 0 ? `No ${tab} users` : "No users match your filters"}
@@ -364,7 +426,7 @@ export default function AdminUsersPage() {
               {filteredUsers.slice(0, visibleCount).map((u) => {
                 const isExpanded = expandedId === u.id;
                 return (
-                  <Card key={u.id}>
+                  <Card key={u.id} className={selectedIds.has(u.id) ? "border-primary/50 bg-primary/[0.02]" : ""}>
                     <CardContent className="pt-4">
                       {/* Header row */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -372,6 +434,13 @@ export default function AdminUsersPage() {
                           className="flex-1 cursor-pointer flex items-start gap-3"
                           onClick={() => setExpandedId(isExpanded ? null : u.id)}
                         >
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(u.id)}
+                            onChange={(e) => { e.stopPropagation(); toggleSelect(u.id); }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-3 shrink-0 accent-primary"
+                          />
                           <div className="relative shrink-0">
                             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                               {u.photo_url ? <Image src={u.photo_url} alt={u.name} width={80} height={80} unoptimized className="w-full h-full object-cover" /> : <span className="text-sm font-semibold text-primary">{u.name?.charAt(0)?.toUpperCase() || "?"}</span>}
