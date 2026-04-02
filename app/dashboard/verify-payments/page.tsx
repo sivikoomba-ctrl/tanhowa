@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,11 @@ import {
   Phone,
   ChevronDown,
   ChevronUp,
+  Send,
+  Upload,
+  Loader2,
 } from "lucide-react";
+import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 
 interface Subscription {
   id: string;
@@ -47,7 +51,12 @@ export default function VerifyPaymentsPage() {
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [expandedDistrict, setExpandedDistrict] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [user, setUser] = useState<{ role: string; official_type: string | null } | null>(null);
+  const [nudgingDistrict, setNudgingDistrict] = useState<string | null>(null);
+  const [uploadingSub, setUploadingSub] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<Subscription | null>(null);
 
   useEffect(() => {
     fetch("/api/users/me")
@@ -96,6 +105,77 @@ export default function VerifyPaymentsPage() {
     }
   }
 
+  async function handleViewProof(sub: Subscription) {
+    if (!sub.payment_proof_url) return;
+    setPreviewLoading(true);
+    setPreviewUrl(null);
+    try {
+      const signedUrl = await fetchSignedPaymentProofUrl(sub.id, sub.payment_proof_url);
+      setPreviewUrl(signedUrl);
+    } catch {
+      toast.error("Failed to load proof image");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function handleNudge(district: DistrictGroup) {
+    setNudgingDistrict(district.district);
+    try {
+      const res = await fetch("/api/subscriptions/nudge-officials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          district: district.district,
+          pendingCount: district.pending,
+          totalAmount: district.totalAmount,
+          officialIds: district.officials.map((o) => o.id),
+        }),
+      });
+      if (res.ok) {
+        toast.success(`Nudge sent to DS/DJS of ${district.district}`);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to send nudge");
+      }
+    } catch {
+      toast.error("Failed to send nudge");
+    } finally {
+      setNudgingDistrict(null);
+    }
+  }
+
+  function triggerUpload(sub: Subscription) {
+    uploadTargetRef.current = sub;
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const sub = uploadTargetRef.current;
+    if (!file || !sub) return;
+    e.target.value = "";
+
+    setUploadingSub(sub.id);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("subscription_id", sub.id);
+      const res = await fetch("/api/upload/payment-proof", { method: "POST", body: formData });
+      if (res.ok) {
+        toast.success(`Proof uploaded for ${sub.member_name}`);
+        loadData();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Upload failed");
+      }
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setUploadingSub(null);
+    }
+  }
+
   const isStateOrAdmin = user?.official_type === "state" || user?.role === "admin" || user?.role === "super_admin";
 
   if (loading) {
@@ -108,6 +188,8 @@ export default function VerifyPaymentsPage() {
 
   return (
     <div className="space-y-6">
+      <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileUpload} />
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -171,7 +253,6 @@ export default function VerifyPaymentsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {/* Show DS/DJS for this district (state/admin view) */}
                     {isStateOrAdmin && d.officials.length > 0 && (
                       <div className="text-right mr-3">
                         {d.officials.map((o) => (
@@ -191,7 +272,7 @@ export default function VerifyPaymentsPage() {
 
               {expandedDistrict === d.district && (
                 <CardContent className="pt-0 space-y-3">
-                  {/* Notify button for state officials */}
+                  {/* DS/DJS actions for state officials / admins */}
                   {isStateOrAdmin && d.officials.length > 0 && (
                     <div className="flex items-center gap-2 pb-2 border-b">
                       <Button
@@ -206,7 +287,15 @@ export default function VerifyPaymentsPage() {
                       >
                         <Phone size={12} /> Copy DS/DJS phone(s)
                       </Button>
-                      <span className="text-xs text-muted-foreground">Notify them to verify {d.pending} pending payment(s)</span>
+                      <Button
+                        size="sm"
+                        className="text-xs gap-1 bg-amber-600 hover:bg-amber-700"
+                        disabled={nudgingDistrict === d.district}
+                        onClick={(e) => { e.stopPropagation(); handleNudge(d); }}
+                      >
+                        {nudgingDistrict === d.district ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                        Nudge DS/DJS
+                      </Button>
                     </div>
                   )}
 
@@ -228,9 +317,20 @@ export default function VerifyPaymentsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {sub.payment_proof_url && (
-                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setPreviewUrl(sub.payment_proof_url)}>
+                        {sub.payment_proof_url ? (
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleViewProof(sub)}>
                             <Eye size={12} /> Proof
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1 text-blue-700 border-blue-300 hover:bg-blue-50"
+                            disabled={uploadingSub === sub.id}
+                            onClick={() => triggerUpload(sub)}
+                          >
+                            {uploadingSub === sub.id ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                            Upload Proof
                           </Button>
                         )}
                         <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" onClick={() => handleVerify(sub.id, "paid")}>
@@ -250,14 +350,19 @@ export default function VerifyPaymentsPage() {
       )}
 
       {/* Proof Preview */}
-      <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
+      <Dialog open={!!previewUrl || previewLoading} onOpenChange={() => { setPreviewUrl(null); setPreviewLoading(false); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Payment Proof</DialogTitle>
           </DialogHeader>
+          {previewLoading && (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          )}
           {previewUrl && (
             <div className="rounded-xl overflow-hidden border">
-              {previewUrl.toLowerCase().endsWith(".pdf") ? (
+              {previewUrl.toLowerCase().includes(".pdf") ? (
                 <iframe src={previewUrl} className="w-full h-[70vh]" title="Payment Proof PDF" />
               ) : (
                 <>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 export async function POST(req: NextRequest) {
@@ -32,9 +32,10 @@ export async function POST(req: NextRequest) {
     const supabase = getServiceClient();
 
     const admin = await isAdmin(session);
+    const adminOrOfficial = await isAdminOrOfficial(session);
 
-    // Verify the subscription belongs to this user (or user is admin)
-    if (!admin) {
+    // Verify the subscription belongs to this user, or user is admin/official
+    if (!admin && !adminOrOfficial) {
       if (!subscriptionId) {
         return NextResponse.json({ error: "subscription_id required" }, { status: 400 });
       }

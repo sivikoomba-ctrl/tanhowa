@@ -324,6 +324,25 @@ export async function sendVoucherStatusEmail(to: string, officialName: string, t
   `));
 }
 
+export async function sendNudgeOfficialEmail(to: string, officialName: string, district: string, pendingCount: number, totalAmount: number) {
+  // Nudge emails bypass HOLD_MEMBER_EMAILS — they're for officials, not regular members
+  await sendEmail(to, `${pendingCount} Pending Payments in ${district} — Action Needed`, wrapEmailTemplate(`
+    <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Payment Verification Reminder</h2>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      Dear <strong>${officialName}</strong>,
+    </p>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      There are <strong>${pendingCount} pending payment(s)</strong> totalling <strong>&#8377;${totalAmount.toLocaleString("en-IN")}</strong> from members in <strong>${district}</strong> awaiting your verification.
+    </p>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      Please review and verify these payments at your earliest convenience.
+    </p>
+    <div style="text-align: center;">
+      <a href="https://www.tanhowa.in/dashboard/verify-payments" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">Verify Payments</a>
+    </div>
+  `));
+}
+
 export async function sendOTPEmail(to: string, otp: string) {
   await sendEmail(to, "Your TANHOWA Login Code", `
     <div style="font-family: 'Poppins', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #fefae0; border-radius: 12px;">
