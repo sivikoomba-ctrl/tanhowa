@@ -1186,6 +1186,13 @@ export default function AdminSubscriptionsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-medium text-sm truncate uppercase">{sub.users?.name || "Unknown"}</h3>
+                        <button
+                          className="text-muted-foreground hover:text-primary transition-colors shrink-0"
+                          title="Copy name"
+                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(sub.users?.name || ""); toast.success("Copied"); }}
+                        >
+                          <Copy size={12} />
+                        </button>
                         <Badge
                           variant="outline"
                           className={
@@ -2066,7 +2073,16 @@ export default function AdminSubscriptionsPage() {
                         className="rounded"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate uppercase">{sub.users?.name || "Unknown"}</p>
+                        <div className="flex items-center gap-1">
+                          <p className="text-sm font-medium truncate uppercase">{sub.users?.name || "Unknown"}</p>
+                          <button
+                            className="text-muted-foreground hover:text-primary transition-colors shrink-0"
+                            title="Copy name"
+                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(sub.users?.name || ""); toast.success("Copied"); }}
+                          >
+                            <Copy size={12} />
+                          </button>
+                        </div>
                         <p className="text-xs text-muted-foreground truncate">{sub.users?.email} {sub.users?.phone && `| ${sub.users.phone}`}</p>
                       </div>
                       <div className="text-right shrink-0">

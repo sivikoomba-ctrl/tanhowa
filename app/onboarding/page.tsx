@@ -44,8 +44,10 @@ function isValidPhone(phone: string): boolean {
 }
 
 export default function OnboardingPage() {
+  const [title, setTitle] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [gender, setGender] = useState("");
   const [phone, setPhone] = useState("");
   const [occupation, setOccupation] = useState("Horticultural Officer");
   const [occupationOther, setOccupationOther] = useState("");
@@ -78,15 +80,18 @@ export default function OnboardingPage() {
     if (!phone.trim()) { setError("Phone number is required"); return; }
     if (!isValidPhone(phone)) { setError("Enter a valid Indian mobile number (10 digits starting with 6-9)"); return; }
     if (!occupation || (occupation === "Others" && !occupationOther.trim())) { setError("Designation is required"); return; }
+    if (!title) { setError("Title is required"); return; }
+    if (!gender) { setError("Gender is required"); return; }
 
     setLoading(true);
     try {
-      const fullName = `${firstName.trim()} ${lastName.trim()}`.toUpperCase();
+      const nameWithoutTitle = `${firstName.trim()} ${lastName.trim()}`.toUpperCase();
+      const fullName = `${title} ${nameWithoutTitle}`;
       const finalOccupation = occupation === "Others" ? occupationOther.trim() : occupation;
       const res = await fetch("/api/users/me", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: fullName, phone: phone.trim(), occupation: finalOccupation }),
+        body: JSON.stringify({ name: fullName, phone: phone.trim(), occupation: finalOccupation, social_links: { gender, title } }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Failed to save profile"); return; }
@@ -151,7 +156,20 @@ export default function OnboardingPage() {
 
           <Card className="border-primary/20 shadow-xl shadow-primary/5">
             <CardContent className="pt-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="title">Title *</Label>
+                  <Select value={title || "none"} onValueChange={(val) => setTitle(val === "none" ? "" : val)}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Select</SelectItem>
+                      <SelectItem value="Mr.">Mr.</SelectItem>
+                      <SelectItem value="Mrs.">Mrs.</SelectItem>
+                      <SelectItem value="Miss.">Miss.</SelectItem>
+                      <SelectItem value="Dr.">Dr.</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div>
                   <Label htmlFor="first_name">First Name *</Label>
                   <Input id="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase())} placeholder="e.g., SIVAKUMAR" required className="uppercase" />
@@ -160,6 +178,18 @@ export default function OnboardingPage() {
                   <Label htmlFor="last_name">Last Name / Initial *</Label>
                   <Input id="last_name" value={lastName} onChange={(e) => setLastName(e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase())} placeholder="e.g., K" required className="uppercase" />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="gender">Gender *</Label>
+                <Select value={gender || "none"} onValueChange={(val) => setGender(val === "none" ? "" : val)}>
+                  <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select</SelectItem>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

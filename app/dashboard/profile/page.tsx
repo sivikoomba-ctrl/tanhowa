@@ -207,6 +207,9 @@ export default function ProfilePage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!profile) return;
+    if (!profile.title) { toast.error("Title is required (Mr., Mrs., Miss., Dr.)"); return; }
+    if (!profile.gender) { toast.error("Gender is required"); return; }
+    if (!profile.dob) { toast.error("Date of Birth is required"); return; }
     setLoading(true);
     try {
       const nameWithoutTitle = `${profile.first_name.trim()} ${profile.last_name.trim()}`.toUpperCase();
@@ -367,7 +370,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Title</Label>
+                    <Label className="text-xs text-muted-foreground">Title *</Label>
                     <Select value={profile.title || "none"} onValueChange={(val) => setProfile({ ...profile, title: val === "none" ? "" : val })}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="None" /></SelectTrigger>
                       <SelectContent>
@@ -396,11 +399,11 @@ export default function ProfilePage() {
                     <Input value={profile.social_links.whatsapp} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, whatsapp: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") } })} placeholder="+91 9876543210" className="mt-1" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Date of Birth</Label>
+                    <Label className="text-xs text-muted-foreground">Date of Birth *</Label>
                     <Input type="date" value={profile.dob} onChange={(e) => setProfile({ ...profile, dob: e.target.value })} min={minDate} max={maxDate} className="mt-1" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Gender</Label>
+                    <Label className="text-xs text-muted-foreground">Gender *</Label>
                     <Select value={profile.gender || "none"} onValueChange={(val) => setProfile({ ...profile, gender: val === "none" ? "" : val })}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>
