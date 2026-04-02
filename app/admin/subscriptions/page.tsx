@@ -572,7 +572,7 @@ export default function AdminSubscriptionsPage() {
       const res = await fetch("/api/upload/payment-proof", { method: "POST", body: formData });
       const data = await res.json();
       if (res.ok) {
-        toast.success("Payment proof uploaded!");
+        toast.success("Payment proof uploaded! Extracting details...");
         load();
         // If verify dialog is open for this subscription, refresh the proof image
         if (payDialog?.id === adminUploadTargetId) {
@@ -580,29 +580,30 @@ export default function AdminSubscriptionsPage() {
             const signedUrl = await fetchSignedPaymentProofUrl(adminUploadTargetId, data.payment_proof_url);
             setPayProofUrl(signedUrl);
             setPayDialog((prev) => prev ? { ...prev, payment_proof_url: data.payment_proof_url } : prev);
-            // Auto-extract from uploaded file
-            setExtractingDate(true);
-            try {
-              const fd = new FormData();
-              fd.append("file", file);
-              const extRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
-              const extData = await extRes.json();
-              if (extData.date || extData.time || extData.transaction_id || extData.payment_method || extData.amount) {
-                setPayForm((prev) => ({
-                  ...prev,
-                  ...(extData.date ? { payment_date: extData.date } : {}),
-                  ...(extData.time ? { payment_time: extData.time } : {}),
-                  ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
-                  ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
-                  ...(extData.amount ? { amount: String(extData.amount) } : {}),
-                }));
-              }
-            } catch { /* best-effort */ }
-            setExtractingDate(false);
           } catch {
             toast.error("Failed to refresh uploaded proof");
           }
         }
+        // Always run OCR extraction
+        setExtractingDate(true);
+        try {
+          const fd = new FormData();
+          fd.append("file", file);
+          const extRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
+          const extData = await extRes.json();
+          if (extData.date || extData.time || extData.transaction_id || extData.payment_method || extData.amount) {
+            setPayForm((prev) => ({
+              ...prev,
+              ...(extData.date ? { payment_date: extData.date } : {}),
+              ...(extData.time ? { payment_time: extData.time } : {}),
+              ...(extData.transaction_id ? { transaction_id: extData.transaction_id } : {}),
+              ...(extData.payment_method ? { payment_method: extData.payment_method } : {}),
+              ...(extData.amount ? { amount: String(extData.amount) } : {}),
+            }));
+            toast.success("Transaction details extracted from proof!");
+          }
+        } catch { /* best-effort */ }
+        setExtractingDate(false);
       } else {
         toast.error(data.error || "Upload failed");
       }
