@@ -64,10 +64,13 @@ interface User {
   official_type: "state" | "district" | null;
 }
 
+const PAGE_SIZE = 30;
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [tab, setTab] = useState("pending");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [search, setSearch] = useState("");
   const [districtFilter, setDistrictFilter] = useState("all");
   const [joinedFilter, setJoinedFilter] = useState("all");
@@ -91,6 +94,7 @@ export default function AdminUsersPage() {
     setSearch("");
     setDistrictFilter("all");
     setJoinedFilter("all");
+    setVisibleCount(PAGE_SIZE);
   }, [loadUsers]);
 
   const filteredUsers = useMemo(() => {
@@ -341,8 +345,8 @@ export default function AdminUsersPage() {
             <div className="flex items-center gap-3">
               <p className="text-sm text-muted-foreground">
                 {filteredUsers.length !== users.length
-                  ? `Showing ${filteredUsers.length} of ${users.length} users`
-                  : `${users.length} users`}
+                  ? `Showing ${Math.min(visibleCount, filteredUsers.length)} of ${filteredUsers.length} (filtered from ${users.length})`
+                  : `Showing ${Math.min(visibleCount, users.length)} of ${users.length} users`}
                 {onlineCount > 0 && (
                   <span className="ml-2 text-green-600 font-medium">
                     ({onlineCount} online)
@@ -357,7 +361,7 @@ export default function AdminUsersPage() {
             </p>
           ) : (
             <div className="space-y-3">
-              {filteredUsers.map((u) => {
+              {filteredUsers.slice(0, visibleCount).map((u) => {
                 const isExpanded = expandedId === u.id;
                 return (
                   <Card key={u.id}>
@@ -651,6 +655,13 @@ export default function AdminUsersPage() {
                   </Card>
                 );
               })}
+              {visibleCount < filteredUsers.length && (
+                <div className="flex justify-center pt-2">
+                  <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+                    Show More ({filteredUsers.length - visibleCount} remaining)
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>

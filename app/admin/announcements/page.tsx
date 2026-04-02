@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Eye } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
 export default function AdminAnnouncementsPage() {
@@ -19,12 +20,17 @@ export default function AdminAnnouncementsPage() {
   const [content, setContent] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [readCounts, setReadCounts] = useState<Record<string, number>>({});
 
   function load() {
     fetch("/api/announcements")
       .then((r) => r.json())
       .then((d) => setAnnouncements(d.announcements || []))
       .catch(() => toast.error("Failed to load announcements"));
+    fetch("/api/announcements/read?counts=true")
+      .then((r) => r.json())
+      .then((d) => setReadCounts(d.counts || {}))
+      .catch(() => {});
   }
 
   useEffect(() => {
@@ -103,9 +109,14 @@ export default function AdminAnnouncementsPage() {
                 <div>
                   <h3 className="font-semibold">{a.title}</h3>
                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{a.content}</p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {formatDate(a.created_at)}
-                  </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(a.created_at)}
+                    </p>
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      <Eye size={10} /> {readCounts[a.id] || 0} read
+                    </Badge>
+                  </div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)} className="text-destructive">
                   <Trash2 size={14} />

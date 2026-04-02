@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
@@ -69,6 +70,65 @@ export default function SubscriptionsPage() {
   const [qrZoom, setQrZoom] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [member, setMember] = useState<MemberInfo | null>(null);
+
+  function downloadReceipt(sub: Subscription) {
+    const doc = new jsPDF();
+    const name = member?.name || "Member";
+    const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(45, 106, 79);
+    doc.text("TANHOWA", 105, 20, { align: "center" });
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, 27, { align: "center" });
+    doc.text("Payment Receipt", 105, 33, { align: "center" });
+
+    // Divider
+    doc.setDrawColor(45, 106, 79);
+    doc.setLineWidth(0.5);
+    doc.line(20, 37, 190, 37);
+
+    // Receipt details
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    let y = 48;
+    const left = 25;
+    const right = 90;
+
+    const rows: [string, string][] = [
+      ["Member Name", name],
+      ["Email", member?.email || "—"],
+      ["Phone", member?.phone || "—"],
+      ["Subscription Period", sub.period],
+      ["Amount", `Rs. ${sub.amount?.toLocaleString("en-IN") || 0}`],
+      ["Status", "Paid"],
+      ["Payment Method", sub.payment_method || "—"],
+      ["Transaction ID", sub.transaction_id || "—"],
+      ["Paid On", sub.paid_at ? new Date(sub.paid_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"],
+    ];
+
+    for (const [label, value] of rows) {
+      doc.setFont("helvetica", "bold");
+      doc.text(label, left, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(value, right, y);
+      y += 8;
+    }
+
+    // Footer
+    y += 10;
+    doc.setDrawColor(200);
+    doc.line(20, y, 190, y);
+    y += 8;
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text(`Generated on ${today} from tanhowa.in`, 105, y, { align: "center" });
+    doc.text("This is a computer-generated receipt and does not require a signature.", 105, y + 5, { align: "center" });
+
+    doc.save(`TANHOWA-Receipt-${sub.period.replace(/\s+/g, "-")}.pdf`);
+  }
 
   // Paying-for-others member picker
   const [pendingMembers, setPendingMembers] = useState<PendingMember[]>([]);
@@ -460,16 +520,29 @@ export default function SubscriptionsPage() {
                           )}
                         </>
                       )}
-                      {sub.status === "paid" && hasProof && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs"
-                          onClick={() => viewProof(sub)}
-                        >
-                          <Eye size={12} className="mr-1" />
-                          View Proof
-                        </Button>
+                      {sub.status === "paid" && (
+                        <>
+                          {hasProof && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs"
+                              onClick={() => viewProof(sub)}
+                            >
+                              <Eye size={12} className="mr-1" />
+                              View Proof
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs text-green-700"
+                            onClick={() => downloadReceipt(sub)}
+                          >
+                            <FileDown size={12} className="mr-1" />
+                            Receipt
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>

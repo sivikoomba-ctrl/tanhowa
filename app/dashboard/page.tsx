@@ -45,12 +45,18 @@ export default function DashboardHome() {
   const [mySubscriptions, setMySubscriptions] = useState<MySubscription[]>([]);
   const [myContributions, setMyContributions] = useState({ count: 0, minutes: 0 });
   const [topContributors, setTopContributors] = useState<{ name: string; action_count: number; total_minutes: number }[]>([]);
+  const [userName, setUserName] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   function loadData() {
     setLoaded(false);
     setErrors({});
+
+    // Fetch user name
+    fetch("/api/users/me").then((r) => r.json())
+      .then((d) => { if (d.user?.name) setUserName(d.user.name); })
+      .catch(() => {});
 
     // Fetch independently so one failure doesn't block others
     fetch("/api/stats").then((r) => r.json())
@@ -98,7 +104,16 @@ export default function DashboardHome() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">
+          {userName ? `Welcome, ${userName.split(" ").slice(0, 2).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(" ")}` : "Dashboard"}
+        </h1>
+        {pendingSubs > 0 && (
+          <p className="text-sm text-amber-600 mt-0.5">
+            You have {pendingSubs} pending subscription{pendingSubs > 1 ? "s" : ""} — <Link href="/dashboard/subscriptions" className="underline font-medium">pay now</Link>
+          </p>
+        )}
+      </div>
 
       {/* Key Metrics */}
       {errors.stats ? (

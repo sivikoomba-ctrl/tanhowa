@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Megaphone, Plus, Clock, UserPlus } from "lucide-react";
+import { Megaphone, Plus, Clock, UserPlus, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 
@@ -33,6 +33,17 @@ export default function AnnouncementsPage() {
   const [content, setContent] = useState("");
   const [creating, setCreating] = useState(false);
   const [recentMembers, setRecentMembers] = useState<RecentMember[]>([]);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+
+  const markAsRead = useCallback((id: string) => {
+    if (readIds.has(id)) return;
+    setReadIds((prev) => new Set(prev).add(id));
+    fetch("/api/announcements/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ announcement_id: id }),
+    }).catch(() => {});
+  }, [readIds]);
 
   function loadAnnouncements() {
     fetch("/api/announcements")
@@ -54,6 +65,10 @@ export default function AnnouncementsPage() {
           }
         }
       })
+      .catch(() => {});
+    fetch("/api/announcements/read")
+      .then((r) => r.json())
+      .then((d) => setReadIds(new Set(d.readIds || [])))
       .catch(() => {});
     fetch("/api/users/recent")
       .then((r) => r.json())
@@ -166,7 +181,7 @@ export default function AnnouncementsPage() {
                   const date = new Date(a.created_at);
                   const isLatest = index === 0 && month === grouped[0][0];
                   return (
-                    <Card key={a.id} className={`transition-all hover:shadow-md ${isLatest ? "border-primary/30 bg-primary/[0.02]" : ""}`}>
+                    <Card key={a.id} className={`transition-all hover:shadow-md ${isLatest ? "border-primary/30 bg-primary/[0.02]" : ""}`} onClick={() => markAsRead(a.id)}>
                       <CardContent className="pt-5 pb-5">
                         <div className="flex gap-4">
                           {/* Date column */}
@@ -203,6 +218,11 @@ export default function AnnouncementsPage() {
                                   </Avatar>
                                   {a.users.name}
                                 </div>
+                              )}
+                              {readIds.has(a.id) && (
+                                <span className="flex items-center gap-0.5 text-[10px] text-blue-500">
+                                  <CheckCheck size={11} /> Read
+                                </span>
                               )}
                             </div>
                           </div>
