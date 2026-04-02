@@ -5,7 +5,7 @@ import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification, sendPaymentRejectionAlertEmail } from "@/lib/mail";
-import { sendTelegramMessage, notifyPaymentRejected } from "@/lib/telegram";
+import { notifyPaymentRejected } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
   try {

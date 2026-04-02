@@ -662,16 +662,16 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-xs text-muted-foreground">District</Label>
-                      <Select value={profile.posting_details.regular_district} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_district: val, regular_block: "" } })}>
+                      <Select value={profile.posting_details.regular_district || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_district: val === "none" ? "" : val, regular_block: "" } })}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Select district" /></SelectTrigger>
-                        <SelectContent>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                        <SelectContent><SelectItem value="none">— None —</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Block</Label>
-                      <Select value={profile.posting_details.regular_block} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_block: val } })} disabled={!profile.posting_details.regular_district}>
+                      <Select value={profile.posting_details.regular_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_block: val === "none" ? "" : val } })} disabled={!profile.posting_details.regular_district}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Select block" /></SelectTrigger>
-                        <SelectContent>{regularBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                        <SelectContent><SelectItem value="none">— None —</SelectItem>{regularBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -683,16 +683,16 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-xs text-muted-foreground">District</Label>
-                      <Select value={profile.posting_details.special_duty_district} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_district: val, special_duty_block: "" } })}>
+                      <Select value={profile.posting_details.special_duty_district || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_district: val === "none" ? "" : val, special_duty_block: "" } })}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Select district" /></SelectTrigger>
-                        <SelectContent>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                        <SelectContent><SelectItem value="none">— None —</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Block</Label>
-                      <Select value={profile.posting_details.special_duty_block} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_block: val } })} disabled={!profile.posting_details.special_duty_district}>
+                      <Select value={profile.posting_details.special_duty_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_block: val === "none" ? "" : val } })} disabled={!profile.posting_details.special_duty_district}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Select block" /></SelectTrigger>
-                        <SelectContent>{specialBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                        <SelectContent><SelectItem value="none">— None —</SelectItem>{specialBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="col-span-2">
@@ -701,9 +701,10 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Special Designation</Label>
-                      <Select value={profile.posting_details.special_designation || ""} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_designation: val, special_farm: "" } })}>
+                      <Select value={profile.posting_details.special_designation || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_designation: val === "none" ? "" : val, special_farm: "" } })}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Select designation" /></SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="none">— None —</SelectItem>
                           <SelectItem value="HO Tech (State Scheme)">HO Tech (State Scheme)</SelectItem>
                           <SelectItem value="HO Tech (GOI)">HO Tech (GOI)</SelectItem>
                           <SelectItem value="Farm Manager">Farm Manager</SelectItem>
@@ -713,9 +714,9 @@ export default function ProfilePage() {
                     {profile.posting_details.special_designation === "Farm Manager" && (
                       <div>
                         <Label className="text-xs text-muted-foreground">Farm</Label>
-                        <Select value={profile.posting_details.special_farm || ""} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_farm: val } })}>
+                        <Select value={profile.posting_details.special_farm || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_farm: val === "none" ? "" : val } })}>
                           <SelectTrigger className="mt-1"><SelectValue placeholder="Select farm" /></SelectTrigger>
-                          <SelectContent>{TN_HORTICULTURE_FARMS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                          <SelectContent><SelectItem value="none">— None —</SelectItem>{TN_HORTICULTURE_FARMS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     )}
@@ -728,16 +729,16 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-xs text-muted-foreground">District</Label>
-                      <Select value={profile.posting_details.deputed_district} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_district: val, deputed_block: "" } })}>
+                      <Select value={profile.posting_details.deputed_district || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_district: val === "none" ? "" : val, deputed_block: "" } })}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Select district" /></SelectTrigger>
-                        <SelectContent>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                        <SelectContent><SelectItem value="none">— None —</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Block</Label>
-                      <Select value={profile.posting_details.deputed_block} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_block: val } })} disabled={!profile.posting_details.deputed_district}>
+                      <Select value={profile.posting_details.deputed_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_block: val === "none" ? "" : val } })} disabled={!profile.posting_details.deputed_district}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Select block" /></SelectTrigger>
-                        <SelectContent>{deputedBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                        <SelectContent><SelectItem value="none">— None —</SelectItem>{deputedBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
