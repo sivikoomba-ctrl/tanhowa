@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
       // Admin: leaderboard — aggregate by user
       let query = supabase
         .from("contributions")
-        .select("user_id, action, estimated_minutes, created_at, users!contributions_user_id_fkey(name, email, avatar_url)");
+        .select("user_id, action, estimated_minutes, created_at, users!contributions_user_id_fkey(name, email, photo_url)");
 
       if (since) query = query.gte("created_at", since);
 
@@ -127,20 +127,20 @@ export async function GET(req: NextRequest) {
         user_id: string;
         name: string;
         email: string;
-        avatar_url: string | null;
+        photo_url: string | null;
         total_minutes: number;
         action_count: number;
         actions: Record<string, number>;
       }>();
 
       for (const row of data || []) {
-        const user = row.users as unknown as { name: string; email: string; avatar_url: string | null } | null;
+        const user = row.users as unknown as { name: string; email: string; photo_url: string | null } | null;
         if (!userMap.has(row.user_id)) {
           userMap.set(row.user_id, {
             user_id: row.user_id,
             name: user?.name || "Unknown",
             email: user?.email || "",
-            avatar_url: user?.avatar_url || null,
+            photo_url: user?.photo_url || null,
             total_minutes: 0,
             action_count: 0,
             actions: {},

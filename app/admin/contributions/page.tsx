@@ -14,7 +14,7 @@ interface LeaderboardEntry {
   user_id: string;
   name: string;
   email: string;
-  avatar_url: string | null;
+  photo_url: string | null;
   total_minutes: number;
   action_count: number;
   actions: Record<string, number>;
@@ -157,7 +157,7 @@ export default function AdminContributionsPage() {
 
                   {/* Avatar */}
                   <Avatar className="h-9 w-9 shrink-0">
-                    <AvatarImage src={entry.avatar_url || undefined} />
+                    <AvatarImage src={entry.photo_url || undefined} />
                     <AvatarFallback className="text-xs bg-primary/10 text-primary">
                       {entry.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
                     </AvatarFallback>
