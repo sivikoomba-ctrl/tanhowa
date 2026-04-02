@@ -61,6 +61,7 @@ export default function VerifyPaymentsPage() {
   const [nudgingDistrict, setNudgingDistrict] = useState<string | null>(null);
   const [uploadingSub, setUploadingSub] = useState<string | null>(null);
   const [verifyTarget, setVerifyTarget] = useState<Subscription | null>(null);
+  const [previewSub, setPreviewSub] = useState<Subscription | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<Subscription | null>(null);
 
@@ -384,7 +385,7 @@ export default function VerifyPaymentsPage() {
                       <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                         {sub.payment_proof_url ? (
                           <>
-                            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleViewProof(sub)}>
+                            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { setVerifyTarget(null); setPreviewSub(sub); handleViewProof(sub); }}>
                               <Eye size={12} /> View Proof
                             </Button>
                             <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-blue-700 border-blue-300 hover:bg-blue-50" disabled={uploadingSub === sub.id} onClick={() => triggerUpload(sub)}>
@@ -398,7 +399,7 @@ export default function VerifyPaymentsPage() {
                             Upload Proof
                           </Button>
                         )}
-                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" disabled={!sub.payment_proof_url} onClick={() => { setVerifyTarget(sub); handleViewProof(sub); }}>
+                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" disabled={!sub.payment_proof_url} onClick={() => { setVerifyTarget(sub); setPreviewSub(sub); handleViewProof(sub); }}>
                           <CheckCircle2 size={12} /> View, Verify & Approve
                         </Button>
                         {isStateOrAdmin && (
@@ -426,11 +427,23 @@ export default function VerifyPaymentsPage() {
       )}
 
       {/* Proof Preview */}
-      <Dialog open={!!previewUrl || previewLoading} onOpenChange={() => { setPreviewUrl(null); setPreviewLoading(false); setVerifyTarget(null); }}>
+      <Dialog open={!!previewUrl || previewLoading} onOpenChange={() => { setPreviewUrl(null); setPreviewLoading(false); setVerifyTarget(null); setPreviewSub(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Payment Proof</DialogTitle>
           </DialogHeader>
+          {previewSub && (
+            <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 text-sm">
+              <div>
+                <p className="font-medium">{previewSub.member_name}</p>
+                <p className="text-xs text-muted-foreground">{previewSub.member_phone} &middot; {previewSub.period}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-semibold text-green-700">₹{previewSub.amount.toLocaleString("en-IN")}</p>
+                <Badge variant="outline" className="text-[10px]">{previewSub.status}</Badge>
+              </div>
+            </div>
+          )}
           {previewLoading && (
             <div className="flex justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />

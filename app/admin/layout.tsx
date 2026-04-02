@@ -79,7 +79,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .then((d) => {
         if (!d.user) router.push("/");
         else if (d.user.role !== "admin" && d.user.role !== "super_admin") router.push("/dashboard");
-        else { setIsAdmin(true); setUser(d.user); }
+        else { setIsAdmin(true); setUser(d.user); if (d.user.role === "super_admin") fetchErrorCount(); }
       })
       .catch(() => router.push("/"));
 
@@ -91,15 +91,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .catch(() => {});
   }, [router, pathname]);
 
+  function fetchErrorCount() {
+    fetch("/api/error-logs?type=unresolved")
+      .then((r) => r.json())
+      .then((d) => setErrorCount(d.unresolvedCount || 0))
+      .catch(() => {});
+  }
+
   function fetchCounts() {
     fetch("/api/users?status=pending")
       .then((r) => r.json())
       .then((d) => setPendingCount(d.users?.length || 0))
-      .catch(() => {});
-
-    fetch("/api/error-logs?type=unresolved")
-      .then((r) => r.json())
-      .then((d) => setErrorCount(d.unresolvedCount || 0))
       .catch(() => {});
   }
 
@@ -129,7 +131,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   function NavLinks({ onItemClick }: { onItemClick?: () => void }) {
     return (
       <>
-        {adminNavItems.map((item) => {
+        {adminNavItems.filter((item) => item.href !== "/admin/error-logs" || user?.role === "super_admin").map((item) => {
           const isActive = pathname === item.href;
           const showBadge = (item.href === "/admin/users" && pendingCount > 0) || (item.href === "/admin/error-logs" && errorCount > 0);
           const badgeCount = item.href === "/admin/users" ? pendingCount : errorCount;
