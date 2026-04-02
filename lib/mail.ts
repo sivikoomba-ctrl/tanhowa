@@ -10,12 +10,19 @@ interface EmailAddress {
   name?: string;
 }
 
+interface ZeptoMailAttachment {
+  content: string; // base64
+  mime_type: string;
+  name: string;
+}
+
 interface ZeptoMailPayload {
   from: { address: string; name: string };
   to: { email_address: EmailAddress }[];
   subject: string;
   htmlbody: string;
   bcc?: { email_address: EmailAddress }[];
+  attachments?: ZeptoMailAttachment[];
 }
 
 async function sendZeptoMail(payload: ZeptoMailPayload) {
@@ -42,12 +49,13 @@ async function sendZeptoMail(payload: ZeptoMailPayload) {
   return res.json();
 }
 
-async function sendEmail(to: string, subject: string, htmlbody: string) {
+async function sendEmail(to: string, subject: string, htmlbody: string, attachments?: ZeptoMailAttachment[]) {
   return sendZeptoMail({
     from: { address: FROM_EMAIL, name: FROM_NAME },
     to: [{ email_address: { address: to } }],
     subject,
     htmlbody,
+    ...(attachments && attachments.length > 0 ? { attachments } : {}),
   });
 }
 
@@ -61,40 +69,113 @@ async function sendBccEmail(toSelf: string, bccAddresses: string[], subject: str
   });
 }
 
-export async function sendSubscriptionApprovedEmail(to: string, memberName: string, period: string, amount: number) {
+/** Generate a PDF receipt as base64 string (server-side, same layout as client downloadReceipt) */
+async function generateReceiptPdf(
+  memberName: string,
+  email: string,
+  period: string,
+  amount: number,
+  details: { phone?: string; payment_method?: string; transaction_id?: string; paid_at?: string; approved_at?: string },
+): Promise<string> {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF();
+  const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const paidDate = details.paid_at
+    ? new Date(details.paid_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "—";
+
+  // Header
+  doc.setFontSize(18);
+  doc.setTextColor(45, 106, 79);
+  doc.text("TANHOWA", 105, 20, { align: "center" });
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, 27, { align: "center" });
+  doc.text("Payment Receipt", 105, 33, { align: "center" });
+
+  // Divider
+  doc.setDrawColor(45, 106, 79);
+  doc.setLineWidth(0.5);
+  doc.line(20, 37, 190, 37);
+
+  // Receipt details
+  doc.setFontSize(11);
+  doc.setTextColor(0);
+  let y = 48;
+  const left = 25;
+  const right = 90;
+
+  const rows: [string, string][] = [
+    ["Member Name", memberName],
+    ["Email", email],
+    ...(details.phone ? [["Phone", details.phone] as [string, string]] : []),
+    ["Subscription Period", period],
+    ["Amount", `Rs. ${amount.toLocaleString("en-IN")}`],
+    ["Status", "Paid"],
+    ...(details.payment_method ? [["Payment Method", details.payment_method] as [string, string]] : []),
+    ...(details.transaction_id ? [["Transaction ID", details.transaction_id] as [string, string]] : []),
+    ["Paid On", paidDate],
+  ];
+
+  for (const [label, value] of rows) {
+    doc.setFont("helvetica", "bold");
+    doc.text(label, left, y);
+    doc.setFont("helvetica", "normal");
+    doc.text(value, right, y);
+    y += 8;
+  }
+
+  // Footer
+  y += 10;
+  doc.setDrawColor(200);
+  doc.line(20, y, 190, y);
+  y += 8;
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+  doc.text(`Generated on ${today} from tanhowa.in`, 105, y, { align: "center" });
+  doc.text("This is a computer-generated receipt and does not require a signature.", 105, y + 5, { align: "center" });
+
+  // Return as base64
+  const arrayBuffer = doc.output("arraybuffer");
+  const buffer = Buffer.from(arrayBuffer);
+  return buffer.toString("base64");
+}
+
+export async function sendSubscriptionApprovedEmail(
+  to: string,
+  memberName: string,
+  period: string,
+  amount: number,
+  details?: { phone?: string; payment_method?: string; transaction_id?: string; paid_at?: string; approved_at?: string },
+) {
   if (HOLD_MEMBER_EMAILS) return;
-  await sendEmail(to, `Your TANHOWA Subscription for ${period} is Approved!`, `
+  const d = details || {};
+
+  // Generate PDF receipt
+  const pdfBase64 = await generateReceiptPdf(memberName, to, period, amount, d);
+  const fileName = `TANHOWA-Receipt-${period.replace(/\s+/g, "-")}.pdf`;
+
+  await sendEmail(
+    to,
+    `TANHOWA Payment Receipt — ${period}`,
+    `
     <div style="font-family: 'Poppins', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #fefae0; border-radius: 12px;">
       <div style="text-align: center; margin-bottom: 24px;">
         <h1 style="color: #2d6a4f; font-size: 28px; margin: 0;">TANHOWA</h1>
         <p style="color: #40916c; font-size: 14px; margin: 4px 0 0;">Tamil Nadu Horticultural Officers Welfare Association</p>
       </div>
       <div style="background: white; border-radius: 8px; padding: 24px;">
-        <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Payment Approved!</h2>
+        <div style="text-align: center; margin-bottom: 16px;">
+          <span style="display: inline-block; background: #f0fdf4; color: #16a34a; font-weight: 700; font-size: 13px; padding: 4px 16px; border-radius: 20px; border: 1px solid #bbf7d0;">&#10003; Payment Approved</span>
+        </div>
         <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
           Dear <strong>${memberName}</strong>,
         </p>
         <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
-          Thank you for your payment! We are pleased to confirm that your TANHOWA subscription has been verified and approved.
+          Your TANHOWA subscription payment for <strong>${period}</strong> (&#8377;${amount.toLocaleString("en-IN")}) has been verified and approved.
         </p>
-        <div style="background: #f0fdf4; border-radius: 8px; padding: 16px; margin: 0 0 16px;">
-          <table style="width: 100%; font-size: 14px; color: #333;">
-            <tr>
-              <td style="padding: 4px 0; color: #666;">Subscription Period</td>
-              <td style="padding: 4px 0; font-weight: 600; text-align: right;">${period}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #666;">Amount</td>
-              <td style="padding: 4px 0; font-weight: 600; text-align: right;">&#8377;${amount.toLocaleString("en-IN")}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #666;">Status</td>
-              <td style="padding: 4px 0; font-weight: 600; text-align: right; color: #16a34a;">Approved</td>
-            </tr>
-          </table>
-        </div>
         <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
-          You can view your subscription details anytime by logging into the TANHOWA Portal.
+          Please find your payment receipt attached as a PDF.
         </p>
         <div style="text-align: center;">
           <a href="https://tanhowa.in/dashboard/subscriptions" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">View My Subscriptions</a>
@@ -104,7 +185,9 @@ export async function sendSubscriptionApprovedEmail(to: string, memberName: stri
         </p>
       </div>
     </div>
-  `);
+  `,
+    [{ content: pdfBase64, mime_type: "application/pdf", name: fileName }],
+  );
 }
 
 // Fetch all approved member emails from Supabase

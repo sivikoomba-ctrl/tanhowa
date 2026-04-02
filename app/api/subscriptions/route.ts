@@ -429,22 +429,29 @@ export async function PUT(req: NextRequest) {
       logContribution(session.userId, "payment_hold", "Put payment on hold");
     }
 
-    // Send email notification when subscription is approved (marked as paid)
+    // Send receipt email when subscription is approved (marked as paid)
     if (body.status === "paid") {
       try {
         const { data: sub } = await supabase
           .from("subscriptions")
-          .select("period, amount, user_id, users!subscriptions_user_id_fkey(name, email)")
+          .select("period, amount, paid_at, approved_at, payment_method, transaction_id, user_id, users!subscriptions_user_id_fkey(name, email, phone)")
           .eq("id", body.id)
           .single();
 
         if (sub?.users) {
-          const user = sub.users as unknown as { name: string; email: string };
+          const user = sub.users as unknown as { name: string; email: string; phone?: string };
           await sendSubscriptionApprovedEmail(
             user.email,
             user.name || "Member",
             sub.period,
-            sub.amount || 0
+            sub.amount || 0,
+            {
+              phone: user.phone,
+              payment_method: sub.payment_method,
+              transaction_id: sub.transaction_id,
+              paid_at: sub.paid_at,
+              approved_at: sub.approved_at,
+            },
           );
           // Broadcast to all members
           notifyPaymentVerified(user.name || "Member", sub.period);

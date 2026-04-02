@@ -160,7 +160,8 @@ export default function AdminUsersPage() {
       loadUsers();
       window.dispatchEvent(new Event("admin-users-changed"));
     } else {
-      toast.error("Action failed");
+      const err = await res.json().catch(() => null);
+      toast.error(err?.error || "Action failed");
     }
   }
 
@@ -169,15 +170,22 @@ export default function AdminUsersPage() {
     if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${selectedIds.size} user(s)?`)) return;
     setBulkLoading(true);
     let success = 0;
+    const failures: string[] = [];
     for (const userId of selectedIds) {
       const res = await fetch("/api/admin/users", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, action }),
       });
-      if (res.ok) success++;
+      if (res.ok) {
+        success++;
+      } else {
+        const err = await res.json().catch(() => null);
+        if (err?.error) failures.push(err.error);
+      }
     }
-    toast.success(`${success} user(s) ${action}d`);
+    if (success > 0) toast.success(`${success} user(s) ${action}d`);
+    if (failures.length > 0) toast.error(`${failures.length} failed: ${failures[0]}`);
     setSelectedIds(new Set());
     setBulkLoading(false);
     loadUsers();
@@ -483,6 +491,11 @@ export default function AdminUsersPage() {
                           </div>
                           <p className="text-sm text-muted-foreground">{u.email}</p>
                           {u.occupation && <p className="text-xs text-muted-foreground">{u.occupation}</p>}
+                          {u.status === "pending" && (!u.name?.trim() || !u.occupation?.trim()) && (
+                            <p className="text-xs text-red-600 font-medium mt-0.5">
+                              Missing: {[!u.name?.trim() && "Name", !u.occupation?.trim() && "Designation"].filter(Boolean).join(", ")}
+                            </p>
+                          )}
                           <p className="text-xs text-muted-foreground mt-1">
                             Joined: {formatDate(u.created_at)}
                             {u.last_active_at && (
