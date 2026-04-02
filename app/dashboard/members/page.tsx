@@ -94,7 +94,7 @@ export default function MembersPage() {
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard label="Total Members" value={members.length} icon={Users} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-primary" />
-        <MetricCard label="Districts" value={districts.length} icon={MapPin} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
+        <MetricCard label="Districts" value={districts.length} subtitle="of 38" icon={MapPin} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
         <MetricCard label="Officials" value={officialCount} icon={Briefcase} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
         <MetricCard label="Admins" value={adminCount} icon={Users} loading={!loaded} borderColor="border-l-amber-500" iconColor="text-amber-500/40" subtitleColor="text-amber-600" />
       </div>

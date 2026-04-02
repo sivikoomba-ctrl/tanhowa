@@ -29,6 +29,7 @@ import {
   Bell,
   ShieldCheck,
   Navigation,
+  BarChart3,
   ChevronDown,
   MessageCircle,
 } from "lucide-react";
@@ -70,6 +71,7 @@ const navItems = [
   { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
   { href: "/dashboard/events", label: "Events", icon: Calendar },
   { href: "/dashboard/resolutions", label: "Resolutions", icon: Vote },
+  { href: "/dashboard/polls", label: "Polls", icon: BarChart3 },
   { href: "/dashboard/documents", label: "Document Vault", icon: FileText },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/dashboard/vouchers", label: "Expense Vouchers", icon: Receipt, officialOnly: true },

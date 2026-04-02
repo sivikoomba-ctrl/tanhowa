@@ -86,12 +86,17 @@ export async function GET() {
     // Contributions
     const contribMinutes = (contributionsRes.data || []).reduce((sum, c) => sum + c.estimated_minutes, 0);
 
+    // Inactive members (no activity in 30+ days)
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const inactive = members.filter(m => !m.last_active_at || new Date(m.last_active_at) < thirtyDaysAgo).length;
+
     return NextResponse.json({
       members: {
         total: membersRes.count || 0,
         pending: pendingRes.count || 0,
         activeThisWeek: activeRes.count || 0,
         newThisMonth: newMembersThisMonth,
+        inactive,
       },
       subscriptions: {
         totalCollected,

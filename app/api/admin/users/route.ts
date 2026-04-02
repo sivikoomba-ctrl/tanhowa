@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { logAudit } from "@/lib/audit-log";
 import { notifyNewMemberRegistered } from "@/lib/mail";
 
 export async function PUT(req: NextRequest) {
@@ -126,6 +127,8 @@ export async function PUT(req: NextRequest) {
         })
         .eq("id", userId);
     }
+
+    logAudit(session.userId, action, "user", userId, { role, ...body });
 
     return NextResponse.json({ message: "User updated" });
   } catch (error) {

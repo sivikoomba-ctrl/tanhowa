@@ -313,70 +313,78 @@ export default function AdminDashboard() {
       {/* Payment Collection & Admin Contacts */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2 mb-4">
-              <IndianRupee className="w-5 h-5 text-primary" />
-              <h2 className="text-sm font-semibold">Payment Collection</h2>
-            </div>
-            <div className="flex gap-3 mb-4">
-              <div className="flex-1 rounded-xl bg-green-50 border border-green-200 p-3 text-center">
-                <p className="text-xl font-bold text-green-700">{stats.totalPayments}</p>
-                <p className="text-[10px] text-green-600">Total Payments</p>
+          <CardContent className="pt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                  <IndianRupee className="w-4 h-4 text-green-700" />
+                </div>
+                <h2 className="text-sm font-semibold">Payment Collection</h2>
               </div>
-              <div className="flex-1 rounded-xl bg-green-50 border border-green-200 p-3 text-center">
-                <p className="text-xl font-bold text-green-700">₹{stats.totalCollection.toLocaleString("en-IN")}</p>
-                <p className="text-[10px] text-green-600">Total Collection</p>
+              {overview && (
+                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                  {overview.subscriptions.collectionRate}% collected
+                </Badge>
+              )}
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg bg-muted/50 p-2.5 text-center">
+                <p className="text-lg font-bold">{stats.totalPayments}</p>
+                <p className="text-[10px] text-muted-foreground">Payments</p>
+              </div>
+              <div className="rounded-lg bg-green-50 p-2.5 text-center">
+                <p className="text-lg font-bold text-green-700">₹{stats.totalCollection.toLocaleString("en-IN")}</p>
+                <p className="text-[10px] text-green-600">Collected</p>
               </div>
             </div>
+
             {/* Collection rate bar */}
             {overview && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground">Collection Rate</span>
-                  <span className="text-xs font-semibold text-green-700">{overview.subscriptions.collectionRate}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${overview.subscriptions.collectionRate}%` }} />
-                </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${overview.subscriptions.collectionRate}%` }} />
               </div>
             )}
-            {/* Mini collection sparkline by period */}
+
+            {/* Period bars */}
             {overview && overview.subscriptions.byPeriod.length > 0 && (
-              <div className="mb-4">
-                <p className="text-xs text-muted-foreground mb-2">Collection by Period</p>
-                <ChartContainer config={{ collected: { label: "Collected", color: CHART_COLORS.paid } }} className="h-[60px] w-full">
-                  <BarChart data={overview.subscriptions.byPeriod.slice().reverse()} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                    <Bar dataKey="collected" radius={[3, 3, 0, 0]}>
-                      {overview.subscriptions.byPeriod.map((_, i) => <Cell key={i} fill={CHART_COLORS.paid} />)}
-                    </Bar>
-                  </BarChart>
-                </ChartContainer>
+              <div className="space-y-1.5">
+                {overview.subscriptions.byPeriod.slice().reverse().map((p: { period: string; collected: number }) => (
+                  <div key={p.period} className="flex items-center gap-2 text-xs">
+                    <span className="w-16 text-muted-foreground truncate">{p.period}</span>
+                    <div className="flex-1 h-4 rounded bg-muted/50 overflow-hidden">
+                      <div className="h-full rounded bg-green-500/80" style={{ width: `${stats.totalCollection > 0 ? (p.collected / stats.totalCollection) * 100 : 0}%` }} />
+                    </div>
+                    <span className="w-20 text-right font-medium">₹{p.collected.toLocaleString("en-IN")}</span>
+                  </div>
+                ))}
               </div>
             )}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="w-4 h-4 text-muted-foreground" />
-                <p className="text-xs font-medium">Payment Collection by Date</p>
-              </div>
-              <p className="text-xs text-muted-foreground">Select a date range to see total payments received</p>
-              <div className="flex gap-2">
+
+            {/* Date range filter */}
+            <div className="border-t pt-3">
+              <p className="text-xs font-medium mb-2 flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5" /> Filter by Date Range
+              </p>
+              <div className="flex gap-2 items-end">
                 <div className="flex-1">
-                  <label className="text-[10px] text-muted-foreground font-medium">From</label>
-                  <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="text-xs" />
+                  <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="text-xs h-8" />
                 </div>
                 <div className="flex-1">
-                  <label className="text-[10px] text-muted-foreground font-medium">To</label>
-                  <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="text-xs" />
+                  <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="text-xs h-8" />
                 </div>
+                <Button size="sm" className="h-8 text-xs px-3" onClick={fetchPaymentsByRange} disabled={!fromDate || !toDate || loadingPayments}>
+                  {loadingPayments ? "..." : "Go"}
+                </Button>
               </div>
-              <Button size="sm" onClick={fetchPaymentsByRange} disabled={!fromDate || !toDate || loadingPayments} className="w-full">
-                {loadingPayments ? "Loading..." : "Show Collection"}
-              </Button>
               {filteredCollection && (
-                <div className="rounded-xl bg-primary/5 border border-primary/20 p-3">
-                  <p className="text-xs text-muted-foreground mb-1">{formatDate(fromDate)} — {formatDate(toDate)}</p>
-                  <p className="text-xl font-bold text-primary">₹{filteredCollection.total.toLocaleString("en-IN")}</p>
-                  <p className="text-xs text-muted-foreground">{filteredCollection.count} payment{filteredCollection.count !== 1 ? "s" : ""}</p>
+                <div className="flex items-center justify-between mt-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">{formatDate(fromDate)} — {formatDate(toDate)}</p>
+                    <p className="text-sm font-bold text-primary">₹{filteredCollection.total.toLocaleString("en-IN")}</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">{filteredCollection.count} payments</Badge>
                 </div>
               )}
             </div>

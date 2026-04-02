@@ -16,12 +16,21 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const limit = parseInt(url.searchParams.get("limit") || "50");
 
-    const { data: announcements } = await supabase
+    // Show published announcements that are either not scheduled or past their scheduled time
+    let query = supabase
       .from("announcements")
       .select("*, users(name)")
       .eq("published", true)
       .order("created_at", { ascending: false })
       .limit(limit);
+
+    // For non-admins, filter out future scheduled announcements
+    const { data: user } = await supabase.from("users").select("role").eq("id", session.userId).single();
+    if (user?.role !== "admin" && user?.role !== "super_admin") {
+      query = query.or(`scheduled_at.is.null,scheduled_at.lte.${new Date().toISOString()}`);
+    }
+
+    const { data: announcements } = await query;
 
     return NextResponse.json({ announcements: announcements || [] });
   } catch (error) {
@@ -48,6 +57,7 @@ export async function POST(req: NextRequest) {
         content: body.content,
         author_id: session.userId,
         published: body.published ?? true,
+        scheduled_at: body.scheduled_at || null,
       })
       .select()
       .single();
@@ -57,8 +67,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create announcement" }, { status: 500 });
     }
 
-    // Notify all members about the new announcement (fire-and-forget)
-    if (data.published) {
+    // Notify all members about the new announcement (fire-and-forget) — skip if scheduled for future
+    const isScheduledFuture = data.scheduled_at && new Date(data.scheduled_at) > new Date();
+    if (data.published && !isScheduledFuture) {
       notifyNewAnnouncement(data.title, data.content);
     }
 

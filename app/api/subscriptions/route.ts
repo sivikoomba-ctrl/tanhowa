@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { logAudit } from "@/lib/audit-log";
 import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
@@ -414,6 +415,8 @@ export async function PUT(req: NextRequest) {
       await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
     }
+
+    logAudit(session.userId, body.status ? `subscription_${body.status}` : "subscription_update", "subscription", body.id, body);
 
     // Log contribution for status changes
     if (body.status === "paid") {

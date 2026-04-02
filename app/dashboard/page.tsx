@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Megaphone, Calendar, FileText, UserCheck,
   Wallet, ListTodo, Award, Lightbulb, IndianRupee,
-  ArrowRight, Trophy,
+  ArrowRight, Trophy, Cake,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -45,6 +45,7 @@ export default function DashboardHome() {
   const [mySubscriptions, setMySubscriptions] = useState<MySubscription[]>([]);
   const [myContributions, setMyContributions] = useState({ count: 0, minutes: 0 });
   const [topContributors, setTopContributors] = useState<{ name: string; action_count: number; total_minutes: number }[]>([]);
+  const [birthdays, setBirthdays] = useState<{ name: string; isToday: boolean; daysUntil: number }[]>([]);
   const [userName, setUserName] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -83,6 +84,11 @@ export default function DashboardHome() {
       })
       .catch(() => setErrors((e) => ({ ...e, contributions: true })))
       .finally(() => setLoaded(true));
+
+    // Fetch birthdays
+    fetch("/api/users/birthdays").then((r) => r.json())
+      .then((d) => setBirthdays(d.birthdays || []))
+      .catch(() => {});
 
     // Fetch top contributors this month (leaderboard)
     fetch("/api/contributions?period=month").then((r) => r.json())
@@ -166,6 +172,25 @@ export default function DashboardHome() {
                 <Badge key={c.name} variant="outline" className={`text-xs py-1 px-2.5 ${i === 0 ? "bg-amber-50 text-amber-800 border-amber-300" : i === 1 ? "bg-gray-50 text-gray-700 border-gray-300" : i === 2 ? "bg-orange-50 text-orange-700 border-orange-300" : ""}`}>
                   {i < 3 && <span className="mr-1">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>}
                   {c.name} <span className="ml-1 text-muted-foreground">({c.action_count})</span>
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Upcoming Birthdays */}
+      {birthdays.length > 0 && (
+        <Card>
+          <CardContent className="pt-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+              <Cake size={14} className="text-pink-500" /> Upcoming Birthdays
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {birthdays.map((b) => (
+                <Badge key={b.name} variant="outline" className={`text-xs py-1 px-2.5 ${b.isToday ? "bg-pink-50 text-pink-700 border-pink-300" : ""}`}>
+                  {b.isToday ? "🎂 " : "🎈 "}{b.name}
+                  {b.isToday ? " — Today!" : ` — in ${b.daysUntil}d`}
                 </Badge>
               ))}
             </div>
