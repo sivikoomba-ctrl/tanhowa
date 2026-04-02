@@ -93,7 +93,7 @@ export default function VerifyPaymentsPage() {
 
   async function handleDistrictVerify(sub: Subscription) {
     const officialName = user?.name || "DS/DJS";
-    const remark = `Verified by ${officialName} on ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
+    const remark = `Provisionally approved. ${officialName}, TANHOWA. (${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })})`;
     const res = await fetch("/api/subscriptions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
