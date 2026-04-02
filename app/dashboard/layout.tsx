@@ -47,6 +47,16 @@ interface UserData {
     regular_district?: string;
     regular_block?: string;
   };
+  social_links?: {
+    gender?: string;
+  };
+}
+
+const TITLE_PREFIXES = ["MR.", "MRS.", "MISS.", "DR."];
+
+function hasTitle(name: string): boolean {
+  const upper = (name || "").trim().toUpperCase();
+  return TITLE_PREFIXES.some((t) => upper.startsWith(t));
 }
 
 const navItems = [
@@ -89,6 +99,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0 });
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationEnabling, setLocationEnabling] = useState(false);
+  const [showTitlePicker, setShowTitlePicker] = useState(false);
+  const [titleSaving, setTitleSaving] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -110,6 +122,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           if (!data.user.name && data.user.role !== "admin" && data.user.role !== "super_admin") {
             router.push("/onboarding");
             return;
+          }
+          // Auto-prefix "Mr." for male members without a title
+          const gender = data.user.social_links?.gender;
+          if (data.user.name && !hasTitle(data.user.name)) {
+            if (gender === "Male") {
+              const updatedName = `Mr. ${data.user.name}`;
+              data.user.name = updatedName;
+              // Fire-and-forget save
+              fetch("/api/users/me", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: updatedName }),
+              }).catch(() => {});
+            } else if (gender === "Female") {
+              setShowTitlePicker(true);
+            }
           }
           setUser(data.user);
           // Check for missing mandatory fields
@@ -154,6 +182,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }).catch(() => {});
     }
   }, [router]);
+
+  async function handleTitleSelect(title: string) {
+    if (!user?.name) return;
+    setTitleSaving(true);
+    const updatedName = `${title} ${user.name}`;
+    try {
+      const res = await fetch("/api/users/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: updatedName }),
+      });
+      if (res.ok) {
+        setUser({ ...user, name: updatedName });
+      }
+    } catch { /* silent */ }
+    setTitleSaving(false);
+    setShowTitlePicker(false);
+  }
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -424,6 +470,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Title Selection Dialog (Female members) */}
+      <Dialog open={showTitlePicker} onOpenChange={() => {}}>
+        <DialogContent className="max-w-xs" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-center">Select Your Title</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground text-center">
+            Please select your preferred title
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {["Mrs.", "Miss.", "Dr."].map((title) => (
+              <Button
+                key={title}
+                variant="outline"
+                disabled={titleSaving}
+                className="h-12 text-base font-semibold"
+                onClick={() => handleTitleSelect(title)}
+              >
+                {title}
+              </Button>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

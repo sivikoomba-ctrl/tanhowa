@@ -137,9 +137,12 @@ export default function ProfilePage() {
         const isPreset = occupationOptions.includes(occ);
         const sl = d.user.social_links || {};
         const parsed = parseTitleFromName(d.user.name || "");
+        // Default "Mr." for male members without a title
+        const gender = sl.gender || "";
+        const effectiveTitle = parsed.title || (gender === "Male" ? "Mr." : "");
         setProfile({
           ...d.user,
-          title: parsed.title,
+          title: effectiveTitle,
           first_name: parsed.firstName,
           last_name: parsed.lastName,
           dob: d.user.dob || "",

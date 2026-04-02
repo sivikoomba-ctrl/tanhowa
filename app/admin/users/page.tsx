@@ -109,14 +109,19 @@ export default function AdminUsersPage() {
       );
     }
     if (joinedFilter !== "all") {
-      const now = Date.now();
-      const cutoff = joinedFilter === "7d" ? now - 7 * 86400000
-        : joinedFilter === "30d" ? now - 30 * 86400000
-        : joinedFilter === "90d" ? now - 90 * 86400000
-        : joinedFilter === "6m" ? now - 180 * 86400000
-        : joinedFilter === "1y" ? now - 365 * 86400000
-        : 0;
-      result = result.filter((u) => new Date(u.created_at).getTime() >= cutoff);
+      if (joinedFilter === "today") {
+        const todayStr = new Date().toISOString().split("T")[0];
+        result = result.filter((u) => u.created_at?.startsWith(todayStr));
+      } else {
+        const now = Date.now();
+        const cutoff = joinedFilter === "7d" ? now - 7 * 86400000
+          : joinedFilter === "30d" ? now - 30 * 86400000
+          : joinedFilter === "90d" ? now - 90 * 86400000
+          : joinedFilter === "6m" ? now - 180 * 86400000
+          : joinedFilter === "1y" ? now - 365 * 86400000
+          : 0;
+        result = result.filter((u) => new Date(u.created_at).getTime() >= cutoff);
+      }
     }
     // Sort: most recently active first, then by name
     result = [...result].sort((a, b) => {
@@ -294,6 +299,7 @@ export default function AdminUsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
                 <SelectItem value="7d">Last 7 Days</SelectItem>
                 <SelectItem value="30d">Last 30 Days</SelectItem>
                 <SelectItem value="90d">Last 3 Months</SelectItem>
@@ -328,7 +334,7 @@ export default function AdminUsersPage() {
           )}
           {filteredUsers.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center">
-              {users.length === 0 ? `No ${tab} users` : "No users match your search"}
+              {users.length === 0 ? `No ${tab} users` : "No users match your filters"}
             </p>
           ) : (
             <div className="space-y-3">
