@@ -348,15 +348,13 @@ export function notifyNewEvent(title: string, date: string, location?: string) {
 // Notify admin(s) when a new member completes onboarding and is awaiting approval
 export async function notifyAdminNewRegistration(memberName: string, memberEmail: string) {
   try {
-    const { getServiceClient } = await import("@/lib/supabase");
-    const supabase = getServiceClient();
-    const { data } = await supabase
-      .from("users")
-      .select("email")
-      .in("role", ["admin", "super_admin"])
-      .eq("status", "approved");
-    const adminEmails = (data || []).map((u: { email: string }) => u.email).filter(Boolean);
-    if (adminEmails.length === 0) return;
+    // Only notify these 3 admins to avoid email flood (was 35 admins × N registrations)
+    const REGISTRATION_ALERT_EMAILS = [
+      "tanhowaadmin@tanhowa.in",
+      "kannanhorts94@gmail.com",
+      "dhanarj23@gmail.com",
+    ];
+    const adminEmails = REGISTRATION_ALERT_EMAILS;
 
     const htmlbody = wrapEmailTemplate(`
       <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">New Registration</h2>
