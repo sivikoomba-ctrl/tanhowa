@@ -208,7 +208,7 @@ export default function AdminUsersPage() {
   function openEditDialog(u: User) {
     setEditUser(u);
     setEditForm({
-      name: u.name || "",
+      name: (u.name || "").toUpperCase(),
       phone: u.phone || "",
       occupation: u.occupation || "",
       address: u.address || "",
@@ -716,7 +716,7 @@ export default function AdminUsersPage() {
           <div className="space-y-4">
             <div>
               <Label className="text-sm">Name</Label>
-              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value.toUpperCase() })} className="uppercase" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
