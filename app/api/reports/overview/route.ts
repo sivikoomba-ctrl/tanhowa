@@ -44,8 +44,8 @@ export async function GET() {
     // Member stats
     const members = membersRes.data || [];
     const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const newMembersThisMonth = members.filter(m => new Date(m.created_at) >= thirtyDaysAgo).length;
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const newMembersThisMonth = members.filter(m => new Date(m.created_at) >= monthStart).length;
 
     // Subscription stats by period
     const subs = subsRes.data || [];
