@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getGemini } from "@/lib/gemini";
 import { logError } from "@/lib/error-logger";
+import { isTanhowaPayment, isTrustedPaymentProofUrl } from "@/lib/payment-verification";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,7 +26,11 @@ export async function POST(req: NextRequest) {
         },
       };
     } else if (imageUrl) {
-      // Fetch the signed URL image
+      if (!isTrustedPaymentProofUrl(imageUrl)) {
+        return NextResponse.json({ error: "Invalid image URL" }, { status: 400 });
+      }
+
+      // Fetch the signed URL image from trusted storage only
       const imgRes = await fetch(imageUrl);
       if (!imgRes.ok) {
         return NextResponse.json({ error: "Failed to fetch image" }, { status: 400 });
@@ -75,11 +80,7 @@ Rules:
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
-    // Check if payment is to TANHOWA account
-    const TANHOWA_KEYWORDS = ["TAMILNADU THOTTAKALAI", "THOTTAKALAI ALUVALARGAL", "NALA SANGAM", "TANHOWA", "2486"];
-    const paidTo = (parsed.paid_to || "").toUpperCase();
-    const paidAccount = (parsed.paid_account || "").toUpperCase();
-    const isTanhowaPayment = TANHOWA_KEYWORDS.some((kw) => paidTo.includes(kw) || paidAccount.includes(kw));
+    const tanhowaPayment = isTanhowaPayment(parsed);
 
     return NextResponse.json({
       date: parsed.date || null,
@@ -89,7 +90,7 @@ Rules:
       amount: parsed.amount != null ? Number(parsed.amount) : null,
       paid_to: parsed.paid_to || null,
       paid_account: parsed.paid_account || null,
-      is_tanhowa_payment: isTanhowaPayment,
+      is_tanhowa_payment: tanhowaPayment,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";

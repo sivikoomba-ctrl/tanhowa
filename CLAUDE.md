@@ -218,9 +218,12 @@ Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP
 - `notifyPaymentVerified(memberName, period)` — Broadcast payment verification
 - `notifyNewMemberRegistered(memberName)` — Broadcast new member welcome
 - `notifyNewEvent(title, date, location?)` — Broadcast event notification
+- `sendPaymentRejectionAlertEmail(to, officialName, memberName, period, amount, rejectedBy, remarks?)` — Payment rejection alert to DS/DJS who originally approved (bypasses HOLD flag)
 - `sendBroadcastEmail(subject, bodyHtml)` — Generic broadcast (BCC batched at 40 recipients per email)
 
-**Flag:** `HOLD_MEMBER_EMAILS = true` disables all member-facing emails except OTP.
+**Flag:** `HOLD_MEMBER_EMAILS = true` disables all member-facing emails except OTP, receipts, and admin alerts.
+
+**Admin registration alerts:** Limited to 3 hardcoded recipients (`tanhowaadmin@tanhowa.in`, `kannanhorts94@gmail.com`, `dhanarj23@gmail.com`) to prevent email floods.
 
 ## Admin Auth Pattern
 
@@ -251,13 +254,17 @@ The reports page is organized into 5 tabs, each in its own component under `app/
 
 **PDF export:** Uses `jspdf` + `jspdf-autotable` for client-side PDF export. Pattern: create landscape doc → header text → autoTable for district summary → autoTable for member details → color-coded status text. Theme color: `fillColor: [45, 106, 79]` (deep green).
 
+**Subscription receipts:** Both admin (`/admin/subscriptions`) and member (`/dashboard/subscriptions`) pages have `downloadReceipt()` using jsPDF. Receipts include a certification section ("Verified & Certified" with AI verification note + timestamp) and the slogan "Save a print, Save a Tree." in green.
+
 ## Subscription Auto-Sync
 
 `GET /api/subscriptions?sync=true` (admin only) auto-creates missing subscription records for all approved members based on existing periods.
 
-## AI-Powered Payment Proof Extraction
+## AI-Powered Payment Proof Extraction & Verification
 
-`POST /api/upload/payment-proof/extract-date` uses Gemini to extract date, time, transaction_id, and payment_method from uploaded payment proof images. Available to all authenticated users (not admin-only).
+`POST /api/upload/payment-proof/extract-date` uses Gemini to extract date, time, transaction_id, payment_method, amount, paid_to, and paid_account from uploaded payment proof images. Available to all authenticated users (not admin-only).
+
+**Payee verification:** The API checks extracted `paid_to` and `paid_account` against TANHOWA keywords (`"TAMILNADU THOTTAKALAI"`, `"THOTTAKALAI ALUVALARGAL"`, `"NALA SANGAM"`, `"TANHOWA"`, `"2486"`) and returns `is_tanhowa_payment` boolean. Admin subscription pages display green/red banners indicating whether payment went to TANHOWA account or appears to be person-to-person.
 
 ## Telegram Bot Integration
 
@@ -290,6 +297,7 @@ API routes use fire-and-forget async IIFE to send notifications without blocking
 - **Task status changed** → submitter, committer, assignee (excluding the admin who changed it)
 - **New note/report/update** → submitter, committer, assignee (excluding the author)
 - **Voucher approved/rejected** → voucher submitter
+- **Payment rejected** → DS/DJS who originally approved the payment (via `notifyPaymentRejected`)
 
 ### Domain Note
 `tanhowa.in` returns 307 redirect to `www.tanhowa.in`. Telegram doesn't follow redirects, so always use `https://www.tanhowa.in/api/telegram/webhook` as the webhook URL.
@@ -322,7 +330,8 @@ District Secretaries (DS) and District Joint Secretaries (DJS) can approve/rejec
 - **Page:** `/admin/verify-payments` — district-scoped verification UI (moved from dashboard to admin panel)
 - **Authorization:** Server validates `member.posting_details.regular_district === official.district`
 - **Proof required:** Verify button is disabled until payment proof is uploaded. DS/DJS can upload proofs on behalf of members.
-- **Verification flow:** DS/DJS uploads proof → clicks Verify (adds remark "Verified by [name] on [date]") → admin sees "DS/DJS Verified" badge → admin approves payment
+- **DS/DJS actions:** View Proof, Re-upload, Verify & Approve, Hold, Reject, Delete. Mark Overdue is admin-only.
+- **Verification remark:** "Provisionally approved. [DS/DJS name], TANHOWA. (date)"
 - **Admin filter:** Admin subscriptions page has a "DS/DJS Verified" status filter to find payments ready for final approval
 
 ## Expense Vouchers (Officials Only)
@@ -359,10 +368,10 @@ Table: `resolutions` + `resolution_votes`. Members can propose resolutions that 
 
 Table: `contributions`. Auto-logs portal actions with estimated time for each member.
 
-- **Tracked actions:** Payment verification, member approval, task creation/updates, announcements, events, documents, grievances, vouchers, profile updates (21 action types)
+- **Tracked actions:** Payment verification, member approval, task creation/updates, announcements, events, documents, grievances, vouchers, profile updates, document downloads (22 action types)
 - **Member page:** `/dashboard/contributions` — personal activity feed grouped by date, award badges (Century, Half Century, Rising Star, Dedicated, All-Rounder)
 - **Admin page:** `/admin/contributions` — leaderboard ranked by total contribution time
-- **API:** `/api/contributions` (GET) — `?me=true` for own, `?period=week|month|all` filter, `?breakdown=true` for action-type aggregation + monthly trend (admin only)
+- **API:** `/api/contributions` (GET) — `?me=true` for own, `?period=week|month|all` filter, `?breakdown=true` for action-type aggregation + monthly trend (admin only). POST — client-side contribution logging (whitelisted actions: `document_downloaded`)
 - **Lib:** `logContribution(userId, action, description?, metadata?)` from `lib/contributions.ts` — fire-and-forget
 
 ## Special Subscriptions
@@ -465,7 +474,7 @@ When building new pages, use these instead of duplicating patterns:
 ## PWA & Service Worker
 
 `public/sw.js` (v3) implements:
-- **API cache** (`tanhowa-api-v1`): announcements and events responses cached for offline viewing
+- **API cache** (`tanhowa-api-v2`): announcements, events, polls, documents, resolutions, and stats responses cached for offline viewing
 - **Static cache** (`tanhowa-v3`): images, fonts, icons (cache-first)
 - **Pages**: network-first, falls back to cached version or `/offline` page
 - Bump `CACHE_NAME` version when changing caching behavior

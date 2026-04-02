@@ -37,6 +37,7 @@ import {
   FileDown,
 } from "lucide-react";
 import jsPDF from "jspdf";
+import { buildCertifiedRemarks } from "@/lib/payment-verification";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 import { PaymentProofPreviewDialog } from "@/components/payment-proof-preview-dialog";
@@ -93,7 +94,7 @@ export default function AdminSubscriptionsPage() {
 
   // Verify payment dialog
   const [payDialog, setPayDialog] = useState<Subscription | null>(null);
-  const [payForm, setPayForm] = useState({ remarks: "Provisionally approved. S. Sivakumar, State Secretary, TANHOWA.", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
+  const [payForm, setPayForm] = useState({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
   const [payLoading, setPayLoading] = useState(false);
   const [payProofUrl, setPayProofUrl] = useState<string | null>(null);
   const [extractingDate, setExtractingDate] = useState(false);
@@ -331,6 +332,16 @@ export default function AdminSubscriptionsPage() {
       }
     }
 
+    // President title
+    y += 10;
+    doc.setFontSize(10);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("President", 105, y, { align: "center" });
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, y, { align: "center" });
+
     // Slogan
     y += 12;
     doc.setFontSize(13);
@@ -476,6 +487,10 @@ export default function AdminSubscriptionsPage() {
   async function handleVerifyPaid(e: React.FormEvent) {
     e.preventDefault();
     if (!payDialog) return;
+    if (payeeInfo?.is_tanhowa_payment === false) {
+      toast.error("Approval blocked because the extracted payee does not match TANHOWA.");
+      return;
+    }
     setPayLoading(true);
 
     // Build paid_at from admin-entered date & time
@@ -489,13 +504,15 @@ export default function AdminSubscriptionsPage() {
     const hasLinked = adminSelectedMembers.size > 0 || adminSelectedPeriods.size > 0;
     const groupId = hasLinked ? crypto.randomUUID() : undefined;
 
+    const certifiedRemarks = buildCertifiedRemarks(payForm.remarks || payDialog.remarks);
+
     const res = await fetch("/api/subscriptions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: payDialog.id,
         status: "paid",
-        remarks: payForm.remarks || payDialog.remarks,
+        remarks: certifiedRemarks,
         paid_at: paidAt,
         transaction_id: payForm.transaction_id || payDialog.transaction_id,
         payment_method: payForm.payment_method || payDialog.payment_method,
@@ -559,7 +576,7 @@ export default function AdminSubscriptionsPage() {
         toast.success("Payment verified and marked as paid");
       }
       setPayDialog(null);
-      setPayForm({ remarks: "Provisionally approved. S. Sivakumar, State Secretary, TANHOWA.", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
+      setPayForm({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
       setAdminSelectedMembers(new Set());
       setAdminMemberSearch("");
       setAdminSelectedPeriods(new Set());
@@ -675,6 +692,7 @@ export default function AdminSubscriptionsPage() {
         }
         // Always run OCR extraction
         setExtractingDate(true);
+        setPayeeInfo(null);
         try {
           const fd = new FormData();
           fd.append("file", file);
@@ -696,6 +714,8 @@ export default function AdminSubscriptionsPage() {
             if (!extData.is_tanhowa_payment) {
               toast.error("Warning: Payment may NOT be to TANHOWA account!", { duration: 8000 });
             }
+          } else {
+            setPayeeInfo(null);
           }
         } catch { /* best-effort */ }
         setExtractingDate(false);
@@ -1407,7 +1427,7 @@ export default function AdminSubscriptionsPage() {
                               setPayDialog(sub);
                               const today = new Date();
                               setPayForm({
-                                remarks: "Provisionally approved. S. Sivakumar, State Secretary, TANHOWA.",
+                                remarks: "",
                                 payment_date: today.toISOString().split("T")[0],
                                 payment_time: today.toTimeString().slice(0, 5),
                                 verified_email: sub.users?.email || "",
@@ -1417,6 +1437,7 @@ export default function AdminSubscriptionsPage() {
                               });
                               setPayProofUrl(null);
                               setExtractingDate(false);
+                              setPayeeInfo(null);
                               setAdminSelectedMembers(new Set());
                               setAdminMemberSearch("");
                               if (sub.payment_proof_url) {
@@ -1425,6 +1446,7 @@ export default function AdminSubscriptionsPage() {
                                   setPayProofUrl(signedUrl);
                                   // Extract date/time from proof image using AI
                                   setExtractingDate(true);
+                                  setPayeeInfo(null);
                                   try {
                                     const fd = new FormData();
                                     fd.append("image_url", signedUrl);
@@ -1450,6 +1472,8 @@ export default function AdminSubscriptionsPage() {
                                       if (!extData.is_tanhowa_payment) {
                                         toast.error("Warning: Payment may NOT be to TANHOWA account!", { duration: 8000 });
                                       }
+                                    } else {
+                                      setPayeeInfo(null);
                                     }
                                   } catch {}
                                   setExtractingDate(false);
@@ -2100,7 +2124,7 @@ export default function AdminSubscriptionsPage() {
                       </p>
                       {payeeInfo.paid_to && <p className={payeeInfo.is_tanhowa_payment ? "text-green-700" : "text-red-700"}>Paid to: {payeeInfo.paid_to}</p>}
                       {payeeInfo.paid_account && <p className={payeeInfo.is_tanhowa_payment ? "text-green-700" : "text-red-700"}>Account: {payeeInfo.paid_account}</p>}
-                      {!payeeInfo.is_tanhowa_payment && <p className="text-red-700 font-medium mt-1">This payment appears to be a person-to-person transaction, not to TANHOWA. Consider rejecting.</p>}
+                      {!payeeInfo.is_tanhowa_payment && <p className="text-red-700 font-medium mt-1">This payment appears to be a person-to-person transaction, not to TANHOWA. Approval is blocked until a valid TANHOWA proof is provided.</p>}
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">
@@ -2136,11 +2160,14 @@ export default function AdminSubscriptionsPage() {
 
                 <Button
                   type="submit"
-                  disabled={payLoading || (payForm.verified_email !== payDialog.users?.email)}
+                  disabled={payLoading || (payForm.verified_email !== payDialog.users?.email) || payeeInfo?.is_tanhowa_payment === false}
                   className="w-full bg-green-600 hover:bg-green-700 h-11 text-base"
                 >
                   {payLoading ? "Verifying..." : "Confirm Payment Received"}
                 </Button>
+                {payeeInfo?.is_tanhowa_payment === false && (
+                  <p className="text-xs text-red-500 text-center">Cannot approve â€” the extracted payee does not match TANHOWA.</p>
+                )}
                 {payForm.verified_email && payForm.verified_email !== payDialog.users?.email && (
                   <p className="text-xs text-red-500 text-center">Cannot approve — email mismatch. Please verify the correct member.</p>
                 )}

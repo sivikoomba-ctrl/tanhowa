@@ -144,6 +144,16 @@ export default function SubscriptionsPage() {
       if (certMatch) { y += 4.5; doc.text("Verified on: " + certMatch[1], 25, y); }
     }
 
+    // President title
+    y += 10;
+    doc.setFontSize(10);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("President", 105, y, { align: "center" });
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, y, { align: "center" });
+
     // Slogan
     y += 12;
     doc.setFontSize(13);
