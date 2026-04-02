@@ -322,8 +322,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {mobileOpen ? <X size={20} /> : <Menu size={20} />}
                 </Button>
               </SheetTrigger>
-            <SheetContent side="left" className="w-64 bg-sidebar text-sidebar-foreground p-0">
-              <div className="p-4 border-b border-sidebar-border">
+            <SheetContent side="left" className="w-64 bg-sidebar text-sidebar-foreground p-0 flex flex-col h-full">
+              <div className="shrink-0 p-4 border-b border-sidebar-border">
                 <div className="flex items-center gap-2">
                   <Flower2 className="w-7 h-7 text-sidebar-primary" />
                   <span className="text-lg font-bold">TANHOWA</span>
@@ -332,10 +332,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <p className="mt-1.5 text-xs text-sidebar-foreground/60 truncate">{user.name}</p>
                 )}
               </div>
-              <nav className="p-3 space-y-1">
+              <nav className="flex-1 overflow-y-auto p-3 space-y-1 pb-16">
                 <NavLinks onItemClick={() => setMobileOpen(false)} />
               </nav>
-              <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-sidebar-border">
+              <div className="shrink-0 p-3 border-t border-sidebar-border">
                 <Button
                   variant="ghost"
                   onClick={handleLogout}
