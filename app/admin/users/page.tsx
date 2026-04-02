@@ -79,6 +79,7 @@ export default function AdminUsersPage() {
   const [nudgeMessage, setNudgeMessage] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [zoomPhoto, setZoomPhoto] = useState<{ name: string; url: string } | null>(null);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState({ name: "", phone: "", occupation: "", address: "", office_address: "", dob: "", gender: "", regular_district: "", regular_block: "", special_duty_district: "", special_duty_block: "", deputed_district: "", deputed_block: "" });
   const [editSaving, setEditSaving] = useState(false);
@@ -442,7 +443,10 @@ export default function AdminUsersPage() {
                             className="mt-3 shrink-0 accent-primary"
                           />
                           <div className="relative shrink-0">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                            <div
+                              className={`w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden ${u.photo_url ? "cursor-zoom-in" : ""}`}
+                              onClick={(e) => { if (u.photo_url) { e.stopPropagation(); setZoomPhoto({ name: u.name, url: u.photo_url }); } }}
+                            >
                               {u.photo_url ? <Image src={u.photo_url} alt={u.name} width={80} height={80} unoptimized className="w-full h-full object-cover" /> : <span className="text-sm font-semibold text-primary">{u.name?.charAt(0)?.toUpperCase() || "?"}</span>}
                             </div>
                             <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${getActivityStatus(u.last_active_at).dot}`} title={getActivityStatus(u.last_active_at).label} />
@@ -912,6 +916,20 @@ export default function AdminUsersPage() {
               {editSaving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* Photo Zoom Dialog */}
+      <Dialog open={!!zoomPhoto} onOpenChange={(open) => !open && setZoomPhoto(null)}>
+        <DialogContent className="max-w-sm p-2">
+          <DialogHeader>
+            <DialogTitle className="text-center text-sm">{zoomPhoto?.name}</DialogTitle>
+          </DialogHeader>
+          {zoomPhoto?.url && (
+            <div className="rounded-xl overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={zoomPhoto.url} alt={zoomPhoto.name} className="w-full h-auto" />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
