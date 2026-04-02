@@ -222,13 +222,13 @@ export default function AdminDashboard() {
 
       {/* Task Status + Grievances Row */}
       {overview && (
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-4">
               <h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><ListTodo size={14} /> Task Breakdown</h3>
               <div className="flex items-start gap-4">
                 {/* Mini donut */}
-                <ChartContainer config={taskStatusConfig} className="h-[100px] w-[100px] shrink-0">
+                <ChartContainer config={taskStatusConfig} className="h-[80px] w-[80px] sm:h-[100px] sm:w-[100px] shrink-0">
                   <PieChart>
                     <Pie
                       data={Object.entries(overview.tasks.breakdown).map(([status, count]) => ({

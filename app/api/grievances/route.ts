@@ -56,7 +56,9 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    if (!body.subject || !body.description) {
+    const subject = (body.subject || "").trim();
+    const description = (body.description || "").trim();
+    if (!subject || !description) {
       return NextResponse.json({ error: "Subject and description are required" }, { status: 400 });
     }
 
@@ -65,9 +67,9 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from("grievances")
       .insert({
-        subject: body.subject,
-        description: body.description,
-        category: body.category || "",
+        subject,
+        description,
+        category: (body.category || "").trim(),
         submitted_by: session.userId,
       })
       .select()

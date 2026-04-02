@@ -10,8 +10,8 @@ import { Send } from "lucide-react";
 const nudgeFieldOptions = [
   { value: "Name", label: "Name *" },
   { value: "Phone", label: "Phone *" },
-  { value: "Date of Birth", label: "Date of Birth" },
-  { value: "Gender", label: "Gender" },
+  { value: "Date of Birth", label: "Date of Birth *" },
+  { value: "Gender", label: "Gender *" },
   { value: "Designation", label: "Designation *" },
   { value: "Qualification", label: "Qualification" },
   { value: "Home Address", label: "Home Address" },

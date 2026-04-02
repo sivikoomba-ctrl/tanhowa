@@ -12,6 +12,7 @@ import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode
 import jsPDF from "jspdf";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
+import { statusStyles } from "@/components/status-badge";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 import { PaymentProofPreviewDialog } from "@/components/payment-proof-preview-dialog";
 
@@ -47,13 +48,18 @@ interface Subscription {
   created_at: string;
 }
 
-const statusConfig: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
-  paid: { label: "Paid", color: "bg-green-100 text-green-700 border-green-300", icon: CheckCircle2 },
-  pending: { label: "Pending", color: "bg-amber-100 text-amber-700 border-amber-300", icon: Clock },
-  overdue: { label: "Overdue", color: "bg-red-100 text-red-700 border-red-300", icon: AlertTriangle },
-  rejected: { label: "Rejected", color: "bg-red-100 text-red-700 border-red-300", icon: AlertTriangle },
-  hold: { label: "On Hold", color: "bg-orange-100 text-orange-700 border-orange-300", icon: PauseCircle },
+const statusIcons: Record<string, typeof CheckCircle2> = {
+  paid: CheckCircle2,
+  pending: Clock,
+  overdue: AlertTriangle,
+  rejected: AlertTriangle,
+  hold: PauseCircle,
 };
+
+function getSubStatusConfig(status: string) {
+  const style = statusStyles[status] || { label: status, color: "bg-gray-100 text-gray-700" };
+  return { ...style, icon: statusIcons[status] || Clock };
+}
 
 export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -453,7 +459,7 @@ export default function SubscriptionsPage() {
       ) : (
         <div className="space-y-3">
           {subscriptions.map((sub) => {
-            const config = statusConfig[sub.status] || statusConfig.pending;
+            const config = getSubStatusConfig(sub.status);
             const Icon = config.icon;
             const isUploading = uploading === sub.id;
             const hasProof = !!sub.payment_proof_url;

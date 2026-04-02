@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 
-const statusStyles: Record<string, { label: string; color: string }> = {
+export const statusStyles: Record<string, { label: string; color: string }> = {
   // Common statuses
   paid: { label: "Paid", color: "bg-green-100 text-green-700 border-green-300" },
   pending: { label: "Pending", color: "bg-amber-100 text-amber-700 border-amber-300" },

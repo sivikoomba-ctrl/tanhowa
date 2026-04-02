@@ -48,13 +48,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    const title = (body.title || "").trim();
+    const content = (body.content || "").trim();
+    if (!title) {
+      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
+
     const supabase = getServiceClient();
 
     const { data, error } = await supabase
       .from("announcements")
       .insert({
-        title: body.title,
-        content: body.content,
+        title,
+        content,
         author_id: session.userId,
         published: body.published ?? true,
         scheduled_at: body.scheduled_at || null,

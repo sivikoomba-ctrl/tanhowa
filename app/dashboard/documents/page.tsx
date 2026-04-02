@@ -109,10 +109,16 @@ export default function DocumentsPage() {
       return;
     }
 
+    if (!form.title.trim()) {
+      toast.error("Document title is required");
+      setLoading(false);
+      return;
+    }
+
     const res = await fetch("/api/documents", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, file_url: fileUrl, file_type: fileType }),
+      body: JSON.stringify({ title: form.title.trim(), description: form.description.trim(), category: form.category, file_url: fileUrl, file_type: fileType }),
     });
 
     if (res.ok) {
@@ -133,6 +139,14 @@ export default function DocumentsPage() {
     if (["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext) || /\.(jpg|jpeg|png|webp|gif|svg)(\?|$)/.test(url)) return "image";
     if (ext === "pdf" || url.endsWith(".pdf") || /\.pdf(\?|$)/.test(url)) return "pdf";
     return null;
+  }
+
+  function trackDownload(doc: Document) {
+    fetch("/api/contributions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "document_downloaded", description: "Downloaded: " + doc.title }),
+    }).catch(() => {});
   }
 
   function handleView(doc: Document) {
@@ -174,7 +188,7 @@ export default function DocumentsPage() {
           </div>
           <div className="flex items-center justify-end gap-2 px-6 pb-4">
             <Button variant="outline" size="sm" asChild>
-              <a href={previewDoc?.file_url} target="_blank" rel="noopener noreferrer">
+              <a href={previewDoc?.file_url} target="_blank" rel="noopener noreferrer" onClick={() => previewDoc && trackDownload(previewDoc)}>
                 <Download size={14} className="mr-1" />
                 Download
               </a>
@@ -454,7 +468,7 @@ export default function DocumentsPage() {
                           View
                         </Button>
                         <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer" onClick={() => trackDownload(doc)}>
                             <Download size={12} className="mr-1" />
                             Download
                           </a>

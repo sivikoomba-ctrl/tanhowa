@@ -72,7 +72,8 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    if (!body.name) {
+    const name = (body.name || "").trim();
+    if (!name) {
       return NextResponse.json({ error: "Team name is required" }, { status: 400 });
     }
 
@@ -81,8 +82,8 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from("teams")
       .insert({
-        name: body.name,
-        description: body.description || "",
+        name,
+        description: (body.description || "").trim(),
         icon: body.icon || "",
         sort_order: body.sort_order || 0,
         created_by: session.userId,

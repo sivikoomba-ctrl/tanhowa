@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logContribution, type ContributionAction } from "@/lib/contributions";
 
 export async function GET(req: NextRequest) {
   try {
@@ -177,5 +178,30 @@ export async function GET(req: NextRequest) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/contributions", method: "GET", status_code: 500 });
     return NextResponse.json({ error: "Failed to fetch contributions" }, { status: 500 });
+  }
+}
+
+// Client-side contribution logging (e.g., document downloads)
+const ALLOWED_CLIENT_ACTIONS: ContributionAction[] = ["document_downloaded"];
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const action = body.action as ContributionAction;
+    if (!action || !ALLOWED_CLIENT_ACTIONS.includes(action)) {
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    }
+
+    logContribution(session.userId, action, body.description || "");
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await logError({ type: "api", message: msg, path: "/api/contributions", method: "POST", status_code: 500 });
+    return NextResponse.json({ error: "Failed to log contribution" }, { status: 500 });
   }
 }

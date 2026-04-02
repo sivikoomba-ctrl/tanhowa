@@ -13,6 +13,15 @@ interface TelegramUpdate {
 
 export async function POST(req: NextRequest) {
   try {
+    // Verify Telegram webhook secret token
+    const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (secretToken) {
+      const headerToken = req.headers.get("x-telegram-bot-api-secret-token");
+      if (headerToken !== secretToken) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
     const update: TelegramUpdate = await req.json();
     const message = update.message;
     if (!message?.text) {

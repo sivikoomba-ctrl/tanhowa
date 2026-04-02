@@ -84,6 +84,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    const title = (body.title || "").trim();
+    if (!title) {
+      return NextResponse.json({ error: "Document title is required" }, { status: 400 });
+    }
+
     const supabase = getServiceClient();
     const role = await getDbRole(session.userId);
 
@@ -92,8 +97,8 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from("documents")
       .insert({
-        title: body.title,
-        description: body.description || "",
+        title,
+        description: (body.description || "").trim(),
         file_url: body.file_url,
         file_type: body.file_type,
         category: body.category || "",

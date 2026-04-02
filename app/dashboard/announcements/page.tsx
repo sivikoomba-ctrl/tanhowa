@@ -12,6 +12,20 @@ import { Megaphone, Plus, Clock, UserPlus, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 
+function renderSimpleMarkdown(text: string): string {
+  return text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/__(.+?)__/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/_(.+?)_/g, "<em>$1</em>")
+    .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary underline">$1</a>')
+    .replace(/(https?:\/\/[^\s<]+)/g, (match, url) => {
+      if (match.includes('href="')) return match;
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary underline">${url}</a>`;
+    });
+}
+
 interface RecentMember {
   name: string;
   created_at: string;
@@ -202,7 +216,7 @@ export default function AnnouncementsPage() {
                               {isLatest && <Badge className="bg-primary/10 text-primary border-0 text-[10px] shrink-0">New</Badge>}
                             </div>
                             {a.content && (
-                              <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap leading-relaxed">{a.content}</p>
+                              <div className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(a.content) }} />
                             )}
                             <div className="flex items-center gap-3 mt-3">
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">

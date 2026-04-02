@@ -75,10 +75,13 @@ export default function MembersPage() {
     const q = search.toLowerCase();
     const matchesSearch = !search ||
       m.name?.toLowerCase().includes(q) ||
+      m.email?.toLowerCase().includes(q) ||
       m.occupation?.toLowerCase().includes(q) ||
       m.phone?.includes(q) ||
       m.posting_details?.regular_district?.toLowerCase().includes(q) ||
-      m.posting_details?.regular_block?.toLowerCase().includes(q);
+      m.posting_details?.regular_block?.toLowerCase().includes(q) ||
+      (m.posting_details as Record<string, string> | undefined)?.special_duty_district?.toLowerCase().includes(q) ||
+      (m.posting_details as Record<string, string> | undefined)?.deputed_district?.toLowerCase().includes(q);
     const matchesDistrict = filterDistrict === "all" || m.posting_details?.regular_district === filterDistrict;
     const matchesOccupation = filterOccupation === "all" || m.occupation === filterOccupation;
     return matchesSearch && matchesDistrict && matchesOccupation;
