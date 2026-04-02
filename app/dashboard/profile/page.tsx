@@ -760,14 +760,27 @@ export default function ProfilePage() {
                 <div>
                   <Label className="text-xs text-muted-foreground">Instagram</Label>
                   <Input value={profile.social_links.instagram} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, instagram: e.target.value } })} placeholder="https://instagram.com/username" className="mt-1" />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Open Instagram → Go to your profile → Copy the URL from the browser address bar</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Twitter / X</Label>
                   <Input value={profile.social_links.twitter} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, twitter: e.target.value } })} placeholder="https://x.com/username" className="mt-1" />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Open X (Twitter) → Go to your profile → Copy the URL from the browser address bar</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">LinkedIn</Label>
                   <Input value={profile.social_links.linkedin} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, linkedin: e.target.value } })} placeholder="https://linkedin.com/in/username" className="mt-1" />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Open LinkedIn → Go to your profile → Copy the URL from the browser address bar</p>
+                </div>
+                <Separator className="my-1" />
+                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                  <p className="text-xs font-semibold text-blue-800 mb-1">Telegram Notifications</p>
+                  <p className="text-[11px] text-blue-700">Get real-time task alerts via Telegram! To link your account:</p>
+                  <ol className="text-[11px] text-blue-700 mt-1 list-decimal list-inside space-y-0.5">
+                    <li>Open Telegram and search for <span className="font-medium">@TanhowaBot</span></li>
+                    <li>Send your registered email address to the bot</li>
+                    <li>The bot will confirm linking — you&apos;ll receive task notifications automatically</li>
+                  </ol>
                 </div>
               </div>
             )}

@@ -47,6 +47,7 @@ export default function DashboardHome() {
   const [topContributors, setTopContributors] = useState<{ name: string; action_count: number; total_minutes: number }[]>([]);
   const [birthdays, setBirthdays] = useState<{ name: string; isToday: boolean; daysUntil: number }[]>([]);
   const [userName, setUserName] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
@@ -56,7 +57,7 @@ export default function DashboardHome() {
 
     // Fetch user name
     fetch("/api/users/me").then((r) => r.json())
-      .then((d) => { if (d.user?.name) setUserName(d.user.name); })
+      .then((d) => { if (d.user?.name) setUserName(d.user.name); if (d.user?.role) setUserRole(d.user.role); })
       .catch(() => {});
 
     // Fetch independently so one failure doesn't block others
@@ -106,7 +107,8 @@ export default function DashboardHome() {
     return `${h}h ${m}m`;
   }
 
-  const pendingSubs = mySubscriptions.filter((s) => s.status === "pending" || s.status === "overdue").length;
+  const isSuperAdmin = userRole === "super_admin";
+  const pendingSubs = isSuperAdmin ? 0 : mySubscriptions.filter((s) => s.status === "pending" || s.status === "overdue").length;
 
   return (
     <div className="space-y-6">

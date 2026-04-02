@@ -67,17 +67,20 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Designation is required" }, { status: 400 });
     }
 
-    // Duplicate phone check (exclude current user)
-    const { data: existingPhone } = await supabase
-      .from("users")
-      .select("id")
-      .eq("phone", phone)
-      .neq("id", session.userId)
-      .limit(1)
-      .maybeSingle();
+    // Duplicate phone check (exclude current user, and exempt super_admin / sivikoomba)
+    const PHONE_CHECK_EXEMPT_EMAILS = ["tanhowaadmin@tanhowa.in", "sivikoomba@gmail.com"];
+    if (!PHONE_CHECK_EXEMPT_EMAILS.includes(session.email)) {
+      const { data: existingPhone } = await supabase
+        .from("users")
+        .select("id")
+        .eq("phone", phone)
+        .neq("id", session.userId)
+        .limit(1)
+        .maybeSingle();
 
-    if (existingPhone) {
-      return NextResponse.json({ error: "This phone number is already registered with another account" }, { status: 400 });
+      if (existingPhone) {
+        return NextResponse.json({ error: "This phone number is already registered with another account" }, { status: 400 });
+      }
     }
 
     // DOB validation (if provided)
