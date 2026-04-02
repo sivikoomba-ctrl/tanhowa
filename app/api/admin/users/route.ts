@@ -99,6 +99,7 @@ export async function PUT(req: NextRequest) {
       if (body.occupation !== undefined) updates.occupation = body.occupation;
       if (body.address !== undefined) updates.address = body.address;
       if (body.office_address !== undefined) updates.office_address = body.office_address;
+      if (body.dob !== undefined) updates.dob = body.dob;
       if (body.posting_details !== undefined) updates.posting_details = body.posting_details;
       if (body.social_links !== undefined) updates.social_links = body.social_links;
 

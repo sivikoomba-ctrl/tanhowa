@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter, Send, Clock, Crown, Building2, Pencil } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { DISTRICT_NAMES } from "@/lib/tn-districts";
+import { DISTRICT_NAMES, getBlocks } from "@/lib/tn-districts";
 
 const nudgeFieldOptions = [
   { value: "Name", label: "Name *" },
@@ -38,6 +38,8 @@ interface PostingDetails {
   special_duty_district?: string;
   special_duty_block?: string;
   special_duty_place?: string;
+  special_designation?: string;
+  special_farm?: string;
   deputed_district?: string;
   deputed_block?: string;
 }
@@ -73,7 +75,7 @@ export default function AdminUsersPage() {
   const [nudgeFields, setNudgeFields] = useState<string[]>([]);
   const [nudgeMessage, setNudgeMessage] = useState("");
   const [editUser, setEditUser] = useState<User | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", phone: "", occupation: "", address: "", office_address: "", regular_district: "", regular_block: "" });
+  const [editForm, setEditForm] = useState({ name: "", phone: "", occupation: "", address: "", office_address: "", dob: "", gender: "", regular_district: "", regular_block: "", special_duty_district: "", special_duty_block: "", deputed_district: "", deputed_block: "" });
   const [editSaving, setEditSaving] = useState(false);
 
   const loadUsers = useCallback(() => {
@@ -211,8 +213,14 @@ export default function AdminUsersPage() {
       occupation: u.occupation || "",
       address: u.address || "",
       office_address: u.office_address || "",
+      dob: u.dob || "",
+      gender: (u as unknown as { social_links?: { gender?: string } }).social_links?.gender || "",
       regular_district: u.posting_details?.regular_district || "",
       regular_block: u.posting_details?.regular_block || "",
+      special_duty_district: u.posting_details?.special_duty_district || "",
+      special_duty_block: u.posting_details?.special_duty_block || "",
+      deputed_district: u.posting_details?.deputed_district || "",
+      deputed_block: u.posting_details?.deputed_block || "",
     });
   }
 
@@ -230,10 +238,19 @@ export default function AdminUsersPage() {
         occupation: editForm.occupation,
         address: editForm.address,
         office_address: editForm.office_address,
+        dob: editForm.dob || null,
         posting_details: {
           ...editUser.posting_details,
           regular_district: editForm.regular_district,
           regular_block: editForm.regular_block,
+          special_duty_district: editForm.special_duty_district,
+          special_duty_block: editForm.special_duty_block,
+          deputed_district: editForm.deputed_district,
+          deputed_block: editForm.deputed_block,
+        },
+        social_links: {
+          ...(editUser as unknown as { social_links?: Record<string, unknown> }).social_links,
+          gender: editForm.gender || "",
         },
       }),
     });
@@ -697,17 +714,100 @@ export default function AdminUsersPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <Label className="text-sm">Date of Birth</Label>
+                <Input type="date" value={editForm.dob} onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-sm">Gender</Label>
+                <Select value={editForm.gender || "none"} onValueChange={(v) => setEditForm({ ...editForm, gender: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select</SelectItem>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Regular Posting</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <Label className="text-sm">District</Label>
-                <Select value={editForm.regular_district} onValueChange={(v) => setEditForm({ ...editForm, regular_district: v })}>
+                <Select value={editForm.regular_district || "none"} onValueChange={(v) => setEditForm({ ...editForm, regular_district: v === "none" ? "" : v })}>
                   <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">Select</SelectItem>
                     {DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="text-sm">Block</Label>
-                <Input value={editForm.regular_block} onChange={(e) => setEditForm({ ...editForm, regular_block: e.target.value })} />
+                {editForm.regular_district && getBlocks(editForm.regular_district).length > 0 ? (
+                  <Select value={editForm.regular_block || "none"} onValueChange={(v) => setEditForm({ ...editForm, regular_block: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Select block" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Select</SelectItem>
+                      {getBlocks(editForm.regular_district).map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={editForm.regular_block} onChange={(e) => setEditForm({ ...editForm, regular_block: e.target.value })} />
+                )}
+              </div>
+            </div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Special Duty</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">District</Label>
+                <Select value={editForm.special_duty_district || "none"} onValueChange={(v) => setEditForm({ ...editForm, special_duty_district: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select</SelectItem>
+                    {DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm">Block</Label>
+                {editForm.special_duty_district && getBlocks(editForm.special_duty_district).length > 0 ? (
+                  <Select value={editForm.special_duty_block || "none"} onValueChange={(v) => setEditForm({ ...editForm, special_duty_block: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Select block" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Select</SelectItem>
+                      {getBlocks(editForm.special_duty_district).map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={editForm.special_duty_block} onChange={(e) => setEditForm({ ...editForm, special_duty_block: e.target.value })} />
+                )}
+              </div>
+            </div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Deputation</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">District</Label>
+                <Select value={editForm.deputed_district || "none"} onValueChange={(v) => setEditForm({ ...editForm, deputed_district: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select</SelectItem>
+                    {DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm">Block</Label>
+                {editForm.deputed_district && getBlocks(editForm.deputed_district).length > 0 ? (
+                  <Select value={editForm.deputed_block || "none"} onValueChange={(v) => setEditForm({ ...editForm, deputed_block: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Select block" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Select</SelectItem>
+                      {getBlocks(editForm.deputed_district).map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={editForm.deputed_block} onChange={(e) => setEditForm({ ...editForm, deputed_block: e.target.value })} />
+                )}
               </div>
             </div>
             <div>
