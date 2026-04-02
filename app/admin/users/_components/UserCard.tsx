@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Send, Clock, Crown, Building2, Pencil, Copy } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface PostingDetails {
@@ -35,6 +35,7 @@ interface User {
   social_links: { instagram?: string; twitter?: string; linkedin?: string };
   photo_url: string;
   created_at: string;
+  updated_at: string;
   last_active_at: string | null;
   profile_nudge: { fields: string[]; message: string; requested_at: string } | null;
   official_type: "state" | "district" | null;
@@ -139,7 +140,10 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
               </p>
             )}
             <p className="text-xs text-muted-foreground mt-1">
-              Joined: {formatDate(u.created_at)}
+              Joined: {formatDateTime(u.created_at)}
+              {u.status === "approved" && u.updated_at && u.updated_at !== u.created_at && (
+                <span className="ml-3 text-green-700">Approved: {formatDateTime(u.updated_at)}</span>
+              )}
               {u.last_active_at && (
                 <span className={`ml-3 ${getActivityStatus(u.last_active_at).color}`}>
                   Active: {getActivityStatus(u.last_active_at).label}

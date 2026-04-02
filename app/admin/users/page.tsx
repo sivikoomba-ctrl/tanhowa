@@ -41,6 +41,7 @@ interface User {
   photo_url: string;
   created_at: string;
   last_active_at: string | null;
+  updated_at: string;
   profile_nudge: { fields: string[]; message: string; requested_at: string } | null;
   official_type: "state" | "district" | null;
 }
