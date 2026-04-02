@@ -356,13 +356,16 @@ export default function AdminDashboard() {
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-4 h-4 text-muted-foreground" />
-                <p className="text-xs font-medium">Filter by Date Range</p>
+                <p className="text-xs font-medium">Payment Collection by Date</p>
               </div>
+              <p className="text-xs text-muted-foreground">Select a date range to see total payments received</p>
               <div className="flex gap-2">
                 <div className="flex-1">
+                  <label className="text-[10px] text-muted-foreground font-medium">From</label>
                   <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="text-xs" />
                 </div>
                 <div className="flex-1">
+                  <label className="text-[10px] text-muted-foreground font-medium">To</label>
                   <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="text-xs" />
                 </div>
               </div>

@@ -29,6 +29,8 @@ import {
   Bell,
   ShieldCheck,
   Navigation,
+  ChevronDown,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,8 +71,6 @@ const navItems = [
   { href: "/dashboard/events", label: "Events", icon: Calendar },
   { href: "/dashboard/resolutions", label: "Resolutions", icon: Vote },
   { href: "/dashboard/documents", label: "Document Vault", icon: FileText },
-  { href: "/dashboard/suggestions", label: "Suggestions", icon: Lightbulb },
-  { href: "/dashboard/grievances", label: "Grievances", icon: MessageSquareWarning },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/dashboard/vouchers", label: "Expense Vouchers", icon: Receipt, officialOnly: true },
   { href: "/dashboard/verify-payments", label: "Verify Payments", icon: ShieldCheck, officialOnly: true },
@@ -206,11 +206,73 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/");
   }
 
+  const [feedbackOpen, setFeedbackOpen] = useState(
+    pathname === "/dashboard/suggestions" || pathname === "/dashboard/grievances"
+  );
+
   function NavLinks({ onItemClick }: { onItemClick?: () => void }) {
+    const feedbackItems = [
+      { href: "/dashboard/suggestions", label: "Suggestions", icon: Lightbulb },
+      { href: "/dashboard/grievances", label: "Grievances", icon: MessageSquareWarning },
+    ];
+    const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);
+
     return (
       <>
         {navItems.filter((item) => !("officialOnly" in item && item.officialOnly) || user?.official_type === "state" || user?.official_type === "district" || user?.role === "admin" || user?.role === "super_admin").map((item) => {
           const isActive = pathname === item.href;
+          // Insert Feedback group after Document Vault
+          if (item.href === "/dashboard/subscriptions") {
+            return (
+              <div key="feedback-group">
+                {/* Feedback collapsible */}
+                <button
+                  onClick={() => setFeedbackOpen(!feedbackOpen)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isFeedbackActive && !feedbackOpen
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  }`}
+                >
+                  <MessageCircle size={18} />
+                  <span className="flex-1 text-left">Feedback</span>
+                  <ChevronDown size={14} className={`transition-transform ${feedbackOpen ? "rotate-180" : ""}`} />
+                </button>
+                {feedbackOpen && (
+                  <div className="ml-4 space-y-0.5 mt-0.5">
+                    {feedbackItems.map((fi) => (
+                      <Link
+                        key={fi.href}
+                        href={fi.href}
+                        onClick={onItemClick}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          pathname === fi.href
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                        }`}
+                      >
+                        <fi.icon size={16} />
+                        {fi.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {/* Subscriptions (the current item) */}
+                <Link
+                  href={item.href}
+                  onClick={onItemClick}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  }`}
+                >
+                  <item.icon size={18} />
+                  {item.label}
+                </Link>
+              </div>
+            );
+          }
           return (
             <Link
               key={item.href}
