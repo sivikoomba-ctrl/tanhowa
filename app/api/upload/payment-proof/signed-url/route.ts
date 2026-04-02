@@ -8,9 +8,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { file_path, subscription_id } = await req.json();
-  if (!file_path || !subscription_id) {
-    return NextResponse.json({ error: "file_path and subscription_id required" }, { status: 400 });
+  const { subscription_id } = await req.json();
+  if (!subscription_id) {
+    return NextResponse.json({ error: "subscription_id required" }, { status: 400 });
   }
 
   const supabase = getServiceClient();
@@ -25,14 +25,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Payment proof not found" }, { status: 404 });
   }
 
-  if (sub.payment_proof_url !== file_path) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  // Members can only view their own payment proofs; admins can view all
+  // Members can only view their own; admins and officials can view all
   const role = await getDbRole(session.userId);
-  if (role !== "admin" && role !== "super_admin" && sub.user_id !== session.userId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const isAdminOrOfficial = role === "admin" || role === "super_admin";
+  if (!isAdminOrOfficial && sub.user_id !== session.userId) {
+    // Check if user is an official
+    const { data: user } = await supabase
+      .from("users")
+      .select("official_type")
+      .eq("id", session.userId)
+      .single();
+    if (!user?.official_type) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   // Generate a signed URL valid for 5 minutes

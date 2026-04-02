@@ -1,9 +1,8 @@
-export async function fetchSignedPaymentProofUrl(subscriptionId: string, filePath: string): Promise<string> {
+export async function fetchSignedPaymentProofUrl(subscriptionId: string, _filePath?: string): Promise<string> {
   const response = await fetch("/api/upload/payment-proof/signed-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      file_path: filePath,
       subscription_id: subscriptionId,
     }),
   });
