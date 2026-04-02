@@ -2194,12 +2194,30 @@ export default function AdminSubscriptionsPage() {
               <p className="text-sm text-muted-foreground">
                 Reject payment from <span className="font-medium text-foreground">{rejectSub.users?.name}</span> for {rejectSub.period} (&#8377;{rejectSub.amount?.toLocaleString("en-IN")}).
               </p>
-              <div>
+              <div className="space-y-2">
                 <Label>Reason / Remarks *</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "The payment was done during May 2025 not during December 2025 or after. It may be a 2025 subscription.",
+                    "The payment does not have the member details.",
+                    "The proof doesn't have much information, upload a detailed one.",
+                    "The payment is person to person transaction, not a transaction to TANHOWA.",
+                    "The payment is for multiple members, some of the members are not registered with our site.",
+                  ].map((reason, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className="text-xs text-left px-2 py-1 rounded-md border border-muted-foreground/20 hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-colors"
+                      onClick={() => setRejectRemarks(rejectRemarks ? `${rejectRemarks}\n${reason}` : reason)}
+                    >
+                      {i + 1}. {reason.length > 60 ? reason.substring(0, 60) + "..." : reason}
+                    </button>
+                  ))}
+                </div>
                 <Textarea
                   value={rejectRemarks}
                   onChange={(e) => setRejectRemarks(e.target.value)}
-                  placeholder="e.g. Payment proof is unclear, amount mismatch, duplicate entry..."
+                  placeholder="Select a reason above or type custom remarks..."
                   rows={3}
                   required
                 />

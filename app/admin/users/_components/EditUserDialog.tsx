@@ -61,7 +61,7 @@ interface EditUserDialogProps {
 
 export default function EditUserDialog({ user, open, onOpenChange, onSave }: EditUserDialogProps) {
   const [editForm, setEditForm] = useState({
-    name: "", phone: "", occupation: "", address: "", office_address: "", dob: "", gender: "",
+    title: "", name: "", phone: "", occupation: "", address: "", office_address: "", dob: "", gender: "",
     regular_district: "", regular_block: "",
     special_duty_district: "", special_duty_block: "",
     deputed_district: "", deputed_block: "",
@@ -70,8 +70,20 @@ export default function EditUserDialog({ user, open, onOpenChange, onSave }: Edi
 
   useEffect(() => {
     if (user) {
+      const sl = user.social_links as Record<string, unknown> | undefined;
+      const storedTitle = (sl?.title as string) || "";
+      // Strip title prefix from name if present
+      let displayName = (user.name || "").toUpperCase();
+      const titlePrefixes = ["MR.", "MRS.", "MISS.", "DR."];
+      for (const t of titlePrefixes) {
+        if (displayName.startsWith(t + " ") || displayName.startsWith(t)) {
+          displayName = displayName.substring(t.length).trim();
+          break;
+        }
+      }
       setEditForm({
-        name: (user.name || "").toUpperCase(),
+        title: storedTitle,
+        name: displayName,
         phone: user.phone || "",
         occupation: user.occupation || "",
         address: user.address || "",
@@ -91,8 +103,9 @@ export default function EditUserDialog({ user, open, onOpenChange, onSave }: Edi
   async function handleSave() {
     if (!user) return;
     setEditSaving(true);
+    const fullName = editForm.title ? `${editForm.title} ${editForm.name}` : editForm.name;
     await onSave(user.id, {
-      name: editForm.name,
+      name: fullName,
       phone: editForm.phone,
       occupation: editForm.occupation,
       address: editForm.address,
@@ -110,6 +123,7 @@ export default function EditUserDialog({ user, open, onOpenChange, onSave }: Edi
       },
       social_links: {
         ...(user as unknown as { social_links?: Record<string, unknown> }).social_links,
+        title: editForm.title || "",
         gender: editForm.gender || "",
       },
     });
@@ -123,9 +137,24 @@ export default function EditUserDialog({ user, open, onOpenChange, onSave }: Edi
           <DialogTitle>Edit Member Profile</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div>
-            <Label className="text-sm">Name</Label>
-            <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value.toUpperCase() })} className="uppercase" />
+          <div className="grid grid-cols-[100px_1fr] gap-3">
+            <div>
+              <Label className="text-sm">Title *</Label>
+              <Select value={editForm.title || "none"} onValueChange={(v) => setEditForm({ ...editForm, title: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select</SelectItem>
+                  <SelectItem value="Mr.">Mr.</SelectItem>
+                  <SelectItem value="Mrs.">Mrs.</SelectItem>
+                  <SelectItem value="Miss.">Miss.</SelectItem>
+                  <SelectItem value="Dr.">Dr.</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm">Name</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value.toUpperCase() })} className="uppercase" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
