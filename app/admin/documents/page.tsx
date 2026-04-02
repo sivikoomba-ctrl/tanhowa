@@ -569,7 +569,10 @@ export default function AdminDocumentsPage() {
                                 </span>
                               ))}
                               {doc.assigned_users.length > 5 && (
-                                <span className="text-[10px] text-muted-foreground">+{doc.assigned_users.length - 5} more</span>
+                                <button
+                                  className="text-[10px] text-primary hover:underline"
+                                  onClick={() => toast.info(doc.assigned_users.map((uid: string) => getMemberName(uid)).join(", "), { duration: 10000 })}
+                                >+{doc.assigned_users.length - 5} more — view all</button>
                               )}
                             </div>
                           )}

@@ -186,10 +186,10 @@ export default function EventsPage() {
                                 {eventDate.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}
                               </div>
                               {ev.location && (
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <a href={`https://maps.google.com/?q=${encodeURIComponent(ev.location)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary">
                                   <MapPin size={11} />
                                   {ev.location}
-                                </div>
+                                </a>
                               )}
                             </div>
                             <div className="flex items-center gap-2 mt-2.5">
@@ -247,8 +247,13 @@ export default function EventsPage() {
                                 {eventDate.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}
                               </span>
                               {ev.location && (
-                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <a href={`https://maps.google.com/?q=${encodeURIComponent(ev.location)}`} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
                                   <MapPin size={10} /> {ev.location}
+                                </a>
+                              )}
+                              {rsvpCounts[ev.id] > 0 && (
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Users size={10} /> {rsvpCounts[ev.id]} attended
                                 </span>
                               )}
                             </div>

@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   ChevronDown,
   MessageCircle,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +54,7 @@ const adminNavItems = [
   { href: "/admin/contributions", label: "Contributions", icon: Award },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/nearby", label: "Nearby Members", icon: Navigation },
+  { href: "/admin/error-logs", label: "Error Logs", icon: AlertCircle },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

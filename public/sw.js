@@ -5,9 +5,9 @@ const STATIC_ASSETS = [
   "/icons/icon-512x512.png",
 ];
 
-// Cache key for API responses (announcements, events)
-const API_CACHE = "tanhowa-api-v1";
-const CACHEABLE_API = ["/api/announcements", "/api/events"];
+// Cache key for API responses (network-first with offline fallback)
+const API_CACHE = "tanhowa-api-v2";
+const CACHEABLE_API = ["/api/announcements", "/api/events", "/api/polls", "/api/documents", "/api/resolutions", "/api/stats"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

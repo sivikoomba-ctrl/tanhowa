@@ -186,6 +186,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [router]);
 
+  // Poll notifications every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch("/api/notifications")
+        .then((r) => r.json())
+        .then((d) => { if (d.total !== undefined) setNotifications(d); })
+        .catch(() => {});
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   async function handleTitleSelect(title: string) {
     if (!user?.name) return;
     setTitleSaving(true);

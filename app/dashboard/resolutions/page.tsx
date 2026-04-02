@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Vote, Plus, ThumbsUp, Check, X, Send, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
@@ -52,6 +53,7 @@ export default function ResolutionsPage() {
   const [category, setCategory] = useState("");
   const [creating, setCreating] = useState(false);
   const [votingIds, setVotingIds] = useState<Set<string>>(new Set());
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   function loadResolutions() {
     fetch("/api/resolutions")
@@ -85,8 +87,10 @@ export default function ResolutionsPage() {
       .catch(() => {});
   }, []);
 
-  const votingOpen = useMemo(() => resolutions.filter((r) => r.status === "voting_open"), [resolutions]);
-  const results = useMemo(() => resolutions.filter((r) => r.status === "passed" || r.status === "failed"), [resolutions]);
+  const categories = useMemo(() => Array.from(new Set(resolutions.map((r) => r.category).filter(Boolean))).sort(), [resolutions]);
+  const filterByCategory = (list: Resolution[]) => categoryFilter === "all" ? list : list.filter((r) => r.category === categoryFilter);
+  const votingOpen = useMemo(() => filterByCategory(resolutions.filter((r) => r.status === "voting_open")), [resolutions, categoryFilter]);
+  const results = useMemo(() => filterByCategory(resolutions.filter((r) => r.status === "passed" || r.status === "failed")), [resolutions, categoryFilter]);
   const drafts = useMemo(() => myResolutions.filter((r) => r.status === "draft" || r.status === "submitted" || r.status === "approved" || r.status === "rejected"), [myResolutions]);
 
   async function handleCreate() {
@@ -168,6 +172,18 @@ export default function ResolutionsPage() {
             </TabsTrigger>
           )}
         </TabsList>
+
+        {categories.length > 0 && (
+          <div className="mt-3">
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Categories" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Voting Open */}
         <TabsContent value="voting" className="mt-4">
