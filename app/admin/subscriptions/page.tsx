@@ -427,7 +427,11 @@ export default function AdminSubscriptionsPage() {
         sub.transaction_id?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus =
         filterStatus === "all" ||
-        (filterStatus === "proof-uploaded" ? !!sub.payment_proof_url && sub.status !== "paid" && sub.status !== "rejected" && sub.status !== "hold" : filterStatus === "ds-verified" ? !!sub.remarks?.startsWith("Verified by") : sub.status === filterStatus);
+        (filterStatus === "proof-uploaded"
+          ? !!sub.payment_proof_url && sub.status !== "paid" && sub.status !== "rejected" && sub.status !== "hold"
+          : filterStatus === "ds-verified"
+            ? !!sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved."))
+            : sub.status === filterStatus);
       const matchesPeriod = filterPeriod === "all" || sub.period === filterPeriod;
       const matchesDistrict = filterDistrict === "all" || sub.users?.posting_details?.regular_district === filterDistrict;
       return matchesSearch && matchesStatus && matchesPeriod && matchesDistrict;
@@ -1329,7 +1333,7 @@ export default function AdminSubscriptionsPage() {
                             Proof Uploaded
                           </Badge>
                         )}
-                        {sub.remarks?.startsWith("Verified by") && sub.status !== "paid" && (
+                        {(sub.remarks?.startsWith("Verified by") || sub.remarks?.startsWith("Provisionally approved.")) && sub.status !== "paid" && (
                           <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-[10px]">
                             DS/DJS Verified
                           </Badge>
@@ -1356,7 +1360,7 @@ export default function AdminSubscriptionsPage() {
                       <div className="flex flex-wrap items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
                         <span className="bg-muted px-1.5 py-0.5 rounded">Created {formatDate(sub.created_at)}</span>
                         {hasProof && <><span>&rarr;</span><span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">Proof Uploaded</span></>}
-                        {sub.remarks?.startsWith("Verified by") && <><span>&rarr;</span><span className="bg-green-50 text-green-600 px-1.5 py-0.5 rounded">{sub.remarks.split(" on ")[0]}</span></>}
+                        {(sub.remarks?.startsWith("Verified by") || sub.remarks?.startsWith("Provisionally approved.")) && <><span>&rarr;</span><span className="bg-green-50 text-green-600 px-1.5 py-0.5 rounded">{sub.remarks.split(" on ")[0]}</span></>}
                         {sub.approved_at && (
                           <><span>&rarr;</span><span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
                             Approved {formatDate(sub.approved_at)}{sub.approver?.name ? ` by ${sub.approver.name}` : ""}

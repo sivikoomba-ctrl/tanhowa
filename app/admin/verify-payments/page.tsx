@@ -104,7 +104,7 @@ export default function VerifyPaymentsPage() {
     const res = await fetch("/api/subscriptions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: sub.id, status: "paid", remarks: remark }),
+      body: JSON.stringify({ id: sub.id, remarks: remark }),
     });
     if (res.ok) {
       toast.success(`Payment verified — forwarded to admin for approval`);
@@ -400,7 +400,7 @@ export default function VerifyPaymentsPage() {
                           </Button>
                         )}
                         <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" disabled={!sub.payment_proof_url} onClick={() => { setVerifyTarget(sub); setPreviewSub(sub); handleViewProof(sub); }}>
-                          <CheckCircle2 size={12} /> View, Verify & Approve
+                          <CheckCircle2 size={12} /> View & Verify
                         </Button>
                         {isStateOrAdmin && (
                           <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50 gap-1" onClick={() => handleStatusChange(sub, "overdue")}>
@@ -468,7 +468,7 @@ export default function VerifyPaymentsPage() {
               </a>
               {verifyTarget && (
                 <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => { handleDistrictVerify(verifyTarget); setPreviewUrl(null); setPreviewLoading(false); setVerifyTarget(null); }}>
-                  <CheckCircle2 size={14} /> Confirm Verify & Approve
+                  <CheckCircle2 size={14} /> Confirm Verify & Forward
                 </Button>
               )}
             </div>
