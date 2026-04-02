@@ -8,9 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Megaphone, Plus, Clock } from "lucide-react";
+import { Megaphone, Plus, Clock, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
+
+interface RecentMember {
+  name: string;
+  created_at: string;
+}
 
 interface Announcement {
   id: string;
@@ -27,6 +32,7 @@ export default function AnnouncementsPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [creating, setCreating] = useState(false);
+  const [recentMembers, setRecentMembers] = useState<RecentMember[]>([]);
 
   function loadAnnouncements() {
     fetch("/api/announcements")
@@ -48,6 +54,10 @@ export default function AnnouncementsPage() {
           }
         }
       })
+      .catch(() => {});
+    fetch("/api/users/recent")
+      .then((r) => r.json())
+      .then((d) => setRecentMembers(d.members || []))
       .catch(() => {});
   }, []);
 
@@ -113,6 +123,33 @@ export default function AnnouncementsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* New Members Ticker */}
+      {recentMembers.length > 0 && (
+        <div className="rounded-xl border bg-primary/5 border-primary/20 overflow-hidden w-full">
+          <div className="flex items-center min-w-0">
+            <div className="bg-primary text-white px-3 py-2 text-xs font-semibold shrink-0 flex items-center gap-1.5">
+              <UserPlus size={14} />
+              New Members
+            </div>
+            <div className="flex-1 overflow-hidden relative py-2 min-w-0">
+              <div
+                className="flex gap-8 whitespace-nowrap px-4"
+                style={{
+                  animation: `scroll ${Math.max(recentMembers.length * 5, 15)}s linear infinite`,
+                }}
+              >
+                {[...recentMembers, ...recentMembers].map((m, i) => (
+                  <span key={i} className="text-xs text-primary inline-flex items-center gap-1.5 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                    Welcome <span className="font-semibold uppercase">{m.name}</span>!
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {announcements.length === 0 ? (
         <EmptyState icon={Megaphone} title="No announcements yet" description="Check back later for updates" />
