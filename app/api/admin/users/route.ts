@@ -101,7 +101,7 @@ export async function PUT(req: NextRequest) {
       await supabase.from("users").update({ official_type: officialType }).eq("id", userId);
     } else if (action === "edit-profile") {
       const updates: Record<string, unknown> = {};
-      if (body.name !== undefined) updates.name = body.name;
+      if (body.name !== undefined) updates.name = typeof body.name === "string" ? body.name.trim().toUpperCase() : body.name;
       if (body.phone !== undefined) updates.phone = body.phone;
       if (body.occupation !== undefined) updates.occupation = body.occupation;
       if (body.address !== undefined) updates.address = body.address;
