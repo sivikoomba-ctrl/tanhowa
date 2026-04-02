@@ -29,6 +29,8 @@ import {
   Bell,
   Navigation,
   ShieldCheck,
+  ChevronDown,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,8 +45,6 @@ const adminNavItems = [
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/events", label: "Events", icon: Calendar },
   { href: "/admin/documents", label: "Document Vault", icon: FileText },
-  { href: "/admin/suggestions", label: "Suggestions", icon: Lightbulb },
-  { href: "/admin/grievances", label: "Grievances", icon: MessageSquareWarning },
   { href: "/admin/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/admin/verify-payments", label: "Verify Payments", icon: ShieldCheck },
   { href: "/admin/resolutions", label: "Resolutions", icon: Vote },
@@ -112,7 +112,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.push("/");
   }
 
+  const [feedbackOpen, setFeedbackOpen] = useState(
+    pathname === "/admin/suggestions" || pathname === "/admin/grievances"
+  );
+
   if (!isAdmin) return null;
+
+  const feedbackItems = [
+    { href: "/admin/suggestions", label: "Suggestions", icon: Lightbulb },
+    { href: "/admin/grievances", label: "Grievances", icon: MessageSquareWarning },
+  ];
+  const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);
 
   function NavLinks({ onItemClick }: { onItemClick?: () => void }) {
     return (
@@ -122,6 +132,58 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           const showBadge = (item.href === "/admin/users" && pendingCount > 0) || (item.href === "/admin/error-logs" && errorCount > 0);
           const badgeCount = item.href === "/admin/users" ? pendingCount : errorCount;
           const badgeColor = item.href === "/admin/error-logs" ? "bg-red-500" : "bg-amber-500";
+
+          // Insert Feedback group before Subscriptions
+          if (item.href === "/admin/subscriptions") {
+            return (
+              <div key="feedback-group">
+                <button
+                  onClick={() => setFeedbackOpen(!feedbackOpen)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isFeedbackActive && !feedbackOpen
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  }`}
+                >
+                  <MessageCircle size={18} />
+                  <span className="flex-1 text-left">Feedback</span>
+                  <ChevronDown size={14} className={`transition-transform ${feedbackOpen ? "rotate-180" : ""}`} />
+                </button>
+                {feedbackOpen && (
+                  <div className="ml-4 space-y-0.5 mt-0.5">
+                    {feedbackItems.map((fi) => (
+                      <Link
+                        key={fi.href}
+                        href={fi.href}
+                        onClick={onItemClick}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          pathname === fi.href
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                        }`}
+                      >
+                        <fi.icon size={16} />
+                        {fi.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                <Link
+                  href={item.href}
+                  onClick={onItemClick}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  }`}
+                >
+                  <item.icon size={18} />
+                  <span className="flex-1">{item.label}</span>
+                </Link>
+              </div>
+            );
+          }
+
           return (
             <Link
               key={item.href}
