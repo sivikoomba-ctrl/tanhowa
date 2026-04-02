@@ -97,7 +97,7 @@ export default function VerifyPaymentsPage() {
     const res = await fetch("/api/subscriptions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: sub.id, remarks: remark }),
+      body: JSON.stringify({ id: sub.id, status: "paid", remarks: remark }),
     });
     if (res.ok) {
       toast.success(`Payment verified — forwarded to admin for approval`);

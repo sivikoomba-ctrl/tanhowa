@@ -159,7 +159,7 @@ export default function SubscriptionsPage() {
     doc.setFontSize(13);
     doc.setTextColor(34, 139, 34);
     doc.setFont("helvetica", "bold");
-    doc.text("\uD83C\uDF3F Save a print, Save a Tree. \uD83C\uDF0D", 105, y, { align: "center" });
+    doc.text("Save a print, Save a Tree.", 105, y, { align: "center" });
 
     // Footer
     y += 10;
