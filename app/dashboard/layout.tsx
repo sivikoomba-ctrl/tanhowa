@@ -122,10 +122,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             router.push("/onboarding");
             return;
           }
-          // Auto-prefix "Mr." for male members without a title
+          // Auto-prefix title for members without one
           const gender = data.user.social_links?.gender;
           if (data.user.name && !hasTitle(data.user.name)) {
-            if (gender === "Male") {
+            if (gender === "Female") {
+              // Female: ask for title choice
+              setShowTitlePicker(true);
+            } else {
+              // Male or gender not set: default to "Mr."
               const updatedName = `Mr. ${data.user.name}`;
               data.user.name = updatedName;
               // Fire-and-forget save
@@ -134,8 +138,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name: updatedName }),
               }).catch(() => {});
-            } else if (gender === "Female") {
-              setShowTitlePicker(true);
             }
           }
           setUser(data.user);
