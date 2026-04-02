@@ -328,7 +328,7 @@ export default function AdminSubscriptionsPage() {
         sub.transaction_id?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus =
         filterStatus === "all" ||
-        (filterStatus === "proof-uploaded" ? !!sub.payment_proof_url && sub.status !== "paid" && sub.status !== "rejected" && sub.status !== "hold" : sub.status === filterStatus);
+        (filterStatus === "proof-uploaded" ? !!sub.payment_proof_url && sub.status !== "paid" && sub.status !== "rejected" && sub.status !== "hold" : filterStatus === "ds-verified" ? !!sub.remarks?.startsWith("Verified by") : sub.status === filterStatus);
       const matchesPeriod = filterPeriod === "all" || sub.period === filterPeriod;
       const matchesDistrict = filterDistrict === "all" || sub.users?.posting_details?.regular_district === filterDistrict;
       return matchesSearch && matchesStatus && matchesPeriod && matchesDistrict;
@@ -1118,6 +1118,7 @@ export default function AdminSubscriptionsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="proof-uploaded">Proof Uploaded (Awaiting Approval)</SelectItem>
+                  <SelectItem value="ds-verified">DS/DJS Verified</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="overdue">Overdue</SelectItem>

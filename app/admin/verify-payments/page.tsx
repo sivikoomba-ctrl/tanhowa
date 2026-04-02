@@ -346,7 +346,13 @@ export default function VerifyPaymentsPage() {
                             <CheckCircle2 size={12} className="mr-1" /> Verified
                           </Badge>
                         ) : (
-                          <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" onClick={() => handleDistrictVerify(sub)}>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1"
+                            disabled={!sub.payment_proof_url}
+                            title={!sub.payment_proof_url ? "Upload proof before verifying" : ""}
+                            onClick={() => handleDistrictVerify(sub)}
+                          >
                             <CheckCircle2 size={12} /> Verify
                           </Button>
                         )}

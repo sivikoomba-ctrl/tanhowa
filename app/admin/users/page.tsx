@@ -349,20 +349,6 @@ export default function AdminUsersPage() {
                   </span>
                 )}
               </p>
-              {filteredUsers.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-7 gap-1"
-                  onClick={() => {
-                    const names = filteredUsers.map((u) => u.name || "Unnamed").join("\n");
-                    navigator.clipboard.writeText(names);
-                    toast.success(`Copied ${filteredUsers.length} name(s)`);
-                  }}
-                >
-                  <Copy size={12} /> Copy Names
-                </Button>
-              )}
             </div>
           )}
           {filteredUsers.length === 0 ? (
@@ -391,6 +377,13 @@ export default function AdminUsersPage() {
                           <div>
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold uppercase">{u.name || "Unnamed"}</h3>
+                            <button
+                              className="text-muted-foreground hover:text-primary transition-colors"
+                              title="Copy name"
+                              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(u.name || ""); toast.success("Copied"); }}
+                            >
+                              <Copy size={12} />
+                            </button>
                             <Badge variant={u.role === "admin" || u.role === "super_admin" ? "default" : "outline"} className={`text-xs ${u.role === "super_admin" ? "bg-amber-600 hover:bg-amber-600" : ""}`}>
                               {u.role === "super_admin" ? "Super Admin" : u.role}
                             </Badge>
