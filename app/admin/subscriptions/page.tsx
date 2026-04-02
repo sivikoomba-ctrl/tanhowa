@@ -91,7 +91,7 @@ export default function AdminSubscriptionsPage() {
 
   // Verify payment dialog
   const [payDialog, setPayDialog] = useState<Subscription | null>(null);
-  const [payForm, setPayForm] = useState({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
+  const [payForm, setPayForm] = useState({ remarks: "Provisionally approved. S. Sivakumar, State Secretary, TANHOWA.", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
   const [payLoading, setPayLoading] = useState(false);
   const [payProofUrl, setPayProofUrl] = useState<string | null>(null);
   const [extractingDate, setExtractingDate] = useState(false);
@@ -471,7 +471,7 @@ export default function AdminSubscriptionsPage() {
         toast.success("Payment verified and marked as paid");
       }
       setPayDialog(null);
-      setPayForm({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
+      setPayForm({ remarks: "Provisionally approved. S. Sivakumar, State Secretary, TANHOWA.", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
       setAdminSelectedMembers(new Set());
       setAdminMemberSearch("");
       setAdminSelectedPeriods(new Set());

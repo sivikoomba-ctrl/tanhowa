@@ -179,6 +179,32 @@ export default function VerifyPaymentsPage() {
     }
   }
 
+  async function handleStatusChange(sub: Subscription, status: string, remarks?: string) {
+    const res = await fetch("/api/subscriptions", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: sub.id, status, ...(remarks ? { remarks } : {}) }),
+    });
+    if (res.ok) {
+      toast.success(`Payment ${status === "paid" ? "approved" : status}`);
+      loadData();
+    } else {
+      const data = await res.json();
+      toast.error(data.error || "Failed to update");
+    }
+  }
+
+  async function handleDelete(sub: Subscription) {
+    if (!confirm(`Delete subscription for ${sub.member_name} (${sub.period})?`)) return;
+    const res = await fetch("/api/subscriptions", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: sub.id }),
+    });
+    if (res.ok) { toast.success("Deleted"); loadData(); }
+    else toast.error("Failed to delete");
+  }
+
   const isStateOrAdmin = user?.official_type === "state" || user?.role === "admin" || user?.role === "super_admin";
 
   if (loading) {
@@ -324,37 +350,50 @@ export default function VerifyPaymentsPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                         {sub.payment_proof_url ? (
-                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleViewProof(sub)}>
-                            <Eye size={12} /> Proof
-                          </Button>
+                          <>
+                            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleViewProof(sub)}>
+                              <Eye size={12} /> View Proof
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-blue-700 border-blue-300 hover:bg-blue-50" disabled={uploadingSub === sub.id} onClick={() => triggerUpload(sub)}>
+                              {uploadingSub === sub.id ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                              Re-upload
+                            </Button>
+                          </>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs gap-1 text-blue-700 border-blue-300 hover:bg-blue-50"
-                            disabled={uploadingSub === sub.id}
-                            onClick={() => triggerUpload(sub)}
-                          >
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-blue-700 border-blue-300 hover:bg-blue-50" disabled={uploadingSub === sub.id} onClick={() => triggerUpload(sub)}>
                             {uploadingSub === sub.id ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
                             Upload Proof
                           </Button>
                         )}
-                        {sub.remarks?.startsWith("Verified by") ? (
+                        {sub.remarks?.startsWith("Verified by") && sub.status !== "paid" ? (
                           <Badge className="text-xs bg-green-50 text-green-700 border-green-300 py-1 px-2">
                             <CheckCircle2 size={12} className="mr-1" /> Verified
                           </Badge>
                         ) : (
-                          <Button
-                            size="sm"
-                            className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1"
-                            disabled={!sub.payment_proof_url}
-                            title={!sub.payment_proof_url ? "Upload proof before verifying" : ""}
-                            onClick={() => handleDistrictVerify(sub)}
-                          >
+                          <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" disabled={!sub.payment_proof_url} onClick={() => handleDistrictVerify(sub)}>
                             <CheckCircle2 size={12} /> Verify
                           </Button>
+                        )}
+                        {isStateOrAdmin && (
+                          <>
+                            <Button size="sm" className="h-7 text-xs bg-green-700 hover:bg-green-800 gap-1" disabled={!sub.payment_proof_url} onClick={() => handleStatusChange(sub, "paid", "Provisionally approved. S. Sivakumar, State Secretary, TANHOWA.")}>
+                              <CheckCircle2 size={12} /> Verify & Approve
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50 gap-1" onClick={() => handleStatusChange(sub, "overdue")}>
+                              Mark Overdue
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleStatusChange(sub, "hold")}>
+                              Hold
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50 gap-1" onClick={() => { const reason = prompt("Rejection reason:"); if (reason) handleStatusChange(sub, "rejected", reason); }}>
+                              Reject
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600 gap-1" onClick={() => handleDelete(sub)}>
+                              <XCircle size={12} /> Delete
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
