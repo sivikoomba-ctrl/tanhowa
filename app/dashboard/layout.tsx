@@ -363,7 +363,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Mobile Header + Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between p-4 border-b bg-card">
           <Link href="/dashboard" className="flex items-center gap-2">
             <Flower2 className="w-6 h-6 text-primary" />
@@ -412,7 +412,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        <main className="flex-1 p-6 bg-background overflow-auto relative">
+        <main className="flex-1 p-4 sm:p-6 bg-background overflow-x-hidden overflow-y-auto relative">
           <Image src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.03] pointer-events-none" />
           {/* Location sharing prompt */}
           {showLocationPrompt && (
