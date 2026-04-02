@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -128,6 +128,29 @@ export default function SubscriptionsPage() {
     doc.text("This is a computer-generated receipt and does not require a signature.", 105, y + 5, { align: "center" });
 
     doc.save(`TANHOWA-Receipt-${sub.period.replace(/\s+/g, "-")}.pdf`);
+  }
+
+  const [emailingSub, setEmailingSub] = useState<string | null>(null);
+
+  async function emailReceipt(sub: Subscription) {
+    setEmailingSub(sub.id);
+    try {
+      const res = await fetch("/api/subscriptions/email-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscriptionId: sub.id }),
+      });
+      if (res.ok) {
+        toast.success("Receipt emailed successfully!");
+      } else {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error || "Failed to email receipt");
+      }
+    } catch {
+      toast.error("Failed to email receipt");
+    } finally {
+      setEmailingSub(null);
+    }
   }
 
   // Paying-for-others member picker
@@ -542,9 +565,24 @@ export default function SubscriptionsPage() {
                             <FileDown size={12} className="mr-1" />
                             Receipt
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs text-green-700"
+                            onClick={() => emailReceipt(sub)}
+                            disabled={emailingSub === sub.id}
+                          >
+                            <Mail size={12} className="mr-1" />
+                            {emailingSub === sub.id ? "Sending..." : "Email Receipt"}
+                          </Button>
                         </>
                       )}
                     </div>
+                    {sub.status === "paid" && (
+                      <p className="text-[10px] text-green-600 mt-1 flex items-center gap-1">
+                        <Leaf size={10} />Save a print. Save Plants.
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>

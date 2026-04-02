@@ -190,6 +190,47 @@ export async function sendSubscriptionApprovedEmail(
   );
 }
 
+/** Member-initiated receipt email — always sends (bypasses HOLD flag) */
+export async function sendReceiptEmail(
+  to: string,
+  memberName: string,
+  period: string,
+  amount: number,
+  details?: { phone?: string; payment_method?: string; transaction_id?: string; paid_at?: string },
+) {
+  const d = details || {};
+  const pdfBase64 = await generateReceiptPdf(memberName, to, period, amount, d);
+  const fileName = `TANHOWA-Receipt-${period.replace(/\s+/g, "-")}.pdf`;
+
+  await sendEmail(
+    to,
+    `TANHOWA Payment Receipt — ${period}`,
+    `
+    <div style="font-family: 'Poppins', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #fefae0; border-radius: 12px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h1 style="color: #2d6a4f; font-size: 28px; margin: 0;">TANHOWA</h1>
+        <p style="color: #40916c; font-size: 14px; margin: 4px 0 0;">Tamil Nadu Horticultural Officers Welfare Association</p>
+      </div>
+      <div style="background: white; border-radius: 8px; padding: 24px;">
+        <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+          Dear <strong>${memberName}</strong>,
+        </p>
+        <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+          Here is your payment receipt for <strong>${period}</strong> (&#8377;${amount.toLocaleString("en-IN")}). The PDF is attached.
+        </p>
+        <p style="color: #2d6a4f; font-size: 13px; font-style: italic; margin: 0 0 16px; text-align: center;">
+          &#127793; Save a print. Save Plants.
+        </p>
+        <div style="text-align: center;">
+          <a href="https://tanhowa.in/dashboard/subscriptions" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">View My Subscriptions</a>
+        </div>
+      </div>
+    </div>
+  `,
+    [{ content: pdfBase64, mime_type: "application/pdf", name: fileName }],
+  );
+}
+
 // Fetch all approved member emails from Supabase
 async function getAllMemberEmails(): Promise<string[]> {
   const { getServiceClient } = await import("@/lib/supabase");
