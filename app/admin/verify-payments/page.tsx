@@ -367,34 +367,23 @@ export default function VerifyPaymentsPage() {
                             Upload Proof
                           </Button>
                         )}
-                        {sub.remarks?.startsWith("Verified by") && sub.status !== "paid" ? (
-                          <Badge className="text-xs bg-green-50 text-green-700 border-green-300 py-1 px-2">
-                            <CheckCircle2 size={12} className="mr-1" /> Verified
-                          </Badge>
-                        ) : (
-                          <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" disabled={!sub.payment_proof_url} onClick={() => handleDistrictVerify(sub)}>
-                            <CheckCircle2 size={12} /> Verify
+                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" disabled={!sub.payment_proof_url} onClick={() => handleDistrictVerify(sub)}>
+                          <CheckCircle2 size={12} /> Verify & Approve
+                        </Button>
+                        {isStateOrAdmin && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50 gap-1" onClick={() => handleStatusChange(sub, "overdue")}>
+                            Mark Overdue
                           </Button>
                         )}
-                        {isStateOrAdmin && (
-                          <>
-                            <Button size="sm" className="h-7 text-xs bg-green-700 hover:bg-green-800 gap-1" disabled={!sub.payment_proof_url} onClick={() => handleStatusChange(sub, "paid", "Provisionally approved. S. Sivakumar, State Secretary, TANHOWA.")}>
-                              <CheckCircle2 size={12} /> Verify & Approve
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50 gap-1" onClick={() => handleStatusChange(sub, "overdue")}>
-                              Mark Overdue
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleStatusChange(sub, "hold")}>
-                              Hold
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50 gap-1" onClick={() => { const reason = prompt("Rejection reason:"); if (reason) handleStatusChange(sub, "rejected", reason); }}>
-                              Reject
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600 gap-1" onClick={() => handleDelete(sub)}>
-                              <XCircle size={12} /> Delete
-                            </Button>
-                          </>
-                        )}
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleStatusChange(sub, "hold")}>
+                          Hold
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50 gap-1" onClick={() => { const reason = prompt("Rejection reason:"); if (reason) handleStatusChange(sub, "rejected", reason); }}>
+                          Reject
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600 gap-1" onClick={() => handleDelete(sub)}>
+                          <XCircle size={12} /> Delete
+                        </Button>
                       </div>
                     </div>
                   ))}
