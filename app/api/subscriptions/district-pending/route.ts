@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     // Fetch pending/overdue subscriptions with member posting_details
     let query = supabase
       .from("subscriptions")
-      .select("id, user_id, period, amount, status, payment_proof_url, created_at, users!subscriptions_user_id_fkey(name, email, phone, posting_details, official_type)")
+      .select("id, user_id, period, amount, status, payment_proof_url, remarks, created_at, users!subscriptions_user_id_fkey(name, email, phone, posting_details, official_type)")
       .in("status", ["pending", "overdue"])
       .not("payment_proof_url", "is", null) // Only show those who uploaded proof
       .order("created_at", { ascending: false });
@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
         amount: number;
         status: string;
         payment_proof_url: string | null;
+        remarks: string | null;
       }[];
     }> = {};
 
@@ -114,6 +115,7 @@ export async function GET(req: NextRequest) {
         amount: sub.amount || 0,
         status: sub.status,
         payment_proof_url: sub.payment_proof_url,
+        remarks: sub.remarks || null,
       });
     }
 

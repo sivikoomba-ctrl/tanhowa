@@ -33,6 +33,7 @@ interface Subscription {
   amount: number;
   status: string;
   payment_proof_url: string | null;
+  remarks: string | null;
 }
 
 interface DistrictGroup {
@@ -52,7 +53,7 @@ export default function VerifyPaymentsPage() {
   const [expandedDistrict, setExpandedDistrict] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [user, setUser] = useState<{ role: string; official_type: string | null } | null>(null);
+  const [user, setUser] = useState<{ role: string; official_type: string | null; name: string } | null>(null);
   const [nudgingDistrict, setNudgingDistrict] = useState<string | null>(null);
   const [uploadingSub, setUploadingSub] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,7 +62,7 @@ export default function VerifyPaymentsPage() {
   useEffect(() => {
     fetch("/api/users/me")
       .then((r) => r.json())
-      .then((d) => setUser(d.user ? { role: d.user.role, official_type: d.user.official_type } : null))
+      .then((d) => setUser(d.user ? { role: d.user.role, official_type: d.user.official_type, name: d.user.name || "" } : null))
       .catch(() => {});
   }, []);
 
@@ -90,18 +91,20 @@ export default function VerifyPaymentsPage() {
     loadData();
   }, [loadData]);
 
-  async function handleVerify(subId: string, status: "paid" | "rejected") {
+  async function handleDistrictVerify(sub: Subscription) {
+    const officialName = user?.name || "DS/DJS";
+    const remark = `Verified by ${officialName} on ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
     const res = await fetch("/api/subscriptions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: subId, status }),
+      body: JSON.stringify({ id: sub.id, remarks: remark }),
     });
     if (res.ok) {
-      toast.success(`Payment ${status === "paid" ? "approved" : "rejected"}`);
+      toast.success(`Payment verified — forwarded to admin for approval`);
       loadData();
     } else {
       const data = await res.json();
-      toast.error(data.error || "Failed to update");
+      toast.error(data.error || "Failed to verify");
     }
   }
 
@@ -302,11 +305,16 @@ export default function VerifyPaymentsPage() {
                   {d.subscriptions.map((sub) => (
                     <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border bg-card">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm">{sub.member_name}</p>
                           <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
                             {sub.status}
                           </Badge>
+                          {sub.remarks?.startsWith("Verified by") && (
+                            <Badge className="text-[10px] bg-green-100 text-green-700 border-green-300">
+                              <CheckCircle2 size={10} className="mr-0.5" /> DS/DJS Verified
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
                           {sub.member_phone && <span className="flex items-center gap-0.5"><Phone size={10} /> {sub.member_phone}</span>}
@@ -333,12 +341,15 @@ export default function VerifyPaymentsPage() {
                             Upload Proof
                           </Button>
                         )}
-                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" onClick={() => handleVerify(sub.id, "paid")}>
-                          <CheckCircle2 size={12} /> Approve
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50 gap-1" onClick={() => handleVerify(sub.id, "rejected")}>
-                          <XCircle size={12} /> Reject
-                        </Button>
+                        {sub.remarks?.startsWith("Verified by") ? (
+                          <Badge className="text-xs bg-green-50 text-green-700 border-green-300 py-1 px-2">
+                            <CheckCircle2 size={12} className="mr-1" /> Verified
+                          </Badge>
+                        ) : (
+                          <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" onClick={() => handleDistrictVerify(sub)}>
+                            <CheckCircle2 size={12} /> Verify
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}

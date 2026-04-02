@@ -1193,6 +1193,11 @@ export default function AdminSubscriptionsPage() {
                             Proof Uploaded
                           </Badge>
                         )}
+                        {sub.remarks?.startsWith("Verified by") && sub.status !== "paid" && (
+                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-[10px]">
+                            DS/DJS Verified
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{sub.users?.email} {sub.users?.phone && `| ${sub.users.phone}`}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
