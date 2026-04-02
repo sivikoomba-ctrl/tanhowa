@@ -411,7 +411,7 @@ export default function SubscriptionsPage() {
                         {sub.payment_method && (
                           <p className="text-xs text-muted-foreground mt-0.5">Payment Method: {sub.payment_method}</p>
                         )}
-                        {sub.paid_at && (
+                        {sub.paid_at && sub.status === "paid" && (
                           <p className="text-xs text-green-600 mt-0.5">
                             Paid on {formatDateTime(sub.paid_at)}
                           </p>
