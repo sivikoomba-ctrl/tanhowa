@@ -36,6 +36,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
+import { PaymentProofPreviewDialog } from "@/components/payment-proof-preview-dialog";
 
 interface Subscription {
   id: string;
@@ -483,17 +485,8 @@ export default function AdminSubscriptionsPage() {
   async function viewProof(sub: Subscription) {
     if (!sub.payment_proof_url) return;
     try {
-      const res = await fetch("/api/upload/payment-proof/signed-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_path: sub.payment_proof_url, subscription_id: sub.id }),
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        setPreviewUrl(data.url);
-      } else {
-        toast.error("Failed to load proof");
-      }
+      const url = await fetchSignedPaymentProofUrl(sub.id, sub.payment_proof_url);
+      setPreviewUrl(url);
     } catch {
       toast.error("Failed to load proof");
     }
@@ -583,14 +576,9 @@ export default function AdminSubscriptionsPage() {
         load();
         // If verify dialog is open for this subscription, refresh the proof image
         if (payDialog?.id === adminUploadTargetId) {
-          const signedRes = await fetch("/api/upload/payment-proof/signed-url", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ file_path: data.payment_proof_url, subscription_id: adminUploadTargetId }),
-          });
-          const signedData = await signedRes.json();
-          if (signedRes.ok && signedData.url) {
-            setPayProofUrl(signedData.url);
+          try {
+            const signedUrl = await fetchSignedPaymentProofUrl(adminUploadTargetId, data.payment_proof_url);
+            setPayProofUrl(signedUrl);
             setPayDialog((prev) => prev ? { ...prev, payment_proof_url: data.payment_proof_url } : prev);
             // Auto-extract from uploaded file
             setExtractingDate(true);
@@ -611,6 +599,8 @@ export default function AdminSubscriptionsPage() {
               }
             } catch { /* best-effort */ }
             setExtractingDate(false);
+          } catch {
+            toast.error("Failed to refresh uploaded proof");
           }
         }
       } else {
@@ -1302,19 +1292,14 @@ export default function AdminSubscriptionsPage() {
                               setAdminSelectedMembers(new Set());
                               setAdminMemberSearch("");
                               if (sub.payment_proof_url) {
-                                const res = await fetch("/api/upload/payment-proof/signed-url", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ file_path: sub.payment_proof_url, subscription_id: sub.id }),
-                                });
-                                const data = await res.json();
-                                if (res.ok && data.url) {
-                                  setPayProofUrl(data.url);
+                                try {
+                                  const signedUrl = await fetchSignedPaymentProofUrl(sub.id, sub.payment_proof_url);
+                                  setPayProofUrl(signedUrl);
                                   // Extract date/time from proof image using AI
                                   setExtractingDate(true);
                                   try {
                                     const fd = new FormData();
-                                    fd.append("image_url", data.url);
+                                    fd.append("image_url", signedUrl);
                                     const extRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
                                     const extData = await extRes.json();
                                     if (extData.date || extData.time || extData.transaction_id || extData.payment_method || extData.amount) {
@@ -1335,6 +1320,8 @@ export default function AdminSubscriptionsPage() {
                                     }
                                   } catch {}
                                   setExtractingDate(false);
+                                } catch {
+                                  toast.error("Failed to load proof");
                                 }
                               }
                             }}
@@ -2009,20 +1996,7 @@ export default function AdminSubscriptionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Payment Proof Preview Dialog */}
-      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Payment Proof</DialogTitle>
-          </DialogHeader>
-          {previewUrl && (
-            <div className="rounded-xl overflow-hidden border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={previewUrl} alt="Payment proof" className="w-full" />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <PaymentProofPreviewDialog open={!!previewUrl} url={previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)} />
 
       {/* Bulk Verify Dialog */}
       <Dialog open={bulkVerifyOpen} onOpenChange={setBulkVerifyOpen}>

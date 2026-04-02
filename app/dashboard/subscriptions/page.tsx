@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
+import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
+import { PaymentProofPreviewDialog } from "@/components/payment-proof-preview-dialog";
 
 interface PendingMember {
   id: string;
@@ -239,17 +241,8 @@ export default function SubscriptionsPage() {
   async function viewProof(sub: Subscription) {
     if (!sub.payment_proof_url) return;
     try {
-      const res = await fetch("/api/upload/payment-proof/signed-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_path: sub.payment_proof_url, subscription_id: sub.id }),
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        setPreviewUrl(data.url);
-      } else {
-        toast.error("Failed to load proof");
-      }
+      const url = await fetchSignedPaymentProofUrl(sub.id, sub.payment_proof_url);
+      setPreviewUrl(url);
     } catch {
       toast.error("Failed to load proof");
     }
@@ -487,22 +480,7 @@ export default function SubscriptionsPage() {
         </div>
       )}
 
-      {/* Payment Proof Preview Dialog */}
-      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Payment Proof</DialogTitle>
-          </DialogHeader>
-          {previewUrl && (
-            <div className="rounded-xl overflow-hidden border">
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={previewUrl} alt="Payment proof" className="w-full" />
-              </>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <PaymentProofPreviewDialog open={!!previewUrl} url={previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)} />
 
       {/* QR Code Zoom Dialog */}
       <Dialog open={qrZoom} onOpenChange={setQrZoom}>
