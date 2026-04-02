@@ -269,6 +269,34 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Title-Gender mismatch warning */}
+      {profile.gender === "Female" && profile.title === "Mr." && (
+        <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 flex items-start gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 shrink-0">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-red-900">Please correct your Title</p>
+            <p className="text-sm text-red-700 mt-1">
+              Your title is set to <span className="font-medium">Mr.</span> but your gender is <span className="font-medium">Female</span>. Please update your title to Mrs., Miss., or Dr. and save your profile.
+            </p>
+          </div>
+        </div>
+      )}
+      {profile.gender === "Male" && (profile.title === "Mrs." || profile.title === "Miss.") && (
+        <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 flex items-start gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 shrink-0">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-red-900">Please correct your Title</p>
+            <p className="text-sm text-red-700 mt-1">
+              Your title is set to <span className="font-medium">{profile.title}</span> but your gender is <span className="font-medium">Male</span>. Please update your title to Mr. or Dr. and save your profile.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Profile Hero Card */}
       <Card className="overflow-hidden">
         <div className="h-20 bg-gradient-to-r from-primary/20 via-primary/10 to-secondary/10" />
