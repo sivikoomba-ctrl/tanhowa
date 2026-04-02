@@ -56,6 +56,7 @@ export default function VerifyPaymentsPage() {
   const [user, setUser] = useState<{ role: string; official_type: string | null; name: string } | null>(null);
   const [nudgingDistrict, setNudgingDistrict] = useState<string | null>(null);
   const [uploadingSub, setUploadingSub] = useState<string | null>(null);
+  const [verifyTarget, setVerifyTarget] = useState<Subscription | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<Subscription | null>(null);
 
@@ -367,8 +368,8 @@ export default function VerifyPaymentsPage() {
                             Upload Proof
                           </Button>
                         )}
-                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" disabled={!sub.payment_proof_url} onClick={() => handleDistrictVerify(sub)}>
-                          <CheckCircle2 size={12} /> Verify & Approve
+                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1" disabled={!sub.payment_proof_url} onClick={() => { setVerifyTarget(sub); handleViewProof(sub); }}>
+                          <CheckCircle2 size={12} /> View, Verify & Approve
                         </Button>
                         {isStateOrAdmin && (
                           <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50 gap-1" onClick={() => handleStatusChange(sub, "overdue")}>
@@ -395,7 +396,7 @@ export default function VerifyPaymentsPage() {
       )}
 
       {/* Proof Preview */}
-      <Dialog open={!!previewUrl || previewLoading} onOpenChange={() => { setPreviewUrl(null); setPreviewLoading(false); }}>
+      <Dialog open={!!previewUrl || previewLoading} onOpenChange={() => { setPreviewUrl(null); setPreviewLoading(false); setVerifyTarget(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Payment Proof</DialogTitle>
@@ -418,10 +419,15 @@ export default function VerifyPaymentsPage() {
             </div>
           )}
           {previewUrl && (
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
               <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
                 Open in new tab
               </a>
+              {verifyTarget && (
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => { handleDistrictVerify(verifyTarget); setPreviewUrl(null); setPreviewLoading(false); setVerifyTarget(null); }}>
+                  <CheckCircle2 size={14} /> Confirm Verify & Approve
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>
