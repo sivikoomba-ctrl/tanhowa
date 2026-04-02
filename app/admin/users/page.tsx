@@ -101,7 +101,12 @@ export default function AdminUsersPage() {
         result = result.filter((u) => u.created_at?.startsWith(todayStr));
       } else {
         const now = Date.now();
-        const cutoff = joinedFilter === "7d" ? now - 7 * 86400000
+        const cutoff = joinedFilter === "1h" ? now - 3600000
+          : joinedFilter === "2h" ? now - 2 * 3600000
+          : joinedFilter === "3h" ? now - 3 * 3600000
+          : joinedFilter === "6h" ? now - 6 * 3600000
+          : joinedFilter === "12h" ? now - 12 * 3600000
+          : joinedFilter === "7d" ? now - 7 * 86400000
           : joinedFilter === "30d" ? now - 30 * 86400000
           : joinedFilter === "90d" ? now - 90 * 86400000
           : joinedFilter === "6m" ? now - 180 * 86400000
@@ -337,6 +342,11 @@ export default function AdminUsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="1h">Last 1 Hour</SelectItem>
+                <SelectItem value="2h">Last 2 Hours</SelectItem>
+                <SelectItem value="3h">Last 3 Hours</SelectItem>
+                <SelectItem value="6h">Last 6 Hours</SelectItem>
+                <SelectItem value="12h">Last 12 Hours</SelectItem>
                 <SelectItem value="today">Today</SelectItem>
                 <SelectItem value="7d">Last 7 Days</SelectItem>
                 <SelectItem value="30d">Last 30 Days</SelectItem>
