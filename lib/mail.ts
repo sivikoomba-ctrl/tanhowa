@@ -219,7 +219,7 @@ export async function sendReceiptEmail(
           Here is your payment receipt for <strong>${period}</strong> (&#8377;${amount.toLocaleString("en-IN")}). The PDF is attached.
         </p>
         <p style="color: #2d6a4f; font-size: 13px; font-style: italic; margin: 0 0 16px; text-align: center;">
-          &#127793; Save a print. Save Plants.
+          &#127793; Save a print, Save a Tree.
         </p>
         <div style="text-align: center;">
           <a href="https://tanhowa.in/dashboard/subscriptions" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">View My Subscriptions</a>

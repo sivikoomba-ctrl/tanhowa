@@ -123,15 +123,44 @@ export default function SubscriptionsPage() {
       y += 8;
     }
 
+    // Certification remark
+    if (sub.remarks?.startsWith("Verified & Certified")) {
+      y += 6;
+      doc.setDrawColor(45, 106, 79);
+      doc.setLineWidth(0.3);
+      doc.line(20, y, 190, y);
+      y += 6;
+      doc.setFontSize(9);
+      doc.setTextColor(45, 106, 79);
+      doc.setFont("helvetica", "bold");
+      doc.text("Verified & Certified", 25, y);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(60);
+      y += 5;
+      doc.text("1. Certified that the payment is verified with AI payment verification process.", 25, y);
+      y += 4.5;
+      doc.text("2. Amount is transferred to TANHOWA Account only.", 25, y);
+      const certMatch = sub.remarks.match(/Verified on: (.+)$/);
+      if (certMatch) { y += 4.5; doc.text("Verified on: " + certMatch[1], 25, y); }
+    }
+
+    // Slogan
+    y += 12;
+    doc.setFontSize(13);
+    doc.setTextColor(34, 139, 34);
+    doc.setFont("helvetica", "bold");
+    doc.text("\uD83C\uDF3F Save a print, Save a Tree. \uD83C\uDF0D", 105, y, { align: "center" });
+
     // Footer
     y += 10;
     doc.setDrawColor(200);
     doc.line(20, y, 190, y);
-    y += 8;
-    doc.setFontSize(9);
+    y += 6;
+    doc.setFontSize(8);
     doc.setTextColor(120);
+    doc.setFont("helvetica", "normal");
     doc.text(`Generated on ${today} from tanhowa.in`, 105, y, { align: "center" });
-    doc.text("This is a computer-generated receipt and does not require a signature.", 105, y + 5, { align: "center" });
+    doc.text("This is a computer-generated receipt and does not require a signature.", 105, y + 4, { align: "center" });
 
     doc.save(`TANHOWA-Receipt-${sub.period.replace(/\s+/g, "-")}.pdf`);
   }
@@ -586,7 +615,7 @@ export default function SubscriptionsPage() {
                     </div>
                     {sub.status === "paid" && (
                       <p className="text-[10px] text-green-600 mt-1 flex items-center gap-1">
-                        <Leaf size={10} />Save a print. Save Plants.
+                        <Leaf size={10} />Save a print, Save a Tree.
                       </p>
                     )}
                   </div>
