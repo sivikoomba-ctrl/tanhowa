@@ -28,6 +28,7 @@ import {
   Award,
   Bell,
   Navigation,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ const adminNavItems = [
   { href: "/admin/suggestions", label: "Suggestions", icon: Lightbulb },
   { href: "/admin/grievances", label: "Grievances", icon: MessageSquareWarning },
   { href: "/admin/subscriptions", label: "Subscriptions", icon: Wallet },
+  { href: "/admin/verify-payments", label: "Verify Payments", icon: ShieldCheck },
   { href: "/admin/resolutions", label: "Resolutions", icon: Vote },
   { href: "/admin/todos", label: "Task List", icon: ListTodo },
   { href: "/admin/vouchers", label: "Expense Vouchers", icon: Receipt },

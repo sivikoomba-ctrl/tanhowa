@@ -338,7 +338,7 @@ export async function sendNudgeOfficialEmail(to: string, officialName: string, d
       Please review and verify these payments at your earliest convenience.
     </p>
     <div style="text-align: center;">
-      <a href="https://www.tanhowa.in/dashboard/verify-payments" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">Verify Payments</a>
+      <a href="https://www.tanhowa.in/admin/verify-payments" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">Verify Payments</a>
     </div>
   `));
 }
