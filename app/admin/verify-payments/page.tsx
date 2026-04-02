@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 import {
   ShieldCheck,
   IndianRupee,
@@ -21,6 +22,7 @@ import {
   Send,
   Upload,
   Loader2,
+  Search,
 } from "lucide-react";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 
@@ -50,6 +52,8 @@ export default function VerifyPaymentsPage() {
   const [totalPending, setTotalPending] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filterPeriod, setFilterPeriod] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [expandedDistrict, setExpandedDistrict] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -72,6 +76,7 @@ export default function VerifyPaymentsPage() {
     try {
       const params = new URLSearchParams();
       if (filterPeriod !== "all") params.set("period", filterPeriod);
+      if (filterStatus !== "all") params.set("status", filterStatus);
       const res = await fetch(`/api/subscriptions/district-pending?${params}`);
       const data = await res.json();
       if (res.ok) {
@@ -86,7 +91,7 @@ export default function VerifyPaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterPeriod]);
+  }, [filterPeriod, filterStatus]);
 
   useEffect(() => {
     loadData();
@@ -208,6 +213,14 @@ export default function VerifyPaymentsPage() {
 
   const isStateOrAdmin = user?.official_type === "state" || user?.role === "admin" || user?.role === "super_admin";
 
+  const filteredDistricts = searchQuery.trim()
+    ? districts.map((d) => {
+        const q = searchQuery.trim().toLowerCase();
+        const filtered = d.subscriptions.filter((s) => s.member_name.toLowerCase().includes(q) || s.member_phone.includes(q));
+        return filtered.length > 0 ? { ...d, subscriptions: filtered, pending: filtered.length, totalAmount: filtered.reduce((sum, s) => sum + s.amount, 0) } : null;
+      }).filter(Boolean) as DistrictGroup[]
+    : districts;
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -234,13 +247,26 @@ export default function VerifyPaymentsPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="text-xs sm:text-sm bg-amber-50 text-amber-700 border-amber-300">
-            {totalPending} pending
+            {totalPending} records
           </Badge>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-28 sm:w-32">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Pending & Overdue</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="overdue">Overdue</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="hold">Hold</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
           {periods.length > 0 && (
             <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-              <SelectTrigger className="w-32 sm:w-40">
+              <SelectTrigger className="w-28 sm:w-36">
                 <SelectValue placeholder="All periods" />
               </SelectTrigger>
               <SelectContent>
@@ -251,17 +277,21 @@ export default function VerifyPaymentsPage() {
               </SelectContent>
             </Select>
           )}
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Search member..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 h-9 w-36 sm:w-44" />
+          </div>
         </div>
       </div>
 
-      {districts.length === 0 ? (
+      {filteredDistricts.length === 0 ? (
         <div className="text-center py-12">
           <CheckCircle2 className="w-12 h-12 text-green-500/30 mx-auto mb-3" />
-          <p className="text-muted-foreground">No pending payments with uploaded proofs</p>
+          <p className="text-muted-foreground">{searchQuery ? "No matching members found" : "No payments found"}</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {districts.map((d) => (
+          {filteredDistricts.map((d) => (
             <Card key={d.district}>
               <CardHeader
                 className="cursor-pointer hover:bg-muted/30 transition-colors"

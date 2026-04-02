@@ -30,14 +30,23 @@ export async function GET(req: NextRequest) {
     const supabase = getServiceClient();
     const url = new URL(req.url);
     const period = url.searchParams.get("period");
+    const statusFilter = url.searchParams.get("status");
 
-    // Fetch pending/overdue subscriptions with member posting_details
+    // Fetch subscriptions with member posting_details
+    const statusList = statusFilter && statusFilter !== "all"
+      ? [statusFilter]
+      : ["pending", "overdue"];
+
     let query = supabase
       .from("subscriptions")
       .select("id, user_id, period, amount, status, payment_proof_url, remarks, created_at, users!subscriptions_user_id_fkey(name, email, phone, posting_details, official_type)")
-      .in("status", ["pending", "overdue"])
-      .not("payment_proof_url", "is", null) // Only show those who uploaded proof
+      .in("status", statusList)
       .order("created_at", { ascending: false });
+
+    // Only require proof for pending/overdue (not for hold/paid/rejected which already went through review)
+    if (!statusFilter || statusFilter === "all" || statusFilter === "pending" || statusFilter === "overdue") {
+      query = query.not("payment_proof_url", "is", null);
+    }
 
     if (period && period !== "all") {
       query = query.eq("period", period);
