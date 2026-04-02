@@ -15,8 +15,10 @@ export async function GET(req: NextRequest) {
     const status = url.searchParams.get("status");
     const dbRole = await getDbRole(session.userId);
 
+    const isAdmin = dbRole === "admin" || dbRole === "super_admin";
     const page = parseInt(url.searchParams.get("page") || "1");
-    const limit = parseInt(url.searchParams.get("limit") || "100");
+    // Admin loads all users for client-side filtering/counts; members get paginated
+    const limit = parseInt(url.searchParams.get("limit") || (isAdmin ? "10000" : "100"));
     const search = url.searchParams.get("search") || "";
     const offset = (page - 1) * limit;
 
