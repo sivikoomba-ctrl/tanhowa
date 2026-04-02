@@ -34,13 +34,13 @@ export function MetricCard({
             {loading ? (
               <Skeleton className="h-8 w-14 my-0.5" />
             ) : (
-              <p className="text-3xl font-bold">{value}</p>
+              <p className="text-xl sm:text-3xl font-bold">{value}</p>
             )}
             {subtitle && (
               <p className={`text-xs mt-1 ${loading ? "invisible" : subtitleColor}`}>{subtitle}</p>
             )}
           </div>
-          <Icon className={`w-8 h-8 ${iconColor}`} />
+          <Icon className={`w-6 h-6 sm:w-8 sm:h-8 ${iconColor}`} />
         </div>
       </CardContent>
     </Card>

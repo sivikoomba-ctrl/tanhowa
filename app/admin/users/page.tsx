@@ -68,6 +68,7 @@ export default function AdminUsersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [districtFilter, setDistrictFilter] = useState("all");
+  const [joinedFilter, setJoinedFilter] = useState("all");
   const [nudgeUserId, setNudgeUserId] = useState<string | null>(null);
   const [nudgeFields, setNudgeFields] = useState<string[]>([]);
   const [nudgeMessage, setNudgeMessage] = useState("");
@@ -87,6 +88,7 @@ export default function AdminUsersPage() {
     setExpandedId(null);
     setSearch("");
     setDistrictFilter("all");
+    setJoinedFilter("all");
   }, [loadUsers]);
 
   const filteredUsers = useMemo(() => {
@@ -106,6 +108,16 @@ export default function AdminUsersPage() {
         (u) => u.posting_details?.regular_district === districtFilter
       );
     }
+    if (joinedFilter !== "all") {
+      const now = Date.now();
+      const cutoff = joinedFilter === "7d" ? now - 7 * 86400000
+        : joinedFilter === "30d" ? now - 30 * 86400000
+        : joinedFilter === "90d" ? now - 90 * 86400000
+        : joinedFilter === "6m" ? now - 180 * 86400000
+        : joinedFilter === "1y" ? now - 365 * 86400000
+        : 0;
+      result = result.filter((u) => new Date(u.created_at).getTime() >= cutoff);
+    }
     // Sort: most recently active first, then by name
     result = [...result].sort((a, b) => {
       const aTime = a.last_active_at ? new Date(a.last_active_at).getTime() : 0;
@@ -114,7 +126,7 @@ export default function AdminUsersPage() {
       return (a.name || "").localeCompare(b.name || "");
     });
     return result;
-  }, [users, search, districtFilter]);
+  }, [users, search, districtFilter, joinedFilter]);
 
   const onlineCount = useMemo(() => {
     const fiveMinAgo = Date.now() - 5 * 60000;
@@ -275,6 +287,20 @@ export default function AdminUsersPage() {
                 className="pl-9"
               />
             </div>
+            <Select value={joinedFilter} onValueChange={setJoinedFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <Calendar size={14} className="mr-1 text-muted-foreground" />
+                <SelectValue placeholder="Joined Date" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="7d">Last 7 Days</SelectItem>
+                <SelectItem value="30d">Last 30 Days</SelectItem>
+                <SelectItem value="90d">Last 3 Months</SelectItem>
+                <SelectItem value="6m">Last 6 Months</SelectItem>
+                <SelectItem value="1y">Last 1 Year</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={districtFilter} onValueChange={setDistrictFilter}>
               <SelectTrigger className="w-full sm:w-[220px]">
                 <Filter size={14} className="mr-1 text-muted-foreground" />

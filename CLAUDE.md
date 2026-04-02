@@ -185,6 +185,7 @@ npm run lint     # ESLint
 ```bash
 npm test         # Run tests once (vitest run)
 npm run test:watch  # Watch mode
+npx vitest run lib/__tests__/auth.test.ts  # Run a single test file
 ```
 
 Tests live in `lib/__tests__/`. Mocks for `next/headers` and `@/lib/supabase` are set up in each test file. `JWT_SECRET` is configured in `vitest.config.ts`.
