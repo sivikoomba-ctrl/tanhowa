@@ -71,6 +71,13 @@ export async function notifyNewNote(chatId: string | number, taskTitle: string, 
   return sendTelegramMessage(chatId, msg);
 }
 
+export async function notifyPaymentRejected(chatId: string | number, memberName: string, period: string, amount: number, rejectedBy: string, remarks?: string) {
+  let msg = `❌ <b>Payment Rejection Alert</b>\n\nA payment you verified has been rejected.\n\n<b>Member:</b> ${escapeHtml(memberName)}\n<b>Period:</b> ${escapeHtml(period)}\n<b>Amount:</b> ₹${amount.toLocaleString("en-IN")}\n<b>Rejected by:</b> ${escapeHtml(rejectedBy)}`;
+  if (remarks) msg += `\n<b>Reason:</b> ${escapeHtml(remarks.slice(0, 300))}`;
+  msg += `\n\n<a href="https://www.tanhowa.in/admin/verify-payments">View Payments</a>`;
+  return sendTelegramMessage(chatId, msg);
+}
+
 function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

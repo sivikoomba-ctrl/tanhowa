@@ -4,7 +4,8 @@ import { getSession, isAdmin, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
-import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification } from "@/lib/mail";
+import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification, sendPaymentRejectionAlertEmail } from "@/lib/mail";
+import { sendTelegramMessage, notifyPaymentRejected } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
   try {
@@ -406,6 +407,19 @@ export async function PUT(req: NextRequest) {
     if (body.payment_proof_url !== undefined) updates.payment_proof_url = body.payment_proof_url;
     if (body.payment_group_id !== undefined) updates.payment_group_id = body.payment_group_id;
 
+    // Before updating, capture who approved it (for rejection alerts)
+    let previousApprover: { id: string; name: string; email: string; telegram_chat_id?: string } | null = null;
+    if (body.status === "rejected") {
+      const { data: existingSub } = await supabase
+        .from("subscriptions")
+        .select("approved_by, approver:users!subscriptions_approved_by_fkey(id, name, email, telegram_chat_id)")
+        .eq("id", body.id)
+        .single();
+      if (existingSub?.approver) {
+        previousApprover = existingSub.approver as unknown as { id: string; name: string; email: string; telegram_chat_id?: string };
+      }
+    }
+
     const { error } = await supabase
       .from("subscriptions")
       .update(updates)
@@ -427,6 +441,45 @@ export async function PUT(req: NextRequest) {
       logContribution(session.userId, "payment_rejected", "Rejected payment for " + (sub?.period || "unknown period"));
     } else if (body.status === "hold") {
       logContribution(session.userId, "payment_hold", "Put payment on hold");
+    }
+
+    // Alert the DS/DJS who approved the payment when it gets rejected
+    if (body.status === "rejected" && previousApprover && previousApprover.id !== session.userId) {
+      (async () => {
+        try {
+          const { data: sub } = await supabase
+            .from("subscriptions")
+            .select("period, amount, user_id, users!subscriptions_user_id_fkey(name)")
+            .eq("id", body.id)
+            .single();
+          const memberName = (sub?.users as unknown as { name: string })?.name || "Unknown Member";
+          const { data: rejector } = await supabase.from("users").select("name").eq("id", session.userId).single();
+          const rejectedBy = rejector?.name || "Admin";
+
+          // Send email alert (bypasses HOLD_MEMBER_EMAILS)
+          sendPaymentRejectionAlertEmail(
+            previousApprover!.email,
+            previousApprover!.name || "Official",
+            memberName,
+            sub?.period || "Unknown",
+            sub?.amount || 0,
+            rejectedBy,
+            body.remarks,
+          ).catch(() => {});
+
+          // Send Telegram alert
+          if (previousApprover!.telegram_chat_id) {
+            notifyPaymentRejected(
+              previousApprover!.telegram_chat_id,
+              memberName,
+              sub?.period || "Unknown",
+              sub?.amount || 0,
+              rejectedBy,
+              body.remarks,
+            ).catch(() => {});
+          }
+        } catch { /* silent — rejection already saved */ }
+      })();
     }
 
     // Send receipt email when subscription is approved (marked as paid)

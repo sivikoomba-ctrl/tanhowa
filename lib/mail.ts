@@ -406,6 +406,56 @@ export async function sendSubscriptionNotification(to: string, memberName: strin
   `));
 }
 
+export async function sendPaymentRejectionAlertEmail(
+  to: string,
+  officialName: string,
+  memberName: string,
+  period: string,
+  amount: number,
+  rejectedBy: string,
+  remarks?: string,
+) {
+  // Rejection alerts bypass HOLD_MEMBER_EMAILS — they're for officials, not regular members
+  const remarksHtml = remarks ? `
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      <strong>Rejection Reason:</strong><br/><span style="white-space: pre-line;">${remarks}</span>
+    </p>` : "";
+
+  await sendEmail(to, `Payment Rejected: ${memberName} — ${period}`, wrapEmailTemplate(`
+    <h2 style="color: #dc2626; font-size: 20px; margin: 0 0 12px;">Payment Rejection Alert</h2>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      Dear <strong>${officialName}</strong>,
+    </p>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      A payment you previously verified has been <strong style="color: #dc2626;">rejected</strong> by the admin.
+    </p>
+    <div style="background: #fef2f2; border-radius: 8px; padding: 16px; margin: 0 0 16px;">
+      <table style="width: 100%; font-size: 14px; color: #333;">
+        <tr>
+          <td style="padding: 4px 0; color: #666;">Member</td>
+          <td style="padding: 4px 0; font-weight: 600; text-align: right;">${memberName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #666;">Period</td>
+          <td style="padding: 4px 0; font-weight: 600; text-align: right;">${period}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #666;">Amount</td>
+          <td style="padding: 4px 0; font-weight: 600; text-align: right;">&#8377;${amount.toLocaleString("en-IN")}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #666;">Rejected By</td>
+          <td style="padding: 4px 0; font-weight: 600; text-align: right;">${rejectedBy}</td>
+        </tr>
+      </table>
+    </div>
+    ${remarksHtml}
+    <div style="text-align: center;">
+      <a href="https://www.tanhowa.in/admin/verify-payments" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">View Payments</a>
+    </div>
+  `));
+}
+
 export async function sendVoucherStatusEmail(to: string, officialName: string, title: string, amount: number, status: "approved" | "rejected", remarks?: string) {
   if (HOLD_MEMBER_EMAILS) return;
   const isApproved = status === "approved";
