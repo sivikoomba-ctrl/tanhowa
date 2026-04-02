@@ -1153,6 +1153,18 @@ export default function AdminSubscriptionsPage() {
         </CardContent>
       </Card>
 
+      {/* Result count */}
+      {subscriptions.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Showing {filtered.length} of {subscriptions.length} subscription{subscriptions.length !== 1 ? "s" : ""}
+          {filtered.length !== subscriptions.length && (
+            <button className="ml-2 text-primary hover:underline" onClick={() => { setFilterStatus("all"); setFilterPeriod("all"); setFilterDistrict("all"); setSearchQuery(""); }}>
+              Clear filters
+            </button>
+          )}
+        </p>
+      )}
+
       {/* Subscription List */}
       {filtered.length === 0 ? (
         <div className="text-center py-12">
