@@ -140,10 +140,7 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
               </p>
             )}
             <p className="text-xs text-muted-foreground mt-1">
-              Joined: {formatDateTime(u.created_at)}
-              {u.status === "approved" && u.updated_at && u.updated_at !== u.created_at && (
-                <span className="ml-3 text-green-700">Approved: {formatDateTime(u.updated_at)}</span>
-              )}
+              Joined: {formatDate(u.created_at)}
               {u.last_active_at && (
                 <span className={`ml-3 ${getActivityStatus(u.last_active_at).color}`}>
                   Active: {getActivityStatus(u.last_active_at).label}
