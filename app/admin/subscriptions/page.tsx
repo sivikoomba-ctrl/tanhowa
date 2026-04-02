@@ -95,6 +95,7 @@ export default function AdminSubscriptionsPage() {
   const [payLoading, setPayLoading] = useState(false);
   const [payProofUrl, setPayProofUrl] = useState<string | null>(null);
   const [extractingDate, setExtractingDate] = useState(false);
+  const [payeeInfo, setPayeeInfo] = useState<{ paid_to: string | null; paid_account: string | null; is_tanhowa_payment: boolean } | null>(null);
 
   // Admin member picker for bulk payments
   const [adminSelectedMembers, setAdminSelectedMembers] = useState<Set<string>>(new Set());
@@ -475,6 +476,7 @@ export default function AdminSubscriptionsPage() {
       setAdminSelectedMembers(new Set());
       setAdminMemberSearch("");
       setAdminSelectedPeriods(new Set());
+      setPayeeInfo(null);
       load();
     } else {
       toast.error("Failed to update");
@@ -601,6 +603,12 @@ export default function AdminSubscriptionsPage() {
               ...(extData.amount ? { amount: String(extData.amount) } : {}),
             }));
             toast.success("Transaction details extracted from proof!");
+          }
+          if (extData.paid_to || extData.paid_account) {
+            setPayeeInfo({ paid_to: extData.paid_to, paid_account: extData.paid_account, is_tanhowa_payment: extData.is_tanhowa_payment });
+            if (!extData.is_tanhowa_payment) {
+              toast.error("Warning: Payment may NOT be to TANHOWA account!", { duration: 8000 });
+            }
           }
         } catch { /* best-effort */ }
         setExtractingDate(false);
@@ -1344,12 +1352,17 @@ export default function AdminSubscriptionsPage() {
                                         ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
                                         ...(extData.amount ? { amount: String(extData.amount) } : {}),
                                       }));
-                                      // Also reflect AI-extracted values in the member-submitted display
                                       setPayDialog((prev) => prev ? {
                                         ...prev,
                                         ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
                                         ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
                                       } : prev);
+                                    }
+                                    if (extData.paid_to || extData.paid_account) {
+                                      setPayeeInfo({ paid_to: extData.paid_to, paid_account: extData.paid_account, is_tanhowa_payment: extData.is_tanhowa_payment });
+                                      if (!extData.is_tanhowa_payment) {
+                                        toast.error("Warning: Payment may NOT be to TANHOWA account!", { duration: 8000 });
+                                      }
                                     }
                                   } catch {}
                                   setExtractingDate(false);
@@ -1523,7 +1536,7 @@ export default function AdminSubscriptionsPage() {
       </Tabs>
 
       {/* Verify Payment Dialog */}
-      <Dialog open={!!payDialog} onOpenChange={(open) => !open && setPayDialog(null)}>
+      <Dialog open={!!payDialog} onOpenChange={(open) => { if (!open) { setPayDialog(null); setPayeeInfo(null); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Verify & Approve Payment</DialogTitle>
@@ -1979,7 +1992,17 @@ export default function AdminSubscriptionsPage() {
                   {extractingDate && (
                     <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
                       <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
-                      Extracting payment date & time from proof image...
+                      Extracting payment details from proof image...
+                    </div>
+                  )}
+                  {payeeInfo && (
+                    <div className={`rounded-lg px-3 py-2 text-xs ${payeeInfo.is_tanhowa_payment ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-300"}`}>
+                      <p className={`font-semibold ${payeeInfo.is_tanhowa_payment ? "text-green-800" : "text-red-800"}`}>
+                        {payeeInfo.is_tanhowa_payment ? "TANHOWA Account Payment" : "WARNING: Person-to-Person Payment"}
+                      </p>
+                      {payeeInfo.paid_to && <p className={payeeInfo.is_tanhowa_payment ? "text-green-700" : "text-red-700"}>Paid to: {payeeInfo.paid_to}</p>}
+                      {payeeInfo.paid_account && <p className={payeeInfo.is_tanhowa_payment ? "text-green-700" : "text-red-700"}>Account: {payeeInfo.paid_account}</p>}
+                      {!payeeInfo.is_tanhowa_payment && <p className="text-red-700 font-medium mt-1">This payment appears to be a person-to-person transaction, not to TANHOWA. Consider rejecting.</p>}
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">

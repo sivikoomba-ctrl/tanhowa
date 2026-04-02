@@ -50,16 +50,18 @@ export async function POST(req: NextRequest) {
     const result = await model.generateContent([
       imageData,
       {
-        text: `Analyze this payment proof/receipt image. Extract the exact payment date, time, transaction/reference ID, payment method, and amount paid.
+        text: `Analyze this payment proof/receipt image. Extract the exact payment date, time, transaction/reference ID, payment method, amount paid, payee name ("Paid to" / "To"), and payee account number.
 
 Return ONLY a JSON object in this exact format, nothing else:
-{"date": "YYYY-MM-DD", "time": "HH:MM", "transaction_id": "string", "payment_method": "string", "amount": number}
+{"date": "YYYY-MM-DD", "time": "HH:MM", "transaction_id": "string", "payment_method": "string", "amount": number, "paid_to": "string", "paid_account": "string"}
 
 Rules:
 - Use 24-hour time format
 - For transaction_id: PREFER the bank-level reference ID (starts with "T" followed by digits, found under "Transfer Details" or "Bank Reference") over the app-level transaction ID. If both are visible, use the bank reference ID. Otherwise extract UTR number, UPI reference number, or any transaction/reference number shown
 - For payment_method: identify the method (e.g., "UPI", "Google Pay", "PhonePe", "Paytm", "Bank Transfer", "NEFT", "IMPS")
 - For amount: extract the numeric amount paid (e.g., 3000 for ₹3,000). Return as a number without currency symbols
+- For paid_to: extract the recipient/payee name shown as "To:", "Paid to:", "Transfer to:", or similar. This is the name of the person or organization receiving the payment
+- For paid_account: extract the payee's account number, UPI ID, or last 4 digits shown (e.g., "****2486", "tanhowa@upi")
 - If you cannot determine any field, use null for that field
 - Do not include any explanation, just the JSON object`,
       },
@@ -73,12 +75,21 @@ Rules:
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
+    // Check if payment is to TANHOWA account
+    const TANHOWA_KEYWORDS = ["TAMILNADU THOTTAKALAI", "THOTTAKALAI ALUVALARGAL", "NALA SANGAM", "TANHOWA", "2486"];
+    const paidTo = (parsed.paid_to || "").toUpperCase();
+    const paidAccount = (parsed.paid_account || "").toUpperCase();
+    const isTanhowaPayment = TANHOWA_KEYWORDS.some((kw) => paidTo.includes(kw) || paidAccount.includes(kw));
+
     return NextResponse.json({
       date: parsed.date || null,
       time: parsed.time || null,
       transaction_id: parsed.transaction_id || null,
       payment_method: parsed.payment_method || null,
       amount: parsed.amount != null ? Number(parsed.amount) : null,
+      paid_to: parsed.paid_to || null,
+      paid_account: parsed.paid_account || null,
+      is_tanhowa_payment: isTanhowaPayment,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
