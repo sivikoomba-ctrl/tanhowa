@@ -26,12 +26,9 @@ export async function PUT(req: NextRequest) {
       // Get user details before updating
       const { data: userData } = await supabase.from("users").select("name, email, occupation").eq("id", userId).single();
 
-      // Block approval if name or designation is missing
+      // Block approval if name is missing
       if (!userData?.name?.trim()) {
         return NextResponse.json({ error: "Cannot approve: member has not filled their name" }, { status: 400 });
-      }
-      if (!userData?.occupation?.trim()) {
-        return NextResponse.json({ error: "Cannot approve: member has not filled their designation" }, { status: 400 });
       }
 
       await supabase.from("users").update({ status: "approved" }).eq("id", userId);
