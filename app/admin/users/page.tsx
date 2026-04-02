@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter, Send, Clock, Crown, Building2, Pencil } from "lucide-react";
+import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Search, Filter, Send, Clock, Crown, Building2, Pencil, Copy } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DISTRICT_NAMES, getBlocks } from "@/lib/tn-districts";
 
@@ -338,16 +338,32 @@ export default function AdminUsersPage() {
             </Select>
           </div>
           {users.length > 0 && (
-            <p className="text-sm text-muted-foreground">
-              {filteredUsers.length !== users.length
-                ? `Showing ${filteredUsers.length} of ${users.length} users`
-                : `${users.length} users`}
-              {onlineCount > 0 && (
-                <span className="ml-2 text-green-600 font-medium">
-                  ({onlineCount} online)
-                </span>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-muted-foreground">
+                {filteredUsers.length !== users.length
+                  ? `Showing ${filteredUsers.length} of ${users.length} users`
+                  : `${users.length} users`}
+                {onlineCount > 0 && (
+                  <span className="ml-2 text-green-600 font-medium">
+                    ({onlineCount} online)
+                  </span>
+                )}
+              </p>
+              {filteredUsers.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-7 gap-1"
+                  onClick={() => {
+                    const names = filteredUsers.map((u) => u.name || "Unnamed").join("\n");
+                    navigator.clipboard.writeText(names);
+                    toast.success(`Copied ${filteredUsers.length} name(s)`);
+                  }}
+                >
+                  <Copy size={12} /> Copy Names
+                </Button>
               )}
-            </p>
+            </div>
           )}
           {filteredUsers.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center">
