@@ -218,12 +218,12 @@ export function SubscriptionsTab() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <Card><CardContent className="pt-4 pb-4 flex items-center gap-3"><FileText className="w-8 h-8 text-primary/60" /><div><p className="text-2xl font-bold">{summary.total}</p><p className="text-xs text-muted-foreground">Total</p></div></CardContent></Card>
-        <Card><CardContent className="pt-4 pb-4 flex items-center gap-3"><CheckCircle className="w-8 h-8 text-green-500/60" /><div><p className="text-2xl font-bold text-green-700">{summary.paid}</p><p className="text-xs text-muted-foreground">Paid</p></div></CardContent></Card>
-        <Card><CardContent className="pt-4 pb-4 flex items-center gap-3"><Clock className="w-8 h-8 text-amber-500/60" /><div><p className="text-2xl font-bold text-amber-700">{summary.pending}</p><p className="text-xs text-muted-foreground">Pending</p></div></CardContent></Card>
-        <Card><CardContent className="pt-4 pb-4 flex items-center gap-3"><AlertTriangle className="w-8 h-8 text-red-500/60" /><div><p className="text-2xl font-bold text-red-700">{summary.overdue}</p><p className="text-xs text-muted-foreground">Overdue</p></div></CardContent></Card>
-        <Card><CardContent className="pt-4 pb-4 flex items-center gap-3"><IndianRupee className="w-8 h-8 text-primary/60" /><div><p className="text-2xl font-bold">{summary.totalAmount.toLocaleString("en-IN")}</p><p className="text-xs text-muted-foreground">Collected</p></div></CardContent></Card>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <Card><CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 flex items-center gap-2 sm:gap-3"><FileText className="w-6 h-6 sm:w-8 sm:h-8 text-primary/60 shrink-0" /><div><p className="text-xl sm:text-2xl font-bold">{summary.total}</p><p className="text-[10px] sm:text-xs text-muted-foreground">Total</p></div></CardContent></Card>
+        <Card><CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 flex items-center gap-2 sm:gap-3"><CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-500/60 shrink-0" /><div><p className="text-xl sm:text-2xl font-bold text-green-700">{summary.paid}</p><p className="text-[10px] sm:text-xs text-muted-foreground">Paid</p></div></CardContent></Card>
+        <Card><CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 flex items-center gap-2 sm:gap-3"><Clock className="w-6 h-6 sm:w-8 sm:h-8 text-amber-500/60 shrink-0" /><div><p className="text-xl sm:text-2xl font-bold text-amber-700">{summary.pending}</p><p className="text-[10px] sm:text-xs text-muted-foreground">Pending</p></div></CardContent></Card>
+        <Card><CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 flex items-center gap-2 sm:gap-3"><AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-red-500/60 shrink-0" /><div><p className="text-xl sm:text-2xl font-bold text-red-700">{summary.overdue}</p><p className="text-[10px] sm:text-xs text-muted-foreground">Overdue</p></div></CardContent></Card>
+        <Card className="col-span-2 sm:col-span-1"><CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 flex items-center gap-2 sm:gap-3"><IndianRupee className="w-6 h-6 sm:w-8 sm:h-8 text-primary/60 shrink-0" /><div><p className="text-xl sm:text-2xl font-bold">{summary.totalAmount.toLocaleString("en-IN")}</p><p className="text-[10px] sm:text-xs text-muted-foreground">Collected</p></div></CardContent></Card>
       </div>
 
       {loading && <p className="text-center text-muted-foreground py-8">Loading report...</p>}

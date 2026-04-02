@@ -193,27 +193,27 @@ export default function VerifyPaymentsPage() {
     <div className="space-y-6">
       <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileUpload} />
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <ShieldCheck className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Verify Payments</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold">Verify Payments</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {isStateOrAdmin
-                ? "Members with uploaded proofs pending district-level verification"
-                : "Verify payment proofs from members in your district"}
+                ? "Proofs pending district-level verification"
+                : "Verify payment proofs from your district"}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="text-sm bg-amber-50 text-amber-700 border-amber-300">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs sm:text-sm bg-amber-50 text-amber-700 border-amber-300">
             {totalPending} pending
           </Badge>
           {periods.length > 0 && (
             <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-32 sm:w-40">
                 <SelectValue placeholder="All periods" />
               </SelectTrigger>
               <SelectContent>

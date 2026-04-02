@@ -312,15 +312,18 @@ Users can be designated as **state** or **district** officials via `official_typ
 - Admin manages officials at `/admin/officials` (set/remove via `PUT /api/admin/users` with `action: "set-official"`)
 - Officials directory visible to all members at `/dashboard/officials`
 - `posting_details.official_designation` — "District Secretary" or "District Joint Secretary" (shown as blue/teal badges)
-- District officials can verify subscription payments for members in their district at `/dashboard/verify-payments`
+- District officials can verify subscription payments for members in their district at `/admin/verify-payments`
 
 ### District-Level Payment Verification
 
 District Secretaries (DS) and District Joint Secretaries (DJS) can approve/reject subscription payments for members posted in their district. State officials see pending payments across all districts with DS/DJS contact info for follow-up.
 
 - **API:** `GET /api/subscriptions/district-pending` — pending payments grouped by district
-- **Page:** `/dashboard/verify-payments` — district-scoped verification UI
+- **Page:** `/admin/verify-payments` — district-scoped verification UI (moved from dashboard to admin panel)
 - **Authorization:** Server validates `member.posting_details.regular_district === official.district`
+- **Proof required:** Verify button is disabled until payment proof is uploaded. DS/DJS can upload proofs on behalf of members.
+- **Verification flow:** DS/DJS uploads proof → clicks Verify (adds remark "Verified by [name] on [date]") → admin sees "DS/DJS Verified" badge → admin approves payment
+- **Admin filter:** Admin subscriptions page has a "DS/DJS Verified" status filter to find payments ready for final approval
 
 ## Expense Vouchers (Officials Only)
 

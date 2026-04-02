@@ -1049,48 +1049,48 @@ export default function AdminSubscriptionsPage() {
         <TabsContent value="members" className="space-y-6 mt-4">
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="pt-4">
+          <CardContent className="pt-3 sm:pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Paid</p>
-                <p className="text-2xl font-bold text-green-600">{stats.paid}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Paid</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.paid}</p>
               </div>
-              <CheckCircle2 className="w-8 h-8 text-green-500 opacity-50" />
+              <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 opacity-50" />
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
+          <CardContent className="pt-3 sm:pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Pending</p>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{stats.pending}</p>
               </div>
-              <Clock className="w-8 h-8 text-amber-500 opacity-50" />
+              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-amber-500 opacity-50" />
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
+          <CardContent className="pt-3 sm:pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Overdue</p>
-                <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Overdue</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.overdue}</p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-red-500 opacity-50" />
+              <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 opacity-50" />
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
+          <CardContent className="pt-3 sm:pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Collected</p>
-                <p className="text-2xl font-bold">&#8377;{stats.totalCollected.toLocaleString("en-IN")}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Collected</p>
+                <p className="text-xl sm:text-2xl font-bold">&#8377;{stats.totalCollected.toLocaleString("en-IN")}</p>
               </div>
-              <IndianRupee className="w-8 h-8 text-primary opacity-50" />
+              <IndianRupee className="w-6 h-6 sm:w-8 sm:h-8 text-primary opacity-50" />
             </div>
           </CardContent>
         </Card>
@@ -1109,10 +1109,10 @@ export default function AdminSubscriptionsPage() {
                 className="pl-9"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div className="flex flex-wrap items-center gap-2">
+              <Filter className="w-4 h-4 text-muted-foreground shrink-0 hidden sm:block" />
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1127,7 +1127,7 @@ export default function AdminSubscriptionsPage() {
                 </SelectContent>
               </Select>
               <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-[calc(50%-4px)] sm:w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1138,7 +1138,7 @@ export default function AdminSubscriptionsPage() {
                 </SelectContent>
               </Select>
               <Select value={filterDistrict} onValueChange={setFilterDistrict}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[calc(50%-4px)] sm:w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1246,7 +1246,7 @@ export default function AdminSubscriptionsPage() {
                         );
                       })()}
                     </div>
-                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <div className="flex flex-wrap sm:flex-col items-end gap-1.5 shrink-0">
                       {hasProof && (
                         <Button
                           size="sm"
@@ -1440,33 +1440,33 @@ export default function AdminSubscriptionsPage() {
                   <Button variant="outline" size="sm" onClick={loadDistrictReport}>Refresh</Button>
                 </CardContent>
               </Card>
-              <div className="rounded-xl border overflow-auto">
+              <div className="rounded-xl border overflow-auto -mx-4 sm:mx-0">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-muted/50">
-                      <th className="text-left px-4 py-3 font-semibold">S.No</th>
-                      <th className="text-left px-4 py-3 font-semibold">District</th>
-                      <th className="text-center px-4 py-3 font-semibold">Members</th>
+                      <th className="text-left px-3 sm:px-4 py-3 font-semibold text-xs sm:text-sm sticky left-0 bg-muted/50 z-10">S.No</th>
+                      <th className="text-left px-3 sm:px-4 py-3 font-semibold text-xs sm:text-sm sticky left-10 bg-muted/50 z-10">District</th>
+                      <th className="text-center px-3 sm:px-4 py-3 font-semibold text-xs sm:text-sm">Members</th>
                       {districtPeriods.map((p) => (
-                        <th key={p} className="text-right px-4 py-3 font-semibold whitespace-nowrap">
+                        <th key={p} className="text-right px-3 sm:px-4 py-3 font-semibold text-xs sm:text-sm whitespace-nowrap">
                           {/^\d{4}$/.test(p) ? p : <span title={p} className="cursor-help border-b border-dashed border-muted-foreground">{p.replace(/^For\s+/i, "").replace(/\s+Case\s+\d{4}$/i, "")}</span>}
                         </th>
                       ))}
-                      <th className="text-right px-4 py-3 font-semibold">Total</th>
+                      <th className="text-right px-3 sm:px-4 py-3 font-semibold text-xs sm:text-sm">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {districtRows.map((row, i) => (
                       <tr key={row.district} className="hover:bg-muted/30">
-                        <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
-                        <td className="px-4 py-2.5 font-medium">{row.district}</td>
-                        <td className="px-4 py-2.5 text-center">{row.members}</td>
+                        <td className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-muted-foreground sticky left-0 bg-white z-10">{i + 1}</td>
+                        <td className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium sticky left-10 bg-white z-10 whitespace-nowrap">{row.district}</td>
+                        <td className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-center">{row.members}</td>
                         {districtPeriods.map((p) => (
-                          <td key={p} className="px-4 py-2.5 text-right font-mono">
+                          <td key={p} className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-right font-mono whitespace-nowrap">
                             {(row[p] as number) > 0 ? `₹${(row[p] as number).toLocaleString("en-IN")}` : "—"}
                           </td>
                         ))}
-                        <td className="px-4 py-2.5 text-right font-semibold font-mono">
+                        <td className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-right font-semibold font-mono whitespace-nowrap">
                           {(row.total as number) > 0 ? `₹${(row.total as number).toLocaleString("en-IN")}` : "—"}
                         </td>
                       </tr>
@@ -1475,15 +1475,15 @@ export default function AdminSubscriptionsPage() {
                   {districtGrandTotal && (
                     <tfoot>
                       <tr className="bg-primary/5 font-bold border-t-2">
-                        <td className="px-4 py-3" />
-                        <td className="px-4 py-3">TOTAL</td>
-                        <td className="px-4 py-3 text-center">{districtGrandTotal.members}</td>
+                        <td className="px-3 sm:px-4 py-3 text-xs sm:text-sm sticky left-0 bg-primary/5 z-10" />
+                        <td className="px-3 sm:px-4 py-3 text-xs sm:text-sm sticky left-10 bg-primary/5 z-10">TOTAL</td>
+                        <td className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-center">{districtGrandTotal.members}</td>
                         {districtPeriods.map((p) => (
-                          <td key={p} className="px-4 py-3 text-right font-mono">
+                          <td key={p} className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-right font-mono whitespace-nowrap">
                             ₹{((districtGrandTotal[p] as number) || 0).toLocaleString("en-IN")}
                           </td>
                         ))}
-                        <td className="px-4 py-3 text-right font-mono">
+                        <td className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-right font-mono whitespace-nowrap">
                           ₹{((districtGrandTotal.total as number) || 0).toLocaleString("en-IN")}
                         </td>
                       </tr>
