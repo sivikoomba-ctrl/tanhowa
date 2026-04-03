@@ -51,7 +51,9 @@ export async function PUT(req: NextRequest) {
 
     // Server-side mandatory field validation
     const name = typeof body.name === "string" ? body.name.trim().toUpperCase() : "";
-    const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+    // Normalize phone: strip +91/91 prefix, spaces, dashes → 10 digits
+    const rawPhone = typeof body.phone === "string" ? body.phone.trim() : "";
+    const phone = rawPhone.replace(/[\s\-\+\(\)]/g, "").replace(/^91/, "").slice(-10);
     const occupation = typeof body.occupation === "string" ? body.occupation.trim() : "";
 
     if (!name) {

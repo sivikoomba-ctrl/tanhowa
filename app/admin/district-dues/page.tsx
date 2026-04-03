@@ -250,7 +250,9 @@ export default function DistrictDuesPage() {
                             <td className={`border px-2 py-1 text-right font-mono font-semibold ${pending > 0 ? "text-red-600" : "text-green-600"}`}>
                               {pending > 0 ? pending.toLocaleString("en-IN") : "0"}
                             </td>
-                            <td className="border px-2 py-1 text-center text-muted-foreground">{m.phone}</td>
+                            <td className={`border px-2 py-1 text-center ${/^[6-9]\d{9}$/.test(m.phone) ? "text-muted-foreground" : "text-red-600 bg-red-50 font-medium"}`} title={/^[6-9]\d{9}$/.test(m.phone) ? "" : "Invalid format — should be 10 digits"}>
+                              {m.phone}{!/^[6-9]\d{9}$/.test(m.phone) && m.phone && <span className="text-[9px]"> ⚠</span>}
+                            </td>
                             <td className="border px-0.5 py-0.5 bg-amber-50">
                               <Input
                                 type="number"
