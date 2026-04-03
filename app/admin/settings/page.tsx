@@ -282,6 +282,10 @@ export default function AdminSettingsPage() {
               <Label>Instagram</Label>
               <Input value={settings.instagram_link || ""} onChange={(e) => set("instagram_link", e.target.value)} placeholder="https://instagram.com/tanhowa" />
             </div>
+            <div>
+              <Label>X (Twitter)</Label>
+              <Input value={settings.x_link || ""} onChange={(e) => set("x_link", e.target.value)} placeholder="https://x.com/TANHOWA_1979" />
+            </div>
           </div>
         </CardContent>
       </Card>
