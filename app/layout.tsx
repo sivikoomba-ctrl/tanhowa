@@ -3,6 +3,7 @@ import { Poppins, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import ChatbotWidget from "@/components/chatbot-widget";
 import { ErrorBoundary, GlobalErrorCatcher } from "@/components/error-boundary";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SeasonalTheme } from "@/components/seasonal-theme";
 import { Snowflakes } from "@/components/snowflakes";
 import "./globals.css";
@@ -60,6 +61,7 @@ export default function RootLayout({
         <Snowflakes />
         <Toaster />
         <ChatbotWidget />
+        <SpeedInsights />
       </body>
     </html>
   );
