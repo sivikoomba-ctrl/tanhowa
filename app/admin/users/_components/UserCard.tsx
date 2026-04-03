@@ -76,6 +76,26 @@ function hasSocial(s?: { instagram?: string; twitter?: string; linkedin?: string
   return !!(s.instagram || s.twitter || s.linkedin);
 }
 
+function getNudgePendingFields(u: User): string[] {
+  if (!u.profile_nudge?.fields) return [];
+  const fieldChecks: Record<string, boolean> = {
+    "Name": !!u.name?.trim(),
+    "Phone": !!u.phone?.trim(),
+    "Date of Birth": !!u.dob,
+    "Gender": !!(u.social_links as Record<string, string>)?.gender,
+    "Designation": !!u.occupation?.trim(),
+    "Qualification": !!(u.social_links as Record<string, string>)?.qualification,
+    "Home Address": !!u.address?.trim(),
+    "Office Address": !!u.office_address?.trim(),
+    "Posting Details": hasPosting(u.posting_details),
+    "Photo": !!u.photo_url,
+    "Experience": !!(u.social_links as Record<string, unknown[]>)?.experience?.length,
+    "Skill Sets": !!(u.social_links as Record<string, unknown>)?.skill_sets && Object.keys((u.social_links as Record<string, Record<string, unknown>>)?.skill_sets || {}).length > 0,
+    "Social Links": !!(u.social_links?.instagram || u.social_links?.twitter || u.social_links?.linkedin),
+  };
+  return u.profile_nudge.fields.filter((f) => !fieldChecks[f]);
+}
+
 function getProfileCompleteness(u: User): { percent: number; missing: string[] } {
   const fields: { key: string; label: string; check: boolean }[] = [
     { key: "name", label: "Name", check: !!u.name?.trim() },
@@ -353,16 +373,24 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
             {/* Request Update */}
             {(tab === "approved" || (tab === "all" && u.status === "approved")) && (
               <div className="space-y-2">
-                {u.profile_nudge && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
-                    <div className="flex items-center gap-2 text-amber-800 font-medium mb-1">
-                      <Clock size={14} />
-                      Update requested on {new Date(u.profile_nudge.requested_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                {u.profile_nudge && (() => {
+                  const pending = getNudgePendingFields(u);
+                  if (pending.length === 0) return (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
+                      <p className="text-green-700 font-medium">All requested fields have been updated.</p>
                     </div>
-                    <p className="text-amber-700">Fields: {u.profile_nudge.fields.join(", ")}</p>
-                    {u.profile_nudge.message && <p className="text-amber-600 text-xs mt-1">{u.profile_nudge.message}</p>}
-                  </div>
-                )}
+                  );
+                  return (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+                      <div className="flex items-center gap-2 text-amber-800 font-medium mb-1">
+                        <Clock size={14} />
+                        Update requested on {new Date(u.profile_nudge.requested_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                      </div>
+                      <p className="text-amber-700">Pending: {pending.join(", ")}</p>
+                      {u.profile_nudge.message && <p className="text-amber-600 text-xs mt-1">{u.profile_nudge.message}</p>}
+                    </div>
+                  );
+                })()}
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
