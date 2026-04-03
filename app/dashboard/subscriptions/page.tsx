@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, ChevronDown, Save, Calculator } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -32,6 +32,7 @@ interface MemberInfo {
   occupation: string;
   avatar_url: string | null;
   posting_details?: { regular_district?: string; block?: string };
+  social_links?: { dues_summary?: { amount_paid?: number; additional_money?: number }; [key: string]: unknown };
 }
 
 interface Subscription {
@@ -77,6 +78,13 @@ export default function SubscriptionsPage() {
   const [qrZoom, setQrZoom] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [member, setMember] = useState<MemberInfo | null>(null);
+
+  // Association Due Summary
+  const [duesOpen, setDuesOpen] = useState(false);
+  const [duesPaid, setDuesPaid] = useState("");
+  const [duesAdditional, setDuesAdditional] = useState("");
+  const [duesSaving, setDuesSaving] = useState(false);
+  const [duesLoaded, setDuesLoaded] = useState(false);
 
   function downloadReceipt(sub: Subscription) {
     const doc = new jsPDF();
@@ -280,7 +288,18 @@ export default function SubscriptionsPage() {
     load();
     fetch("/api/users/me")
       .then((r) => r.json())
-      .then((d) => { if (d.user) setMember(d.user); })
+      .then((d) => {
+        if (d.user) {
+          setMember(d.user);
+          // Load saved dues summary from social_links
+          const ds = d.user.social_links?.dues_summary;
+          if (ds) {
+            if (ds.amount_paid != null) setDuesPaid(String(ds.amount_paid));
+            if (ds.additional_money != null) setDuesAdditional(String(ds.additional_money));
+          }
+          setDuesLoaded(true);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -289,6 +308,46 @@ export default function SubscriptionsPage() {
   const totalPaid = subscriptions
     .filter((s) => s.status === "paid")
     .reduce((sum, s) => sum + (s.amount || 0), 0);
+
+  // Dues summary calculations
+  const duesUpTo2025 = subscriptions
+    .filter((s) => /^20(1[0-9]|2[0-5])$/.test(s.period))
+    .reduce((sum, s) => sum + (s.amount || 0), 0);
+  const dues2026 = subscriptions
+    .filter((s) => s.period === "2026")
+    .reduce((sum, s) => sum + (s.amount || 0), 0);
+  const duesUatt = subscriptions
+    .filter((s) => s.period.toLowerCase().includes("uatt"))
+    .reduce((sum, s) => sum + (s.amount || 0), 0);
+  const duesTotalToPay = duesUpTo2025 + dues2026 + duesUatt;
+  const duesPaidNum = Number(duesPaid) || 0;
+  const duesAdditionalNum = Number(duesAdditional) || 0;
+  const duesPending = duesTotalToPay - duesPaidNum;
+
+  async function saveDuesSummary() {
+    setDuesSaving(true);
+    try {
+      const res = await fetch("/api/users/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          social_links: {
+            ...member?.social_links || {},
+            dues_summary: {
+              amount_paid: duesPaidNum,
+              additional_money: duesAdditionalNum,
+            },
+          },
+        }),
+      });
+      if (res.ok) toast.success("Due summary saved!");
+      else toast.error("Failed to save");
+    } catch {
+      toast.error("Failed to save");
+    } finally {
+      setDuesSaving(false);
+    }
+  }
 
   function triggerUpload(subId: string) {
     setUploadTargetId(subId);
@@ -496,6 +555,104 @@ export default function SubscriptionsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Association Due Summary */}
+      {duesLoaded && subscriptions.length > 0 && (
+        <Card className="border-primary/15">
+          <button
+            className="w-full flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors"
+            onClick={() => setDuesOpen(!duesOpen)}
+          >
+            <div className="flex items-center gap-2">
+              <Calculator size={16} className="text-primary" />
+              <span className="font-semibold text-sm">Association Due Summary</span>
+            </div>
+            <ChevronDown size={16} className={`text-muted-foreground transition-transform ${duesOpen ? "rotate-180" : ""}`} />
+          </button>
+          {duesOpen && (
+            <CardContent className="pt-0 pb-4 px-4">
+              <p className="text-[11px] text-muted-foreground mb-3">
+                TAMIL NADU HORTICULTURAL OFFICERS WELFARE ASSOCIATION
+              </p>
+              <div className="overflow-x-auto -mx-1">
+                <table className="w-full text-xs border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="bg-primary/5">
+                      <th className="border px-2 py-1.5 text-left font-semibold">Description</th>
+                      <th className="border px-2 py-1.5 text-right font-semibold w-28">Amount (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border px-2 py-1.5">Subscriptions Due up to 2025</td>
+                      <td className="border px-2 py-1.5 text-right font-mono">{duesUpTo2025.toLocaleString("en-IN")}</td>
+                    </tr>
+                    <tr>
+                      <td className="border px-2 py-1.5">Annual Subscription 2026</td>
+                      <td className="border px-2 py-1.5 text-right font-mono">{dues2026.toLocaleString("en-IN")}</td>
+                    </tr>
+                    <tr>
+                      <td className="border px-2 py-1.5">UATT 2.0 Case Contribution</td>
+                      <td className="border px-2 py-1.5 text-right font-mono">{duesUatt.toLocaleString("en-IN")}</td>
+                    </tr>
+                    <tr className="bg-primary/5 font-semibold">
+                      <td className="border px-2 py-1.5">Total Amount to be Paid</td>
+                      <td className="border px-2 py-1.5 text-right font-mono">{duesTotalToPay.toLocaleString("en-IN")}</td>
+                    </tr>
+                    <tr className="bg-green-50">
+                      <td className="border px-2 py-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Edit2 size={12} className="text-green-600 shrink-0" />
+                          <span>Total Amount Paid (enter your amount)</span>
+                        </div>
+                      </td>
+                      <td className="border px-1 py-0.5">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={duesPaid}
+                          onChange={(e) => setDuesPaid(e.target.value)}
+                          className="h-7 text-xs text-right font-mono border-green-300 focus:border-green-500"
+                          placeholder="0"
+                        />
+                      </td>
+                    </tr>
+                    <tr className={duesPending > 0 ? "bg-red-50" : "bg-green-50"}>
+                      <td className="border px-2 py-1.5 font-semibold">Pending Amount</td>
+                      <td className={`border px-2 py-1.5 text-right font-mono font-semibold ${duesPending > 0 ? "text-red-600" : "text-green-600"}`}>
+                        {duesPending.toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+                    <tr className="bg-amber-50">
+                      <td className="border px-2 py-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Edit2 size={12} className="text-amber-600 shrink-0" />
+                          <span>Additional Money Paid for Special Work</span>
+                        </div>
+                      </td>
+                      <td className="border px-1 py-0.5">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={duesAdditional}
+                          onChange={(e) => setDuesAdditional(e.target.value)}
+                          className="h-7 text-xs text-right font-mono border-amber-300 focus:border-amber-500"
+                          placeholder="0"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-end mt-3">
+                <Button size="sm" onClick={saveDuesSummary} disabled={duesSaving} className="text-xs h-8">
+                  {duesSaving ? "Saving..." : <><Save size={14} className="mr-1.5" /> Save</>}
+                </Button>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* QR Code Payment Section */}
       <Card className="border-2 border-primary/20">
