@@ -604,49 +604,70 @@ export default function SubscriptionsPage() {
       {/* Association Due Summary */}
       {duesLoaded && subscriptions.length > 0 && (
         <Card className="border-primary/15">
-          <button
-            className="w-full flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors"
-            onClick={() => setDuesOpen(!duesOpen)}
-          >
+          <div className="px-5 py-3">
             <div className="flex items-center gap-2">
               <Calculator size={16} className="text-primary" />
               <span className="font-semibold text-sm">Association Due Summary</span>
             </div>
-            <ChevronDown size={16} className={`text-muted-foreground transition-transform ${duesOpen ? "rotate-180" : ""}`} />
-          </button>
-          {duesOpen && (
-            <CardContent className="pt-0 pb-4 px-4">
+          </div>
+          <CardContent className="pt-0 pb-4 px-4">
               <p className="text-[11px] text-muted-foreground mb-3">
                 TAMIL NADU HORTICULTURAL OFFICERS WELFARE ASSOCIATION
               </p>
               <div className="overflow-x-auto -mx-1">
-                <table className="w-full text-xs border-collapse min-w-[700px]">
+                <table className="w-full text-xs border-collapse min-w-[750px]">
                   <thead>
                     <tr className="bg-primary/5">
                       <th className="border px-2 py-1.5 text-left font-semibold">Description</th>
                       <th className="border px-2 py-1.5 text-right font-semibold w-28">Amount (₹)</th>
+                      <th className="border px-2 py-1.5 text-center font-semibold w-24">Proof</th>
                       <th className="border px-2 py-1.5 text-right font-semibold w-28">Extra (₹)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="border px-2 py-1.5">Subscriptions Due up to 2025</td>
-                      <td className="border px-2 py-1.5 text-right font-mono">{duesUpTo2025.toLocaleString("en-IN")}</td>
-                      <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
-                    </tr>
-                    <tr>
-                      <td className="border px-2 py-1.5">Annual Subscription 2026</td>
-                      <td className="border px-2 py-1.5 text-right font-mono">{dues2026.toLocaleString("en-IN")}</td>
-                      <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
-                    </tr>
-                    <tr>
-                      <td className="border px-2 py-1.5">UATT 2.0 Case Contribution</td>
-                      <td className="border px-2 py-1.5 text-right font-mono">{duesUatt.toLocaleString("en-IN")}</td>
-                      <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
-                    </tr>
+                    {[
+                      { label: "Subscriptions Due up to 2025", amount: duesUpTo2025, filter: (s: Subscription) => /^20(1[0-9]|2[0-5])$/.test(s.period) },
+                      { label: "Annual Subscription 2026", amount: dues2026, filter: (s: Subscription) => s.period === "2026" },
+                      { label: "UATT 2.0 Case Contribution", amount: duesUatt, filter: (s: Subscription) => s.period.toLowerCase().includes("uatt") },
+                    ].map((row) => {
+                      const matchingSubs = subscriptions.filter(row.filter);
+                      const hasProof = matchingSubs.some((s) => s.payment_proof_url);
+                      const subWithProof = matchingSubs.find((s) => s.payment_proof_url);
+                      const subForUpload = matchingSubs[0];
+                      return (
+                        <tr key={row.label}>
+                          <td className="border px-2 py-1.5">{row.label}</td>
+                          <td className="border px-2 py-1.5 text-right font-mono">{row.amount.toLocaleString("en-IN")}</td>
+                          <td className="border px-2 py-1.5 text-center">
+                            {row.amount > 0 && subForUpload && (
+                              <div className="flex items-center justify-center gap-1">
+                                {hasProof ? (
+                                  <button
+                                    onClick={() => { if (subWithProof?.payment_proof_url) setDuesProofPreview(subWithProof.payment_proof_url); }}
+                                    className="text-[10px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded hover:bg-green-100 flex items-center gap-1"
+                                  >
+                                    <Eye size={10} /> View
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => { setUploadTargetId(subForUpload.id); fileInputRef.current?.click(); }}
+                                    className="text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded hover:bg-blue-100 flex items-center gap-1"
+                                  >
+                                    <Upload size={10} /> Upload
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {row.amount === 0 && <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
+                        </tr>
+                      );
+                    })}
                     <tr className="bg-primary/5 font-semibold">
                       <td className="border px-2 py-1.5">Total Amount to be Paid</td>
                       <td className="border px-2 py-1.5 text-right font-mono">{duesTotalToPay.toLocaleString("en-IN")}</td>
+                      <td className="border px-2 py-1.5"></td>
                       <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                     </tr>
                     <tr className="bg-green-50">
@@ -666,6 +687,7 @@ export default function SubscriptionsPage() {
                           placeholder="0"
                         />
                       </td>
+                      <td className="border px-2 py-1.5"></td>
                       <td className="border px-2 py-1.5 text-right font-mono text-green-600 font-semibold">
                         {duesPaidNum > duesTotalToPay ? `+${(duesPaidNum - duesTotalToPay).toLocaleString("en-IN")}` : "—"}
                       </td>
@@ -675,6 +697,7 @@ export default function SubscriptionsPage() {
                       <td className={`border px-2 py-1.5 text-right font-mono font-semibold ${duesPending > 0 ? "text-red-600" : "text-green-600"}`}>
                         {duesPending > 0 ? duesPending.toLocaleString("en-IN") : "0"}
                       </td>
+                      <td className="border px-2 py-1.5"></td>
                       <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                     </tr>
                     <tr className="bg-amber-50">
@@ -694,6 +717,7 @@ export default function SubscriptionsPage() {
                           placeholder="0"
                         />
                       </td>
+                      <td className="border px-2 py-1.5"></td>
                       <td className="border px-2 py-1.5 text-right font-mono text-amber-600 font-semibold">
                         {duesAdditionalNum > 0 ? `+${duesAdditionalNum.toLocaleString("en-IN")}` : "—"}
                       </td>
@@ -750,7 +774,6 @@ export default function SubscriptionsPage() {
                 </div>
               )}
             </CardContent>
-          )}
 
           {/* Dues Proof Preview */}
           <PaymentProofPreviewDialog
