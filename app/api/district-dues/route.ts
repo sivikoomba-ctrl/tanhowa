@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
       .from("users")
       .select("id, name, phone, occupation, posting_details, social_links, official_type")
       .eq("status", "approved")
+      .neq("email", "tanhowaadmin@tanhowa.in")
       .order("name");
 
     if (usersErr) {

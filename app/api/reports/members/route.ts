@@ -15,7 +15,8 @@ export async function GET() {
     const { data: users, error } = await supabase
       .from("users")
       .select("id, name, phone, occupation, photo_url, posting_details, created_at, last_active_at, login_count, status")
-      .eq("status", "approved");
+      .eq("status", "approved")
+      .neq("email", "tanhowaadmin@tanhowa.in");
 
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/reports/members", method: "GET", status_code: 500 });

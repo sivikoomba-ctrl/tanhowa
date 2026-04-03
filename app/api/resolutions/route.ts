@@ -103,7 +103,8 @@ export async function POST(req: NextRequest) {
     const { count: memberCount } = await supabase
       .from("users")
       .select("*", { count: "exact", head: true })
-      .eq("status", "approved");
+      .eq("status", "approved")
+      .neq("email", "tanhowaadmin@tanhowa.in");
 
     const totalMembers = memberCount || 798;
     const votesRequired = Math.floor(totalMembers / 2) + 1;

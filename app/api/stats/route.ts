@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const toDate = searchParams.get("to");
 
     const [membersRes, announcementsRes, eventsRes, documentsRes] = await Promise.all([
-      supabase.from("users").select("id", { count: "exact", head: true }).eq("status", "approved"),
+      supabase.from("users").select("id", { count: "exact", head: true }).eq("status", "approved").neq("email", "tanhowaadmin@tanhowa.in"),
       supabase.from("announcements").select("id", { count: "exact", head: true }).eq("published", true),
       supabase.from("events").select("id", { count: "exact", head: true }),
       supabase.from("documents").select("id", { count: "exact", head: true }),

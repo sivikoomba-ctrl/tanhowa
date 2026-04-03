@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
     const { data: allMembers } = await supabase
       .from("users")
       .select("id, name, email, phone, posting_details, occupation")
-      .eq("status", "approved");
+      .eq("status", "approved")
+      .neq("email", "tanhowaadmin@tanhowa.in");
 
     // Filter by district if specified
     let members = allMembers || [];
