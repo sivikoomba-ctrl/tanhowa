@@ -32,6 +32,7 @@ import {
   BarChart3,
   ChevronDown,
   MessageCircle,
+  Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +79,7 @@ const navItems = [
   { href: "/dashboard/nearby", label: "Nearby Members", icon: Navigation },
   { href: "/dashboard/todos", label: "Task List", icon: ListTodo },
   { href: "/dashboard/contributions", label: "Contributions", icon: Award },
+  { href: "/dashboard/finance", label: "Finance", icon: Landmark },
 ];
 
 function getMissingFields(u: UserData): string[] {

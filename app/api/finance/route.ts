@@ -1,20 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, getOfficialType } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 /**
  * GET /api/finance?year=2025-26
  *
- * Returns bank reconciliation data from paid subscriptions.
- * Admin only.
+ * Full ledger: admins, state officials, district officials (DS/DJS)
+ * Abstract summary only: regular members
  */
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !(await isAdmin(session))) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const admin = await isAdmin(session);
+    const officialType = await getOfficialType(session.userId);
+    const hasFullAccess = admin || officialType === "state" || officialType === "district";
 
     const url = new URL(req.url);
     const year = url.searchParams.get("year") || "2025-26";
@@ -87,14 +91,33 @@ export async function GET(req: NextRequest) {
       byMonth[month].total += entry.credit;
     }
 
+    const summaryByPeriod = Object.entries(byPeriod).map(([period, v]) => ({ period, ...v })).sort((a, b) => b.total - a.total);
+    const summaryByDistrict = Object.entries(byDistrict).map(([district, v]) => ({ district, ...v })).sort((a, b) => b.total - a.total);
+    const summaryByMonth = Object.entries(byMonth).map(([month, v]) => ({ month, ...v }));
+
+    // Members get abstract summary only (no ledger, no member names)
+    if (!hasFullAccess) {
+      return NextResponse.json({
+        year,
+        abstract: true,
+        totalCredits: runningBalance,
+        totalTransactions: ledger.length,
+        byPeriod: summaryByPeriod,
+        byMonth: summaryByMonth,
+        districtsCount: Object.keys(byDistrict).length,
+      });
+    }
+
+    // Full access: admins, state officials, DS/DJS
     return NextResponse.json({
       year,
+      abstract: false,
       ledger,
       totalCredits: runningBalance,
       totalTransactions: ledger.length,
-      byPeriod: Object.entries(byPeriod).map(([period, v]) => ({ period, ...v })).sort((a, b) => b.total - a.total),
-      byDistrict: Object.entries(byDistrict).map(([district, v]) => ({ district, ...v })).sort((a, b) => b.total - a.total),
-      byMonth: Object.entries(byMonth).map(([month, v]) => ({ month, ...v })),
+      byPeriod: summaryByPeriod,
+      byDistrict: summaryByDistrict,
+      byMonth: summaryByMonth,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
