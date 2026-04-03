@@ -112,7 +112,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   useEffect(() => {
-    const handler = () => fetchCounts();
+    const handler = () => { setTimeout(fetchCounts, 500); };
     window.addEventListener("admin-users-changed", handler);
     return () => window.removeEventListener("admin-users-changed", handler);
   }, []);
