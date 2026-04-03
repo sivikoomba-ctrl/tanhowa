@@ -2037,7 +2037,7 @@ export default function AdminSubscriptionsPage() {
                   );
                   const hasAmountHint = payForm.amount && payDialog.amount && parseFloat(payForm.amount) > payDialog.amount;
                   const slots = hasAmountHint ? Math.floor(parseFloat(payForm.amount) / payDialog.amount) - 1 : 0;
-                  const isExpanded = adminSelectedMembers.size > 0 || adminMemberSearch.length > 0;
+                  const isExpanded = adminSelectedMembers.size > 0 || adminMemberSearch.length > 0 || (hasAmountHint && slots > 0);
                   return (
                     <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3 space-y-2">
                       <button
@@ -2058,6 +2058,20 @@ export default function AdminSubscriptionsPage() {
                       </button>
                       {isExpanded && (
                         <>
+                          {hasAmountHint && slots > 0 && adminSelectedMembers.size === 0 && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="w-full text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                              onClick={() => {
+                                const toSelect = samePeriodPending.slice(0, slots).map((s) => s.id);
+                                setAdminSelectedMembers(new Set(toSelect));
+                              }}
+                            >
+                              Select first {Math.min(slots, samePeriodPending.length)} members (amount covers {slots + 1} total)
+                            </Button>
+                          )}
                           {adminSelectedMembers.size > 0 && payForm.amount && payDialog.amount && (() => {
                             const matchedAmt = (adminSelectedMembers.size + 1) * payDialog!.amount;
                             const totalAmt = parseFloat(payForm.amount) || 0;
