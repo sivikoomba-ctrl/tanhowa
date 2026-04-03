@@ -1705,17 +1705,20 @@ export default function AdminSubscriptionsPage() {
                 )}
               </div>
 
-              {/* Same Transaction ID — bulk approval */}
-              {payDialog.transaction_id && (() => {
+              {/* Same Transaction ID or Proof — bulk approval */}
+              {(payDialog.transaction_id || payDialog.payment_proof_url) && (() => {
                 const sameTxn = subscriptions.filter(
-                  (s) => s.transaction_id === payDialog.transaction_id && s.id !== payDialog.id && s.status !== "paid"
+                  (s) => s.id !== payDialog.id && s.status !== "paid" && (
+                    (payDialog.transaction_id && s.transaction_id === payDialog.transaction_id) ||
+                    (payDialog.payment_proof_url && s.payment_proof_url === payDialog.payment_proof_url)
+                  )
                 );
                 if (sameTxn.length === 0) return null;
                 const totalAmount = (payDialog.amount || 0) + sameTxn.reduce((sum, s) => sum + (s.amount || 0), 0);
                 return (
                   <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-2">
                     <p className="text-xs font-semibold text-blue-800">
-                      Same Txn ID found on {sameTxn.length} other subscription{sameTxn.length > 1 ? "s" : ""} (Total: &#8377;{totalAmount.toLocaleString("en-IN")})
+                      Same payment found on {sameTxn.length} other subscription{sameTxn.length > 1 ? "s" : ""} (Total: &#8377;{totalAmount.toLocaleString("en-IN")})
                     </p>
                     <div className="space-y-1">
                       {sameTxn.map((s) => (
