@@ -1705,6 +1705,81 @@ export default function AdminSubscriptionsPage() {
                 )}
               </div>
 
+              {/* Same Transaction ID — bulk approval */}
+              {payDialog.transaction_id && (() => {
+                const sameTxn = subscriptions.filter(
+                  (s) => s.transaction_id === payDialog.transaction_id && s.id !== payDialog.id && s.status !== "paid"
+                );
+                if (sameTxn.length === 0) return null;
+                const totalAmount = (payDialog.amount || 0) + sameTxn.reduce((sum, s) => sum + (s.amount || 0), 0);
+                return (
+                  <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-blue-800">
+                      Same Txn ID found on {sameTxn.length} other subscription{sameTxn.length > 1 ? "s" : ""} (Total: &#8377;{totalAmount.toLocaleString("en-IN")})
+                    </p>
+                    <div className="space-y-1">
+                      {sameTxn.map((s) => (
+                        <div key={s.id} className="flex items-center justify-between text-xs">
+                          <span className="font-medium">{s.users?.name || s.users?.email}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">{s.period}</span>
+                            <span>&#8377;{(s.amount || 0).toLocaleString("en-IN")}</span>
+                            <Badge variant="outline" className="text-[10px] h-5 capitalize">{s.status}</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full bg-green-600 hover:bg-green-700 text-xs"
+                      disabled={payLoading}
+                      onClick={async () => {
+                        if (!confirm(`Approve all ${sameTxn.length + 1} subscriptions with this transaction ID?`)) return;
+                        setPayLoading(true);
+                        try {
+                          let paidAt: string | undefined;
+                          if (payForm.payment_date) {
+                            const time = payForm.payment_time || "12:00";
+                            paidAt = new Date(`${payForm.payment_date}T${time}:00`).toISOString();
+                          }
+                          const groupId = crypto.randomUUID();
+                          const allIds = [payDialog.id, ...sameTxn.map((s) => s.id)];
+                          let success = 0;
+                          for (const subId of allIds) {
+                            const res = await fetch("/api/subscriptions", {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                id: subId,
+                                status: "paid",
+                                paid_at: paidAt || new Date().toISOString(),
+                                transaction_id: payDialog.transaction_id,
+                                payment_method: payForm.payment_method || payDialog.payment_method,
+                                remarks: payForm.remarks || payDialog.remarks || "",
+                                payment_group_id: groupId,
+                              }),
+                            });
+                            if (res.ok) success++;
+                          }
+                          toast.success(`Approved ${success} of ${allIds.length} subscriptions`);
+                          setPayDialog(null);
+                          setPayeeInfo(null);
+                          setPayeeOverride(false);
+                          load();
+                        } catch {
+                          toast.error("Failed to approve");
+                        }
+                        setPayLoading(false);
+                      }}
+                    >
+                      <CheckCircle2 size={14} className="mr-1" />
+                      Approve All {sameTxn.length + 1} Members
+                    </Button>
+                  </div>
+                );
+              })()}
+
               {/* Payment Proof Image */}
               {payDialog.payment_proof_url && payProofUrl && (
                 <div className="space-y-2">
