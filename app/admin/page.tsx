@@ -75,6 +75,7 @@ export default function AdminDashboard() {
   const [filteredCollection, setFilteredCollection] = useState<{ total: number; count: number } | null>(null);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [adminUser, setAdminUser] = useState<{ name: string; role: string; official_type: string | null; posting_details?: { regular_district?: string; official_designation?: string } } | null>(null);
 
   function loadData() {
     setErrors({});
@@ -108,7 +109,12 @@ export default function AdminDashboard() {
       .catch(() => setErrors((e) => ({ ...e, users: true })));
   }
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    fetch("/api/users/me").then((r) => r.json()).then((d) => {
+      if (d.user) setAdminUser(d.user);
+    }).catch(() => {});
+  }, []);
 
   async function handleQuickAction(userId: string, action: "approve" | "reject") {
     const res = await fetch("/api/admin/users", {
@@ -142,7 +148,25 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+      <div>
+        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+        {adminUser && (
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {adminUser.name}
+            {" — "}
+            <span className="font-medium text-primary">
+              {adminUser.role === "super_admin" ? "Super Admin" :
+               adminUser.official_type === "state" ? "State Official" :
+               adminUser.official_type === "district" ? (adminUser.posting_details?.official_designation || "District Official") :
+               adminUser.official_type === "volunteer" ? "District Active Volunteer Admin" :
+               "Admin"}
+            </span>
+            {adminUser.posting_details?.regular_district && (
+              <span className="text-muted-foreground">, {adminUser.posting_details.regular_district}</span>
+            )}
+          </p>
+        )}
+      </div>
 
       {/* Pending Members Alert */}
       {errors.pending && <SectionError message="Failed to load pending members" onRetry={loadData} />}

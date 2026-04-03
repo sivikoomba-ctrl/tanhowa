@@ -39,7 +39,7 @@ interface User {
   created_at: string;
   last_active_at: string | null;
   profile_nudge: { fields: string[]; message: string; requested_at: string } | null;
-  official_type: "state" | "district" | null;
+  official_type: "state" | "district" | "volunteer" | null;
 }
 
 interface EditUserDialogProps {

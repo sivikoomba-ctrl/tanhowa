@@ -111,7 +111,7 @@ export async function isAdminOrOfficial(session: SessionPayload | null): Promise
     .eq("id", session.userId)
     .single();
   if (!data) return false;
-  return data.role === "admin" || data.role === "super_admin" || data.official_type === "state" || data.official_type === "district";
+  return data.role === "admin" || data.role === "super_admin" || data.official_type === "state" || data.official_type === "district" || data.official_type === "volunteer";
 }
 
 /**

@@ -43,7 +43,7 @@ interface User {
   last_active_at: string | null;
   updated_at: string;
   profile_nudge: { fields: string[]; message: string; requested_at: string } | null;
-  official_type: "state" | "district" | null;
+  official_type: "state" | "district" | "volunteer" | null;
 }
 
 const PAGE_SIZE = 30;
@@ -291,6 +291,8 @@ export default function AdminUsersPage() {
       handleSetOfficial(userId, "state");
     } else if (action === "set-official-district") {
       handleSetOfficial(userId, "district");
+    } else if (action === "set-official-volunteer") {
+      handleSetOfficial(userId, "volunteer");
     } else if (action === "remove-official") {
       handleSetOfficial(userId, null);
     } else if (action === "set-role") {

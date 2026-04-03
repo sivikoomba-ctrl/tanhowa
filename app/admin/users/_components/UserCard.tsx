@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Send, Clock, Crown, Building2, Pencil, Copy } from "lucide-react";
+import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Send, Clock, Crown, Building2, Pencil, Copy, Users } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -38,7 +38,7 @@ interface User {
   updated_at: string;
   last_active_at: string | null;
   profile_nudge: { fields: string[]; message: string; requested_at: string } | null;
-  official_type: "state" | "district" | null;
+  official_type: "state" | "district" | "volunteer" | null;
 }
 
 interface UserCardProps {
@@ -162,6 +162,11 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                   <Building2 size={10} className="mr-1" />District Official
                 </Badge>
               )}
+              {u.official_type === "volunteer" && (
+                <Badge className="text-xs bg-green-600 hover:bg-green-600 text-white">
+                  <Users size={10} className="mr-1" />Volunteer Admin
+                </Badge>
+              )}
               {tab === "all" && (
                 <Badge className={`text-xs ${u.status === "approved" ? "bg-green-100 text-green-800 hover:bg-green-100" : u.status === "pending" ? "bg-amber-100 text-amber-800 hover:bg-amber-100" : "bg-red-100 text-red-800 hover:bg-red-100"}`}>
                   {u.status}
@@ -253,6 +258,9 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                 </Button>
                 <Button size="sm" variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => onAction("set-official-district")}>
                   <Building2 size={14} className="mr-1" />District Official
+                </Button>
+                <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" onClick={() => onAction("set-official-volunteer")}>
+                  <Users size={14} className="mr-1" />Volunteer Admin
                 </Button>
               </>
             )}
