@@ -348,7 +348,7 @@ Standalone expense claims not tied to tasks. Table: `expense_vouchers`.
 - Admin reviews at `/admin/vouchers` — can also create on behalf of officials
 - API: `/api/vouchers` (GET/POST/PUT/DELETE) — POST requires `isAdminOrOfficial()`
 
-## Resolutions (Voting System)
+## e-Resolutions (Voting System)
 
 Table: `resolutions` + `resolution_votes`. Members can propose resolutions that go through admin approval and member voting.
 
@@ -386,6 +386,17 @@ Table: `contributions`. Auto-logs portal actions with estimated time for each me
 - **Admin page:** `/admin/contributions` — leaderboard ranked by total contribution time
 - **API:** `/api/contributions` (GET) — `?me=true` for own, `?period=week|month|all` filter, `?breakdown=true` for action-type aggregation + monthly trend (admin only). POST — client-side contribution logging (whitelisted actions: `document_downloaded`)
 - **Lib:** `logContribution(userId, action, description?, metadata?)` from `lib/contributions.ts` — fire-and-forget
+
+## Finance (Bank Reconciliation)
+
+Auto-generated financial ledger from paid subscriptions, grouped by financial year (April-March).
+
+- **Admin page:** `/admin/finance` — full ledger with member names, district/period/monthly summaries, filters, PDF export
+- **Member page:** `/dashboard/finance` — abstract summary only (totals, monthly collections with progress bars, by-period breakdown). No member names or transaction details.
+- **API:** `GET /api/finance?year=2025-26` — role-based response:
+  - Admins, state officials, DS/DJS → full ledger with `abstract: false`
+  - Regular members → summary only with `abstract: true`
+- **PDF export:** Landscape PDF with transaction ledger + period & district summary tables (admin only)
 
 ## Special Subscriptions
 
@@ -491,6 +502,7 @@ When building new pages, use these instead of duplicating patterns:
 - **Static cache** (`tanhowa-v3`): images, fonts, icons (cache-first)
 - **Pages**: network-first, falls back to cached version or `/offline` page
 - Bump `CACHE_NAME` version when changing caching behavior
+- **Install banner:** Login page (`app/page.tsx`) shows a PWA install prompt with instructions for Chrome/Safari
 
 ## Cross-Component Communication
 

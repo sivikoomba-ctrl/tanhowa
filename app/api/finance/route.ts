@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     // Fetch all paid subscriptions in this financial year
     const { data: subs, error } = await supabase
       .from("subscriptions")
-      .select("id, user_id, period, amount, paid_at, approved_at, payment_method, transaction_id, remarks, users!subscriptions_user_id_fkey(name, phone, posting_details)")
+      .select("id, user_id, period, amount, paid_at, approved_at, payment_method, transaction_id, remarks, payment_group_id, users!subscriptions_user_id_fkey(name, phone, posting_details)")
       .eq("status", "paid")
       .gte("paid_at", fyStart)
       .lte("paid_at", fyEnd)
@@ -44,12 +44,48 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
     }
 
-    // Build ledger entries
-    let runningBalance = 0;
-    const ledger = (subs || []).map((sub) => {
+    // Build ledger entries — consolidate grouped payments (same payment_group_id) into single rows
+    const allSubs = subs || [];
+
+    // Separate grouped and ungrouped subscriptions
+    const groupedMap = new Map<string, typeof allSubs>();
+    const ungrouped: typeof allSubs = [];
+
+    for (const sub of allSubs) {
+      if (sub.payment_group_id) {
+        const existing = groupedMap.get(sub.payment_group_id) || [];
+        existing.push(sub);
+        groupedMap.set(sub.payment_group_id, existing);
+      } else {
+        ungrouped.push(sub);
+      }
+    }
+
+    // Build consolidated entries: one row per ungrouped sub, one row per payment group
+    interface RawLedgerEntry {
+      id: string;
+      date: string;
+      description: string;
+      member_name: string;
+      member_phone: string;
+      district: string;
+      period: string;
+      credit: number;
+      debit: number;
+      balance: number;
+      payment_method: string;
+      transaction_id: string;
+      remarks: string;
+      payment_group_id: string | null;
+      linked_members: { name: string; period: string; amount: number; district: string }[];
+    }
+
+    const rawEntries: RawLedgerEntry[] = [];
+
+    // Ungrouped: one row each
+    for (const sub of ungrouped) {
       const user = sub.users as unknown as { name: string; phone: string; posting_details: { regular_district?: string } | null };
-      runningBalance += sub.amount || 0;
-      return {
+      rawEntries.push({
         id: sub.id,
         date: sub.paid_at,
         description: `Subscription - ${sub.period}`,
@@ -59,36 +95,99 @@ export async function GET(req: NextRequest) {
         period: sub.period,
         credit: sub.amount || 0,
         debit: 0,
-        balance: runningBalance,
+        balance: 0,
         payment_method: sub.payment_method || "",
         transaction_id: sub.transaction_id || "",
         remarks: sub.remarks || "",
-      };
+        payment_group_id: null,
+        linked_members: [],
+      });
+    }
+
+    // Grouped: one consolidated row per payment_group_id
+    for (const [groupId, groupSubs] of groupedMap) {
+      const totalAmount = groupSubs.reduce((sum, s) => sum + (s.amount || 0), 0);
+      // Use the earliest paid_at as the transaction date
+      const sortedByDate = [...groupSubs].sort((a, b) => new Date(a.paid_at).getTime() - new Date(b.paid_at).getTime());
+      const primary = sortedByDate[0];
+      const primaryUser = primary.users as unknown as { name: string; phone: string; posting_details: { regular_district?: string } | null };
+
+      const periods = [...new Set(groupSubs.map((s) => s.period))];
+      const memberNames = [...new Set(groupSubs.map((s) => {
+        const u = s.users as unknown as { name: string };
+        return u?.name || "Unknown";
+      }))];
+
+      const otherCount = groupSubs.length - 1;
+      const displayName = otherCount > 0
+        ? `${primaryUser?.name || "Unknown"} (+${otherCount} member${otherCount > 1 ? "s" : ""})`
+        : primaryUser?.name || "Unknown";
+
+      const description = memberNames.length > 1
+        ? `Bulk Payment - ${periods.join(", ")}`
+        : `Split Payment - ${periods.join(", ")}`;
+
+      const linkedMembers = groupSubs.map((s) => {
+        const u = s.users as unknown as { name: string; posting_details: { regular_district?: string } | null };
+        return {
+          name: u?.name || "Unknown",
+          period: s.period,
+          amount: s.amount || 0,
+          district: u?.posting_details?.regular_district || "Unassigned",
+        };
+      });
+
+      rawEntries.push({
+        id: primary.id,
+        date: primary.paid_at,
+        description,
+        member_name: displayName,
+        member_phone: primaryUser?.phone || "",
+        district: primaryUser?.posting_details?.regular_district || "Unassigned",
+        period: periods.join(", "),
+        credit: totalAmount,
+        debit: 0,
+        balance: 0,
+        payment_method: primary.payment_method || "",
+        transaction_id: primary.transaction_id || "",
+        remarks: primary.remarks || "",
+        payment_group_id: groupId,
+        linked_members: linkedMembers,
+      });
+    }
+
+    // Sort by date and compute running balance
+    rawEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let runningBalance = 0;
+    const ledger = rawEntries.map((entry) => {
+      runningBalance += entry.credit;
+      return { ...entry, balance: runningBalance };
     });
 
-    // Summary by period
+    // Summaries use individual subscriptions (not consolidated ledger) for accurate counts
     const byPeriod: Record<string, { count: number; total: number }> = {};
-    for (const entry of ledger) {
-      if (!byPeriod[entry.period]) byPeriod[entry.period] = { count: 0, total: 0 };
-      byPeriod[entry.period].count++;
-      byPeriod[entry.period].total += entry.credit;
+    for (const sub of allSubs) {
+      const period = sub.period;
+      if (!byPeriod[period]) byPeriod[period] = { count: 0, total: 0 };
+      byPeriod[period].count++;
+      byPeriod[period].total += sub.amount || 0;
     }
 
-    // Summary by district
     const byDistrict: Record<string, { count: number; total: number }> = {};
-    for (const entry of ledger) {
-      if (!byDistrict[entry.district]) byDistrict[entry.district] = { count: 0, total: 0 };
-      byDistrict[entry.district].count++;
-      byDistrict[entry.district].total += entry.credit;
+    for (const sub of allSubs) {
+      const user = sub.users as unknown as { posting_details: { regular_district?: string } | null };
+      const district = user?.posting_details?.regular_district || "Unassigned";
+      if (!byDistrict[district]) byDistrict[district] = { count: 0, total: 0 };
+      byDistrict[district].count++;
+      byDistrict[district].total += sub.amount || 0;
     }
 
-    // Monthly summary
     const byMonth: Record<string, { count: number; total: number }> = {};
-    for (const entry of ledger) {
-      const month = new Date(entry.date).toLocaleDateString("en-IN", { year: "numeric", month: "short" });
+    for (const sub of allSubs) {
+      const month = new Date(sub.paid_at).toLocaleDateString("en-IN", { year: "numeric", month: "short" });
       if (!byMonth[month]) byMonth[month] = { count: 0, total: 0 };
       byMonth[month].count++;
-      byMonth[month].total += entry.credit;
+      byMonth[month].total += sub.amount || 0;
     }
 
     const summaryByPeriod = Object.entries(byPeriod).map(([period, v]) => ({ period, ...v })).sort((a, b) => b.total - a.total);
@@ -101,7 +200,8 @@ export async function GET(req: NextRequest) {
         year,
         abstract: true,
         totalCredits: runningBalance,
-        totalTransactions: ledger.length,
+        totalSubscriptions: allSubs.length,
+        totalBankEntries: ledger.length,
         byPeriod: summaryByPeriod,
         byMonth: summaryByMonth,
         districtsCount: Object.keys(byDistrict).length,
@@ -114,7 +214,8 @@ export async function GET(req: NextRequest) {
       abstract: false,
       ledger,
       totalCredits: runningBalance,
-      totalTransactions: ledger.length,
+      totalSubscriptions: allSubs.length,
+      totalBankEntries: ledger.length,
       byPeriod: summaryByPeriod,
       byDistrict: summaryByDistrict,
       byMonth: summaryByMonth,

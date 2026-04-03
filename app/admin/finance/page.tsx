@@ -19,7 +19,17 @@ import {
   MapPin,
   FileText,
   Loader2,
+  ChevronDown,
+  ChevronRight,
+  Link2,
 } from "lucide-react";
+
+interface LinkedMember {
+  name: string;
+  period: string;
+  amount: number;
+  district: string;
+}
 
 interface LedgerEntry {
   id: string;
@@ -35,6 +45,8 @@ interface LedgerEntry {
   payment_method: string;
   transaction_id: string;
   remarks: string;
+  payment_group_id: string | null;
+  linked_members: LinkedMember[];
 }
 
 interface PeriodSummary {
@@ -65,7 +77,8 @@ export default function FinancePage() {
   const [year, setYear] = useState("2025-26");
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [totalCredits, setTotalCredits] = useState(0);
-  const [totalTransactions, setTotalTransactions] = useState(0);
+  const [totalSubscriptions, setTotalSubscriptions] = useState(0);
+  const [totalBankEntries, setTotalBankEntries] = useState(0);
   const [byPeriod, setByPeriod] = useState<PeriodSummary[]>([]);
   const [byDistrict, setByDistrict] = useState<DistrictSummary[]>([]);
   const [byMonth, setByMonth] = useState<MonthSummary[]>([]);
@@ -73,6 +86,7 @@ export default function FinancePage() {
   const [filterDistrict, setFilterDistrict] = useState("all");
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [exporting, setExporting] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -82,7 +96,8 @@ export default function FinancePage() {
       if (res.ok) {
         setLedger(data.ledger || []);
         setTotalCredits(data.totalCredits || 0);
-        setTotalTransactions(data.totalTransactions || 0);
+        setTotalSubscriptions(data.totalSubscriptions || 0);
+        setTotalBankEntries(data.totalBankEntries || 0);
         setByPeriod(data.byPeriod || []);
         setByDistrict(data.byDistrict || []);
         setByMonth(data.byMonth || []);
@@ -101,11 +116,21 @@ export default function FinancePage() {
   // Filtered ledger
   const filtered = ledger.filter((e) => {
     const q = searchQuery.trim().toLowerCase();
-    const matchesSearch = !q || e.member_name.toLowerCase().includes(q) || e.member_phone.includes(q) || e.transaction_id.toLowerCase().includes(q);
-    const matchesDistrict = filterDistrict === "all" || e.district === filterDistrict;
-    const matchesPeriod = filterPeriod === "all" || e.period === filterPeriod;
+    const linkedMatch = e.linked_members?.some((m) => m.name.toLowerCase().includes(q));
+    const matchesSearch = !q || e.member_name.toLowerCase().includes(q) || e.member_phone.includes(q) || e.transaction_id.toLowerCase().includes(q) || linkedMatch;
+    const matchesDistrict = filterDistrict === "all" || e.district === filterDistrict || e.linked_members?.some((m) => m.district === filterDistrict);
+    const matchesPeriod = filterPeriod === "all" || e.period.includes(filterPeriod) || e.linked_members?.some((m) => m.period === filterPeriod);
     return matchesSearch && matchesDistrict && matchesPeriod;
   });
+
+  function toggleGroup(id: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const filteredTotal = filtered.reduce((sum, e) => sum + e.credit, 0);
 
@@ -133,22 +158,28 @@ export default function FinancePage() {
       // Summary
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`Total Collections: Rs.${totalCredits.toLocaleString("en-IN")} | Transactions: ${totalTransactions}`, 148, 30, { align: "center" });
+      doc.text(`Total Collections: Rs.${totalCredits.toLocaleString("en-IN")} | Subscriptions: ${totalSubscriptions} | Bank Entries: ${totalBankEntries}`, 148, 30, { align: "center" });
 
       // Ledger table
       autoTable(doc, {
         startY: 36,
         head: [["#", "Date", "Member", "District", "Period", "Credit (Rs.)", "Balance (Rs.)", "Txn ID"]],
-        body: filtered.map((e, i) => [
-          i + 1,
-          new Date(e.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
-          e.member_name,
-          e.district,
-          e.period,
-          e.credit.toLocaleString("en-IN"),
-          e.balance.toLocaleString("en-IN"),
-          e.transaction_id || "-",
-        ]),
+        body: filtered.map((e, i) => {
+          let memberCol = e.member_name;
+          if (e.linked_members && e.linked_members.length > 1) {
+            memberCol += "\n" + e.linked_members.map((m) => `  - ${m.name} (${m.period}: Rs.${m.amount.toLocaleString("en-IN")})`).join("\n");
+          }
+          return [
+            i + 1,
+            new Date(e.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+            memberCol,
+            e.district,
+            e.period,
+            e.credit.toLocaleString("en-IN"),
+            e.balance.toLocaleString("en-IN"),
+            e.transaction_id || "-",
+          ];
+        }),
         theme: "grid",
         headStyles: { fillColor: [45, 106, 79], fontSize: 8 },
         bodyStyles: { fontSize: 7 },
@@ -248,7 +279,7 @@ export default function FinancePage() {
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard label="Total Collections" value={`Rs.${totalCredits.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
-        <MetricCard label="Transactions" value={totalTransactions} icon={FileText} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
+        <MetricCard label="Subscriptions" value={totalSubscriptions} subtitle={totalBankEntries !== totalSubscriptions ? `${totalBankEntries} bank entries` : undefined} icon={FileText} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
         <MetricCard label="Districts" value={districts.length} icon={MapPin} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
         <MetricCard label="Periods" value={periods.length} icon={Calendar} borderColor="border-l-amber-500" iconColor="text-amber-500/40" subtitleColor="text-amber-600" />
       </div>
@@ -362,6 +393,7 @@ export default function FinancePage() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b bg-muted/50">
+                    <th className="text-left py-2 px-2 font-semibold w-6"></th>
                     <th className="text-left py-2 px-2 font-semibold">#</th>
                     <th className="text-left py-2 px-2 font-semibold">Date</th>
                     <th className="text-left py-2 px-2 font-semibold">Member</th>
@@ -373,25 +405,55 @@ export default function FinancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((e, i) => (
-                    <tr key={e.id} className="border-b hover:bg-muted/30 transition-colors">
-                      <td className="py-2 px-2 text-muted-foreground">{i + 1}</td>
-                      <td className="py-2 px-2 whitespace-nowrap">{new Date(e.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                      <td className="py-2 px-2">
-                        <span className="font-medium">{e.member_name}</span>
-                        {e.member_phone && <span className="text-muted-foreground ml-1">({e.member_phone})</span>}
-                      </td>
-                      <td className="py-2 px-2">{e.district}</td>
-                      <td className="py-2 px-2">{e.period}</td>
-                      <td className="py-2 px-2 text-right font-medium text-green-700">{e.credit.toLocaleString("en-IN")}</td>
-                      <td className="py-2 px-2 text-right font-medium">{e.balance.toLocaleString("en-IN")}</td>
-                      <td className="py-2 px-2 text-muted-foreground">{e.transaction_id || "-"}</td>
-                    </tr>
-                  ))}
+                  {filtered.map((e, i) => {
+                    const isGrouped = e.linked_members && e.linked_members.length > 1;
+                    const isExpanded = expandedGroups.has(e.id);
+                    return (
+                      <>
+                        <tr key={e.id} className={`border-b hover:bg-muted/30 transition-colors ${isGrouped ? "cursor-pointer" : ""}`} onClick={() => isGrouped && toggleGroup(e.id)}>
+                          <td className="py-2 px-2">
+                            {isGrouped && (
+                              isExpanded ? <ChevronDown size={12} className="text-blue-600" /> : <ChevronRight size={12} className="text-blue-600" />
+                            )}
+                          </td>
+                          <td className="py-2 px-2 text-muted-foreground">{i + 1}</td>
+                          <td className="py-2 px-2 whitespace-nowrap">{new Date(e.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                          <td className="py-2 px-2">
+                            <span className="font-medium">{e.member_name}</span>
+                            {e.member_phone && <span className="text-muted-foreground ml-1">({e.member_phone})</span>}
+                            {isGrouped && (
+                              <Badge variant="outline" className="ml-1.5 text-[9px] border-blue-300 text-blue-700 bg-blue-50">
+                                <Link2 size={8} className="mr-0.5" />{e.linked_members.length} subs
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="py-2 px-2">{e.district}</td>
+                          <td className="py-2 px-2">{e.period}</td>
+                          <td className="py-2 px-2 text-right font-medium text-green-700">{e.credit.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-2 text-right font-medium">{e.balance.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-2 text-muted-foreground">{e.transaction_id || "-"}</td>
+                        </tr>
+                        {isGrouped && isExpanded && e.linked_members.map((m, mi) => (
+                          <tr key={`${e.id}-linked-${mi}`} className="bg-blue-50/50 border-b border-blue-100">
+                            <td className="py-1.5 px-2"></td>
+                            <td className="py-1.5 px-2"></td>
+                            <td className="py-1.5 px-2"></td>
+                            <td className="py-1.5 px-2 pl-6 text-blue-800">
+                              <span className="font-medium">{m.name}</span>
+                            </td>
+                            <td className="py-1.5 px-2 text-blue-700">{m.district}</td>
+                            <td className="py-1.5 px-2 text-blue-700">{m.period}</td>
+                            <td className="py-1.5 px-2 text-right text-blue-700">Rs.{m.amount.toLocaleString("en-IN")}</td>
+                            <td colSpan={2}></td>
+                          </tr>
+                        ))}
+                      </>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 bg-muted/50">
-                    <td colSpan={5} className="py-2 px-2 font-semibold text-right">Total:</td>
+                    <td colSpan={6} className="py-2 px-2 font-semibold text-right">Total:</td>
                     <td className="py-2 px-2 text-right font-bold text-green-700">Rs.{filteredTotal.toLocaleString("en-IN")}</td>
                     <td colSpan={2}></td>
                   </tr>

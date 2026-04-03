@@ -13,7 +13,7 @@ const nudgeFieldOptions = [
   { value: "Date of Birth", label: "Date of Birth *" },
   { value: "Gender", label: "Gender *" },
   { value: "Designation", label: "Designation *" },
-  { value: "Qualification", label: "Qualification" },
+  { value: "Qualification", label: "Qualification *" },
   { value: "Home Address", label: "Home Address" },
   { value: "Office Address", label: "Office Address *" },
   { value: "Posting Details", label: "Posting Details" },

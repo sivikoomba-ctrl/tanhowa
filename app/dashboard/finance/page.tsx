@@ -30,7 +30,8 @@ export default function MemberFinancePage() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState("2025-26");
   const [totalCredits, setTotalCredits] = useState(0);
-  const [totalTransactions, setTotalTransactions] = useState(0);
+  const [totalSubscriptions, setTotalSubscriptions] = useState(0);
+  const [totalBankEntries, setTotalBankEntries] = useState(0);
   const [districtsCount, setDistrictsCount] = useState(0);
   const [byPeriod, setByPeriod] = useState<PeriodSummary[]>([]);
   const [byMonth, setByMonth] = useState<MonthSummary[]>([]);
@@ -42,7 +43,8 @@ export default function MemberFinancePage() {
       const data = await res.json();
       if (res.ok) {
         setTotalCredits(data.totalCredits || 0);
-        setTotalTransactions(data.totalTransactions || 0);
+        setTotalSubscriptions(data.totalSubscriptions || 0);
+        setTotalBankEntries(data.totalBankEntries || 0);
         setDistrictsCount(data.districtsCount || 0);
         setByPeriod(data.byPeriod || []);
         setByMonth(data.byMonth || []);
@@ -94,11 +96,11 @@ export default function MemberFinancePage() {
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <MetricCard label="Total Collections" value={`Rs.${totalCredits.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
-        <MetricCard label="Transactions" value={totalTransactions} icon={FileText} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
+        <MetricCard label="Subscriptions" value={totalSubscriptions} subtitle={totalBankEntries !== totalSubscriptions ? `${totalBankEntries} bank entries` : undefined} icon={FileText} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
         <MetricCard label="Districts" value={districtsCount} icon={MapPin} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
       </div>
 
-      {totalTransactions === 0 ? (
+      {totalSubscriptions === 0 ? (
         <EmptyState icon={Landmark} title="No financial data" description={`No paid subscriptions recorded for FY ${year}`} />
       ) : (
         <>
