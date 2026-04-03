@@ -128,7 +128,7 @@ export default function DashboardHome() {
         <SectionError message="Failed to load statistics" onRetry={loadData} />
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <MetricCard label="Members" value={stats.members} subtitle="Active members" icon={UserCheck} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-primary" />
+          <MetricCard label="Members" value={`${stats.members} / 797`} subtitle={`${Math.round((stats.members / 797) * 100)}% registered · ${797 - stats.members} yet to join`} icon={UserCheck} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-primary" />
           <MetricCard label="Announcements" value={stats.announcements} subtitle="Published" icon={Megaphone} loading={!loaded} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
           <MetricCard label="Events" value={stats.events} subtitle="Total events" icon={Calendar} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
           <MetricCard label="My Contributions" value={myContributions.count} subtitle={loaded ? `${formatMinutes(myContributions.minutes)} this month` : ""} icon={Award} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
