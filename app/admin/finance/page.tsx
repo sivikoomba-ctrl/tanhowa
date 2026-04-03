@@ -160,33 +160,51 @@ export default function FinancePage() {
       doc.setFont("helvetica", "bold");
       doc.text(`Total Collections: Rs.${totalCredits.toLocaleString("en-IN")} | Subscriptions: ${totalSubscriptions} | Bank Entries: ${totalBankEntries}`, 148, 30, { align: "center" });
 
-      // Ledger table
-      autoTable(doc, {
-        startY: 36,
-        head: [["#", "Date", "Member", "District", "Period", "Credit (Rs.)", "Balance (Rs.)", "Txn ID"]],
-        body: filtered.map((e, i) => {
-          let memberCol = e.member_name;
-          if (e.linked_members && e.linked_members.length > 1) {
-            memberCol += "\n" + e.linked_members.map((m) => `  - ${m.name} (${m.period}: Rs.${m.amount.toLocaleString("en-IN")})`).join("\n");
-          }
-          return [
+      // Ledger table — expand grouped payments into main + detail rows
+      const pdfRows: { cells: (string | number)[]; isDetail?: boolean }[] = [];
+      filtered.forEach((e, i) => {
+        const isGrouped = e.linked_members && e.linked_members.length > 1;
+        pdfRows.push({
+          cells: [
             i + 1,
             new Date(e.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
-            memberCol,
+            isGrouped ? `${e.member_name} [${e.linked_members.length} subs]` : e.member_name,
             e.district,
             e.period,
             e.credit.toLocaleString("en-IN"),
             e.balance.toLocaleString("en-IN"),
             e.transaction_id || "-",
-          ];
-        }),
+          ],
+        });
+        if (isGrouped) {
+          e.linked_members.forEach((m) => {
+            pdfRows.push({
+              cells: ["", "", `    ${m.name}`, m.district, m.period, m.amount.toLocaleString("en-IN"), "", ""],
+              isDetail: true,
+            });
+          });
+        }
+      });
+
+      autoTable(doc, {
+        startY: 36,
+        head: [["#", "Date", "Member", "District", "Period", "Credit (Rs.)", "Balance (Rs.)", "Txn ID"]],
+        body: pdfRows.map((r) => r.cells),
         theme: "grid",
         headStyles: { fillColor: [45, 106, 79], fontSize: 8 },
         bodyStyles: { fontSize: 7 },
         columnStyles: {
           0: { cellWidth: 10 },
-          5: { halign: "right" },
-          6: { halign: "right" },
+          5: { halign: "right" as const },
+          6: { halign: "right" as const },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        didParseCell: (data: any) => {
+          if (data.section === "body" && pdfRows[data.row.index]?.isDetail) {
+            data.cell.styles.fillColor = [235, 245, 255];
+            data.cell.styles.textColor = [30, 64, 175];
+            data.cell.styles.fontStyle = "normal";
+          }
         },
         didDrawPage: (data: { pageNumber: number }) => {
           doc.setFontSize(7);
