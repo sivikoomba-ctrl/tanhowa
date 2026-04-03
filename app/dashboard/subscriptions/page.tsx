@@ -32,7 +32,7 @@ interface MemberInfo {
   occupation: string;
   avatar_url: string | null;
   posting_details?: { regular_district?: string; block?: string };
-  social_links?: { dues_summary?: { amount_paid?: number; additional_money?: number; proof_url?: string }; [key: string]: unknown };
+  social_links?: { dues_summary?: { amount_paid?: number; additional_money?: number; proof_url?: string; proofs?: { url: string; date: string }[] }; [key: string]: unknown };
 }
 
 interface Subscription {
@@ -85,10 +85,10 @@ export default function SubscriptionsPage() {
   const [duesAdditional, setDuesAdditional] = useState("");
   const [duesSaving, setDuesSaving] = useState(false);
   const [duesLoaded, setDuesLoaded] = useState(false);
-  const [duesProofUrl, setDuesProofUrl] = useState<string | null>(null);
+  const [duesProofs, setDuesProofs] = useState<{ url: string; date: string }[]>([]);
   const [duesProofUploading, setDuesProofUploading] = useState(false);
   const duesFileRef = useRef<HTMLInputElement>(null);
-  const [duesProofPreview, setDuesProofPreview] = useState(false);
+  const [duesProofPreview, setDuesProofPreview] = useState<string | null>(null);
 
   function downloadReceipt(sub: Subscription) {
     const doc = new jsPDF();
@@ -300,7 +300,9 @@ export default function SubscriptionsPage() {
           if (ds) {
             if (ds.amount_paid != null) setDuesPaid(String(ds.amount_paid));
             if (ds.additional_money != null) setDuesAdditional(String(ds.additional_money));
-            if (ds.proof_url) setDuesProofUrl(ds.proof_url);
+            if (Array.isArray(ds.proofs)) setDuesProofs(ds.proofs);
+            // Migrate old single proof_url
+            else if (ds.proof_url) setDuesProofs([{ url: ds.proof_url, date: new Date().toISOString() }]);
           }
           setDuesLoaded(true);
         }
@@ -342,8 +344,8 @@ export default function SubscriptionsPage() {
       const res = await fetch("/api/upload/payment-proof", { method: "POST", body: formData });
       const data = await res.json();
       if (res.ok && data.payment_proof_url) {
-        setDuesProofUrl(data.payment_proof_url);
-        toast.success("Proof uploaded!");
+        setDuesProofs((prev) => [...prev, { url: data.payment_proof_url, date: new Date().toISOString() }]);
+        toast.success("Proof uploaded! Click Save to keep it.");
       } else {
         toast.error(data.error || "Upload failed");
       }
@@ -356,24 +358,35 @@ export default function SubscriptionsPage() {
   }
 
   async function saveDuesSummary() {
+    if (!member) return;
     setDuesSaving(true);
     try {
+      const updatedSocialLinks = {
+        ...member.social_links || {},
+        dues_summary: {
+          amount_paid: duesPaidNum,
+          additional_money: duesAdditionalNum,
+          proofs: duesProofs,
+        },
+      };
       const res = await fetch("/api/users/me", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          social_links: {
-            ...member?.social_links || {},
-            dues_summary: {
-              amount_paid: duesPaidNum,
-              additional_money: duesAdditionalNum,
-              proof_url: duesProofUrl,
-            },
-          },
+          name: member.name,
+          phone: member.phone,
+          occupation: member.occupation,
+          social_links: updatedSocialLinks,
+          posting_details: member.posting_details || {},
         }),
       });
-      if (res.ok) toast.success("Due summary saved!");
-      else toast.error("Failed to save");
+      if (res.ok) {
+        toast.success("Due summary saved!");
+        setMember({ ...member, social_links: updatedSocialLinks });
+      } else {
+        const d = await res.json().catch(() => null);
+        toast.error(d?.error || "Failed to save");
+      }
     } catch {
       toast.error("Failed to save");
     } finally {
@@ -708,34 +721,43 @@ export default function SubscriptionsPage() {
                   {duesProofUploading ? (
                     <><Upload size={14} className="mr-1.5 animate-pulse" /> Uploading...</>
                   ) : (
-                    <><Upload size={14} className="mr-1.5" /> {duesProofUrl ? "Re-upload Proof" : "Attach Payment Proof"}</>
+                    <><Upload size={14} className="mr-1.5" /> Attach Payment Proof</>
                   )}
                 </Button>
-                {duesProofUrl && (
-                  <button
-                    onClick={() => setDuesProofPreview(true)}
-                    className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 px-2.5 py-1.5 rounded-lg hover:bg-green-100 transition-colors"
-                  >
-                    <Eye size={13} />
-                    <span>View Proof</span>
-                  </button>
-                )}
                 <div className="flex-1" />
                 <Button size="sm" onClick={saveDuesSummary} disabled={duesSaving} className="text-xs h-8">
                   {duesSaving ? "Saving..." : <><Save size={14} className="mr-1.5" /> Save</>}
                 </Button>
               </div>
+
+              {/* Uploaded proofs list */}
+              {duesProofs.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-[10px] text-muted-foreground font-medium">Uploaded Proofs ({duesProofs.length})</p>
+                  <div className="flex flex-wrap gap-2">
+                    {duesProofs.map((p, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setDuesProofPreview(p.url)}
+                        className="flex items-center gap-1.5 text-[10px] text-green-700 bg-green-50 px-2 py-1 rounded-lg hover:bg-green-100 transition-colors border border-green-200"
+                      >
+                        <Eye size={11} />
+                        <span>Proof {i + 1}</span>
+                        <span className="text-green-500">({new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           )}
 
           {/* Dues Proof Preview */}
-          {duesProofUrl && (
-            <PaymentProofPreviewDialog
-              open={duesProofPreview}
-              onOpenChange={setDuesProofPreview}
-              url={duesProofUrl}
-            />
-          )}
+          <PaymentProofPreviewDialog
+            open={!!duesProofPreview}
+            onOpenChange={(open) => { if (!open) setDuesProofPreview(null); }}
+            url={duesProofPreview}
+          />
         </Card>
       )}
 
