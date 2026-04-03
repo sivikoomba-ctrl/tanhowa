@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { PhotoCropDialog } from "@/components/photo-crop-dialog";
 import {
   Camera, Plus, X, AlertCircle, User, Briefcase, MapPin,
   GraduationCap, Globe, Save, Building2, ChevronDown, ChevronUp, Navigation, Bell,
@@ -142,6 +143,7 @@ export default function ProfilePage() {
   const [photoPreview, setPhotoPreview] = useState("");
   const [nudge, setNudge] = useState<{ fields: string[]; message: string } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     personal: true, qualification: true, posting: true,
   });
@@ -194,14 +196,21 @@ export default function ProfilePage() {
     }).catch(() => {});
   }, []);
 
-  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { toast.error("Image must be under 2MB"); return; }
-    setPhotoPreview(URL.createObjectURL(file));
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+    setCropSrc(URL.createObjectURL(file));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleCroppedUpload(blob: Blob) {
+    setCropSrc(null);
+    setPhotoPreview(URL.createObjectURL(blob));
     setUploadingPhoto(true);
     try {
-      const fd = new FormData(); fd.append("file", file);
+      const fd = new FormData();
+      fd.append("file", new File([blob], "photo.jpg", { type: "image/jpeg" }));
       const res = await fetch("/api/upload/avatar", { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok && profile) { setProfile({ ...profile, photo_url: data.photo_url }); toast.success("Photo updated"); }
@@ -357,7 +366,7 @@ export default function ProfilePage() {
               {photoPreview ? "Change" : "Upload"}
             </Button>
           </div>
-          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoUpload} />
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoSelect} />
           <p className="text-[10px] text-muted-foreground mt-2 text-center sm:text-right">Upload a clear passport-size photo of yourself. No group photos or landscapes. Max 2MB.</p>
         </CardContent>
       </Card>
@@ -925,6 +934,16 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Photo Crop Dialog */}
+      {cropSrc && (
+        <PhotoCropDialog
+          open={!!cropSrc}
+          imageSrc={cropSrc}
+          onCrop={handleCroppedUpload}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
 
       {/* Photo Zoom Overlay */}
       {showPhotoZoom && photoPreview && (
