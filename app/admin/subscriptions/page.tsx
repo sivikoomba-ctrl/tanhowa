@@ -1674,184 +1674,27 @@ export default function AdminSubscriptionsPage() {
             <DialogTitle>Verify & Approve Payment</DialogTitle>
           </DialogHeader>
           {payDialog && (
-            <div className="space-y-5">
-              {/* Member Info Section */}
-              <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Member Details</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="space-y-4">
+              {/* Member + Payment Summary */}
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <span className="text-muted-foreground">Name</span>
-                    <p className="font-medium">{payDialog.users?.name || "—"}</p>
+                    <p className="font-semibold">{payDialog.users?.name || "Unnamed"}</p>
+                    <p className="text-xs text-muted-foreground">{payDialog.users?.email} {payDialog.users?.phone && `| ${payDialog.users.phone}`}</p>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Email</span>
-                    <p className="font-medium">{payDialog.users?.email || "—"}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Phone</span>
-                    <p className="font-medium">{payDialog.users?.phone || "—"}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Subscription</span>
-                    <p className="font-medium">{payDialog.period} — &#8377;{payDialog.amount?.toLocaleString("en-IN")}</p>
+                  <div className="text-right shrink-0">
+                    <p className="font-semibold">&#8377;{payDialog.amount?.toLocaleString("en-IN")}</p>
+                    <p className="text-xs text-muted-foreground">{payDialog.period}</p>
                   </div>
                 </div>
+                {(payDialog.transaction_id || payDialog.payment_method || payDialog.remarks) && (
+                  <div className="mt-3 pt-3 border-t text-xs space-y-1">
+                    {payDialog.transaction_id && <p><span className="text-muted-foreground">Txn ID:</span> <span className="font-mono font-medium">{payDialog.transaction_id}</span></p>}
+                    {payDialog.payment_method && <p><span className="text-muted-foreground">Method:</span> {payDialog.payment_method}</p>}
+                    {payDialog.remarks && <p><span className="text-muted-foreground">Note:</span> {payDialog.remarks}</p>}
+                  </div>
+                )}
               </div>
-
-              {/* Member-Submitted Payment Info */}
-              <div className="rounded-xl border bg-blue-50/50 p-4 space-y-2">
-                <h3 className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Member-Submitted Details (cross-verify with proof)</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Transaction ID</span>
-                    <p className="font-mono font-medium">{payDialog.transaction_id || <span className="text-amber-600 italic">Not provided</span>}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Payment Method</span>
-                    <p className="font-medium">{payDialog.payment_method || <span className="text-amber-600 italic">Not provided</span>}</p>
-                  </div>
-                  {payDialog.remarks && (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Member Note</span>
-                      <p className="font-medium">{payDialog.remarks}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Bulk Payment — Linked Members */}
-              {payDialog.remarks && (() => {
-                // Parse structured sub_ids from remarks
-                const subIdsMatch = payDialog.remarks?.match(/\[sub_ids:([^\]]+)\]/);
-                const linkedSubIds = subIdsMatch ? subIdsMatch[1].split(",").map((s: string) => s.trim()).filter(Boolean) : [];
-
-                // Extract mentioned names from remarks, excluding the paying member
-                const behalfMatch = payDialog.remarks?.match(/Paying on behalf of:\s*(.+?)(?:\s*\[sub_ids:|$)/i);
-                const payerFull = (payDialog.users?.name || "").toLowerCase().trim();
-                const payerParts = payerFull.split(/\s+/).filter((p: string) => p.length > 1);
-                const mentionedNames = (behalfMatch
-                  ? behalfMatch[1].split(",").map((n: string) => n.trim()).filter(Boolean)
-                  : payDialog.remarks?.includes(",")
-                    ? payDialog.remarks?.split(",").map((n: string) => n.trim()).filter(Boolean) || []
-                    : []
-                ).filter((n: string) => {
-                  const nameLower = n.toLowerCase().trim();
-                  if (nameLower === payerFull) return false;
-                  return !payerParts.some((part: string) => nameLower === part);
-                });
-                const namesList = mentionedNames.join(", ");
-
-                if (mentionedNames.length === 0 && linkedSubIds.length === 0) return null;
-
-                // Find linked subscriptions from loaded data
-                const linkedSubs = linkedSubIds.length > 0
-                  ? subscriptions.filter((s) => linkedSubIds.includes(s.id))
-                  : [];
-
-                return (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
-                    <div className="flex items-start gap-2">
-                      <Users className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                        <h4 className="text-sm font-semibold text-amber-800">
-                          Bulk Payment — {linkedSubs.length > 0 ? linkedSubs.length : mentionedNames.length} Other Member{(linkedSubs.length > 0 ? linkedSubs.length : mentionedNames.length) > 1 ? "s" : ""}
-                        </h4>
-                        {linkedSubs.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {linkedSubs.map((ls) => (
-                              <div key={ls.id} className="flex items-center justify-between text-xs">
-                                <span className="font-medium">{ls.users?.name || ls.users?.email}</span>
-                                <Badge variant={ls.status === "paid" ? "default" : "outline"} className="text-[10px] h-5">
-                                  {ls.status}
-                                </Badge>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-amber-700">
-                            Members: <span className="font-semibold uppercase">{namesList}</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* One-click bulk verify for linked subs */}
-                    {linkedSubs.filter((s) => s.status !== "paid").length > 0 && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="w-full bg-green-600 hover:bg-green-700 text-xs"
-                        disabled={payLoading}
-                        onClick={async () => {
-                          if (!confirm(`Verify payment for ${linkedSubs.filter((s) => s.status !== "paid").length} linked member(s) too?`)) return;
-                          setPayLoading(true);
-                          try {
-                            const unpaidIds = linkedSubs.filter((s) => s.status !== "paid").map((s) => s.id);
-                            // Build paid_at from form
-                            let paidAt: string | undefined;
-                            if (payForm.payment_date) {
-                              const time = payForm.payment_time || "12:00";
-                              paidAt = new Date(`${payForm.payment_date}T${time}:00`).toISOString();
-                            }
-                            // Verify each linked subscription
-                            for (const subId of unpaidIds) {
-                              await fetch("/api/subscriptions", {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  id: subId,
-                                  status: "paid",
-                                  paid_at: paidAt,
-                                  payment_proof_url: payDialog.payment_proof_url,
-                                  transaction_id: payForm.transaction_id || payDialog.transaction_id,
-                                  payment_method: payForm.payment_method || payDialog.payment_method,
-                                  remarks: `Bulk payment by ${payDialog.users?.name || payDialog.users?.email}`,
-                                  ...(payForm.amount && payDialog.amount ? { amount: payDialog.amount } : {}),
-                                }),
-                              });
-                            }
-                            toast.success(`Verified ${unpaidIds.length} linked member(s)`);
-                            load();
-                          } catch {
-                            toast.error("Failed to verify linked members");
-                          }
-                          setPayLoading(false);
-                        }}
-                      >
-                        <CheckCircle2 size={14} className="mr-1" />
-                        Verify All {linkedSubs.filter((s) => s.status !== "paid").length} Linked Member{linkedSubs.filter((s) => s.status !== "paid").length > 1 ? "s" : ""}
-                      </Button>
-                    )}
-
-                    {/* Fallback: copy message for unstructured names */}
-                    {linkedSubs.length === 0 && (
-                      <div className="bg-white rounded-lg border border-amber-200 p-3">
-                        <p className="text-xs text-muted-foreground mb-1.5 font-medium">Polite message to send to the paying member:</p>
-                        <p className="text-xs text-foreground leading-relaxed">
-                          Dear {payDialog.users?.name || "Member"},<br /><br />
-                          Thank you for your bulk payment. We noticed members: <strong>{namesList}</strong>.<br /><br />
-                          Please ensure all members are registered on tanhowa.in so their subscriptions can be approved.<br /><br />
-                          Warm regards, TANHOWA Admin
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="mt-2 h-7 text-xs"
-                          onClick={() => {
-                            const msg = `Dear ${payDialog.users?.name || "Member"},\n\nThank you for your bulk payment towards TANHOWA subscription.\n\nWe noticed the following members: ${namesList}.\n\nPlease ensure all members are registered on tanhowa.in so their subscriptions can be approved.\n\nWarm regards,\nTANHOWA Admin`;
-                            navigator.clipboard.writeText(msg);
-                            toast.success("Message copied to clipboard");
-                          }}
-                        >
-                          <Copy size={12} className="mr-1" />
-                          Copy Message
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
 
               {/* Payment Proof Image */}
               {payDialog.payment_proof_url && payProofUrl && (
@@ -1896,56 +1739,35 @@ export default function AdminSubscriptionsPage() {
                 </div>
               )}
 
-              {/* Admin Verification Form */}
-              <form onSubmit={handleVerifyPaid} className="space-y-4 border-t pt-4">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Admin Verification</h3>
-
-                <div>
-                  <Label>Member Email (confirm identity) *</Label>
-                  <Input
-                    value={payForm.verified_email}
-                    onChange={(e) => setPayForm({ ...payForm, verified_email: e.target.value })}
-                    placeholder="Enter member's email"
-                    required
-                  />
-                  {payForm.verified_email && payForm.verified_email !== payDialog.users?.email && (
-                    <p className="text-xs text-red-600 mt-1 font-medium">Email does not match member record ({payDialog.users?.email})</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+              {/* Verification Form */}
+              <form onSubmit={handleVerifyPaid} className="space-y-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <Label>Transaction ID (from proof)</Label>
+                    <Label className="text-xs">Transaction ID</Label>
                     <Input
                       value={payForm.transaction_id}
                       onChange={(e) => setPayForm({ ...payForm, transaction_id: e.target.value })}
-                      placeholder="UPI ref / UTR / bank ref"
+                      placeholder="UPI ref / UTR"
                       className="font-mono"
                     />
                   </div>
                   <div>
-                    <Label>Payment Method</Label>
+                    <Label className="text-xs">Payment Method</Label>
                     <Input
                       value={payForm.payment_method}
                       onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value })}
-                      placeholder="e.g. UPI, Google Pay, NEFT"
+                      placeholder="e.g. IMPS, UPI"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <Label>Amount Paid (&#8377;)</Label>
-                  <Input
-                    type="number"
-                    value={payForm.amount}
-                    onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
-                    placeholder="e.g. 3000"
-                  />
-                  {payDialog && payDialog.amount && payForm.amount && parseFloat(payForm.amount) !== payDialog.amount && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      Subscription amount: &#8377;{payDialog.amount.toLocaleString("en-IN")} — Proof amount: &#8377;{parseFloat(payForm.amount).toLocaleString("en-IN")}
-                    </p>
-                  )}
+                  <div>
+                    <Label className="text-xs">Amount (&#8377;)</Label>
+                    <Input
+                      type="number"
+                      value={payForm.amount}
+                      onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+                      placeholder={payDialog.amount?.toString()}
+                    />
+                  </div>
                 </div>
 
                 {/* Same member, other periods (split payment across years) */}
@@ -2183,16 +2005,13 @@ export default function AdminSubscriptionsPage() {
 
                 <Button
                   type="submit"
-                  disabled={payLoading || (payForm.verified_email !== payDialog.users?.email) || (payeeInfo?.is_tanhowa_payment === false && !payeeOverride)}
+                  disabled={payLoading || (payeeInfo?.is_tanhowa_payment === false && !payeeOverride)}
                   className="w-full bg-green-600 hover:bg-green-700 h-11 text-base"
                 >
                   {payLoading ? "Verifying..." : "Confirm Payment Received"}
                 </Button>
                 {payeeInfo?.is_tanhowa_payment === false && !payeeOverride && (
                   <p className="text-xs text-red-500 text-center">Payee mismatch - check the override box above to approve anyway.</p>
-                )}
-                {payForm.verified_email && payForm.verified_email !== payDialog.users?.email && (
-                  <p className="text-xs text-red-500 text-center">Cannot approve - email mismatch. Please verify the correct member.</p>
                 )}
               </form>
             </div>
