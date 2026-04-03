@@ -35,6 +35,7 @@ import {
   PieChart,
   Landmark,
   ClipboardList,
+  Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,7 @@ const adminNavItems = [
   { href: "/admin/documents", label: "Document Vault", icon: FileText },
   { href: "/admin/subscriptions", label: "Subscriptions", icon: Wallet },
   { href: "/admin/verify-payments", label: "Verify Payments", icon: ShieldCheck },
+  { href: "/admin/district-dues", label: "District Dues", icon: Calculator },
   { href: "/admin/resolutions", label: "e-Resolutions", icon: Vote },
   { href: "/admin/polls", label: "Polls", icon: PieChart },
   { href: "/admin/todos", label: "Task List", icon: ListTodo },
