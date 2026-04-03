@@ -22,11 +22,12 @@ async function validatePortraitPhoto(buffer: Buffer, mimeType: string): Promise<
 Return ONLY a JSON object: {"valid": true/false, "reason": "string"}
 
 Rules:
-- VALID: Clear photo of a single person's face/upper body (passport style, ID photo, selfie showing face clearly, formal photo)
+- VALID: Clear photo of a single person's face/upper body (passport style, ID photo, selfie showing face clearly, formal photo). Must be ONE single photo.
 - INVALID: Group photos (multiple people), landscapes, nature, animals, objects, logos, text/documents, blurry/unclear faces, cartoons, memes
+- INVALID: Collage or multiple photos stitched together, screenshot containing multiple images, photo grid
+- INVALID: Full body photos where face is too small, photos taken from far away
 - A photo showing one person clearly (even if not perfect studio quality) is VALID
-- Be lenient with photo quality — as long as one person's face is clearly visible, it's valid
-- If invalid, explain briefly in "reason" (e.g., "This appears to be a group photo", "No person detected")`,
+- If invalid, explain briefly in "reason" (e.g., "This appears to be a group photo", "Multiple photos detected — please upload a single photo")`,
       },
     ]);
 
