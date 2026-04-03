@@ -45,6 +45,7 @@ interface Subscription {
   transaction_id: string | null;
   payment_proof_url: string | null;
   remarks: string | null;
+  paid_amount: number | null;
   created_at: string;
 }
 
@@ -529,6 +530,11 @@ export default function SubscriptionsPage() {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-sm font-medium">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
+                          {sub.paid_amount && sub.paid_amount > (sub.amount || 0) && (
+                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
+                              +&#8377;{(sub.paid_amount - (sub.amount || 0)).toLocaleString("en-IN")} extra
+                            </Badge>
+                          )}
                           {sub.due_date && (
                             <span className="text-xs text-muted-foreground">Due: {formatDate(sub.due_date)}</span>
                           )}

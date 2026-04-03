@@ -56,6 +56,7 @@ interface Subscription {
   remarks: string | null;
   approved_by: string | null;
   approved_at: string | null;
+  paid_amount: number | null;
   payment_group_id: string | null;
   created_at: string;
   users?: { name: string; email: string; phone: string; posting_details?: { regular_district?: string } };
@@ -526,7 +527,7 @@ export default function AdminSubscriptionsPage() {
         paid_at: paidAt,
         transaction_id: payForm.transaction_id || payDialog.transaction_id,
         payment_method: payForm.payment_method || payDialog.payment_method,
-        ...(payForm.amount ? { amount: parseFloat(payForm.amount) } : {}),
+        ...(payForm.amount ? { paid_amount: parseFloat(payForm.amount) } : {}),
         ...(groupId ? { payment_group_id: groupId } : {}),
       }),
     });
@@ -1352,6 +1353,11 @@ export default function AdminSubscriptionsPage() {
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">Voluntary</Badge>
                         )}
                         <span className="text-sm font-semibold">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
+                        {sub.paid_amount && sub.paid_amount > (sub.amount || 0) && (
+                          <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
+                            +&#8377;{(sub.paid_amount - (sub.amount || 0)).toLocaleString("en-IN")} extra
+                          </Badge>
+                        )}
                         {sub.due_date && <span className="text-xs text-muted-foreground">Due: {formatDate(sub.due_date)}</span>}
                         {sub.paid_at && sub.status === "paid" && <span className="text-xs text-green-600">Paid: {formatDateTime(sub.paid_at)}</span>}
                       </div>

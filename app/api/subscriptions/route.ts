@@ -400,6 +400,7 @@ export async function PUT(req: NextRequest) {
         updates.approved_at = null;
       }
     }
+    if (body.paid_amount !== undefined) updates.paid_amount = body.paid_amount;
     if (body.amount !== undefined) updates.amount = body.amount;
     if (body.payment_method !== undefined) updates.payment_method = body.payment_method;
     if (body.transaction_id !== undefined) updates.transaction_id = body.transaction_id;
