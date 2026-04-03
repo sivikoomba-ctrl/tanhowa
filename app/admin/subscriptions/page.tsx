@@ -583,6 +583,46 @@ export default function AdminSubscriptionsPage() {
         }
       }
 
+      // Auto-approve matching subscriptions (same txn ID, proof URL, or DS/DJS remark)
+      const remarksSig = payDialog.remarks?.match(/^Provisionally approved\.\s*(.+?)\.\s*\(/)?.[1] || null;
+      const autoMatches = subscriptions.filter(
+        (s) => s.id !== payDialog.id && s.status !== "paid" && s.period === payDialog.period &&
+          !adminSelectedMembers.has(s.id) && !adminSelectedPeriods.has(s.id) && (
+            (payDialog.transaction_id && s.transaction_id === payDialog.transaction_id) ||
+            (payDialog.payment_proof_url && s.payment_proof_url === payDialog.payment_proof_url) ||
+            (remarksSig && s.remarks?.includes(remarksSig))
+          )
+      );
+      if (autoMatches.length > 0) {
+        const autoGroupId = groupId || crypto.randomUUID();
+        // Also tag the primary with the group if not already
+        if (!groupId) {
+          await fetch("/api/subscriptions", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: payDialog.id, payment_group_id: autoGroupId }),
+          }).catch(() => {});
+        }
+        for (const s of autoMatches) {
+          try {
+            const r = await fetch("/api/subscriptions", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: s.id,
+                status: "paid",
+                paid_at: paidAt || new Date().toISOString(),
+                transaction_id: payForm.transaction_id || payDialog.transaction_id || s.transaction_id,
+                payment_method: payForm.payment_method || payDialog.payment_method || s.payment_method,
+                remarks: certifiedRemarks,
+                payment_group_id: autoGroupId,
+              }),
+            });
+            if (r.ok) extraCount++;
+          } catch { /* continue */ }
+        }
+      }
+
       if (extraCount > 0) {
         toast.success(`Payment verified + ${extraCount} additional subscription${extraCount > 1 ? "s" : ""}`);
       } else {
