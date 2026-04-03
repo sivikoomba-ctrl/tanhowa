@@ -191,7 +191,7 @@ export default function AdminDashboard() {
         <SectionError message="Failed to load overview metrics" onRetry={loadData} />
       ) : (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="Members" value={overview?.members.total || 0} subtitle={`+${overview?.members.newThisMonth || 0} this month`} icon={UserCheck} loading={!overview} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-green-600" />
+        <MetricCard label="Members" value={`${overview?.members.total || 0} / 797`} subtitle={`${Math.round(((overview?.members.total || 0) / 797) * 100)}% registered · ${797 - (overview?.members.total || 0)} yet to join`} icon={UserCheck} loading={!overview} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-green-600" />
         <MetricCard label="Collected" value={`₹${(overview?.subscriptions.totalCollected || 0).toLocaleString("en-IN")}`} subtitle={`${overview?.subscriptions.collectionRate || 0}% rate`} icon={IndianRupee} loading={!overview} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
         <MetricCard label="Tasks" value={overview?.tasks.total || 0} subtitle={`${overview?.tasks.completionRate || 0}% completed`} icon={ListTodo} loading={!overview} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
         <MetricCard label="Total Contributions" value={overview?.contributions.actionsThisMonth || 0} subtitle={`${formatMinutes(overview?.contributions.minutesThisMonth || 0)} this month`} icon={Award} loading={!overview} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
