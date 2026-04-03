@@ -13,6 +13,7 @@ export async function GET() {
       .from("users")
       .select("name, dob, photo_url")
       .eq("status", "approved")
+      .neq("email", "tanhowa19791@gmail.com")
       .not("dob", "is", null);
 
     if (!data || data.length === 0) return NextResponse.json({ birthdays: [] });

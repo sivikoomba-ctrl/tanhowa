@@ -16,7 +16,7 @@ export async function GET() {
       .from("users")
       .select("id, name, phone, occupation, photo_url, posting_details, created_at, last_active_at, login_count, status")
       .eq("status", "approved")
-      .neq("email", "tanhowaadmin@tanhowa.in");
+      .neq("email", "tanhowa19791@gmail.com");
 
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/reports/members", method: "GET", status_code: 500 });

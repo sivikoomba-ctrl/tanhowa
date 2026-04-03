@@ -13,7 +13,8 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const info = await getOfficialInfo(session.userId);
-    const isAdmin = info.role === "admin" || info.role === "super_admin";
+    const isSuperAdmin = info.role === "super_admin";
+    const isAdmin = info.role === "admin" || isSuperAdmin;
     const isState = info.official_type === "state";
     const isDistrict = info.official_type === "district" && !!info.district;
 
@@ -25,12 +26,21 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const districtFilter = url.searchParams.get("district");
 
+    // Non-super admins with a district are restricted to their district only
+    let userDistrict: string | null = info.district || null;
+    if (isAdmin && !isSuperAdmin && !isState && !userDistrict) {
+      const { data: adminUser } = await supabase.from("users").select("posting_details").eq("id", session.userId).single();
+      const apd = (adminUser?.posting_details || {}) as Record<string, string>;
+      userDistrict = apd.regular_district || null;
+    }
+    const isDistrictRestricted = !isSuperAdmin && !isState && !!userDistrict;
+
     // Fetch approved members
     const { data: users, error: usersErr } = await supabase
       .from("users")
       .select("id, name, phone, occupation, posting_details, social_links, official_type")
       .eq("status", "approved")
-      .neq("email", "tanhowaadmin@tanhowa.in")
+      .neq("email", "tanhowa19791@gmail.com")
       .order("name");
 
     if (usersErr) {
@@ -89,8 +99,8 @@ export async function GET(req: NextRequest) {
       const pd = (u.posting_details || {}) as Record<string, string>;
       const district = pd.regular_district || "Unassigned";
 
-      // Filter: DS/DJS only see their district
-      if (isDistrict && !isAdmin && district !== info.district) continue;
+      // Filter: DS/DJS and district-restricted admins only see their district
+      if (isDistrictRestricted && district !== userDistrict) continue;
       // Optional district filter param
       if (districtFilter && districtFilter !== "all" && district !== districtFilter) continue;
 
@@ -151,7 +161,8 @@ export async function PUT(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const info = await getOfficialInfo(session.userId);
-    const isAdmin = info.role === "admin" || info.role === "super_admin";
+    const isSuperAdmin = info.role === "super_admin";
+    const isAdmin = info.role === "admin" || isSuperAdmin;
     const isState = info.official_type === "state";
     const isDistrict = info.official_type === "district" && !!info.district;
 
@@ -164,11 +175,17 @@ export async function PUT(req: NextRequest) {
 
     const supabase = getServiceClient();
 
-    // Verify member is in DS/DJS's district (if district official)
-    if (isDistrict && !isAdmin) {
+    // District-restricted: DS/DJS or non-super admins with a district
+    let userDistrict: string | null = info.district || null;
+    if (isAdmin && !isSuperAdmin && !isState && !userDistrict) {
+      const { data: adminUser } = await supabase.from("users").select("posting_details").eq("id", session.userId).single();
+      const apd = (adminUser?.posting_details || {}) as Record<string, string>;
+      userDistrict = apd.regular_district || null;
+    }
+    if (!isSuperAdmin && !isState && userDistrict) {
       const { data: member } = await supabase.from("users").select("posting_details").eq("id", user_id).single();
       const pd = (member?.posting_details || {}) as Record<string, string>;
-      if (pd.regular_district !== info.district) {
+      if (pd.regular_district !== userDistrict) {
         return NextResponse.json({ error: "Member not in your district" }, { status: 403 });
       }
     }

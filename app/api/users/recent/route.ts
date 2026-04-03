@@ -15,6 +15,7 @@ export async function GET() {
       .from("users")
       .select("name, created_at")
       .eq("status", "approved")
+      .neq("email", "tanhowa19791@gmail.com")
       .not("name", "is", null)
       .order("created_at", { ascending: false })
       .limit(15);

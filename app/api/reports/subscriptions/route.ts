@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       .from("users")
       .select("id, name, email, phone, posting_details, occupation")
       .eq("status", "approved")
-      .neq("email", "tanhowaadmin@tanhowa.in");
+      .neq("email", "tanhowa19791@gmail.com");
 
     // Filter by district if specified
     let members = allMembers || [];

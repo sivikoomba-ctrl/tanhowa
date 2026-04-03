@@ -33,6 +33,11 @@ export async function GET(req: NextRequest) {
       query = query.eq("status", "approved");
     }
 
+    // Hide test account from regular member views
+    if (!isAdmin) {
+      query = query.neq("email", "tanhowa19791@gmail.com");
+    }
+
     if (search) {
       query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
     }

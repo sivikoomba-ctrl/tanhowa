@@ -23,13 +23,13 @@ export async function GET() {
       contributionsRes,
     ] = await Promise.all([
       // Total approved members
-      supabase.from("users").select("id, created_at, last_active_at, role", { count: "exact" }).eq("status", "approved").neq("email", "tanhowaadmin@tanhowa.in"),
+      supabase.from("users").select("id, created_at, last_active_at, role", { count: "exact" }).eq("status", "approved").neq("email", "tanhowa19791@gmail.com"),
       // Pending members
       supabase.from("users").select("id", { count: "exact", head: true }).eq("status", "pending"),
       // Active in last 7 days
       supabase.from("users").select("id", { count: "exact", head: true })
         .eq("status", "approved")
-        .neq("email", "tanhowaadmin@tanhowa.in")
+        .neq("email", "tanhowa19791@gmail.com")
         .gte("last_active_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
       // Subscriptions summary
       supabase.from("subscriptions").select("status, amount, period"),

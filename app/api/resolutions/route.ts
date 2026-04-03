@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       .from("users")
       .select("*", { count: "exact", head: true })
       .eq("status", "approved")
-      .neq("email", "tanhowaadmin@tanhowa.in");
+      .neq("email", "tanhowa19791@gmail.com");
 
     const totalMembers = memberCount || 798;
     const votesRequired = Math.floor(totalMembers / 2) + 1;
