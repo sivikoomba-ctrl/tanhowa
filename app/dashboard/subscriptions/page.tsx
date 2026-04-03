@@ -32,7 +32,7 @@ interface MemberInfo {
   occupation: string;
   avatar_url: string | null;
   posting_details?: { regular_district?: string; block?: string };
-  social_links?: { dues_summary?: { amount_paid?: number; additional_money?: number }; [key: string]: unknown };
+  social_links?: { dues_summary?: { amount_paid?: number; additional_money?: number; proof_url?: string }; [key: string]: unknown };
 }
 
 interface Subscription {
@@ -85,6 +85,10 @@ export default function SubscriptionsPage() {
   const [duesAdditional, setDuesAdditional] = useState("");
   const [duesSaving, setDuesSaving] = useState(false);
   const [duesLoaded, setDuesLoaded] = useState(false);
+  const [duesProofUrl, setDuesProofUrl] = useState<string | null>(null);
+  const [duesProofUploading, setDuesProofUploading] = useState(false);
+  const duesFileRef = useRef<HTMLInputElement>(null);
+  const [duesProofPreview, setDuesProofPreview] = useState(false);
 
   function downloadReceipt(sub: Subscription) {
     const doc = new jsPDF();
@@ -296,6 +300,7 @@ export default function SubscriptionsPage() {
           if (ds) {
             if (ds.amount_paid != null) setDuesPaid(String(ds.amount_paid));
             if (ds.additional_money != null) setDuesAdditional(String(ds.additional_money));
+            if (ds.proof_url) setDuesProofUrl(ds.proof_url);
           }
           setDuesLoaded(true);
         }
@@ -324,6 +329,32 @@ export default function SubscriptionsPage() {
   const duesAdditionalNum = Number(duesAdditional) || 0;
   const duesPending = duesTotalToPay - duesPaidNum;
 
+  async function handleDuesProofUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error("Max 10MB"); return; }
+    setDuesProofUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      // Use a dummy subscription_id — proof is stored in general bucket
+      formData.append("subscription_id", "dues-summary");
+      const res = await fetch("/api/upload/payment-proof", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok && data.payment_proof_url) {
+        setDuesProofUrl(data.payment_proof_url);
+        toast.success("Proof uploaded!");
+      } else {
+        toast.error(data.error || "Upload failed");
+      }
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setDuesProofUploading(false);
+      if (duesFileRef.current) duesFileRef.current.value = "";
+    }
+  }
+
   async function saveDuesSummary() {
     setDuesSaving(true);
     try {
@@ -336,6 +367,7 @@ export default function SubscriptionsPage() {
             dues_summary: {
               amount_paid: duesPaidNum,
               additional_money: duesAdditionalNum,
+              proof_url: duesProofUrl,
             },
           },
         }),
@@ -575,29 +607,34 @@ export default function SubscriptionsPage() {
                 TAMIL NADU HORTICULTURAL OFFICERS WELFARE ASSOCIATION
               </p>
               <div className="overflow-x-auto -mx-1">
-                <table className="w-full text-xs border-collapse min-w-[600px]">
+                <table className="w-full text-xs border-collapse min-w-[700px]">
                   <thead>
                     <tr className="bg-primary/5">
                       <th className="border px-2 py-1.5 text-left font-semibold">Description</th>
                       <th className="border px-2 py-1.5 text-right font-semibold w-28">Amount (₹)</th>
+                      <th className="border px-2 py-1.5 text-right font-semibold w-28">Extra (₹)</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       <td className="border px-2 py-1.5">Subscriptions Due up to 2025</td>
                       <td className="border px-2 py-1.5 text-right font-mono">{duesUpTo2025.toLocaleString("en-IN")}</td>
+                      <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                     </tr>
                     <tr>
                       <td className="border px-2 py-1.5">Annual Subscription 2026</td>
                       <td className="border px-2 py-1.5 text-right font-mono">{dues2026.toLocaleString("en-IN")}</td>
+                      <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                     </tr>
                     <tr>
                       <td className="border px-2 py-1.5">UATT 2.0 Case Contribution</td>
                       <td className="border px-2 py-1.5 text-right font-mono">{duesUatt.toLocaleString("en-IN")}</td>
+                      <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                     </tr>
                     <tr className="bg-primary/5 font-semibold">
                       <td className="border px-2 py-1.5">Total Amount to be Paid</td>
                       <td className="border px-2 py-1.5 text-right font-mono">{duesTotalToPay.toLocaleString("en-IN")}</td>
+                      <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                     </tr>
                     <tr className="bg-green-50">
                       <td className="border px-2 py-1.5">
@@ -616,12 +653,16 @@ export default function SubscriptionsPage() {
                           placeholder="0"
                         />
                       </td>
+                      <td className="border px-2 py-1.5 text-right font-mono text-green-600 font-semibold">
+                        {duesPaidNum > duesTotalToPay ? `+${(duesPaidNum - duesTotalToPay).toLocaleString("en-IN")}` : "—"}
+                      </td>
                     </tr>
                     <tr className={duesPending > 0 ? "bg-red-50" : "bg-green-50"}>
                       <td className="border px-2 py-1.5 font-semibold">Pending Amount</td>
                       <td className={`border px-2 py-1.5 text-right font-mono font-semibold ${duesPending > 0 ? "text-red-600" : "text-green-600"}`}>
-                        {duesPending.toLocaleString("en-IN")}
+                        {duesPending > 0 ? duesPending.toLocaleString("en-IN") : "0"}
                       </td>
+                      <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                     </tr>
                     <tr className="bg-amber-50">
                       <td className="border px-2 py-1.5">
@@ -640,16 +681,60 @@ export default function SubscriptionsPage() {
                           placeholder="0"
                         />
                       </td>
+                      <td className="border px-2 py-1.5 text-right font-mono text-amber-600 font-semibold">
+                        {duesAdditionalNum > 0 ? `+${duesAdditionalNum.toLocaleString("en-IN")}` : "—"}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <div className="flex justify-end mt-3">
+
+              {/* Payment Proof Attachment */}
+              <div className="mt-3 flex items-center gap-3 flex-wrap">
+                <input
+                  ref={duesFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleDuesProofUpload}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-8"
+                  onClick={() => duesFileRef.current?.click()}
+                  disabled={duesProofUploading}
+                >
+                  {duesProofUploading ? (
+                    <><Upload size={14} className="mr-1.5 animate-pulse" /> Uploading...</>
+                  ) : (
+                    <><Upload size={14} className="mr-1.5" /> {duesProofUrl ? "Re-upload Proof" : "Attach Payment Proof"}</>
+                  )}
+                </Button>
+                {duesProofUrl && (
+                  <button
+                    onClick={() => setDuesProofPreview(true)}
+                    className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 px-2.5 py-1.5 rounded-lg hover:bg-green-100 transition-colors"
+                  >
+                    <Eye size={13} />
+                    <span>View Proof</span>
+                  </button>
+                )}
+                <div className="flex-1" />
                 <Button size="sm" onClick={saveDuesSummary} disabled={duesSaving} className="text-xs h-8">
                   {duesSaving ? "Saving..." : <><Save size={14} className="mr-1.5" /> Save</>}
                 </Button>
               </div>
             </CardContent>
+          )}
+
+          {/* Dues Proof Preview */}
+          {duesProofUrl && (
+            <PaymentProofPreviewDialog
+              open={duesProofPreview}
+              onOpenChange={setDuesProofPreview}
+              url={duesProofUrl}
+            />
           )}
         </Card>
       )}
