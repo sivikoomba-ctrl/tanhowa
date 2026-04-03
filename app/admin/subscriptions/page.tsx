@@ -1705,12 +1705,16 @@ export default function AdminSubscriptionsPage() {
                 )}
               </div>
 
-              {/* Same Transaction ID or Proof — bulk approval */}
-              {(payDialog.transaction_id || payDialog.payment_proof_url) && (() => {
+              {/* Same payment — bulk approval (match by txn ID, proof URL, or DS/DJS approval remark) */}
+              {(() => {
+                // Extract DS/DJS approver signature from remarks (e.g., "Provisionally approved. Mr. X, TANHOWA. (03 Apr 2026)")
+                const remarksSig = payDialog.remarks?.match(/^Provisionally approved\.\s*(.+?)\.\s*\(/)?.[1] || null;
+
                 const sameTxn = subscriptions.filter(
-                  (s) => s.id !== payDialog.id && s.status !== "paid" && (
+                  (s) => s.id !== payDialog.id && s.status !== "paid" && s.period === payDialog.period && (
                     (payDialog.transaction_id && s.transaction_id === payDialog.transaction_id) ||
-                    (payDialog.payment_proof_url && s.payment_proof_url === payDialog.payment_proof_url)
+                    (payDialog.payment_proof_url && s.payment_proof_url === payDialog.payment_proof_url) ||
+                    (remarksSig && s.remarks?.includes(remarksSig))
                   )
                 );
                 if (sameTxn.length === 0) return null;
