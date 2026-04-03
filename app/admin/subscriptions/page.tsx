@@ -153,7 +153,7 @@ export default function AdminSubscriptionsPage() {
   // Page loading
   const [pageLoading, setPageLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [adminName, setAdminName] = useState("");
+  const [adminInfo, setAdminInfo] = useState<{ name: string; designation: string; district: string; isSuperAdmin: boolean }>({ name: "", designation: "", district: "", isSuperAdmin: false });
 
   // Reject dialog
   const [rejectSub, setRejectSub] = useState<Subscription | null>(null);
@@ -478,7 +478,14 @@ export default function AdminSubscriptionsPage() {
 
   useEffect(() => {
     load();
-    fetch("/api/users/me").then((r) => r.json()).then((d) => { if (d.user?.name) setAdminName(d.user.name); }).catch(() => {});
+    fetch("/api/users/me").then((r) => r.json()).then((d) => {
+      if (d.user) {
+        const pd = d.user.posting_details || {};
+        const designation = pd.official_designation || d.user.occupation || "";
+        const district = pd.regular_district || "";
+        setAdminInfo({ name: d.user.name || "", designation, district, isSuperAdmin: d.user.role === "super_admin" });
+      }
+    }).catch(() => {});
   }, []);
 
   const periods = useMemo(() => {
@@ -1557,7 +1564,14 @@ export default function AdminSubscriptionsPage() {
                             onClick={async () => {
                               setPayDialog(sub);
                               const today = new Date();
-                              const defaultRemark = sub.remarks || (adminName ? `Verified by ${adminName}, TANHOWA.` : "");
+                              let defaultRemark = sub.remarks || "";
+                              if (!defaultRemark && adminInfo.name) {
+                                const parts = [adminInfo.name];
+                                if (adminInfo.designation) parts.push(adminInfo.designation);
+                                if (!adminInfo.isSuperAdmin && adminInfo.district) parts.push(adminInfo.district);
+                                parts.push("TANHOWA");
+                                defaultRemark = `Provisionally approved. ${parts.join(", ")}.`;
+                              }
                               setPayForm({
                                 remarks: defaultRemark,
                                 payment_date: today.toISOString().split("T")[0],

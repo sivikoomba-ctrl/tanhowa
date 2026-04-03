@@ -59,7 +59,10 @@ function isDsVerified(sub: Subscription): boolean {
 
 function getDsApprover(sub: Subscription): string | null {
   const m = sub.remarks?.match(/^Provisionally approved\.\s*(.+?),\s*TANHOWA/);
-  return m ? m[1] : null;
+  if (!m) return null;
+  // Extract just the name (first part before comma)
+  const parts = m[1].split(",").map((s) => s.trim());
+  return parts[0];
 }
 
 export default function VerifyPaymentsPage() {
@@ -73,7 +76,7 @@ export default function VerifyPaymentsPage() {
   const [expandedDistrict, setExpandedDistrict] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [user, setUser] = useState<{ role: string; official_type: string | null; name: string } | null>(null);
+  const [user, setUser] = useState<{ role: string; official_type: string | null; name: string; designation: string; district: string; isSuperAdmin: boolean } | null>(null);
   const [nudgingDistrict, setNudgingDistrict] = useState<string | null>(null);
   const [uploadingSub, setUploadingSub] = useState<string | null>(null);
   const [verifyTarget, setVerifyTarget] = useState<Subscription | null>(null);
@@ -87,7 +90,19 @@ export default function VerifyPaymentsPage() {
   useEffect(() => {
     fetch("/api/users/me")
       .then((r) => r.json())
-      .then((d) => setUser(d.user ? { role: d.user.role, official_type: d.user.official_type, name: d.user.name || "" } : null))
+      .then((d) => {
+        if (d.user) {
+          const pd = d.user.posting_details || {};
+          setUser({
+            role: d.user.role,
+            official_type: d.user.official_type,
+            name: d.user.name || "",
+            designation: pd.official_designation || d.user.occupation || "",
+            district: pd.regular_district || "",
+            isSuperAdmin: d.user.role === "super_admin",
+          });
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -133,9 +148,17 @@ export default function VerifyPaymentsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedDistrict, districts]);
 
+  function buildApprovalRemark() {
+    const parts = [user?.name || "DS/DJS"];
+    if (user?.designation) parts.push(user.designation);
+    if (!user?.isSuperAdmin && user?.district) parts.push(user.district);
+    parts.push("TANHOWA");
+    const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    return `Provisionally approved. ${parts.join(", ")}. (${dateStr})`;
+  }
+
   async function handleDistrictVerify(sub: Subscription) {
-    const officialName = user?.name || "DS/DJS";
-    const remark = `Provisionally approved. ${officialName}, TANHOWA. (${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })})`;
+    const remark = buildApprovalRemark();
     const res = await fetch("/api/subscriptions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -260,8 +283,7 @@ export default function VerifyPaymentsPage() {
       }
       if (!sub) continue;
 
-      const officialName = user?.name || "DS/DJS";
-      const remark = `Provisionally approved. ${officialName}, TANHOWA. (${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })})`;
+      const remark = buildApprovalRemark();
       const res = await fetch("/api/subscriptions", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
