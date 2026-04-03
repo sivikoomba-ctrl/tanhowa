@@ -929,16 +929,27 @@ export default function ProfilePage() {
       {/* Photo Zoom Overlay */}
       {showPhotoZoom && photoPreview && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 z-50 bg-black/80 flex flex-col items-center justify-center p-4 cursor-pointer"
           onClick={() => setShowPhotoZoom(false)}
         >
+          {displayName && (
+            <p className="text-white font-bold text-lg mb-2 tracking-wide text-center uppercase" onClick={(e) => e.stopPropagation()}>
+              {displayName}
+            </p>
+          )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={photoPreview}
             alt="Profile"
-            className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain"
+            className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl object-contain"
             onClick={(e) => e.stopPropagation()}
           />
+          <button
+            className="absolute top-4 right-4 text-white/70 hover:text-white text-2xl font-bold"
+            onClick={() => setShowPhotoZoom(false)}
+          >
+            &times;
+          </button>
         </div>
       )}
     </div>
