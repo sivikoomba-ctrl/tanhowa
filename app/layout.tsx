@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import ChatbotWidget from "@/components/chatbot-widget";
 import { ErrorBoundary, GlobalErrorCatcher } from "@/components/error-boundary";
 import { SeasonalTheme } from "@/components/seasonal-theme";
+import { Snowflakes } from "@/components/snowflakes";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -56,6 +57,7 @@ export default function RootLayout({
           </GlobalErrorCatcher>
         </ErrorBoundary>
         <SeasonalTheme />
+        <Snowflakes />
         <Toaster />
         <ChatbotWidget />
       </body>
