@@ -81,83 +81,141 @@ export default function SubscriptionsPage() {
   function downloadReceipt(sub: Subscription) {
     const doc = new jsPDF();
     const name = member?.name || "Member";
+    const email = member?.email || "";
+    const phone = member?.phone || "";
     const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const paidDate = sub.paid_at ? new Date(sub.paid_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
 
     // Header
-    doc.setFontSize(18);
+    doc.setFontSize(20);
     doc.setTextColor(45, 106, 79);
-    doc.text("TANHOWA", 105, 20, { align: "center" });
-    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("TANHOWA", 105, 18, { align: "center" });
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
-    doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, 27, { align: "center" });
-    doc.text("Payment Receipt", 105, 33, { align: "center" });
+    doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, 25, { align: "center" });
+    doc.setFontSize(12);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("PAYMENT RECEIPT", 105, 33, { align: "center" });
 
-    // Divider
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120);
+    doc.text(`Receipt #: ${sub.id.substring(0, 8).toUpperCase()}`, 25, 40);
+    doc.text(`Date: ${today}`, 190, 40, { align: "right" });
+
     doc.setDrawColor(45, 106, 79);
     doc.setLineWidth(0.5);
-    doc.line(20, 37, 190, 37);
+    doc.line(20, 43, 190, 43);
 
-    // Receipt details
-    doc.setFontSize(11);
+    // Member details
+    let y = 52;
+    doc.setFontSize(9);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("MEMBER DETAILS", 25, y);
+    y += 7;
+
+    doc.setFontSize(10);
     doc.setTextColor(0);
-    let y = 48;
-    const left = 25;
-    const right = 90;
-
-    const rows: [string, string][] = [
-      ["Member Name", name],
-      ["Email", member?.email || "—"],
-      ["Phone", member?.phone || "—"],
-      ["Subscription Period", sub.period],
-      ["Amount", `Rs. ${sub.amount?.toLocaleString("en-IN") || 0}`],
-      ["Status", "Paid"],
-      ["Payment Method", sub.payment_method || "—"],
-      ["Transaction ID", sub.transaction_id || "—"],
-      ["Paid On", sub.paid_at ? new Date(sub.paid_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"],
+    const memberRows: [string, string][] = [
+      ["Name", name],
+      ["Email", email],
+      ["Phone", phone],
     ];
-
-    for (const [label, value] of rows) {
+    for (const [label, value] of memberRows) {
+      if (!value) continue;
       doc.setFont("helvetica", "bold");
-      doc.text(label, left, y);
+      doc.text(label, 25, y);
       doc.setFont("helvetica", "normal");
-      doc.text(value, right, y);
-      y += 8;
+      doc.text(value, 80, y);
+      y += 7;
     }
 
-    // Certification remark
-    if (sub.remarks?.startsWith("Verified & Certified")) {
-      y += 6;
-      doc.setDrawColor(45, 106, 79);
-      doc.setLineWidth(0.3);
+    // Payment details
+    y += 3;
+    doc.setDrawColor(220);
+    doc.setLineWidth(0.2);
+    doc.line(20, y, 190, y);
+    y += 7;
+    doc.setFontSize(9);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("PAYMENT DETAILS", 25, y);
+    y += 7;
+
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    const payRows: [string, string][] = [
+      ["Subscription Period", sub.period],
+      ["Subscription Amount", `Rs. ${(sub.amount || 0).toLocaleString("en-IN")}`],
+    ];
+    if (sub.paid_amount && sub.paid_amount !== sub.amount) {
+      payRows.push(["Amount Paid", `Rs. ${sub.paid_amount.toLocaleString("en-IN")}`]);
+      if (sub.paid_amount > (sub.amount || 0)) {
+        payRows.push(["Extra Amount", `Rs. ${(sub.paid_amount - (sub.amount || 0)).toLocaleString("en-IN")}`]);
+      }
+    }
+    payRows.push(["Status", "PAID"]);
+    if (sub.payment_method) payRows.push(["Payment Method", sub.payment_method]);
+    if (sub.transaction_id) payRows.push(["Transaction ID", sub.transaction_id]);
+    if (paidDate) payRows.push(["Payment Date", paidDate]);
+
+    for (const [label, value] of payRows) {
+      doc.setFont("helvetica", "bold");
+      doc.text(label, 25, y);
+      doc.setFont("helvetica", "normal");
+      if (label === "Status") {
+        doc.setTextColor(34, 139, 34);
+        doc.setFont("helvetica", "bold");
+      }
+      doc.text(value, 80, y);
+      doc.setTextColor(0);
+      y += 7;
+    }
+
+    // Verification
+    if (sub.remarks) {
+      y += 3;
+      doc.setDrawColor(220);
+      doc.setLineWidth(0.2);
       doc.line(20, y, 190, y);
-      y += 6;
+      y += 7;
       doc.setFontSize(9);
       doc.setTextColor(45, 106, 79);
       doc.setFont("helvetica", "bold");
-      doc.text("Verified & Certified", 25, y);
+      doc.text("VERIFICATION", 25, y);
+      y += 6;
+      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(60);
-      y += 5;
-      doc.text("1. Certified that the payment is verified with AI payment verification process.", 25, y);
-      y += 4.5;
-      doc.text("2. Amount is transferred to TANHOWA Account only.", 25, y);
-      const certMatch = sub.remarks.match(/Verified on: (.+)$/);
-      if (certMatch) { y += 4.5; doc.text("Verified on: " + certMatch[1], 25, y); }
+      const remarkLines = doc.splitTextToSize(sub.remarks, 160);
+      for (const line of remarkLines) {
+        doc.text(line, 25, y);
+        y += 4;
+      }
     }
 
-    // President title
-    y += 10;
+    // Signature
+    y += 8;
+    doc.setDrawColor(45, 106, 79);
+    doc.setLineWidth(0.3);
+    doc.line(20, y, 190, y);
+    y += 8;
     doc.setFontSize(10);
     doc.setTextColor(45, 106, 79);
     doc.setFont("helvetica", "bold");
     doc.text("President", 105, y, { align: "center" });
     y += 5;
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
     doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, y, { align: "center" });
 
     // Slogan
     y += 12;
-    doc.setFontSize(13);
+    doc.setFontSize(12);
     doc.setTextColor(34, 139, 34);
     doc.setFont("helvetica", "bold");
     doc.text("Save a print, Save a Tree.", 105, y, { align: "center" });
@@ -166,14 +224,14 @@ export default function SubscriptionsPage() {
     y += 10;
     doc.setDrawColor(200);
     doc.line(20, y, 190, y);
-    y += 6;
-    doc.setFontSize(8);
-    doc.setTextColor(120);
+    y += 5;
+    doc.setFontSize(7);
+    doc.setTextColor(140);
     doc.setFont("helvetica", "normal");
-    doc.text(`Generated on ${today} from tanhowa.in`, 105, y, { align: "center" });
-    doc.text("This is a computer-generated receipt and does not require a signature.", 105, y + 4, { align: "center" });
+    doc.text(`Receipt #${sub.id.substring(0, 8).toUpperCase()} | Generated on ${today} from tanhowa.in`, 105, y, { align: "center" });
+    doc.text("This is a computer-generated receipt and does not require a physical signature.", 105, y + 3.5, { align: "center" });
 
-    doc.save(`TANHOWA-Receipt-${sub.period.replace(/\s+/g, "-")}.pdf`);
+    doc.save(`TANHOWA-Receipt-${name.replace(/\s+/g, "-")}-${sub.period.replace(/\s+/g, "-")}.pdf`);
   }
 
   const [emailingSub, setEmailingSub] = useState<string | null>(null);
