@@ -33,6 +33,7 @@ import {
   MessageCircle,
   AlertCircle,
   PieChart,
+  Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +56,7 @@ const adminNavItems = [
   { href: "/admin/vouchers", label: "Expense Vouchers", icon: Receipt },
   { href: "/admin/contributions", label: "Contributions", icon: Award },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
+  { href: "/admin/finance", label: "Finance", icon: Landmark },
   { href: "/admin/nearby", label: "Nearby Members", icon: Navigation },
   { href: "/admin/error-logs", label: "Error Logs", icon: AlertCircle },
   { href: "/admin/settings", label: "Settings", icon: Settings },
