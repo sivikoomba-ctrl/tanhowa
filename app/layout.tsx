@@ -3,6 +3,7 @@ import { Poppins, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import ChatbotWidget from "@/components/chatbot-widget";
 import { ErrorBoundary, GlobalErrorCatcher } from "@/components/error-boundary";
+import { SeasonalTheme } from "@/components/seasonal-theme";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -54,6 +55,7 @@ export default function RootLayout({
             {children}
           </GlobalErrorCatcher>
         </ErrorBoundary>
+        <SeasonalTheme />
         <Toaster />
         <ChatbotWidget />
       </body>
