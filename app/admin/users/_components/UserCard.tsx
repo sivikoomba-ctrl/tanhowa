@@ -187,10 +187,11 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onNudgeClick(); }}
-                  className="text-[10px] text-amber-600 hover:text-amber-800 hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 hover:bg-amber-100 cursor-pointer"
                   title="Click to request these fields"
                 >
-                  Missing: {profile.missing.join(", ")}
+                  <Send size={8} />
+                  {profile.missing.join(", ")}
                 </button>
               )}
             </div>
