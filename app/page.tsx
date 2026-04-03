@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Flower2, Mail } from "lucide-react";
+import { Flower2, Mail, Smartphone } from "lucide-react";
 
 const categories = [
   {
@@ -280,6 +280,19 @@ export default function LandingPage() {
                 </p>
               </CardContent>
             </Card>
+
+            {/* PWA Install Banner */}
+            <div className="w-full max-w-sm mt-5 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <Smartphone size={18} className="text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-primary">Install TANHOWA App</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                    Open <span className="font-medium">tanhowa.in</span> in Chrome/Safari, tap the menu and select <span className="font-medium">&quot;Add to Home Screen&quot;</span> for the best experience.
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* Our Domains divider */}
             <div className="hidden lg:flex items-center gap-4 mt-10">
