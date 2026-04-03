@@ -99,6 +99,7 @@ export default function AdminSubscriptionsPage() {
   const [payProofUrl, setPayProofUrl] = useState<string | null>(null);
   const [extractingDate, setExtractingDate] = useState(false);
   const [payeeInfo, setPayeeInfo] = useState<{ paid_to: string | null; paid_account: string | null; is_tanhowa_payment: boolean } | null>(null);
+  const [payeeOverride, setPayeeOverride] = useState(false);
 
   // Admin member picker for bulk payments
   const [adminSelectedMembers, setAdminSelectedMembers] = useState<Set<string>>(new Set());
@@ -491,8 +492,8 @@ export default function AdminSubscriptionsPage() {
   async function handleVerifyPaid(e: React.FormEvent) {
     e.preventDefault();
     if (!payDialog) return;
-    if (payeeInfo?.is_tanhowa_payment === false) {
-      toast.error("Approval blocked because the extracted payee does not match TANHOWA.");
+    if (payeeInfo?.is_tanhowa_payment === false && !payeeOverride) {
+      toast.error("Approval blocked — use the override checkbox to approve anyway.");
       return;
     }
     setPayLoading(true);
@@ -508,7 +509,12 @@ export default function AdminSubscriptionsPage() {
     const hasLinked = adminSelectedMembers.size > 0 || adminSelectedPeriods.size > 0;
     const groupId = hasLinked ? crypto.randomUUID() : undefined;
 
-    const certifiedRemarks = buildCertifiedRemarks(payForm.remarks || payDialog.remarks);
+    let remarkBase = payForm.remarks || payDialog.remarks;
+    if (payeeOverride && payeeInfo?.is_tanhowa_payment === false) {
+      const overrideNote = `[OVERRIDE] Payee mismatch overridden — paid to: ${payeeInfo.paid_to || "unknown"}, account: ${payeeInfo.paid_account || "unknown"}`;
+      remarkBase = remarkBase ? `${remarkBase}. ${overrideNote}` : overrideNote;
+    }
+    const certifiedRemarks = buildCertifiedRemarks(remarkBase);
 
     const res = await fetch("/api/subscriptions", {
       method: "PUT",
@@ -1662,7 +1668,7 @@ export default function AdminSubscriptionsPage() {
       </Tabs>
 
       {/* Verify Payment Dialog */}
-      <Dialog open={!!payDialog} onOpenChange={(open) => { if (!open) { setPayDialog(null); setPayeeInfo(null); } }}>
+      <Dialog open={!!payDialog} onOpenChange={(open) => { if (!open) { setPayDialog(null); setPayeeInfo(null); setPayeeOverride(false); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Verify & Approve Payment</DialogTitle>
@@ -2128,7 +2134,20 @@ export default function AdminSubscriptionsPage() {
                       </p>
                       {payeeInfo.paid_to && <p className={payeeInfo.is_tanhowa_payment ? "text-green-700" : "text-red-700"}>Paid to: {payeeInfo.paid_to}</p>}
                       {payeeInfo.paid_account && <p className={payeeInfo.is_tanhowa_payment ? "text-green-700" : "text-red-700"}>Account: {payeeInfo.paid_account}</p>}
-                      {!payeeInfo.is_tanhowa_payment && <p className="text-red-700 font-medium mt-1">This payment appears to be a person-to-person transaction, not to TANHOWA. Approval is blocked until a valid TANHOWA proof is provided.</p>}
+                      {!payeeInfo.is_tanhowa_payment && (
+                        <>
+                          <p className="text-red-700 font-medium mt-1">This payment appears to be a person-to-person transaction, not to TANHOWA.</p>
+                          <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={payeeOverride}
+                              onChange={(e) => setPayeeOverride(e.target.checked)}
+                              className="rounded border-red-400 text-red-600 focus:ring-red-500"
+                            />
+                            <span className="text-red-800 font-semibold text-[11px]">Override &amp; approve anyway (I have verified this payment manually)</span>
+                          </label>
+                        </>
+                      )}
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">
@@ -2164,16 +2183,16 @@ export default function AdminSubscriptionsPage() {
 
                 <Button
                   type="submit"
-                  disabled={payLoading || (payForm.verified_email !== payDialog.users?.email) || payeeInfo?.is_tanhowa_payment === false}
+                  disabled={payLoading || (payForm.verified_email !== payDialog.users?.email) || (payeeInfo?.is_tanhowa_payment === false && !payeeOverride)}
                   className="w-full bg-green-600 hover:bg-green-700 h-11 text-base"
                 >
                   {payLoading ? "Verifying..." : "Confirm Payment Received"}
                 </Button>
-                {payeeInfo?.is_tanhowa_payment === false && (
-                  <p className="text-xs text-red-500 text-center">Cannot approve â€” the extracted payee does not match TANHOWA.</p>
+                {payeeInfo?.is_tanhowa_payment === false && !payeeOverride && (
+                  <p className="text-xs text-red-500 text-center">Payee mismatch - check the override box above to approve anyway.</p>
                 )}
                 {payForm.verified_email && payForm.verified_email !== payDialog.users?.email && (
-                  <p className="text-xs text-red-500 text-center">Cannot approve — email mismatch. Please verify the correct member.</p>
+                  <p className="text-xs text-red-500 text-center">Cannot approve - email mismatch. Please verify the correct member.</p>
                 )}
               </form>
             </div>

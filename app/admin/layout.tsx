@@ -34,6 +34,7 @@ import {
   AlertCircle,
   PieChart,
   Landmark,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +59,7 @@ const adminNavItems = [
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/finance", label: "Finance", icon: Landmark },
   { href: "/admin/nearby", label: "Nearby Members", icon: Navigation },
+  { href: "/admin/audit-logs", label: "Audit Log", icon: ClipboardList },
   { href: "/admin/error-logs", label: "Error Logs", icon: AlertCircle },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];

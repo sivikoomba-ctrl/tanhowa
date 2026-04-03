@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
   Camera, Plus, X, AlertCircle, User, Briefcase, MapPin,
-  GraduationCap, Globe, Save, Building2, ChevronDown, ChevronUp, Navigation,
+  GraduationCap, Globe, Save, Building2, ChevronDown, ChevronUp, Navigation, Bell,
 } from "lucide-react";
 import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
 
@@ -135,6 +135,8 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [locationSharing, setLocationSharing] = useState(false);
+  const [notifPrefs, setNotifPrefs] = useState({ email: true, telegram: true, in_app: true });
+  const [notifSaving, setNotifSaving] = useState(false);
   const [locationToggling, setLocationToggling] = useState(false);
   const [showPhotoZoom, setShowPhotoZoom] = useState(false);
   const [photoPreview, setPhotoPreview] = useState("");
@@ -186,6 +188,10 @@ export default function ProfilePage() {
         if (d.user.location_sharing) setLocationSharing(true);
       }
     }).catch(() => toast.error("Failed to load profile"));
+    // Load notification preferences
+    fetch("/api/notification-prefs").then((r) => r.json()).then((d) => {
+      if (d.prefs) setNotifPrefs(d.prefs);
+    }).catch(() => {});
   }, []);
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -863,6 +869,59 @@ export default function ProfilePage() {
             >
               {locationToggling ? "..." : locationSharing ? "Enabled" : "Enable"}
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notification Preferences */}
+      <Card className="mt-4">
+        <CardContent className="pt-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
+              <Bell size={18} className="text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Notification Preferences</p>
+              <p className="text-xs text-muted-foreground">Choose how you want to receive notifications</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {[
+              { key: "email" as const, label: "Email Notifications", desc: "Announcements, payment updates, task alerts" },
+              { key: "telegram" as const, label: "Telegram Notifications", desc: "Real-time task and payment alerts via bot" },
+              { key: "in_app" as const, label: "In-App Notifications", desc: "Bell icon alerts within the portal" },
+            ].map((item) => (
+              <div key={item.key} className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-sm font-medium">{item.label}</p>
+                  <p className="text-[11px] text-muted-foreground">{item.desc}</p>
+                </div>
+                <Button
+                  variant={notifPrefs[item.key] ? "default" : "outline"}
+                  size="sm"
+                  disabled={notifSaving}
+                  className={notifPrefs[item.key] ? "bg-primary hover:bg-primary/90" : ""}
+                  onClick={async () => {
+                    setNotifSaving(true);
+                    const updated = { ...notifPrefs, [item.key]: !notifPrefs[item.key] };
+                    const res = await fetch("/api/notification-prefs", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(updated),
+                    });
+                    if (res.ok) {
+                      setNotifPrefs(updated);
+                      toast.success(`${item.label} ${updated[item.key] ? "enabled" : "disabled"}`);
+                    } else {
+                      toast.error("Failed to update");
+                    }
+                    setNotifSaving(false);
+                  }}
+                >
+                  {notifPrefs[item.key] ? "On" : "Off"}
+                </Button>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

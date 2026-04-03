@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Megaphone, Plus, Clock, UserPlus, CheckCheck } from "lucide-react";
+import { Megaphone, Plus, Clock, UserPlus, CheckCheck, Search } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 
@@ -48,6 +48,7 @@ export default function AnnouncementsPage() {
   const [creating, setCreating] = useState(false);
   const [recentMembers, setRecentMembers] = useState<RecentMember[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
 
   const markAsRead = useCallback((id: string) => {
     if (readIds.has(id)) return;
@@ -122,7 +123,12 @@ export default function AnnouncementsPage() {
     return Object.entries(groups);
   }
 
-  const grouped = groupByMonth(announcements);
+  const filteredAnnouncements = announcements.filter((a) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return a.title.toLowerCase().includes(q) || a.content?.toLowerCase().includes(q) || a.users?.name?.toLowerCase().includes(q);
+  });
+  const grouped = groupByMonth(filteredAnnouncements);
 
   return (
     <div className="space-y-6">
@@ -130,7 +136,11 @@ export default function AnnouncementsPage() {
         <div>
           <h1 className="text-2xl font-bold">Announcements</h1>
           {announcements.length > 0 && (
-            <p className="text-sm text-muted-foreground mt-0.5">{announcements.length} announcement{announcements.length !== 1 ? "s" : ""}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {filteredAnnouncements.length !== announcements.length
+                ? `${filteredAnnouncements.length} of ${announcements.length} announcements`
+                : `${announcements.length} announcement${announcements.length !== 1 ? "s" : ""}`}
+            </p>
           )}
         </div>
         {canCreate && (
@@ -152,6 +162,19 @@ export default function AnnouncementsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Search */}
+      {announcements.length > 3 && (
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search announcements..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
 
       {/* New Members Ticker */}
       {recentMembers.length > 0 && (

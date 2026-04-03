@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { MessageSquareWarning, Trash2 } from "lucide-react";
+import { MessageSquareWarning, Trash2, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 const statusOptions = [
@@ -25,12 +25,27 @@ const statusColors: Record<string, string> = {
   rejected: "destructive",
 };
 
+const priorityOptions = [
+  { value: "low", label: "Low", icon: ArrowDown, color: "text-blue-600" },
+  { value: "medium", label: "Medium", icon: ArrowRight, color: "text-amber-600" },
+  { value: "high", label: "High", icon: ArrowUp, color: "text-red-600" },
+];
+
+function getDaysPending(createdAt: string, status: string): { days: number; label: string; color: string } | null {
+  if (status === "resolved" || status === "rejected") return null;
+  const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000);
+  if (days <= 3) return { days, label: `${days}d`, color: "text-green-600 bg-green-50" };
+  if (days <= 7) return { days, label: `${days}d`, color: "text-amber-600 bg-amber-50" };
+  return { days, label: `${days}d`, color: "text-red-600 bg-red-50" };
+}
+
 interface Grievance {
   id: string;
   subject: string;
   description: string;
   category: string;
   status: string;
+  priority: string;
   admin_remarks: string;
   submitted_by: string;
   created_at: string;
@@ -62,6 +77,18 @@ export default function AdminGrievancesPage() {
     });
     if (res.ok) {
       toast.success(`Status updated to ${status.replace("_", " ")}`);
+      load();
+    }
+  }
+
+  async function handlePriorityChange(id: string, priority: string) {
+    const res = await fetch("/api/grievances", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, priority }),
+    });
+    if (res.ok) {
+      toast.success(`Priority set to ${priority}`);
       load();
     }
   }
@@ -122,6 +149,24 @@ export default function AdminGrievancesPage() {
                               <Badge variant={statusColors[g.status] as "default" | "secondary" | "outline" | "destructive"} className="text-xs">
                                 {statusOptions.find((s) => s.value === g.status)?.label || g.status}
                               </Badge>
+                              {(() => {
+                                const pri = priorityOptions.find((p) => p.value === (g.priority || "medium"));
+                                const Icon = pri?.icon || ArrowRight;
+                                return (
+                                  <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${pri?.color || "text-amber-600"}`}>
+                                    <Icon size={10} />{pri?.label || "Medium"}
+                                  </span>
+                                );
+                              })()}
+                              {(() => {
+                                const sla = getDaysPending(g.created_at, g.status);
+                                if (!sla) return null;
+                                return (
+                                  <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded ${sla.color}`}>
+                                    <AlertTriangle size={9} />{sla.label} pending
+                                  </span>
+                                );
+                              })()}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">{g.description}</p>
                             <div className="flex flex-wrap items-center gap-2 mt-1.5">
@@ -134,6 +179,19 @@ export default function AdminGrievancesPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          <Select
+                            value={g.priority || "medium"}
+                            onValueChange={(val) => handlePriorityChange(g.id, val)}
+                          >
+                            <SelectTrigger className="w-[100px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {priorityOptions.map((p) => (
+                                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <Select
                             value={g.status}
                             onValueChange={(val) => handleStatusChange(g.id, val)}

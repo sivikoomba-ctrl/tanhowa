@@ -12,14 +12,22 @@ export async function GET(req: NextRequest) {
 
     const supabase = getServiceClient();
     const url = new URL(req.url);
-    const limit = parseInt(url.searchParams.get("limit") || "100");
+    const limit = parseInt(url.searchParams.get("limit") || "200");
+    const action = url.searchParams.get("action");
+    const targetType = url.searchParams.get("target_type");
+    const search = url.searchParams.get("search");
 
-    const { data } = await supabase
+    let query = supabase
       .from("audit_logs")
-      .select("*, users!audit_logs_user_id_fkey(name)")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(limit);
 
+    if (action) query = query.eq("action", action);
+    if (targetType) query = query.eq("target_type", targetType);
+    if (search) query = query.or(`user_name.ilike.%${search}%,user_email.ilike.%${search}%,action.ilike.%${search}%`);
+
+    const { data } = await query;
     return NextResponse.json({ logs: data || [] });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";

@@ -76,7 +76,24 @@ function hasSocial(s?: { instagram?: string; twitter?: string; linkedin?: string
   return !!(s.instagram || s.twitter || s.linkedin);
 }
 
+function getProfileCompleteness(u: User): { percent: number; missing: string[] } {
+  const fields: { key: string; label: string; check: boolean }[] = [
+    { key: "name", label: "Name", check: !!u.name?.trim() },
+    { key: "phone", label: "Phone", check: !!u.phone?.trim() },
+    { key: "dob", label: "Date of Birth", check: !!u.dob },
+    { key: "occupation", label: "Designation", check: !!u.occupation?.trim() },
+    { key: "photo", label: "Photo", check: !!u.photo_url },
+    { key: "office_address", label: "Office Address", check: !!u.office_address?.trim() },
+    { key: "posting", label: "Posting Details", check: hasPosting(u.posting_details) },
+    { key: "address", label: "Home Address", check: !!u.address?.trim() },
+  ];
+  const filled = fields.filter((f) => f.check).length;
+  const missing = fields.filter((f) => !f.check).map((f) => f.label);
+  return { percent: Math.round((filled / fields.length) * 100), missing };
+}
+
 export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpandToggle, onSelectToggle, onAction, onEditClick, onNudgeClick, onPhotoZoom }: UserCardProps) {
+  const profile = getProfileCompleteness(u);
   return (
     <Card className={isSelected ? "border-primary/50 bg-primary/[0.02]" : ""}>
       <CardContent className="pt-4">
@@ -139,6 +156,14 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                 Missing: {[!u.name?.trim() && "Name", !u.occupation?.trim() && "Designation"].filter(Boolean).join(", ")}
               </p>
             )}
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden" title={`Profile: ${profile.percent}%${profile.missing.length > 0 ? ` | Missing: ${profile.missing.join(", ")}` : ""}`}>
+                <div className={`h-full rounded-full transition-all ${profile.percent === 100 ? "bg-green-500" : profile.percent >= 75 ? "bg-blue-500" : profile.percent >= 50 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${profile.percent}%` }} />
+              </div>
+              <span className={`text-[10px] font-medium ${profile.percent === 100 ? "text-green-600" : profile.percent >= 75 ? "text-blue-600" : profile.percent >= 50 ? "text-amber-600" : "text-red-600"}`}>
+                {profile.percent}%
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground mt-1">
               Joined: {formatDate(u.created_at)}
               {u.last_active_at && (

@@ -103,6 +103,7 @@ export async function PUT(req: NextRequest) {
     const updates: Record<string, string> = { updated_at: new Date().toISOString() };
     if (body.status) updates.status = body.status;
     if (body.admin_remarks !== undefined) updates.admin_remarks = body.admin_remarks;
+    if (body.priority) updates.priority = body.priority;
 
     const { error } = await supabase
       .from("grievances")
