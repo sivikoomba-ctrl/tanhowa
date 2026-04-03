@@ -182,7 +182,7 @@ export async function GET(req: NextRequest) {
 }
 
 // Client-side contribution logging (e.g., document downloads)
-const ALLOWED_CLIENT_ACTIONS: ContributionAction[] = ["document_downloaded"];
+const ALLOWED_CLIENT_ACTIONS: ContributionAction[] = ["document_downloaded", "used_ai_voice_notes"];
 
 export async function POST(req: NextRequest) {
   try {

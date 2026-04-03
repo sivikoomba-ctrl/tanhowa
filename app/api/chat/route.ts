@@ -1,29 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGemini, SYSTEM_PROMPT } from "@/lib/gemini";
 import { logError } from "@/lib/error-logger";
+import { createRateLimiter } from "@/lib/rate-limit";
 
-// Simple rate limiting: track requests per IP
-const rateLimit = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimit.get(ip);
-
-  if (!entry || now > entry.resetAt) {
-    rateLimit.set(ip, { count: 1, resetAt: now + 60000 });
-    return true;
-  }
-
-  if (entry.count >= 20) return false;
-  entry.count++;
-  return true;
-}
+const limiter = createRateLimiter(20);
 
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || "unknown";
 
-    if (!checkRateLimit(ip)) {
+    if (!limiter.check(ip)) {
       return NextResponse.json(
         { error: "Too many requests. Please wait a moment." },
         { status: 429 }

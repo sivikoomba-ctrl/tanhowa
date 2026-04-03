@@ -24,7 +24,12 @@ export type ContributionAction =
   | "profile_updated"
   | "expense_voucher_submitted"
   | "member_profile_edited"
-  | "document_downloaded";
+  | "document_downloaded"
+  | "used_ai_pest_id"
+  | "used_ai_crop_advice"
+  | "used_ai_translation"
+  | "used_ai_ocr"
+  | "used_ai_voice_notes";
 
 const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number }> = {
   payment_proof_uploaded:  { label: "Uploaded payment proof", minutes: 5 },
@@ -51,6 +56,11 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   expense_voucher_submitted: { label: "Submitted expense voucher", minutes: 5 },
   member_profile_edited:    { label: "Edited member profile", minutes: 3 },
   document_downloaded:      { label: "Downloaded document", minutes: 1 },
+  used_ai_pest_id:          { label: "Used AI Pest Identifier", minutes: 2 },
+  used_ai_crop_advice:      { label: "Used AI Crop Adviser", minutes: 2 },
+  used_ai_translation:      { label: "Used AI Translation", minutes: 1 },
+  used_ai_ocr:              { label: "Used AI OCR", minutes: 1 },
+  used_ai_voice_notes:      { label: "Used AI Voice Notes", minutes: 1 },
 };
 
 export function getActionConfig(action: ContributionAction) {

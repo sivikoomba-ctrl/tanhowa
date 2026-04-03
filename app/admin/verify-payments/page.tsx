@@ -58,7 +58,7 @@ function isDsVerified(sub: Subscription): boolean {
 }
 
 function getDsApprover(sub: Subscription): string | null {
-  const m = sub.remarks?.match(/^Provisionally approved\.\s*(.+?),\s*TANHOWA/);
+  const m = sub.remarks?.match(/^Provisionally approved\.\s*-?\s*(.+?),\s*TANHOWA/);
   if (!m) return null;
   // Extract just the name (first part before comma)
   const parts = m[1].split(",").map((s) => s.trim());
@@ -154,7 +154,7 @@ export default function VerifyPaymentsPage() {
     if (!user?.isSuperAdmin && user?.district) parts.push(user.district);
     parts.push("TANHOWA");
     const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-    return `Provisionally approved. ${parts.join(", ")}. (${dateStr})`;
+    return `Provisionally approved. - ${parts.join(", ")}. (${dateStr})`;
   }
 
   async function handleDistrictVerify(sub: Subscription) {

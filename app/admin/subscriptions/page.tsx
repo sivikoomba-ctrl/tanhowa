@@ -1570,7 +1570,7 @@ export default function AdminSubscriptionsPage() {
                                 if (adminInfo.designation) parts.push(adminInfo.designation);
                                 if (!adminInfo.isSuperAdmin && adminInfo.district) parts.push(adminInfo.district);
                                 parts.push("TANHOWA");
-                                defaultRemark = `Provisionally approved. ${parts.join(", ")}.`;
+                                defaultRemark = `Provisionally approved. - ${parts.join(", ")}.`;
                               }
                               setPayForm({
                                 remarks: defaultRemark,
