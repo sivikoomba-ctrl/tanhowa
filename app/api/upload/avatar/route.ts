@@ -1,7 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
+import { getGemini } from "@/lib/gemini";
 import { logError } from "@/lib/error-logger";
+
+async function validatePortraitPhoto(buffer: Buffer, mimeType: string): Promise<{ valid: boolean; reason: string }> {
+  try {
+    const genAI = getGemini();
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          data: buffer.toString("base64"),
+          mimeType,
+        },
+      },
+      {
+        text: `Analyze this image and determine if it is a valid passport-style portrait photo of a single person.
+
+Return ONLY a JSON object: {"valid": true/false, "reason": "string"}
+
+Rules:
+- VALID: Clear photo of a single person's face/upper body (passport style, ID photo, selfie showing face clearly, formal photo)
+- INVALID: Group photos (multiple people), landscapes, nature, animals, objects, logos, text/documents, blurry/unclear faces, cartoons, memes
+- A photo showing one person clearly (even if not perfect studio quality) is VALID
+- Be lenient with photo quality — as long as one person's face is clearly visible, it's valid
+- If invalid, explain briefly in "reason" (e.g., "This appears to be a group photo", "No person detected")`,
+      },
+    ]);
+
+    const text = result.response.text().trim();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { valid: true, reason: "" }; // Default to valid if parsing fails
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return { valid: !!parsed.valid, reason: parsed.reason || "" };
+  } catch {
+    // If AI validation fails, allow the upload (don't block on AI errors)
+    return { valid: true, reason: "" };
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,11 +67,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Image must be under 2MB" }, { status: 400 });
     }
 
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // AI validation: check if it's a clear portrait photo
+    const validation = await validatePortraitPhoto(buffer, file.type);
+    if (!validation.valid) {
+      return NextResponse.json({
+        error: `Please upload a clear photo of yourself. ${validation.reason}`,
+        validation_failed: true,
+      }, { status: 400 });
+    }
+
     const supabase = getServiceClient();
     const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
     const fileName = `${session.userId}.${ext}`;
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
 
     // Upload to Supabase Storage
     let { error: uploadError } = await supabase.storage

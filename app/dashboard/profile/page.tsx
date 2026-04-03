@@ -358,7 +358,7 @@ export default function ProfilePage() {
             </Button>
           </div>
           <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoUpload} />
-          <p className="text-[10px] text-muted-foreground mt-2 text-center sm:text-right">JPEG, PNG or WebP. Max 2MB.</p>
+          <p className="text-[10px] text-muted-foreground mt-2 text-center sm:text-right">Upload a clear passport-size photo of yourself. No group photos or landscapes. Max 2MB.</p>
         </CardContent>
       </Card>
 
