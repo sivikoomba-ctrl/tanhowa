@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Send, X, GripHorizontal } from "lucide-react";
 
 const nudgeFieldOptions = [
+  { value: "Title", label: "Title (Mr./Mrs./Dr.)" },
   { value: "Name", label: "Name *" },
   { value: "Phone", label: "Phone *" },
   { value: "Date of Birth", label: "Date of Birth *" },
