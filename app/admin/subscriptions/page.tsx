@@ -153,6 +153,7 @@ export default function AdminSubscriptionsPage() {
   // Page loading
   const [pageLoading, setPageLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [adminName, setAdminName] = useState("");
 
   // Reject dialog
   const [rejectSub, setRejectSub] = useState<Subscription | null>(null);
@@ -477,6 +478,7 @@ export default function AdminSubscriptionsPage() {
 
   useEffect(() => {
     load();
+    fetch("/api/users/me").then((r) => r.json()).then((d) => { if (d.user?.name) setAdminName(d.user.name); }).catch(() => {});
   }, []);
 
   const periods = useMemo(() => {
@@ -1555,8 +1557,9 @@ export default function AdminSubscriptionsPage() {
                             onClick={async () => {
                               setPayDialog(sub);
                               const today = new Date();
+                              const defaultRemark = sub.remarks || (adminName ? `Verified by ${adminName}, TANHOWA.` : "");
                               setPayForm({
-                                remarks: sub.remarks || "",
+                                remarks: defaultRemark,
                                 payment_date: today.toISOString().split("T")[0],
                                 payment_time: today.toTimeString().slice(0, 5),
                                 verified_email: sub.users?.email || "",
