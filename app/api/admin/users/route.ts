@@ -121,11 +121,15 @@ export async function PUT(req: NextRequest) {
       if (!fields || !Array.isArray(fields) || fields.length === 0) {
         return NextResponse.json({ error: "At least one field is required" }, { status: 400 });
       }
+      // Merge with existing nudge fields instead of overwriting
+      const { data: existingUser } = await supabase.from("users").select("profile_nudge").eq("id", userId).single();
+      const existing = (existingUser?.profile_nudge as { fields?: string[] } | null)?.fields || [];
+      const mergedFields = [...new Set([...existing, ...fields])];
       await supabase
         .from("users")
         .update({
           profile_nudge: {
-            fields,
+            fields: mergedFields,
             message: message || "",
             requested_at: new Date().toISOString(),
             requested_by: session.userId,
