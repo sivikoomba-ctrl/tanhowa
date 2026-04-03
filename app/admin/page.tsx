@@ -66,6 +66,7 @@ function formatMinutes(minutes: number) {
 export default function AdminDashboard() {
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [stats, setStats] = useState({ totalCollection: 0, totalPayments: 0 });
+  const [districtReg, setDistrictReg] = useState<{ district: string; count: number }[]>([]);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [adminContacts, setAdminContacts] = useState<AdminContact[]>([]);
@@ -86,6 +87,7 @@ export default function AdminDashboard() {
       .then((s) => {
         setStats({ totalCollection: s.totalCollection || 0, totalPayments: s.totalPayments || 0 });
         setAdminContacts(s.admins || []);
+        if (s.districtRegistration) setDistrictReg(s.districtRegistration);
       })
       .catch(() => setErrors((e) => ({ ...e, stats: true })));
 
@@ -219,6 +221,31 @@ export default function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {/* District-wise Registration */}
+      {districtReg.length > 0 && (
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+              <Users size={14} /> District-wise Registration
+              <Badge variant="outline" className="text-[10px] ml-auto">{districtReg.filter((d) => d.district !== "Unassigned").length} districts</Badge>
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5">
+              {districtReg.filter((d) => d.district !== "Unassigned").map((d) => (
+                <div key={d.district} className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-muted/40 text-xs">
+                  <span className="truncate mr-1">{d.district}</span>
+                  <span className="font-bold text-primary shrink-0">{d.count}</span>
+                </div>
+              ))}
+            </div>
+            {districtReg.find((d) => d.district === "Unassigned") && (
+              <p className="text-[10px] text-amber-600 mt-2">
+                + {districtReg.find((d) => d.district === "Unassigned")!.count} members with no district assigned
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Task Status + Grievances Row */}
       {overview && (

@@ -35,6 +35,22 @@ export async function GET(req: NextRequest) {
     const totalCollection = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
     const totalPayments = (payments || []).length;
 
+    // District-wise registration counts
+    const { data: districtUsers } = await supabase
+      .from("users")
+      .select("posting_details")
+      .eq("status", "approved")
+      .neq("email", "tanhowa19791@gmail.com");
+    const districtCounts: Record<string, number> = {};
+    for (const u of districtUsers || []) {
+      const pd = (u.posting_details || {}) as Record<string, string>;
+      const dist = pd.regular_district || "Unassigned";
+      districtCounts[dist] = (districtCounts[dist] || 0) + 1;
+    }
+    const districtRegistration = Object.entries(districtCounts)
+      .map(([district, count]) => ({ district, count }))
+      .sort((a, b) => b.count - a.count);
+
     // Admin contacts
     const { data: admins } = await supabase
       .from("users")
@@ -51,6 +67,7 @@ export async function GET(req: NextRequest) {
       totalCollection,
       totalPayments,
       admins: admins || [],
+      districtRegistration,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
