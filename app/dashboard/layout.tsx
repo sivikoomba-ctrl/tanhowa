@@ -70,7 +70,7 @@ const navItems = [
   { href: "/dashboard/teams", label: "Teams", icon: UsersRound },
   { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
   { href: "/dashboard/events", label: "Events", icon: Calendar },
-  { href: "/dashboard/resolutions", label: "Resolutions", icon: Vote },
+  { href: "/dashboard/resolutions", label: "e-Resolutions", icon: Vote },
   { href: "/dashboard/polls", label: "Polls", icon: BarChart3 },
   { href: "/dashboard/documents", label: "Document Vault", icon: FileText },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },

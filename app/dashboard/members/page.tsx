@@ -44,7 +44,7 @@ export default function MembersPage() {
   const tickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch("/api/users")
+    fetch("/api/users?limit=10000")
       .then((r) => r.json())
       .then((d) => setMembers(d.users || []))
       .catch(() => toast.error("Failed to load members"))

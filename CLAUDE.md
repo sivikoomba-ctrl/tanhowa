@@ -238,7 +238,7 @@ Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP
 - **User photo:** DB column is `photo_url`, not `avatar_url`. Always use `photo_url` in TypeScript interfaces and code that reads user records.
 - **`GET /api/subscriptions?me=true`** — forces user-scoped results even for admins. The member dashboard always appends `?me=true`; the admin panel omits it to receive all members' data.
 - **jsPDF does NOT support emoji/Unicode.** Only ASCII and standard latin characters work. Emoji renders as garbled text (e.g., "Ø<ß?"). Use plain text in all PDF generation (`jspdf` + `jspdf-autotable`).
-- **Error Logs:** UI sidebar hides the link for non-`super_admin`, but the API (`/api/error-logs`) uses `isAdmin()` which allows both `admin` and `super_admin`. This is a known gap — regular admins can still call the API directly.
+- **Error Logs:** Both UI sidebar and API (`/api/error-logs`) are restricted to `super_admin` only. Regular admins cannot access error logs.
 
 ## Reports & Analytics (`/admin/reports`)
 
@@ -365,6 +365,17 @@ Table: `resolutions` + `resolution_votes`. Members can propose resolutions that 
 - Members see `voting_open`, `passed`, `failed` resolutions only
 - Admins and officials see all statuses
 - Cannot delete resolutions that have entered voting
+
+## Polls
+
+Tables: `polls` + `poll_votes`. Quick opinion polls for members.
+
+- **Create:** Admins and officials (`isAdminOrOfficial`). 2-6 options, optional expiry date.
+- **Vote:** All approved members can vote and change their vote while poll is active.
+- **Member page:** `/dashboard/polls` — vote, see results after voting
+- **Admin page:** `/admin/polls` — create, close/reopen, delete, view results with vote counts
+- **API:** `/api/polls` (GET/POST/PUT/DELETE). PUT handles both voting (`poll_id`, `option_index`) and admin actions (`action: "close"|"reopen"`, `id`).
+- **Statuses:** `active`, `closed`. Expired polls (past `expires_at`) auto-show results.
 
 ## Contributions Tracking
 

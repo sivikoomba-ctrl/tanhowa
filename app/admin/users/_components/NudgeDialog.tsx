@@ -15,7 +15,7 @@ const nudgeFieldOptions = [
   { value: "Designation", label: "Designation *" },
   { value: "Qualification", label: "Qualification" },
   { value: "Home Address", label: "Home Address" },
-  { value: "Office Address", label: "Office Address" },
+  { value: "Office Address", label: "Office Address *" },
   { value: "Posting Details", label: "Posting Details" },
   { value: "Photo", label: "Photo" },
   { value: "Experience", label: "Experience" },
