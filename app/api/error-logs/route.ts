@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isSuperAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 // POST: Client-side error submission (no auth required)
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !(await isAdmin(session))) {
+    if (!session || !(await isSuperAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !(await isAdmin(session))) {
+    if (!session || !(await isSuperAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -113,7 +113,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !(await isAdmin(session))) {
+    if (!session || !(await isSuperAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

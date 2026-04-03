@@ -30,7 +30,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
 - `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`
-- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`
+- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`
 - `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
 - `supabase/schema.sql` — Base database DDL (additional migrations documented below)
 
@@ -233,10 +233,12 @@ Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP
 - Regular admins can be promoted/demoted by any admin; super_admin role is only auto-assigned to the default admin email
 - Admin user actions: approve, reject, nudge (profile completion), change role
 
-## Known Field Name Gotchas
+## Known Gotchas
 
 - **User photo:** DB column is `photo_url`, not `avatar_url`. Always use `photo_url` in TypeScript interfaces and code that reads user records.
 - **`GET /api/subscriptions?me=true`** — forces user-scoped results even for admins. The member dashboard always appends `?me=true`; the admin panel omits it to receive all members' data.
+- **jsPDF does NOT support emoji/Unicode.** Only ASCII and standard latin characters work. Emoji renders as garbled text (e.g., "Ø<ß?"). Use plain text in all PDF generation (`jspdf` + `jspdf-autotable`).
+- **Error Logs:** UI sidebar hides the link for non-`super_admin`, but the API (`/api/error-logs`) uses `isAdmin()` which allows both `admin` and `super_admin`. This is a known gap — regular admins can still call the API directly.
 
 ## Reports & Analytics (`/admin/reports`)
 

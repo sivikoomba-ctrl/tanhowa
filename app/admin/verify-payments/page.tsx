@@ -407,7 +407,7 @@ export default function VerifyPaymentsPage() {
                             Mark Overdue
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleStatusChange(sub, "hold")}>
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleStatusChange(sub, "hold", "Payment higher than normal amount, additional member info required. Please update and submit.")}>
                           Hold
                         </Button>
                         <Button size="sm" variant="outline" className="h-7 text-xs text-red-700 border-red-300 hover:bg-red-50 gap-1" onClick={() => { const reason = prompt("Rejection reason:"); if (reason) handleStatusChange(sub, "rejected", reason); }}>

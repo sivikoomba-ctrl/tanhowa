@@ -80,7 +80,21 @@ export async function PUT(req: NextRequest) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { poll_id, option_index } = await req.json();
+    const body = await req.json();
+
+    // Admin action: close or reopen a poll
+    if (body.action === "close" || body.action === "reopen") {
+      if (!(await isAdminOrOfficial(session))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const supabase = getServiceClient();
+      const newStatus = body.action === "close" ? "closed" : "active";
+      await supabase.from("polls").update({ status: newStatus }).eq("id", body.id);
+      return NextResponse.json({ ok: true });
+    }
+
+    // Member action: cast a vote
+    const { poll_id, option_index } = body;
     if (!poll_id || option_index === undefined) {
       return NextResponse.json({ error: "poll_id and option_index required" }, { status: 400 });
     }
