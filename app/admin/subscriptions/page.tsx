@@ -1556,7 +1556,7 @@ export default function AdminSubscriptionsPage() {
                               setPayDialog(sub);
                               const today = new Date();
                               setPayForm({
-                                remarks: "",
+                                remarks: sub.remarks || "",
                                 payment_date: today.toISOString().split("T")[0],
                                 payment_time: today.toTimeString().slice(0, 5),
                                 verified_email: sub.users?.email || "",

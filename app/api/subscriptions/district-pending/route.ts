@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from("subscriptions")
-      .select("id, user_id, period, amount, status, payment_proof_url, remarks, created_at, users!subscriptions_user_id_fkey(name, email, phone, posting_details, official_type)")
+      .select("id, user_id, period, amount, status, payment_proof_url, remarks, transaction_id, payment_method, created_at, users!subscriptions_user_id_fkey(name, email, phone, posting_details, official_type)")
       .in("status", statusList)
       .order("created_at", { ascending: false });
 
@@ -93,6 +93,8 @@ export async function GET(req: NextRequest) {
         status: string;
         payment_proof_url: string | null;
         remarks: string | null;
+        transaction_id: string | null;
+        payment_method: string | null;
       }[];
     }> = {};
 
@@ -125,6 +127,8 @@ export async function GET(req: NextRequest) {
         status: sub.status,
         payment_proof_url: sub.payment_proof_url,
         remarks: sub.remarks || null,
+        transaction_id: sub.transaction_id || null,
+        payment_method: sub.payment_method || null,
       });
     }
 

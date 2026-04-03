@@ -342,6 +342,8 @@ export default function SubscriptionsPage() {
                   ...(extractData.amount ? { amount: String(extractData.amount) } : {}),
                 }));
                 toast.success("Transaction details auto-filled from your proof!");
+              } else {
+                toast.info("Could not extract details from your receipt. Please fill in the transaction ID, payment method, and amount manually.", { duration: 6000 });
               }
             } catch { /* extraction is best-effort */ }
             setExtracting(false);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, createSession } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { notifyAdminNewRegistration } from "@/lib/mail";
@@ -102,25 +102,45 @@ export async function PUT(req: NextRequest) {
       .single();
     const isFirstOnboarding = currentUser && !currentUser.name && currentUser.status === "pending";
 
-    // Auto-approve super_admin and admin accounts on profile update
-    if (currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin") && currentUser.status !== "approved") {
-      await supabase.from("users").update({ status: "approved" }).eq("id", session.userId);
+    // Check if mandatory fields are filled for auto-approval
+    const socialLinks = body.social_links || {};
+    const hasMandatoryFields = !!(
+      name &&
+      phone &&
+      dob &&
+      occupation &&
+      (body.office_address || "").trim() &&
+      socialLinks.gender &&
+      socialLinks.qualification
+    );
+
+    // Auto-approve: admins always, pending members when all mandatory fields are filled
+    const shouldAutoApprove = currentUser && currentUser.status !== "approved" && (
+      currentUser.role === "super_admin" ||
+      currentUser.role === "admin" ||
+      hasMandatoryFields
+    );
+
+    const updateData: Record<string, unknown> = {
+      name,
+      phone,
+      address: body.address || "",
+      office_address: body.office_address || "",
+      dob,
+      occupation,
+      photo_url: body.photo_url || "",
+      social_links: body.social_links || {},
+      posting_details: body.posting_details || {},
+      profile_nudge: null,
+    };
+
+    if (shouldAutoApprove) {
+      updateData.status = "approved";
     }
 
     const { error } = await supabase
       .from("users")
-      .update({
-        name,
-        phone,
-        address: body.address || "",
-        office_address: body.office_address || "",
-        dob,
-        occupation,
-        photo_url: body.photo_url || "",
-        social_links: body.social_links || {},
-        posting_details: body.posting_details || {},
-        profile_nudge: null,
-      })
+      .update(updateData)
       .eq("id", session.userId);
 
     if (error) {
@@ -135,7 +155,17 @@ export async function PUT(req: NextRequest) {
 
     logContribution(session.userId, "profile_updated", "Updated profile");
 
-    return NextResponse.json({ message: "Profile updated" });
+    // Refresh session cookie with approved status so client redirects to dashboard
+    if (shouldAutoApprove) {
+      await createSession({
+        userId: session.userId,
+        email: session.email,
+        role: currentUser.role,
+        status: "approved",
+      });
+    }
+
+    return NextResponse.json({ message: "Profile updated", autoApproved: !!shouldAutoApprove });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/users/me", method: "PUT", status_code: 500 });

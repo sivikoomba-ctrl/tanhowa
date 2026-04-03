@@ -30,7 +30,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
 - `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`
-- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`
+- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `razorpay.ts`
 - `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
 - `supabase/schema.sql` — Base database DDL (additional migrations documented below)
 
@@ -99,8 +99,8 @@ export async function GET(req: NextRequest) {
 | `announcements` | News/announcements | title, content, author_id, published (boolean) |
 | `events` | Calendar events | title, description, date, location, image_url |
 | `documents` | Uploaded files | title, file_url, file_type, description, category, approved |
-| `grievances` | Suggestions (category="Suggestion") and grievances (others) | subject, description, category, status (pending/in_progress/resolved/rejected), admin_remarks, submitted_by |
-| `subscriptions` | Member payment tracking | user_id, period, amount, due_date, status (pending/paid/overdue/hold/rejected), payment_method, transaction_id, payment_proof_url, remarks, paid_at, approved_by, approved_at, payment_group_id (UUID, links bulk/split payments) |
+| `grievances` | Suggestions (category="Suggestion") and grievances (others) | subject, description, category, priority (low/medium/high), status (pending/in_progress/resolved/rejected), admin_remarks, submitted_by |
+| `subscriptions` | Member payment tracking | user_id, period, amount, paid_amount, due_date, status (pending/paid/overdue/hold/rejected), payment_method, transaction_id, payment_proof_url, remarks, paid_at, approved_by, approved_at, payment_group_id (UUID, links bulk/split payments) |
 | `document_access` | Per-member document access | document_id, user_id (junction table for visibility="selected" documents) |
 | `error_logs` | Application error tracking | type (api/client/auth), message, stack, path, method, status_code, user_id, metadata (JSONB) |
 | `site_settings` | Key-value site config | key (unique), value |
@@ -115,6 +115,10 @@ export async function GET(req: NextRequest) {
 | `resolutions` | Member-proposed resolutions | title, description, category, status (draft/submitted/approved/rejected/voting_open/passed/failed), submitted_by, approved_by, votes_required, total_members |
 | `resolution_votes` | Individual votes on resolutions | resolution_id, user_id (unique per resolution) |
 | `contributions` | Auto-logged portal actions | user_id, action, description, estimated_minutes, metadata (JSONB) |
+| `audit_logs` | Admin action audit trail | user_id, user_name, user_email, action, target_type, target_id, details (JSONB), created_at |
+| `notification_prefs` | Per-user notification settings | user_id, email (bool), telegram (bool), in_app (bool) |
+| `polls` | Quick opinion polls | title, options (JSONB), status (active/closed), expires_at, created_by |
+| `poll_votes` | Individual poll votes | poll_id, user_id, option_index |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -126,7 +130,7 @@ export async function GET(req: NextRequest) {
 
 ### Migrations beyond base schema
 
-The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents) were applied separately via the Supabase SQL editor. See the Tables section above for current schema.
+The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions) were applied separately via the Supabase SQL editor. See the Tables section above for current schema.
 
 ## Environment Variables
 
@@ -145,6 +149,8 @@ GOOGLE_CLIENT_SECRET=           # Google OAuth client secret
 GOOGLE_REDIRECT_URI=            # OAuth callback URL (e.g. https://tanhowa.in/api/auth/google/callback)
 DATABASE_URL=                   # Direct PostgreSQL connection string (used by lib/db.ts)
 TELEGRAM_BOT_TOKEN=             # Telegram Bot API token (for task notifications)
+RAZORPAY_KEY_ID=                # Razorpay API key ID (online payments)
+RAZORPAY_KEY_SECRET=            # Razorpay API key secret
 ```
 
 ## UI & Styling Conventions
@@ -476,6 +482,18 @@ Opt-in location sharing via Browser Geolocation API. Members toggle sharing on/o
 
 Bulk/split payments are linked via `subscriptions.payment_group_id` (UUID). When admin verifies related subscriptions together (same member multiple periods, or multiple members same period), all get the same group ID. Admin subscriptions page shows "Linked Payment (N total)" indicator with grouped member names.
 
+### Overpaid Tracking
+
+`subscriptions.paid_amount` tracks the actual amount paid (may differ from `amount` which is the subscription price). When `paid_amount > amount`, a "+Rs.X extra" badge appears on both admin and member subscription cards. `amount` is preserved for reporting accuracy.
+
+### Auto-Approve Matching Payments
+
+When one subscription is approved, the system auto-finds other pending subs with the same period that match by: (1) same transaction ID, (2) same payment proof URL, or (3) same DS/DJS provisional approval remark signature. All matches are auto-approved with the same verification details. The "Link other members" picker auto-expands when the payment amount covers multiple members.
+
+### Finance Ledger Consolidation
+
+Grouped payments (same `payment_group_id`) appear as single entries in the finance transaction ledger, matching actual bank transactions. Each consolidated entry shows the primary payer name with "(+N members)" suffix and has expandable detail rows showing individual member breakdowns. Period/district/month summaries still count individual subscriptions for accurate reporting.
+
 ## In-App Notifications
 
 `GET /api/notifications` returns counts of items needing attention: new announcements since `last_active_at`, pending/overdue subscriptions, and active tasks assigned to the user. Dashboard layout fetches this on mount and shows a bell icon with total count badge. Clicking opens a dialog with categorized links.
@@ -516,6 +534,26 @@ window.dispatchEvent(new Event("admin-users-changed"));
 ```
 
 Use this pattern whenever a child page modifies data that the layout displays.
+
+## Audit Log
+
+`lib/audit.ts` provides `logAudit(user_id, user_name, user_email, action, target_type, target_id, details)` — fire-and-forget async IIFE that writes to the `audit_logs` table. Admin page at `/admin/audit-logs` with search, action filter, and target type filter. Color-coded icons per target type. Note: `logAudit()` is defined but not yet integrated into existing API routes — needs to be called from admin actions (user approval, subscription verification, etc.).
+
+## Razorpay Integration
+
+`lib/razorpay.ts` provides: `isRazorpayConfigured()`, `getRazorpayKeyId()`, `createOrder()`, `verifySignature()`. Uses Web Crypto API (`crypto.subtle`) for HMAC SHA-256 signature verification (Edge-compatible, not Node.js `crypto`). API at `/api/payments` (POST: create order, PUT: verify payment). Structurally complete but needs `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` env vars.
+
+## Notification Preferences
+
+Per-user notification settings stored in `notification_prefs` table. API at `/api/notification-prefs` (GET/PUT). Toggle UI on profile page (`/dashboard/profile`) with Email, Telegram, and In-App channel toggles.
+
+## Grievance/Suggestion Priority & SLA
+
+Admin can set priority (Low/Medium/High) on grievances and suggestions. Days-pending SLA badge calculated from creation date: green (≤3 days), amber (≤7 days), red (>7 days). Priority stored in `grievances.priority` column.
+
+## Profile Completeness
+
+`UserCard` component shows an 8-field profile completeness score with color-coded progress bar (green 100%, blue ≥75%, amber ≥50%, red <50%). Missing fields appear as clickable amber pill badges that open the nudge dialog. The nudge dialog (`NudgeDialog.tsx`) is a draggable floating panel (not a modal) — uses mouse event listeners for drag with bounds checking.
 
 ## Common Tasks
 
