@@ -429,11 +429,13 @@ export default function AdminSubscriptionsPage() {
         sub.transaction_id?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus =
         filterStatus === "all" ||
-        (filterStatus === "proof-uploaded"
-          ? !!sub.payment_proof_url && sub.status !== "paid" && sub.status !== "rejected" && sub.status !== "hold"
-          : filterStatus === "ds-verified"
-            ? !!sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved."))
-            : sub.status === filterStatus);
+        (filterStatus === "not-paid"
+          ? sub.status === "pending" || sub.status === "overdue"
+          : filterStatus === "proof-uploaded"
+            ? !!sub.payment_proof_url && sub.status !== "paid" && sub.status !== "rejected" && sub.status !== "hold"
+            : filterStatus === "ds-verified"
+              ? !!sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved."))
+              : sub.status === filterStatus);
       const matchesPeriod = filterPeriod === "all" || sub.period === filterPeriod;
       const matchesDistrict = filterDistrict === "all" || sub.users?.posting_details?.regular_district === filterDistrict;
       return matchesSearch && matchesStatus && matchesPeriod && matchesDistrict;
@@ -1243,7 +1245,8 @@ export default function AdminSubscriptionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="proof-uploaded">Proof Uploaded (Awaiting Approval)</SelectItem>
+                  <SelectItem value="not-paid">Not Paid (Pending + Overdue)</SelectItem>
+                  <SelectItem value="proof-uploaded">Proof Uploaded</SelectItem>
                   <SelectItem value="ds-verified">DS/DJS Verified</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
