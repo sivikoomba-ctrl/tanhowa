@@ -89,6 +89,37 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PUT(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session || !(await isAdminOrOfficial(session))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { id, title, content } = body;
+    if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+    if (!title?.trim()) return NextResponse.json({ error: "Title is required" }, { status: 400 });
+
+    const supabase = getServiceClient();
+    const { error } = await supabase
+      .from("announcements")
+      .update({ title: title.trim(), content: (content || "").trim() })
+      .eq("id", id);
+
+    if (error) {
+      await logError({ type: "api", message: error.message, path: "/api/announcements", method: "PUT", status_code: 500 });
+      return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: "Updated" });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/announcements", method: "PUT", status_code: 500 });
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getSession();

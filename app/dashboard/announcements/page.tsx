@@ -135,6 +135,7 @@ export default function AnnouncementsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Announcements</h1>
+          <p className="text-xs text-muted-foreground">Anyone can freely announce — personal, family functions, official events, or any update to all members.</p>
           {announcements.length > 0 && (
             <p className="text-sm text-muted-foreground mt-0.5">
               {filteredAnnouncements.length !== announcements.length

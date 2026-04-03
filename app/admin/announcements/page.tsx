@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Eye } from "lucide-react";
+import { Plus, Trash2, Eye, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
@@ -21,6 +21,11 @@ export default function AdminAnnouncementsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [readCounts, setReadCounts] = useState<Record<string, number>>({});
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   function load() {
     fetch("/api/announcements")
@@ -69,10 +74,38 @@ export default function AdminAnnouncementsPage() {
     }
   }
 
+  function openEdit(a: { id: string; title: string; content: string }) {
+    setEditId(a.id);
+    setEditTitle(a.title);
+    setEditContent(a.content);
+    setEditOpen(true);
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    setEditLoading(true);
+    const res = await fetch("/api/announcements", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editId, title: editTitle, content: editContent }),
+    });
+    if (res.ok) {
+      toast.success("Announcement updated");
+      setEditOpen(false);
+      load();
+    } else {
+      toast.error("Failed to update");
+    }
+    setEditLoading(false);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Announcements</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Announcements</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Anyone can freely announce — personal, family functions, official events, or any update to all members.</p>
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
@@ -118,14 +151,41 @@ export default function AdminAnnouncementsPage() {
                     </Badge>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)} className="text-destructive">
-                  <Trash2 size={14} />
-                </Button>
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(a)}>
+                    <Pencil size={14} />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)} className="text-destructive">
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Announcement</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
+            </div>
+            <div>
+              <Label>Content</Label>
+              <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={4} required />
+            </div>
+            <Button type="submit" disabled={editLoading} className="w-full bg-primary hover:bg-primary/90">
+              {editLoading ? "Saving..." : "Save Changes"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
