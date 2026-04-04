@@ -30,7 +30,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
 - `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`
-- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `razorpay.ts`
+- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `razorpay.ts`, `rate-limit.ts`, `daily-greetings.ts`
 - `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
 - `supabase/schema.sql` — Base database DDL (additional migrations documented below)
 
@@ -119,6 +119,11 @@ export async function GET(req: NextRequest) {
 | `notification_prefs` | Per-user notification settings | user_id, email (bool), telegram (bool), in_app (bool) |
 | `polls` | Quick opinion polls | title, options (JSONB), status (active/closed), expires_at, created_by |
 | `poll_votes` | Individual poll votes | poll_id, user_id, option_index |
+| `faqs` | Admin-managed FAQ entries | question, answer, category, sort_order, published, created_by |
+| `food_vendors` | Food order vendors | name, phone, active |
+| `food_items` | Vendor menu items | vendor_id, name, price, category, available |
+| `food_orders` | Member food orders | user_id, vendor_id, total, status (pending/confirmed/preparing/ready/delivered/cancelled), notes |
+| `food_order_items` | Order line items | order_id, item_id, quantity, price |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -130,7 +135,7 @@ export async function GET(req: NextRequest) {
 
 ### Migrations beyond base schema
 
-The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions) were applied separately via the Supabase SQL editor. See the Tables section above for current schema.
+The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`. See the Tables section above for current schema.
 
 ## Environment Variables
 
@@ -238,6 +243,44 @@ Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP
 - `DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in"` is auto-assigned `super_admin` role on login — never goes through onboarding, cannot be demoted or deleted
 - Regular admins can be promoted/demoted by any admin; super_admin role is only auto-assigned to the default admin email
 - Admin user actions: approve, reject, nudge (profile completion), change role
+
+## Daily Greetings (`lib/daily-greetings.ts`)
+
+Self-triggering birthday + festival greetings system. `triggerDailyGreetings()` is called fire-and-forget from `GET /api/users/me` on the first visitor each day. Uses `site_settings` key `daily_greetings_last_run` as a once-per-day lock.
+
+- **Birthday:** Finds members with matching DOB month/day, sends personalized email + Telegram + creates announcement
+- **Festival:** Checks 15+ Tamil Nadu/Indian festivals against today's date, sends broadcast email + Telegram + creates announcement
+- **Fallback:** Also available as Python tools (`tools/birthday_greetings.py`, `tools/festival_greetings.py`) for manual/forced runs
+
+## Auto Gender Detection
+
+On profile save (`PUT /api/users/me`), `detectGender()` auto-detects gender from 130+ common Tamil/Indian female first names + suffix matching (LAKSHMI, DEVI, SELVI, MATHI, VALLI, AMMAL, RANI, PRIYA, NAYAKI). Also sets title (Mr./Mrs.) when not already set. Does not override existing gender.
+
+## AI Tools (`/dashboard/ai-tools`)
+
+5 agriculture-focused AI utilities for field officers, accessible from the dashboard sidebar (Sparkles icon).
+
+| Tool | Component | API Route | Gemini Mode | Rate Limit |
+|------|-----------|-----------|-------------|------------|
+| Pest & Disease ID | `pest-identifier.tsx` | `/api/ai-tools/pest-identify` | Vision | 10/min |
+| Crop Adviser | `crop-adviser.tsx` | `/api/ai-tools/crop-advice` | Text | 20/min |
+| EN↔TA Translator | `translator.tsx` | `/api/ai-tools/translate` | Text | 20/min |
+| OCR | `ocr-tool.tsx` | `/api/ai-tools/ocr` | Vision | 10/min |
+| Voice Notes | `voice-notes.tsx` | — (browser only) | — | — |
+
+- **Components:** `app/dashboard/ai-tools/_components/`
+- **Rate limiting:** Shared `createRateLimiter()` from `lib/rate-limit.ts` (in-memory, per-IP)
+- **Voice Notes** uses browser `SpeechRecognition` API (supports English `en-IN` and Tamil `ta-IN`), no backend needed
+- **Vision routes** accept FormData with image (10MB max), text routes accept JSON
+- All API routes: session check → rate limit → Gemini call → `logContribution()` → response
+- Contribution actions logged for all 5 tools
+
+## UI Labels
+
+- `super_admin` role displays as **"State-Admin"** in badges and UI
+- District officials (`official_type=district`) display as **"District-Admin"**
+- State-Admin approval remark: "Approved. - Name, Designation, TANHOWA."
+- DS/DJS approval remark: "Provisionally approved. - Name, Designation, TANHOWA."
 
 ## Known Gotchas
 
