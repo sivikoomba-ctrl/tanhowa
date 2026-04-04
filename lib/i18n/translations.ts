@@ -272,7 +272,13 @@ const translations = {
   "announce.no_announcements": { en: "No announcements yet", ta: "அறிவிப்புகள் எதுவும் இல்லை" },
   "announce.check_back": { en: "Check back later for updates", ta: "புதுப்பிப்புகளுக்கு பின்னர் பாருங்கள்" },
   "announce.new_members": { en: "New Members", ta: "புதிய உறுப்பினர்கள்" },
-  "announce.read": { en: "Read", ta: "படிக்கப்பட்டது" },
+  "announce.read": { en: "Read", ta: "படி��்கப்பட்டது" },
+  "announce.title_placeholder": { en: "Title *", ta: "தலைப்பு *" },
+  "announce.content_placeholder": { en: "Content", ta: "உள்ளடக்கம்" },
+  "announce.welcome": { en: "Welcome", ta: "வரவேற்கிறோம��" },
+  "announce.new_badge": { en: "New", ta: "புதியது" },
+  "announce.count": { en: "{count} announcements", ta: "{count} அறிவிப்புகள்" },
+  "announce.filtered_count": { en: "{filtered} of {total} announcements", ta: "{total} அறிவிப்புகளில் {filtered}" },
 
   // Subscriptions page
   "subs.my_subscriptions": { en: "My Subscriptions", ta: "என் சந்தாக்கள்" },

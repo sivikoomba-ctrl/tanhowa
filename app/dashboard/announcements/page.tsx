@@ -141,8 +141,8 @@ export default function AnnouncementsPage() {
           {announcements.length > 0 && (
             <p className="text-sm text-muted-foreground mt-0.5">
               {filteredAnnouncements.length !== announcements.length
-                ? `${filteredAnnouncements.length} of ${announcements.length} announcements`
-                : `${announcements.length} announcement${announcements.length !== 1 ? "s" : ""}`}
+                ? t("announce.filtered_count", { filtered: String(filteredAnnouncements.length), total: String(announcements.length) })
+                : t("announce.count", { count: String(announcements.length) })}
             </p>
           )}
         </div>
@@ -157,8 +157,8 @@ export default function AnnouncementsPage() {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{t("announce.new_announcement")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <Input placeholder="Title *" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <Textarea placeholder="Content" value={content} onChange={(e) => setContent(e.target.value)} rows={4} />
+            <Input placeholder={t("announce.title_placeholder")} value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Textarea placeholder={t("announce.content_placeholder")} value={content} onChange={(e) => setContent(e.target.value)} rows={4} />
             <Button onClick={handleCreate} disabled={creating} className="w-full bg-primary hover:bg-primary/90">
               {creating ? t("announce.publishing") : t("announce.publish")}
             </Button>
@@ -197,7 +197,7 @@ export default function AnnouncementsPage() {
                 {[...recentMembers, ...recentMembers].map((m, i) => (
                   <span key={i} className="text-xs text-primary inline-flex items-center gap-1.5 shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                    Welcome <span className="font-semibold uppercase">{m.name}</span>!
+                    {t("announce.welcome")} <span className="font-semibold uppercase">{m.name}</span>!
                   </span>
                 ))}
               </div>
@@ -239,7 +239,7 @@ export default function AnnouncementsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
                               <h2 className="text-base font-semibold leading-snug">{a.title}</h2>
-                              {isLatest && <Badge className="bg-primary/10 text-primary border-0 text-[10px] shrink-0">New</Badge>}
+                              {isLatest && <Badge className="bg-primary/10 text-primary border-0 text-[10px] shrink-0">{t("announce.new_badge")}</Badge>}
                             </div>
                             {a.content && (
                               <div className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(a.content) }} />
