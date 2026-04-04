@@ -59,11 +59,11 @@ export default function RootLayout({
               {children}
             </GlobalErrorCatcher>
           </ErrorBoundary>
+          <ChatbotWidget />
         </LanguageProvider>
         <SeasonalTheme />
         <Snowflakes />
         <Toaster />
-        <ChatbotWidget />
         <SpeedInsights />
       </body>
     </html>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { MessageCircle, Send, X, Flower2, Bot, User } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 interface Message {
   role: "user" | "bot";
@@ -17,6 +18,7 @@ export default function ChatbotWidget() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const t = useT();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -53,13 +55,13 @@ export default function ChatbotWidget() {
       } else {
         setMessages((prev) => [
           ...prev,
-          { role: "bot", text: data.error || "Sorry, something went wrong." },
+          { role: "bot", text: data.error || t("chat.error") },
         ]);
       }
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: "bot", text: "Unable to connect. Please try again." },
+        { role: "bot", text: t("chat.unable_connect") },
       ]);
     } finally {
       setLoading(false);
@@ -93,14 +95,14 @@ export default function ChatbotWidget() {
             <div className="flex items-center justify-between">
               <SheetTitle className="flex items-center gap-2 text-primary-foreground">
                 <Flower2 size={20} />
-                TANHOWA Assistant
+                {t("chat.title")}
               </SheetTitle>
               <button onClick={handleClose} className="text-primary-foreground/80 hover:text-primary-foreground">
                 <X size={18} />
               </button>
             </div>
             <p className="text-xs text-primary-foreground/70">
-              Ask about TANHOWA or horticulture topics
+              {t("chat.subtitle")}
             </p>
           </SheetHeader>
 
@@ -110,13 +112,13 @@ export default function ChatbotWidget() {
               <div className="text-center py-8">
                 <Bot size={40} className="mx-auto text-primary/30 mb-3" />
                 <p className="text-sm text-muted-foreground">
-                  Hello! I&apos;m the TANHOWA Assistant.
+                  {t("chat.hello")}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Ask me anything about TANHOWA or horticulture.
+                  {t("chat.ask_anything")}
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center mt-4">
-                  {["What is TANHOWA?", "Tell me about flowers", "How to join?"].map((q) => (
+                  {[t("chat.what_is"), t("chat.about_flowers"), t("chat.how_join")].map((q) => (
                     <button
                       key={q}
                       onClick={() => { setInput(q); }}
@@ -177,7 +179,7 @@ export default function ChatbotWidget() {
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
+              placeholder={t("chat.type_message")}
               disabled={loading}
               className="flex-1 border-primary/30 focus-visible:ring-primary"
             />

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, MicOff, Copy, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n";
 
 type Lang = "en-IN" | "ta-IN";
 
@@ -18,6 +19,7 @@ export function VoiceNotes() {
   const [supported, setSupported] = useState(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const loggedRef = useRef(false);
+  const t = useT();
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -29,7 +31,7 @@ export function VoiceNotes() {
   function startRecording() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      toast.error("Speech recognition is not supported in your browser. Try Chrome or Edge.");
+      toast.error(t("ai.use_chrome"));
       return;
     }
 
@@ -101,8 +103,8 @@ export function VoiceNotes() {
       <Card>
         <CardContent className="p-6 text-center">
           <MicOff size={32} className="mx-auto text-muted-foreground mb-3" />
-          <p className="font-medium">Speech Recognition Not Supported</p>
-          <p className="text-sm text-muted-foreground mt-1">Please use Google Chrome or Microsoft Edge for voice notes.</p>
+          <p className="font-medium">{t("ai.speech_not_supported")}</p>
+          <p className="text-sm text-muted-foreground mt-1">{t("ai.use_chrome")}</p>
         </CardContent>
       </Card>
     );
@@ -117,7 +119,7 @@ export function VoiceNotes() {
           onClick={() => { if (!isRecording) setLang("en-IN"); }}
           disabled={isRecording}
         >
-          English
+          {t("ai.english")}
         </Button>
         <Button
           variant={lang === "ta-IN" ? "default" : "outline"}
@@ -125,7 +127,7 @@ export function VoiceNotes() {
           onClick={() => { if (!isRecording) setLang("ta-IN"); }}
           disabled={isRecording}
         >
-          Tamil (தமிழ்)
+          {t("ai.tamil")}
         </Button>
       </div>
 
@@ -143,7 +145,7 @@ export function VoiceNotes() {
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        {isRecording ? "Listening... Tap to stop" : "Tap to start recording"}
+        {isRecording ? t("ai.listening") : t("ai.tap_to_record")}
       </p>
 
       {interim && (
@@ -155,13 +157,13 @@ export function VoiceNotes() {
       {transcript && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Transcribed Text</span>
+            <span className="text-sm font-medium text-muted-foreground">{t("ai.transcribed_text")}</span>
             <div className="flex gap-1">
               <Button variant="ghost" size="sm" onClick={handleCopy} className="text-xs h-7">
-                {copied ? <><Check size={14} className="mr-1" /> Copied</> : <><Copy size={14} className="mr-1" /> Copy</>}
+                {copied ? <><Check size={14} className="mr-1" /> {t("ai.copied")}</> : <><Copy size={14} className="mr-1" /> {t("common.copy")}</>}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => { setTranscript(""); loggedRef.current = false; }} className="text-xs h-7 text-destructive">
-                <Trash2 size={14} className="mr-1" /> Clear
+                <Trash2 size={14} className="mr-1" /> {t("ai.clear")}
               </Button>
             </div>
           </div>
@@ -169,7 +171,6 @@ export function VoiceNotes() {
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
             rows={6}
-            placeholder="Transcribed text will appear here..."
           />
         </div>
       )}

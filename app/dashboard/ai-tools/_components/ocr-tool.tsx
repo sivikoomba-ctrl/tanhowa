@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, Loader2, Camera, X, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n";
 
 export function OcrTool() {
   const [file, setFile] = useState<File | null>(null);
@@ -14,10 +15,11 @@ export function OcrTool() {
   const [text, setText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const t = useT();
 
   function handleFile(f: File) {
     if (f.size > 10 * 1024 * 1024) {
-      toast.error("Image too large. Maximum 10MB.");
+      toast.error(t("ai.image_too_large"));
       return;
     }
     setFile(f);
@@ -70,12 +72,13 @@ export function OcrTool() {
             <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
               <Camera size={24} />
             </div>
-            <p className="text-sm font-medium">Click to upload an image or document photo</p>
-            <p className="text-xs">JPG, PNG up to 10MB</p>
+            <p className="text-sm font-medium">{t("ai.click_upload_image")}</p>
+            <p className="text-xs">{t("ai.jpg_png_10mb")}</p>
           </CardContent>
         </Card>
       ) : (
         <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="Preview" className="rounded-xl max-h-48 w-full object-contain bg-muted" />
           <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={clearFile}>
             <X size={14} />
@@ -93,21 +96,21 @@ export function OcrTool() {
 
       {file && !text && (
         <Button onClick={handleExtract} disabled={loading} className="w-full">
-          {loading ? <><Loader2 size={16} className="animate-spin mr-2" /> Extracting text...</> : <><Upload size={16} className="mr-2" /> Extract Text</>}
+          {loading ? <><Loader2 size={16} className="animate-spin mr-2" /> {t("ai.extracting")}</> : <><Upload size={16} className="mr-2" /> {t("ai.extract_text")}</>}
         </Button>
       )}
 
       {text && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Extracted Text</span>
+            <span className="text-sm font-medium text-muted-foreground">{t("ai.extracted_text")}</span>
             <Button variant="ghost" size="sm" onClick={handleCopy} className="text-xs h-7">
-              {copied ? <><Check size={14} className="mr-1" /> Copied</> : <><Copy size={14} className="mr-1" /> Copy</>}
+              {copied ? <><Check size={14} className="mr-1" /> {t("ai.copied")}</> : <><Copy size={14} className="mr-1" /> {t("common.copy")}</>}
             </Button>
           </div>
           <Textarea value={text} readOnly rows={10} className="font-mono text-sm" />
           <Button variant="outline" className="w-full" onClick={clearFile}>
-            Try Another Image
+            {t("ai.try_another")}
           </Button>
         </div>
       )}

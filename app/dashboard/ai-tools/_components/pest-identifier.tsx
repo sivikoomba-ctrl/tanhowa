@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Loader2, Camera, X } from "lucide-react";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n";
 
 interface PestResult {
   pest_name: string;
@@ -24,10 +25,11 @@ export function PestIdentifier() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PestResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const t = useT();
 
   function handleFile(f: File) {
     if (f.size > 10 * 1024 * 1024) {
-      toast.error("Image too large. Maximum 10MB.");
+      toast.error(t("ai.image_too_large"));
       return;
     }
     setFile(f);
@@ -80,12 +82,13 @@ export function PestIdentifier() {
             <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
               <Camera size={24} />
             </div>
-            <p className="text-sm font-medium">Click to upload a plant photo</p>
-            <p className="text-xs">JPG, PNG up to 10MB</p>
+            <p className="text-sm font-medium">{t("ai.click_upload_plant")}</p>
+            <p className="text-xs">{t("ai.jpg_png_10mb")}</p>
           </CardContent>
         </Card>
       ) : (
         <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="Preview" className="rounded-xl max-h-64 w-full object-contain bg-muted" />
           <Button
             variant="destructive"
@@ -108,7 +111,7 @@ export function PestIdentifier() {
 
       {file && !result && (
         <Button onClick={handleIdentify} disabled={loading} className="w-full">
-          {loading ? <><Loader2 size={16} className="animate-spin mr-2" /> Analyzing...</> : <><Upload size={16} className="mr-2" /> Identify Pest / Disease</>}
+          {loading ? <><Loader2 size={16} className="animate-spin mr-2" /> {t("ai.analyzing")}</> : <><Upload size={16} className="mr-2" /> {t("ai.identify_pest")}</>}
         </Button>
       )}
 
@@ -122,33 +125,33 @@ export function PestIdentifier() {
               </div>
               <div className="flex gap-2">
                 <Badge className={severityColor[result.severity] || "bg-muted"}>{result.severity}</Badge>
-                <Badge variant="outline">{result.confidence} confidence</Badge>
+                <Badge variant="outline">{result.confidence} {t("ai.confidence")}</Badge>
               </div>
             </div>
 
             <div className="text-sm space-y-3">
               <div>
-                <p className="font-medium text-muted-foreground mb-1">Crop</p>
+                <p className="font-medium text-muted-foreground mb-1">{t("ai.crop_label")}</p>
                 <p>{result.crop}</p>
               </div>
               <div>
-                <p className="font-medium text-muted-foreground mb-1">Treatment</p>
+                <p className="font-medium text-muted-foreground mb-1">{t("ai.treatment")}</p>
                 <p className="whitespace-pre-wrap">{result.treatment}</p>
               </div>
               <div>
-                <p className="font-medium text-muted-foreground mb-1">Prevention</p>
+                <p className="font-medium text-muted-foreground mb-1">{t("ai.prevention")}</p>
                 <p className="whitespace-pre-wrap">{result.prevention}</p>
               </div>
               {result.additional_notes && (
                 <div>
-                  <p className="font-medium text-muted-foreground mb-1">Additional Notes</p>
+                  <p className="font-medium text-muted-foreground mb-1">{t("ai.additional_notes")}</p>
                   <p className="whitespace-pre-wrap">{result.additional_notes}</p>
                 </div>
               )}
             </div>
 
             <Button variant="outline" className="w-full" onClick={clearFile}>
-              Try Another Image
+              {t("ai.try_another")}
             </Button>
           </CardContent>
         </Card>

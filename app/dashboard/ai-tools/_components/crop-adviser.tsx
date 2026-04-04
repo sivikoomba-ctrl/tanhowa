@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Send, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n";
 
 const SUGGESTIONS = [
   "Fertilizer schedule for mango trees",
@@ -21,6 +22,7 @@ export function CropAdviser() {
   const [loading, setLoading] = useState(false);
   const [advice, setAdvice] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const t = useT();
 
   async function handleAsk(q?: string) {
     const text = q || question;
@@ -58,20 +60,20 @@ export function CropAdviser() {
     <div className="space-y-4 max-w-2xl">
       <div className="space-y-2">
         <Textarea
-          placeholder="Ask any crop-related question... (e.g., What fertilizer for mango in April?)"
+          placeholder={t("ai.ask_crop_placeholder")}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           rows={3}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAsk(); } }}
         />
         <Button onClick={() => handleAsk()} disabled={loading || !question.trim()} className="w-full">
-          {loading ? <><Loader2 size={16} className="animate-spin mr-2" /> Getting advice...</> : <><Send size={16} className="mr-2" /> Ask</>}
+          {loading ? <><Loader2 size={16} className="animate-spin mr-2" /> {t("ai.getting_advice")}</> : <><Send size={16} className="mr-2" /> {t("ai.ask")}</>}
         </Button>
       </div>
 
       {!advice && !loading && (
         <div>
-          <p className="text-xs text-muted-foreground mb-2">Quick suggestions:</p>
+          <p className="text-xs text-muted-foreground mb-2">{t("ai.quick_suggestions")}</p>
           <div className="flex flex-wrap gap-2">
             {SUGGESTIONS.map((s) => (
               <button
@@ -91,7 +93,7 @@ export function CropAdviser() {
           <CardContent className="p-5">
             <div className="flex justify-end mb-2">
               <Button variant="ghost" size="sm" onClick={handleCopy} className="text-xs h-7">
-                {copied ? <><Check size={14} className="mr-1" /> Copied</> : <><Copy size={14} className="mr-1" /> Copy</>}
+                {copied ? <><Check size={14} className="mr-1" /> {t("ai.copied")}</> : <><Copy size={14} className="mr-1" /> {t("common.copy")}</>}
               </Button>
             </div>
             <div className="prose prose-sm max-w-none text-sm whitespace-pre-wrap">
