@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin, getDbRole } from "@/lib/auth";
+import { getSession, isAdmin, getDbRole, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
@@ -94,10 +94,33 @@ export async function PUT(req: NextRequest) {
       }
       await supabase.from("users").update({ role }).eq("id", userId);
     } else if (action === "set-official") {
-      const { officialType } = body; // "state", "district", or null (to remove)
-      if (officialType !== null && officialType !== "state" && officialType !== "district") {
+      const { officialType } = body; // "state", "district", "volunteer", or null (to remove)
+      if (officialType !== null && officialType !== "state" && officialType !== "district" && officialType !== "volunteer") {
         return NextResponse.json({ error: "Invalid official type" }, { status: 400 });
       }
+
+      // District officials (DS/DJS) can only assign/remove "volunteer" type, and only within their district
+      const callerInfo = await getOfficialInfo(session.userId);
+      const isDistrictOfficial = callerInfo.official_type === "district" && callerInfo.role === "admin";
+      const isSuperOrStateAdmin = callerInfo.role === "super_admin" || callerInfo.official_type === "state";
+
+      if (isDistrictOfficial && !isSuperOrStateAdmin) {
+        // DS/DJS can only set/remove volunteer
+        if (officialType !== null && officialType !== "volunteer") {
+          return NextResponse.json({ error: "District officials can only assign Volunteer Admin role" }, { status: 403 });
+        }
+        // Verify target member is in the same district
+        const { data: targetUser } = await supabase.from("users").select("posting_details, official_type").eq("id", userId).single();
+        const targetDistrict = (targetUser?.posting_details as { regular_district?: string } | null)?.regular_district;
+        if (targetDistrict !== callerInfo.district) {
+          return NextResponse.json({ error: "You can only assign volunteers in your district" }, { status: 403 });
+        }
+        // Cannot remove non-volunteer officials
+        if (officialType === null && targetUser?.official_type !== "volunteer") {
+          return NextResponse.json({ error: "You can only remove Volunteer Admin designation" }, { status: 403 });
+        }
+      }
+
       await supabase.from("users").update({ official_type: officialType }).eq("id", userId);
     } else if (action === "edit-profile") {
       const updates: Record<string, unknown> = {};
