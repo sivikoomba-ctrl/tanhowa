@@ -263,7 +263,7 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                   <Building2 size={14} className="mr-1" />District-Admin
                 </Button>
                 <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" onClick={() => onAction("set-official-volunteer")}>
-                  <Users size={14} className="mr-1" />Volunteer Admin
+                  <Users size={14} className="mr-1" />Invite Volunteer
                 </Button>
               </>
             )}

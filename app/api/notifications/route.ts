@@ -25,7 +25,7 @@ export async function GET() {
     const since = lastActive.toISOString();
 
     // Count new items since last visit in parallel
-    const [announcementsRes, pendingSubsRes, assignedTodosRes] = await Promise.all([
+    const [announcementsRes, pendingSubsRes, assignedTodosRes, volunteerInviteRes] = await Promise.all([
       // New announcements since last visit
       supabase
         .from("announcements")
@@ -46,18 +46,27 @@ export async function GET() {
         .select("id", { count: "exact", head: true })
         .eq("assigned_to", session.userId)
         .in("status", ["pending", "approved", "in_progress"]),
+
+      // Pending volunteer invite for this user
+      supabase
+        .from("volunteer_invites")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", session.userId)
+        .eq("status", "pending"),
     ]);
 
     const newAnnouncements = announcementsRes.count || 0;
     const pendingSubs = pendingSubsRes.count || 0;
     const activeTasks = assignedTodosRes.count || 0;
-    const total = newAnnouncements + pendingSubs + activeTasks;
+    const volunteerInvites = volunteerInviteRes.count || 0;
+    const total = newAnnouncements + pendingSubs + activeTasks + volunteerInvites;
 
     return NextResponse.json({
       total,
       announcements: newAnnouncements,
       subscriptions: pendingSubs,
       tasks: activeTasks,
+      volunteerInvites,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";

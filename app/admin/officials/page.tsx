@@ -111,13 +111,31 @@ export default function AdminOfficialsPage() {
   }, [users, memberSearch, addType, isDistrictOfficial, isSuperOrState, callerDistrict]);
 
   async function handleSetOfficial(userId: string, officialType: string | null) {
+    // Volunteer: send invite instead of direct assignment
+    if (officialType === "volunteer") {
+      const res = await fetch("/api/volunteer-invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (res.ok) {
+        toast.success("Volunteer invite sent! The member will be notified.");
+        setShowAdd(false);
+        setMemberSearch("");
+      } else {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error || "Failed to send invite");
+      }
+      return;
+    }
+
     const res = await fetch("/api/admin/users", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, action: "set-official", officialType }),
     });
     if (res.ok) {
-      const label = officialType === "state" ? "State Official" : officialType === "district" ? "District-Admin" : officialType === "volunteer" ? "Volunteer Admin" : "regular member";
+      const label = officialType === "state" ? "State Official" : officialType === "district" ? "District-Admin" : "regular member";
       toast.success(`Set as ${label}`);
       loadUsers();
       setShowAdd(false);
@@ -201,7 +219,7 @@ export default function AdminOfficialsPage() {
         {/* Volunteer Admins */}
         <TabsContent value="volunteer" className="mt-4 space-y-4">
           <Button onClick={() => openAddDialog("volunteer")} className="bg-green-600 hover:bg-green-700">
-            <Plus size={16} className="mr-1" />Add Volunteer Admin
+            <Plus size={16} className="mr-1" />Invite Volunteer Admin
             {isDistrictOfficial && !isSuperOrState && callerDistrict && <span className="ml-1 text-xs opacity-80">({callerDistrict})</span>}
           </Button>
           {volunteerOfficials.length === 0 ? (
@@ -269,7 +287,7 @@ export default function AdminOfficialsPage() {
                       onClick={() => handleSetOfficial(u.id, addType)}
                       className={addType === "state" ? "bg-purple-600 hover:bg-purple-700" : addType === "volunteer" ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}
                     >
-                      Add
+                      {addType === "volunteer" ? "Invite" : "Add"}
                     </Button>
                   </div>
                 ))

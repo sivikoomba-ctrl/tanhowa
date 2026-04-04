@@ -211,6 +211,20 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function handleVolunteerInvite(userId: string) {
+    const res = await fetch("/api/volunteer-invites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    if (res.ok) {
+      toast.success("Volunteer invite sent!");
+    } else {
+      const err = await res.json().catch(() => null);
+      toast.error(err?.error || "Failed to send invite");
+    }
+  }
+
   async function handleSetOfficial(userId: string, officialType: string | null) {
     const label = officialType === "state" ? "State Official" : officialType === "district" ? "District-Admin" : officialType === "volunteer" ? "Volunteer Admin" : "regular member";
     const res = await fetch("/api/admin/users", {
@@ -293,7 +307,7 @@ export default function AdminUsersPage() {
     } else if (action === "set-official-district") {
       handleSetOfficial(userId, "district");
     } else if (action === "set-official-volunteer") {
-      handleSetOfficial(userId, "volunteer");
+      handleVolunteerInvite(userId);
     } else if (action === "remove-official") {
       handleSetOfficial(userId, null);
     } else if (action === "set-role") {

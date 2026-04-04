@@ -107,11 +107,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showIncomplete, setShowIncomplete] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0 });
+  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0, volunteerInvites: 0 });
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationEnabling, setLocationEnabling] = useState(false);
   const [showTitlePicker, setShowTitlePicker] = useState(false);
   const [titleSaving, setTitleSaving] = useState(false);
+  const [showVolunteerInvite, setShowVolunteerInvite] = useState(false);
+  const [volunteerInvite, setVolunteerInvite] = useState<{ id: string; district: string; inviterName: string } | null>(null);
+  const [volunteerResponding, setVolunteerResponding] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -206,6 +209,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch volunteer invite details when dialog opens
+  useEffect(() => {
+    if (!showVolunteerInvite) return;
+    fetch("/api/volunteer-invites")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.invite) {
+          const inviterName = (d.invite.users as { name?: string } | null)?.name || "Admin";
+          setVolunteerInvite({ id: d.invite.id, district: d.invite.district, inviterName });
+        }
+      })
+      .catch(() => {});
+  }, [showVolunteerInvite]);
+
+  async function handleVolunteerResponse(action: "accept" | "decline") {
+    setVolunteerResponding(true);
+    try {
+      const res = await fetch("/api/volunteer-invites", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const { toast } = await import("sonner");
+        toast.success(data.message);
+        setShowVolunteerInvite(false);
+        setVolunteerInvite(null);
+        // Refresh notifications
+        fetch("/api/notifications").then((r) => r.json()).then((d) => { if (d.total !== undefined) setNotifications(d); }).catch(() => {});
+        if (action === "accept") {
+          // Reload to reflect new role
+          window.location.reload();
+        }
+      }
+    } catch { /* silent */ }
+    setVolunteerResponding(false);
+  }
 
   async function handleTitleSelect(title: string) {
     if (!user?.name) return;
@@ -562,6 +604,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Badge className="bg-blue-100 text-blue-700 border-0 text-xs">{notifications.tasks}</Badge>
                   </Link>
                 )}
+                {notifications.volunteerInvites > 0 && (
+                  <button
+                    onClick={() => { setShowNotifications(false); setShowVolunteerInvite(true); }}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+                      <Users size={16} className="text-green-600" />
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-medium">{t("volunteer.invite_title")}</p>
+                      <p className="text-xs text-muted-foreground">{t("volunteer.invite_desc")}</p>
+                    </div>
+                    <Badge className="bg-green-100 text-green-700 border-0 text-xs">1</Badge>
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -589,6 +646,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {title}
               </Button>
             ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Volunteer Admin Invite Dialog */}
+      <Dialog open={showVolunteerInvite} onOpenChange={setShowVolunteerInvite}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-green-600" />
+              {t("volunteer.invite_title")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-center space-y-2">
+              <p className="text-sm font-medium text-green-800">{t("volunteer.invite_desc")}</p>
+              {volunteerInvite && (
+                <>
+                  <p className="text-xs text-green-700">
+                    {t("volunteer.invited_by")}: <strong>{volunteerInvite.inviterName}</strong>
+                  </p>
+                  <p className="text-xs text-green-700">
+                    {t("volunteer.for_district")}: <strong>{volunteerInvite.district}</strong>
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                className="border-red-200 text-red-600 hover:bg-red-50"
+                disabled={volunteerResponding}
+                onClick={() => handleVolunteerResponse("decline")}
+              >
+                {t("volunteer.decline")}
+              </Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700"
+                disabled={volunteerResponding}
+                onClick={() => handleVolunteerResponse("accept")}
+              >
+                {t("volunteer.accept")}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

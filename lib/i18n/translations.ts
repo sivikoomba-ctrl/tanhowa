@@ -162,6 +162,18 @@ const translations = {
   "ai.ocr": { en: "OCR - Text Extract", ta: "OCR - உரை பிரித்தெடு" },
   "ai.voice_notes": { en: "Voice Notes", ta: "குரல் குறிப்புகள்" },
 
+  // Volunteer invite
+  "volunteer.invite_title": { en: "Volunteer Admin Invite", ta: "தன்னார்வ நிர்வாகி அழைப்பு" },
+  "volunteer.invite_desc": { en: "You have been invited to be a Volunteer Admin", ta: "நீங்கள் தன்னார்வ நிர்வாகியாக அழைக்கப்பட்டுள்ளீர்கள்" },
+  "volunteer.invited_by": { en: "Invited by", ta: "அழைத்தவர்" },
+  "volunteer.for_district": { en: "for district", ta: "மாவட்டத்திற்கு" },
+  "volunteer.accept": { en: "Accept", ta: "ஏற்கிறேன்" },
+  "volunteer.decline": { en: "Decline", ta: "மறுக்கிறேன்" },
+  "volunteer.accepted": { en: "You are now a Volunteer Admin!", ta: "நீங்கள் இப்போது தன்னார்வ நிர்வாகி!" },
+  "volunteer.declined": { en: "Invite declined", ta: "அழைப்பு மறுக்கப்பட்டது" },
+  "volunteer.invite_sent": { en: "Invite sent", ta: "அழைப்பு அனுப்பப்பட்டது" },
+  "volunteer.pending_invite": { en: "Pending volunteer invite", ta: "நிலுவையில் உள்ள தன்னார்வ அழைப்பு" },
+
   // Empty states
   "empty.no_data": { en: "No data found", ta: "தரவு எதுவும் கிடைக்கவில்லை" },
   "empty.no_results": { en: "No results found", ta: "முடிவுகள் கிடைக்கவில்லை" },
