@@ -153,7 +153,7 @@ export default function AdminSubscriptionsPage() {
   // Page loading
   const [pageLoading, setPageLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [adminInfo, setAdminInfo] = useState<{ name: string; designation: string; district: string; isSuperAdmin: boolean }>({ name: "", designation: "", district: "", isSuperAdmin: false });
+  const [adminInfo, setAdminInfo] = useState<{ name: string; designation: string; district: string; isSuperAdmin: boolean; isFinanceTeam: boolean }>({ name: "", designation: "", district: "", isSuperAdmin: false, isFinanceTeam: false });
 
   // Reject dialog
   const [rejectSub, setRejectSub] = useState<Subscription | null>(null);
@@ -483,7 +483,10 @@ export default function AdminSubscriptionsPage() {
         const pd = d.user.posting_details || {};
         const designation = pd.official_designation || d.user.occupation || "";
         const district = pd.regular_district || "";
-        setAdminInfo({ name: d.user.name || "", designation, district, isSuperAdmin: d.user.role === "super_admin" });
+        const isFinanceTeam = !!d.is_finance_team;
+        setAdminInfo({ name: d.user.name || "", designation, district, isSuperAdmin: d.user.role === "super_admin", isFinanceTeam });
+        // Default to "DS/DJS Verified" filter for Finance Team members
+        if (isFinanceTeam) setFilterStatus("ds-verified");
       }
     }).catch(() => {});
   }, []);

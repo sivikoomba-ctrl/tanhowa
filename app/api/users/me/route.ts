@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, createSession } from "@/lib/auth";
+import { getSession, createSession, isFinanceTeamMember } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { notifyAdminNewRegistration } from "@/lib/mail";
@@ -30,7 +30,12 @@ export async function GET() {
     // Trigger daily greetings (birthday + festival) - runs once per day on first visitor
     triggerDailyGreetings().catch(() => {});
 
-    return NextResponse.json({ user });
+    // Check Finance Team membership (for UI defaults)
+    const isFinance = user?.role === "admin" || user?.role === "super_admin"
+      ? await isFinanceTeamMember(session.userId)
+      : false;
+
+    return NextResponse.json({ user, is_finance_team: isFinance });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/users/me", method: "GET", status_code: 500 });
