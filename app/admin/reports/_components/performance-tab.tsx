@@ -96,13 +96,12 @@ const PERIOD_OPTIONS = [
   { value: "all", label: "All Time" },
 ];
 
-const rankIcons = [
-  <Trophy key="1" size={16} className="text-yellow-500" />,
-  <Medal key="2" size={16} className="text-gray-400" />,
-  <Star key="3" size={16} className="text-amber-600" />,
-];
-
 export function PerformanceTab() {
+  const rankIcons = [
+    <Trophy key="1" size={16} className="text-yellow-500" />,
+    <Medal key="2" size={16} className="text-gray-400" />,
+    <Star key="3" size={16} className="text-amber-600" />,
+  ];
   const [teams, setTeams] = useState<TeamPerformance[]>([]);
   const [members, setMembers] = useState<MemberPerformance[]>([]);
   const [trend, setTrend] = useState<CompletionTrend[]>([]);
@@ -126,6 +125,7 @@ export function PerformanceTab() {
           setAllTeams(d.teams.map((t: TeamPerformance) => ({ id: t.id, name: t.name })));
         }
       })
+      .catch(() => { setSummary(null); })
       .finally(() => setLoading(false));
   }, [period, teamFilter]);
 

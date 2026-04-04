@@ -1,5 +1,6 @@
 "use client";
 
+import { lazy, Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, IndianRupee, Receipt, Award, Users, ClipboardCheck } from "lucide-react";
 import { OverviewTab } from "./_components/overview-tab";
@@ -7,7 +8,8 @@ import { ExpensesTab } from "./_components/expenses-tab";
 import { SubscriptionsTab } from "./_components/subscriptions-tab";
 import { ContributionsTab } from "./_components/contributions-tab";
 import { MembersTab } from "./_components/members-tab";
-import { PerformanceTab } from "./_components/performance-tab";
+
+const PerformanceTab = lazy(() => import("./_components/performance-tab").then(m => ({ default: m.PerformanceTab })));
 
 export default function ReportsPage() {
   return (
@@ -45,7 +47,9 @@ export default function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="performance" className="mt-4">
-          <PerformanceTab />
+          <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
+            <PerformanceTab />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </div>
