@@ -9,15 +9,16 @@ import { CropAdviser } from "./_components/crop-adviser";
 import { Translator } from "./_components/translator";
 import { OcrTool } from "./_components/ocr-tool";
 import { VoiceNotes } from "./_components/voice-notes";
+import { useT } from "@/lib/i18n";
 
 type ToolKey = "pest" | "crop" | "translate" | "ocr" | "voice";
 
-const tools: { key: ToolKey; label: string; description: string; icon: typeof Bug; color: string }[] = [
-  { key: "pest", label: "Pest & Disease ID", description: "Upload a plant photo to identify pests, diseases, or deficiencies", icon: Bug, color: "bg-red-100 text-red-600" },
-  { key: "crop", label: "Crop Adviser", description: "Get expert advice on crops, soil, fertilizers, and seasonal planting", icon: Leaf, color: "bg-green-100 text-green-600" },
-  { key: "translate", label: "Translator", description: "Translate text between English and Tamil instantly", icon: Languages, color: "bg-blue-100 text-blue-600" },
-  { key: "ocr", label: "OCR - Text Extract", description: "Extract text from images, documents, or photos", icon: ScanText, color: "bg-purple-100 text-purple-600" },
-  { key: "voice", label: "Voice Notes", description: "Record voice and convert to text notes in English or Tamil", icon: Mic, color: "bg-amber-100 text-amber-600" },
+const tools: { key: ToolKey; labelKey: string; descKey: string; icon: typeof Bug; color: string }[] = [
+  { key: "pest", labelKey: "ai.pest_id", descKey: "ai.pest_desc", icon: Bug, color: "bg-red-100 text-red-600" },
+  { key: "crop", labelKey: "ai.crop_advice", descKey: "ai.crop_desc", icon: Leaf, color: "bg-green-100 text-green-600" },
+  { key: "translate", labelKey: "ai.translator", descKey: "ai.translate_desc", icon: Languages, color: "bg-blue-100 text-blue-600" },
+  { key: "ocr", labelKey: "ai.ocr", descKey: "ai.ocr_desc", icon: ScanText, color: "bg-purple-100 text-purple-600" },
+  { key: "voice", labelKey: "ai.voice_notes", descKey: "ai.voice_desc", icon: Mic, color: "bg-amber-100 text-amber-600" },
 ];
 
 const toolComponents: Record<ToolKey, React.FC> = {
@@ -30,6 +31,7 @@ const toolComponents: Record<ToolKey, React.FC> = {
 
 export default function AIToolsPage() {
   const [activeTool, setActiveTool] = useState<ToolKey | null>(null);
+  const t = useT();
 
   if (activeTool) {
     const tool = tools.find((t) => t.key === activeTool)!;
@@ -43,7 +45,7 @@ export default function AIToolsPage() {
           <div className={`w-9 h-9 rounded-lg ${tool.color} flex items-center justify-center`}>
             <tool.icon size={18} />
           </div>
-          <h1 className="text-xl font-bold">{tool.label}</h1>
+          <h1 className="text-xl font-bold">{t(tool.labelKey)}</h1>
         </div>
         <ToolComponent />
       </div>
@@ -57,8 +59,8 @@ export default function AIToolsPage() {
           <Sparkles size={20} className="text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">AI Tools</h1>
-          <p className="text-sm text-muted-foreground">Powered by Google Gemini</p>
+          <h1 className="text-2xl font-bold">{t("ai.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("ai.powered_by")}</p>
         </div>
       </div>
 
@@ -75,8 +77,8 @@ export default function AIToolsPage() {
                   <tool.icon size={22} />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-base">{tool.label}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">{tool.description}</p>
+                  <h3 className="font-semibold text-base">{t(tool.labelKey)}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{t(tool.descKey)}</p>
                 </div>
               </div>
             </CardContent>

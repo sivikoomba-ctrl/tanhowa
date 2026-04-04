@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { UsersRound, X, Users, MapPin, Phone, Mail } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
+import { useT } from "@/lib/i18n";
 
 interface TeamMember {
   id: string;
@@ -39,6 +40,7 @@ export default function TeamsPage() {
   const [activeTeam, setActiveTeam] = useState<string>("");
   const [viewPhoto, setViewPhoto] = useState<{ url: string; name: string } | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     fetch("/api/teams")
@@ -65,21 +67,21 @@ export default function TeamsPage() {
   if (teams.length === 0) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Teams</h1>
-        <EmptyState icon={UsersRound} title="No teams yet" description="Teams will appear here once an admin sets them up" />
+        <h1 className="text-2xl font-bold">{t("team.title")}</h1>
+        <EmptyState icon={UsersRound} title={t("team.no_teams")} description={t("team.will_appear")} />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Teams</h1>
+      <h1 className="text-2xl font-bold">{t("team.title")}</h1>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <MetricCard label="Teams" value={teams.length} icon={UsersRound} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" />
-        <MetricCard label="Total Members" value={totalMembers} icon={Users} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" />
-        <MetricCard label="Current Team" value={currentTeam?.members.length || 0} subtitle={currentTeam?.name} icon={UsersRound} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
+        <MetricCard label={t("team.teams")} value={teams.length} icon={UsersRound} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" />
+        <MetricCard label={t("team.total_members")} value={totalMembers} icon={Users} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" />
+        <MetricCard label={t("team.current_team")} value={currentTeam?.members.length || 0} subtitle={currentTeam?.name} icon={UsersRound} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
       </div>
 
       {/* Team Tabs */}
@@ -159,7 +161,7 @@ export default function TeamsPage() {
           ))}
         </div>
       ) : (
-        <EmptyState icon={Users} title="No members in this team" description="Members will appear here once assigned" />
+        <EmptyState icon={Users} title={t("team.no_members")} description={t("team.members_appear")} />
       )}
 
       {/* Photo Viewer */}

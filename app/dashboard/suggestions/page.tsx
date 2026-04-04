@@ -13,6 +13,7 @@ import { formatDate } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
+import { useT } from "@/lib/i18n";
 
 interface Suggestion {
   id: string;
@@ -31,6 +32,7 @@ export default function SuggestionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const t = useT();
 
   function load() {
     fetch("/api/grievances?type=suggestion")
@@ -71,23 +73,23 @@ export default function SuggestionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Suggestions</h1>
+          <h1 className="text-2xl font-bold">{t("suggestion.title")}</h1>
           {suggestions.length > 0 && (
-            <p className="text-sm text-muted-foreground mt-0.5">{suggestions.length} suggestion{suggestions.length !== 1 ? "s" : ""}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{suggestions.length} {t("suggestion.title").toLowerCase()}</p>
           )}
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
-              <Plus size={16} className="mr-1" />Submit
+              <Plus size={16} className="mr-1" />{t("common.submit")}
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Submit Suggestion</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("suggestion.submit")}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div><Label>Subject *</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="Brief subject" required /></div>
-              <div><Label>Description *</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe in detail" rows={4} required /></div>
-              <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90">{loading ? "Submitting..." : "Submit Suggestion"}</Button>
+              <div><Label>{t("grievance.subject")} *</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder={t("grievance.brief_subject")} required /></div>
+              <div><Label>{t("grievance.description")} *</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t("grievance.describe_detail")} rows={4} required /></div>
+              <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90">{loading ? t("suggestion.submitting") : t("suggestion.submit")}</Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -95,13 +97,13 @@ export default function SuggestionsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
-        <MetricCard label="Total" value={stats.total} icon={Lightbulb} loading={!loaded} borderColor="border-l-yellow-500" iconColor="text-yellow-500/40" />
-        <MetricCard label="Pending" value={stats.pending} icon={Clock} loading={!loaded} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
-        <MetricCard label="Resolved" value={stats.resolved} icon={CheckCircle2} loading={!loaded} borderColor="border-l-green-500" iconColor="text-green-500/40" />
+        <MetricCard label={t("misc.total")} value={stats.total} icon={Lightbulb} loading={!loaded} borderColor="border-l-yellow-500" iconColor="text-yellow-500/40" />
+        <MetricCard label={t("status.pending")} value={stats.pending} icon={Clock} loading={!loaded} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
+        <MetricCard label={t("status.resolved")} value={stats.resolved} icon={CheckCircle2} loading={!loaded} borderColor="border-l-green-500" iconColor="text-green-500/40" />
       </div>
 
       {suggestions.length === 0 && loaded ? (
-        <EmptyState icon={Lightbulb} title="No suggestions yet" description="Share your ideas to improve TANHOWA" />
+        <EmptyState icon={Lightbulb} title={t("suggestion.no_suggestions")} description={t("suggestion.share_ideas")} />
       ) : (
         <div className="space-y-3">
           {suggestions.map((g) => (
@@ -120,7 +122,7 @@ export default function SuggestionsPage() {
                     <span className="text-xs text-muted-foreground mt-1.5 block">{formatDate(g.created_at)}</span>
                     {g.admin_remarks && (
                       <div className="mt-2 p-2.5 bg-muted/50 rounded-lg border-l-2 border-l-yellow-400/50">
-                        <p className="text-xs font-medium text-muted-foreground">Admin Remarks</p>
+                        <p className="text-xs font-medium text-muted-foreground">{t("grievance.admin_remarks")}</p>
                         <p className="text-xs mt-0.5">{g.admin_remarks}</p>
                       </div>
                     )}

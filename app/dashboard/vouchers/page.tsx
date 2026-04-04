@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { Receipt, Plus, Upload, Eye, Trash2, IndianRupee, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 const expenseCategories = ["Travel", "Printing", "Food & Refreshments", "Stationery", "Communication", "Venue & Hall", "Transport", "Miscellaneous"];
 
@@ -48,6 +49,7 @@ export default function VouchersPage() {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const t = useT();
 
   useEffect(() => {
     fetch("/api/users/me")
@@ -132,7 +134,7 @@ export default function VouchersPage() {
     return (
       <div className="text-center py-12">
         <Receipt className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-        <p className="text-muted-foreground">Expense vouchers are available to officials only</p>
+        <p className="text-muted-foreground">{t("voucher.officials_only")}</p>
       </div>
     );
   }
@@ -144,19 +146,19 @@ export default function VouchersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Expense Vouchers</h1>
+          <h1 className="text-2xl font-bold">{t("voucher.title")}</h1>
           <p className="text-sm text-muted-foreground">Submit expense claims for official duties</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
               <Plus size={16} className="mr-1" />
-              New Voucher
+              {t("voucher.new_voucher")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Submit Expense Voucher</DialogTitle>
+              <DialogTitle>{t("voucher.submit_voucher")}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -212,7 +214,7 @@ export default function VouchersPage() {
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
               </div>
               <Button type="submit" disabled={submitting} className="w-full bg-primary hover:bg-primary/90">
-                {submitting ? "Submitting..." : "Submit Voucher"}
+                {submitting ? t("voucher.submitting") : t("voucher.submit_voucher")}
               </Button>
             </form>
           </DialogContent>
@@ -223,19 +225,19 @@ export default function VouchersPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Total Submitted</p>
+            <p className="text-xs text-muted-foreground">{t("misc.total")}</p>
             <p className="text-xl font-bold">{vouchers.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Pending</p>
+            <p className="text-xs text-muted-foreground">{t("voucher.pending_count")}</p>
             <p className="text-xl font-bold text-amber-600">{pendingCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Total Approved</p>
+            <p className="text-xs text-muted-foreground">{t("voucher.approved_amount")}</p>
             <p className="text-xl font-bold text-green-600">&#8377;{totalApproved.toLocaleString("en-IN")}</p>
           </CardContent>
         </Card>
@@ -249,7 +251,7 @@ export default function VouchersPage() {
       ) : vouchers.length === 0 ? (
         <div className="text-center py-12">
           <Receipt className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground">No vouchers submitted yet</p>
+          <p className="text-muted-foreground">{t("voucher.no_vouchers")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -283,12 +285,12 @@ export default function VouchersPage() {
                         <span className="text-xs text-muted-foreground mt-1 block">{formatDate(v.created_at)}</span>
                         {v.receipt_url && (
                           <button onClick={() => setPreviewUrl(v.receipt_url)} className="flex items-center gap-1 text-xs text-primary hover:underline mt-1">
-                            <Eye size={12} /> View receipt
+                            <Eye size={12} /> {t("voucher.view_receipt")}
                           </button>
                         )}
                         {v.remarks && (
                           <div className="mt-2 p-2 bg-muted rounded-md">
-                            <p className="text-xs font-medium text-muted-foreground">Admin Remarks:</p>
+                            <p className="text-xs font-medium text-muted-foreground">{t("voucher.remarks")}:</p>
                             <p className="text-xs mt-0.5">{v.remarks}</p>
                           </div>
                         )}
@@ -316,7 +318,7 @@ export default function VouchersPage() {
       <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Receipt</DialogTitle>
+            <DialogTitle>{t("voucher.receipt")}</DialogTitle>
           </DialogHeader>
           {previewUrl && (
             <div className="rounded-xl overflow-hidden border">

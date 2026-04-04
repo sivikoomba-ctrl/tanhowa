@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Vote, Plus, ThumbsUp, Check, X, Send, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 interface Resolution {
   id: string;
@@ -54,6 +55,7 @@ export default function ResolutionsPage() {
   const [creating, setCreating] = useState(false);
   const [votingIds, setVotingIds] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const t = useT();
 
   function loadResolutions() {
     fetch("/api/resolutions")
@@ -148,12 +150,12 @@ export default function ResolutionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Digital Resolutions</h1>
-          <p className="text-muted-foreground text-sm mt-1">Vote on association resolutions</p>
+          <h1 className="text-2xl font-bold">{t("resolution.title")}</h1>
+          <p className="text-muted-foreground text-sm mt-1">{t("resolution.voting")}</p>
         </div>
         {canCreate && (
           <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90">
-            <Plus size={16} className="mr-1" />New Resolution
+            <Plus size={16} className="mr-1" />{t("resolution.new_resolution")}
           </Button>
         )}
       </div>
@@ -161,14 +163,14 @@ export default function ResolutionsPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="voting" className="gap-1.5">
-            <Vote size={14} />Voting ({votingOpen.length})
+            <Vote size={14} />{t("resolution.voting")} ({votingOpen.length})
           </TabsTrigger>
           <TabsTrigger value="results" className="gap-1.5">
-            <Check size={14} />Results ({results.length})
+            <Check size={14} />{t("resolution.results")} ({results.length})
           </TabsTrigger>
           {canCreate && (
             <TabsTrigger value="my" className="gap-1.5">
-              <FileText size={14} />My Resolutions ({drafts.length})
+              <FileText size={14} />{t("resolution.my_drafts")} ({drafts.length})
             </TabsTrigger>
           )}
         </TabsList>
@@ -176,9 +178,9 @@ export default function ResolutionsPage() {
         {categories.length > 0 && (
           <div className="mt-3">
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Categories" /></SelectTrigger>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder={t("resolution.all_categories")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">{t("resolution.all_categories")}</SelectItem>
                 {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -190,7 +192,7 @@ export default function ResolutionsPage() {
           {votingOpen.length === 0 ? (
             <div className="text-center py-12">
               <Vote className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground">No resolutions open for voting</p>
+              <p className="text-muted-foreground">{t("resolution.no_voting")}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -204,7 +206,7 @@ export default function ResolutionsPage() {
         {/* Results */}
         <TabsContent value="results" className="mt-4">
           {results.length === 0 ? (
-            <p className="text-muted-foreground text-center py-12">No completed resolutions yet</p>
+            <p className="text-muted-foreground text-center py-12">{t("resolution.no_results")}</p>
           ) : (
             <div className="space-y-4">
               {results.map((r) => (
@@ -218,7 +220,7 @@ export default function ResolutionsPage() {
         {canCreate && (
           <TabsContent value="my" className="mt-4">
             {drafts.length === 0 ? (
-              <p className="text-muted-foreground text-center py-12">No draft resolutions</p>
+              <p className="text-muted-foreground text-center py-12">{t("resolution.no_drafts")}</p>
             ) : (
               <div className="space-y-4">
                 {drafts.map((r) => (
@@ -257,7 +259,7 @@ export default function ResolutionsPage() {
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>New Resolution</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("resolution.new_resolution")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <Input placeholder="Resolution Title *" value={title} onChange={(e) => setTitle(e.target.value)} />
             <Input placeholder="Category (optional, e.g. Financial, Welfare, Administrative)" value={category} onChange={(e) => setCategory(e.target.value)} />
@@ -271,7 +273,7 @@ export default function ResolutionsPage() {
               The resolution will be saved as a draft. Submit it when ready for admin approval.
             </p>
             <Button onClick={handleCreate} disabled={creating} className="w-full bg-primary hover:bg-primary/90">
-              {creating ? "Creating..." : "Create Draft"}
+              {creating ? t("resolution.creating") : t("resolution.create")}
             </Button>
           </div>
         </DialogContent>

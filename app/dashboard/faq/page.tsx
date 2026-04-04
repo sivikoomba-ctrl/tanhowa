@@ -11,6 +11,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n";
 
 interface FAQ {
   id: string;
@@ -27,6 +28,7 @@ export default function FAQPage() {
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState("All");
+  const t = useT();
 
   useEffect(() => {
     fetch("/api/faq")
@@ -85,10 +87,10 @@ export default function FAQPage() {
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <HelpCircle className="h-6 w-6 text-primary" />
-          Frequently Asked Questions
+          {t("faq.title")}
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Find answers to common questions about TANHOWA portal and services
+          {t("faq.subtitle")}
         </p>
       </div>
 
@@ -96,7 +98,7 @@ export default function FAQPage() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search FAQs..."
+          placeholder={t("faq.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-10"
@@ -174,7 +176,7 @@ export default function FAQPage() {
       {/* Count */}
       {filtered.length > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          Showing {filtered.length} of {faqs.length} FAQs
+          {t("faq.showing", { filtered: String(filtered.length), total: String(faqs.length) })}
         </p>
       )}
     </div>

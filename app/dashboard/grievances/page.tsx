@@ -15,6 +15,7 @@ import { formatDate } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
+import { useT } from "@/lib/i18n";
 
 const categories = ["General", "Administrative", "Technical", "Others"];
 
@@ -35,6 +36,7 @@ export default function GrievancesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const t = useT();
 
   function load() {
     fetch("/api/grievances?type=grievance")
@@ -76,30 +78,30 @@ export default function GrievancesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Grievances</h1>
+          <h1 className="text-2xl font-bold">{t("grievance.title")}</h1>
           {grievances.length > 0 && (
-            <p className="text-sm text-muted-foreground mt-0.5">{grievances.length} grievance{grievances.length !== 1 ? "s" : ""}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{grievances.length} {t("grievance.title").toLowerCase()}</p>
           )}
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
-              <Plus size={16} className="mr-1" />Submit
+              <Plus size={16} className="mr-1" />{t("common.submit")}
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Submit Grievance</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("grievance.submit")}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div><Label>Subject *</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="Brief subject" required /></div>
-              <div><Label>Description *</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe in detail" rows={4} required /></div>
+              <div><Label>{t("grievance.subject")} *</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder={t("grievance.brief_subject")} required /></div>
+              <div><Label>{t("grievance.description")} *</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t("grievance.describe_detail")} rows={4} required /></div>
               <div>
-                <Label>Category</Label>
+                <Label>{t("grievance.category")}</Label>
                 <Select value={form.category} onValueChange={(val) => setForm({ ...form, category: val })}>
-                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("grievance.select_category")} /></SelectTrigger>
                   <SelectContent>{categories.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90">{loading ? "Submitting..." : "Submit Grievance"}</Button>
+              <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90">{loading ? t("grievance.submitting") : t("grievance.submit")}</Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -107,14 +109,14 @@ export default function GrievancesPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="Total" value={stats.total} icon={MessageSquareWarning} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" />
-        <MetricCard label="Pending" value={stats.pending} icon={Clock} loading={!loaded} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
-        <MetricCard label="In Progress" value={stats.inProgress} icon={AlertTriangle} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" />
-        <MetricCard label="Resolved" value={stats.resolved} icon={CheckCircle2} loading={!loaded} borderColor="border-l-green-500" iconColor="text-green-500/40" />
+        <MetricCard label={t("misc.total")} value={stats.total} icon={MessageSquareWarning} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" />
+        <MetricCard label={t("status.pending")} value={stats.pending} icon={Clock} loading={!loaded} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
+        <MetricCard label={t("status.in_progress")} value={stats.inProgress} icon={AlertTriangle} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" />
+        <MetricCard label={t("status.resolved")} value={stats.resolved} icon={CheckCircle2} loading={!loaded} borderColor="border-l-green-500" iconColor="text-green-500/40" />
       </div>
 
       {grievances.length === 0 && loaded ? (
-        <EmptyState icon={MessageSquareWarning} title="No grievances submitted yet" description="Submit a grievance to get started" />
+        <EmptyState icon={MessageSquareWarning} title={t("grievance.no_grievances")} description={t("grievance.get_started")} />
       ) : (
         <div className="space-y-3">
           {grievances.map((g) => (
@@ -136,7 +138,7 @@ export default function GrievancesPage() {
                     </div>
                     {g.admin_remarks && (
                       <div className="mt-2 p-2.5 bg-muted/50 rounded-lg border-l-2 border-l-primary/30">
-                        <p className="text-xs font-medium text-muted-foreground">Admin Remarks</p>
+                        <p className="text-xs font-medium text-muted-foreground">{t("grievance.admin_remarks")}</p>
                         <p className="text-xs mt-0.5">{g.admin_remarks}</p>
                       </div>
                     )}

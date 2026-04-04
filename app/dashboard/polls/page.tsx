@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { BarChart3, Plus, X, Users } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
+import { useT } from "@/lib/i18n";
 
 interface Poll {
   id: string;
@@ -30,6 +31,7 @@ export default function PollsPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newOptions, setNewOptions] = useState(["", ""]);
   const [creating, setCreating] = useState(false);
+  const t = useT();
 
   function load() {
     fetch("/api/polls")
@@ -97,25 +99,25 @@ export default function PollsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Polls</h1>
-          {polls.length > 0 && <p className="text-sm text-muted-foreground mt-0.5">{polls.length} poll{polls.length !== 1 ? "s" : ""}</p>}
+          <h1 className="text-2xl font-bold">{t("poll.title")}</h1>
+          {polls.length > 0 && <p className="text-sm text-muted-foreground mt-0.5">{polls.length} {t("poll.title").toLowerCase()}</p>}
         </div>
         {canCreate && (
           <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90">
-            <Plus size={16} className="mr-1" />New Poll
+            <Plus size={16} className="mr-1" />{t("poll.new_poll")}
           </Button>
         )}
       </div>
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Create Poll</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("poll.create_poll")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <Input placeholder="Question *" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+            <Input placeholder={`${t("poll.question")} *`} value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
             {newOptions.map((opt, i) => (
               <div key={i} className="flex gap-2">
                 <Input
-                  placeholder={`Option ${i + 1}`}
+                  placeholder={`${t("poll.option")} ${i + 1}`}
                   value={opt}
                   onChange={(e) => { const o = [...newOptions]; o[i] = e.target.value; setNewOptions(o); }}
                 />
@@ -128,18 +130,18 @@ export default function PollsPage() {
             ))}
             {newOptions.length < 6 && (
               <Button variant="outline" size="sm" className="w-full" onClick={() => setNewOptions([...newOptions, ""])}>
-                <Plus size={14} className="mr-1" /> Add Option
+                <Plus size={14} className="mr-1" /> {t("poll.add_option")}
               </Button>
             )}
             <Button onClick={handleCreate} disabled={creating} className="w-full bg-primary hover:bg-primary/90">
-              {creating ? "Creating..." : "Create Poll"}
+              {creating ? t("poll.creating") : t("poll.create_poll")}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {polls.length === 0 ? (
-        <EmptyState icon={BarChart3} title="No polls yet" description="Polls will appear here when created" />
+        <EmptyState icon={BarChart3} title={t("poll.no_polls")} description={t("poll.will_appear")} />
       ) : (
         <div className="space-y-4">
           {polls.map((poll) => {
@@ -153,9 +155,9 @@ export default function PollsPage() {
                     <h3 className="font-semibold">{poll.title}</h3>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant="outline" className="text-[10px] gap-1">
-                        <Users size={10} /> {poll.totalVotes} vote{poll.totalVotes !== 1 ? "s" : ""}
+                        <Users size={10} /> {poll.totalVotes} {poll.totalVotes !== 1 ? t("poll.votes") : t("poll.vote")}
                       </Badge>
-                      {poll.status !== "active" && <Badge variant="outline" className="text-[10px] text-red-600">Closed</Badge>}
+                      {poll.status !== "active" && <Badge variant="outline" className="text-[10px] text-red-600">{t("poll.closed")}</Badge>}
                     </div>
                   </div>
                   <div className="space-y-2">

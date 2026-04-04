@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { Landmark, IndianRupee, FileText, Calendar, MapPin } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 interface PeriodSummary {
   period: string;
@@ -29,6 +30,7 @@ const FY_OPTIONS = [
 export default function MemberFinancePage() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState("2025-26");
+  const t = useT();
   const [totalCredits, setTotalCredits] = useState(0);
   const [totalSubscriptions, setTotalSubscriptions] = useState(0);
   const [totalBankEntries, setTotalBankEntries] = useState(0);
@@ -77,8 +79,8 @@ export default function MemberFinancePage() {
             <Landmark className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold">TANHOWA Finance</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">Financial Summary - FY {year}</p>
+            <h1 className="text-xl sm:text-2xl font-bold">{t("finance.title")}</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">{t("finance.summary")} - FY {year}</p>
           </div>
         </div>
         <Select value={year} onValueChange={setYear}>
@@ -95,13 +97,13 @@ export default function MemberFinancePage() {
 
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <MetricCard label="Total Collections" value={`Rs.${totalCredits.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
-        <MetricCard label="Subscriptions" value={totalSubscriptions} subtitle={totalBankEntries !== totalSubscriptions ? `${totalBankEntries} bank entries` : undefined} icon={FileText} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
-        <MetricCard label="Districts" value={districtsCount} icon={MapPin} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
+        <MetricCard label={t("finance.total_collections")} value={`Rs.${totalCredits.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
+        <MetricCard label={t("finance.subscriptions")} value={totalSubscriptions} subtitle={totalBankEntries !== totalSubscriptions ? `${totalBankEntries} ${t("finance.bank_entries")}` : undefined} icon={FileText} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
+        <MetricCard label={t("finance.districts")} value={districtsCount} icon={MapPin} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
       </div>
 
       {totalSubscriptions === 0 ? (
-        <EmptyState icon={Landmark} title="No financial data" description={`No paid subscriptions recorded for FY ${year}`} />
+        <EmptyState icon={Landmark} title={t("finance.no_data")} description={t("finance.no_paid_subs", { year })} />
       ) : (
         <>
           {/* Monthly Collections */}
@@ -109,7 +111,7 @@ export default function MemberFinancePage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                  <Calendar size={14} /> Monthly Collections
+                  <Calendar size={14} /> {t("finance.monthly_collections")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
@@ -141,7 +143,7 @@ export default function MemberFinancePage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                  <FileText size={14} /> Collections by Subscription Period
+                  <FileText size={14} /> {t("finance.by_period")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0 space-y-2">
@@ -149,7 +151,7 @@ export default function MemberFinancePage() {
                   <div key={p.period} className="flex items-center justify-between py-2 border-b last:border-0">
                     <div>
                       <span className="text-sm font-medium">{p.period}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{p.count} payments</span>
+                      <span className="text-xs text-muted-foreground ml-2">{p.count} {t("finance.payments")}</span>
                     </div>
                     <span className="text-sm font-semibold text-green-700">Rs.{p.total.toLocaleString("en-IN")}</span>
                   </div>
@@ -160,7 +162,7 @@ export default function MemberFinancePage() {
 
           {/* Note */}
           <p className="text-xs text-muted-foreground text-center">
-            This is a summary view of TANHOWA financial collections. Detailed records are available to officials and admins.
+            {t("finance.summary_note")}
           </p>
         </>
       )}

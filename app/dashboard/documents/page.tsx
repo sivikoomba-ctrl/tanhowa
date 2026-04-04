@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { FileText, Download, Upload, Search, FolderLock, Filter, Link, FileUp, X, Eye } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 const docCategories = [
   "Circular / Order",
@@ -47,6 +48,7 @@ export default function DocumentsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+  const t = useT();
 
   function load() {
     fetch("/api/documents")
@@ -190,7 +192,7 @@ export default function DocumentsPage() {
             <Button variant="outline" size="sm" asChild>
               <a href={previewDoc?.file_url} target="_blank" rel="noopener noreferrer" onClick={() => previewDoc && trackDownload(previewDoc)}>
                 <Download size={14} className="mr-1" />
-                Download
+                {t("common.download")}
               </a>
             </Button>
           </div>
@@ -204,7 +206,7 @@ export default function DocumentsPage() {
             <FolderLock className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Document Vault</h1>
+            <h1 className="text-2xl font-bold">{t("doc.title")}</h1>
             <p className="text-sm text-muted-foreground">{documents.length} approved document{documents.length !== 1 ? "s" : ""}</p>
           </div>
         </div>
@@ -212,12 +214,12 @@ export default function DocumentsPage() {
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
               <Upload size={16} className="mr-1" />
-              Upload Document
+              {t("doc.upload")}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Upload Document</DialogTitle>
+              <DialogTitle>{t("doc.upload")}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleUpload} className="space-y-4">
               <div>
@@ -266,7 +268,7 @@ export default function DocumentsPage() {
                     onClick={() => setUploadMode("file")}
                   >
                     <FileUp size={14} className="mr-1" />
-                    Upload File
+                    {t("doc.upload_file")}
                   </Button>
                   <Button
                     type="button"
@@ -276,7 +278,7 @@ export default function DocumentsPage() {
                     onClick={() => setUploadMode("url")}
                   >
                     <Link size={14} className="mr-1" />
-                    Paste URL
+                    {t("doc.or_url")}
                   </Button>
                 </div>
               </div>
@@ -348,7 +350,7 @@ export default function DocumentsPage() {
                 disabled={loading || (uploadMode === "file" && !selectedFile) || (uploadMode === "url" && !form.file_url)}
                 className="w-full bg-primary hover:bg-primary/90"
               >
-                {loading ? "Uploading..." : "Submit for Approval"}
+                {loading ? t("doc.uploading") : t("common.submit")}
               </Button>
             </form>
           </DialogContent>
@@ -362,7 +364,7 @@ export default function DocumentsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by title, description, or uploader..."
+                placeholder={t("doc.search")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -375,7 +377,7 @@ export default function DocumentsPage() {
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories ({documents.length})</SelectItem>
+                  <SelectItem value="all">{t("doc.all_categories")} ({documents.length})</SelectItem>
                   {docCategories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat} ({categoryCounts[cat] || 0})
@@ -465,12 +467,12 @@ export default function DocumentsPage() {
                       <div className="flex items-center gap-1.5">
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleView(doc)}>
                           <Eye size={12} className="mr-1" />
-                          View
+                          {t("common.view")}
                         </Button>
                         <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
                           <a href={doc.file_url} target="_blank" rel="noopener noreferrer" onClick={() => trackDownload(doc)}>
                             <Download size={12} className="mr-1" />
-                            Download
+                            {t("common.download")}
                           </a>
                         </Button>
                       </div>

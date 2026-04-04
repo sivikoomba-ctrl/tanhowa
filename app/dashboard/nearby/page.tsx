@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Navigation, MapPin, Phone, Mail, Users, Search, Locate } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 interface NearbyMember {
   id: string;
@@ -26,6 +27,7 @@ export default function NearbyMembersPage() {
   const [searchLat, setSearchLat] = useState("");
   const [searchLng, setSearchLng] = useState("");
   const [searched, setSearched] = useState(false);
+  const t = useT();
 
   async function findFromMyLocation() {
     if (!navigator.geolocation) {
@@ -95,8 +97,8 @@ export default function NearbyMembersPage() {
           <Navigation className="w-5 h-5 text-blue-600" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Nearby Members</h1>
-          <p className="text-sm text-muted-foreground">Find members with location sharing enabled near a location</p>
+          <h1 className="text-2xl font-bold">{t("nearby.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("nearby.subtitle")}</p>
         </div>
       </div>
 
@@ -106,10 +108,10 @@ export default function NearbyMembersPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <Button onClick={findFromMyLocation} disabled={loading} className="gap-2 bg-blue-600 hover:bg-blue-700">
               <Locate size={16} />
-              {loading ? "Searching..." : "Find Near My Location"}
+              {loading ? t("nearby.searching") : t("nearby.find_my_location")}
             </Button>
             <div className="flex items-center gap-2">
-              <Label className="text-sm whitespace-nowrap">Radius (km):</Label>
+              <Label className="text-sm whitespace-nowrap">{t("nearby.radius")}:</Label>
               <Input
                 type="number"
                 value={radius}
@@ -122,7 +124,7 @@ export default function NearbyMembersPage() {
           </div>
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>or search by coordinates:</span>
+            <span>{t("nearby.or_coords")}:</span>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex items-center gap-2 flex-1">
@@ -145,14 +147,14 @@ export default function NearbyMembersPage() {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Users size={16} className="text-muted-foreground" />
-            <span className="text-sm font-medium">{nearby.length} member(s) within {radius} km</span>
+            <span className="text-sm font-medium">{t("nearby.members_within", { count: String(nearby.length), radius })}</span>
           </div>
 
           {nearby.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground py-12">
                 <Navigation className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-                <p>No members found nearby. Members need to enable location sharing in their Profile.</p>
+                <p>{t("nearby.no_nearby")}</p>
               </CardContent>
             </Card>
           ) : (

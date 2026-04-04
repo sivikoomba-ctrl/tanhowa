@@ -7,6 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Crown, Building2, Phone, Mail, MapPin, Briefcase } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 interface Official {
   id: string;
@@ -27,6 +28,7 @@ export default function OfficialsPage() {
   const [officials, setOfficials] = useState<Official[]>([]);
   const [tab, setTab] = useState("state");
   const [zoomPhoto, setZoomPhoto] = useState<string | null>(null);
+  const t = useT();
 
   useEffect(() => {
     fetch("/api/users?status=approved")
@@ -70,9 +72,9 @@ export default function OfficialsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Officials</h1>
+        <h1 className="text-2xl font-bold">{t("official.title")}</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          State and District officials of the association
+          {t("official.subtitle")}
         </p>
       </div>
 
@@ -80,17 +82,17 @@ export default function OfficialsPage() {
         <TabsList>
           <TabsTrigger value="state" className="gap-1.5">
             <Crown size={14} />
-            State Officials ({stateOfficials.length})
+            {t("official.state_officials")} ({stateOfficials.length})
           </TabsTrigger>
           <TabsTrigger value="district" className="gap-1.5">
             <Building2 size={14} />
-            District Officials ({districtOfficials.length})
+            {t("official.district_officials")} ({districtOfficials.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="state" className="mt-4">
           {stateOfficials.length === 0 ? (
-            <p className="text-muted-foreground text-center py-12">No State Officials designated yet</p>
+            <p className="text-muted-foreground text-center py-12">{t("official.no_state")}</p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {stateOfficials.map((o) => (
@@ -102,7 +104,7 @@ export default function OfficialsPage() {
 
         <TabsContent value="district" className="mt-4">
           {districtOfficials.length === 0 ? (
-            <p className="text-muted-foreground text-center py-12">No District Officials designated yet</p>
+            <p className="text-muted-foreground text-center py-12">{t("official.no_district")}</p>
           ) : (
             <div className="space-y-8">
               {districtGroups.map(([district, members]) => (
@@ -136,6 +138,7 @@ export default function OfficialsPage() {
 }
 
 function OfficialCard({ official: o, onPhotoClick }: { official: Official; onPhotoClick?: (url: string) => void }) {
+  const t = useT();
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="pt-5">
@@ -158,7 +161,7 @@ function OfficialCard({ official: o, onPhotoClick }: { official: Official; onPho
               }`}
             >
               {o.official_type === "state" ? (
-                <><Crown size={10} className="mr-1" />State Official</>
+                <><Crown size={10} className="mr-1" />{t("official.state_label")}</>
               ) : (
                 <><Building2 size={10} className="mr-1" />{o.posting_details?.official_designation || "District-Admin"}</>
               )}

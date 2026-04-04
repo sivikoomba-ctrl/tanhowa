@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Award, Clock, Activity, TrendingUp, Trophy, Medal, Star, Flame, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -68,6 +69,7 @@ export default function ContributionsPage() {
   const [totalMinutes, setTotalMinutes] = useState(0);
   const [period, setPeriod] = useState("month");
   const [loading, setLoading] = useState(true);
+  const t = useT();
 
   useEffect(() => {
     setLoading(true);
@@ -139,7 +141,7 @@ export default function ContributionsPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Contributions</h1>
+        <h1 className="text-2xl font-bold">{t("contrib.title")}</h1>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={downloadPDF} disabled={contributions.length === 0}>
             <FileDown size={14} className="mr-1" /> PDF
@@ -149,9 +151,9 @@ export default function ContributionsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="week">{t("contrib.this_week")}</SelectItem>
+              <SelectItem value="month">{t("contrib.this_month")}</SelectItem>
+              <SelectItem value="all">{t("contrib.all_time")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -163,21 +165,21 @@ export default function ContributionsPage() {
           <CardContent className="pt-4 text-center">
             <Activity className="w-6 h-6 mx-auto text-primary mb-1" />
             <p className="text-2xl font-bold">{contributions.length}</p>
-            <p className="text-xs text-muted-foreground">Actions</p>
+            <p className="text-xs text-muted-foreground">{t("contrib.actions")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 text-center">
             <Clock className="w-6 h-6 mx-auto text-primary mb-1" />
             <p className="text-2xl font-bold">{formatMinutes(totalMinutes)}</p>
-            <p className="text-xs text-muted-foreground">Est. Time</p>
+            <p className="text-xs text-muted-foreground">{t("contrib.est_time")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 text-center">
             <Award className="w-6 h-6 mx-auto text-primary mb-1" />
             <p className="text-2xl font-bold">{Object.keys(actionCounts).length}</p>
-            <p className="text-xs text-muted-foreground">Action Types</p>
+            <p className="text-xs text-muted-foreground">{t("contrib.action_types")}</p>
           </CardContent>
         </Card>
       </div>
@@ -186,7 +188,7 @@ export default function ContributionsPage() {
       {awards.length > 0 && (
         <Card className="border-primary/30">
           <CardContent className="pt-4">
-            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><Trophy size={14} /> Awards Earned</h3>
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><Trophy size={14} /> {t("contrib.awards_earned")}</h3>
             <div className="flex flex-wrap gap-3">
               {awards.map((a) => (
                 <div key={a.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/50">
@@ -203,7 +205,7 @@ export default function ContributionsPage() {
       {topActions.length > 0 && (
         <Card>
           <CardContent className="pt-4">
-            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><TrendingUp size={14} /> Top Activities</h3>
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><TrendingUp size={14} /> {t("contrib.top_activities")}</h3>
             <div className="flex flex-wrap gap-2">
               {topActions.map(([action, count]) => {
                 const config = ACTION_LABELS[action] || { label: action, color: "bg-gray-100 text-gray-700 border-gray-300" };
@@ -226,7 +228,7 @@ export default function ContributionsPage() {
       ) : contributions.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            No contributions yet. Start using the portal to earn contributions!
+            {t("contrib.no_contributions")}
           </CardContent>
         </Card>
       ) : (
