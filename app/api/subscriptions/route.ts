@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin, getOfficialInfo, isFinanceTeamMember } from "@/lib/auth";
+import { getSession, isAdmin, getOfficialInfo, isFinanceTeamMember, DEFAULT_ADMIN_EMAIL } from "@/lib/auth";
+
+// Emails excluded from subscription dues (test/system accounts)
+const SUBSCRIPTION_EXEMPT_EMAILS = [DEFAULT_ADMIN_EMAIL, "tanhowa19791@gmail.com"];
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
@@ -30,7 +33,7 @@ export async function GET(req: NextRequest) {
       if (sync === "true" && isAdminGet) {
         try {
           const [{ data: allMembers }, { data: allSubs }] = await Promise.all([
-            supabase.from("users").select("id").eq("status", "approved").neq("role", "super_admin"),
+            supabase.from("users").select("id, email").eq("status", "approved").neq("role", "super_admin"),
             supabase.from("subscriptions").select("user_id, period, amount, due_date").order("created_at", { ascending: false }),
           ]);
 
@@ -45,7 +48,8 @@ export async function GET(req: NextRequest) {
             const existingSet = new Set(allSubs.map((s: { user_id: string; period: string }) => `${s.user_id}::${s.period}`));
 
             const missing: { user_id: string; period: string; amount: number; due_date: string | null; status: string }[] = [];
-            for (const member of allMembers) {
+            const eligibleMembers = allMembers.filter((m: { email: string }) => !SUBSCRIPTION_EXEMPT_EMAILS.includes(m.email));
+            for (const member of eligibleMembers) {
               for (const [p, info] of periodMap) {
                 if (!existingSet.has(`${member.id}::${p}`)) {
                   missing.push({ user_id: member.id, period: p, amount: info.amount || 0, due_date: info.due_date, status: "pending" });
@@ -147,11 +151,12 @@ export async function POST(req: NextRequest) {
 
     if (body.action === "bulk-create") {
       // Get all approved members including admins (exclude super_admin)
-      const { data: users } = await supabase
+      const { data: allUsers } = await supabase
         .from("users")
-        .select("id")
+        .select("id, email")
         .eq("status", "approved")
         .neq("role", "super_admin");
+      const users = (allUsers || []).filter((u: { email: string }) => !SUBSCRIPTION_EXEMPT_EMAILS.includes(u.email));
 
       if (!users || users.length === 0) {
         return NextResponse.json({ error: "No approved members found" }, { status: 400 });
@@ -403,12 +408,15 @@ export async function PUT(req: NextRequest) {
         updates.paid_at = body.paid_at || new Date().toISOString();
         updates.approved_by = session.userId;
         updates.approved_at = new Date().toISOString();
-        // Auto-append Finance Team approval remark
+        // Auto-append Finance Team approval remark (preserve existing DB remarks)
         const { data: approver } = await supabase.from("users").select("name").eq("id", session.userId).single();
         const approverName = approver?.name || "Unknown";
         const financeRemark = `Final approval by ${approverName}, Finance Team, TANHOWA.`;
-        const existing = (body.remarks || "").trim();
-        updates.remarks = existing ? `${existing}\n${financeRemark}` : financeRemark;
+        const { data: currentSub } = await supabase.from("subscriptions").select("remarks").eq("id", body.id).single();
+        const dbRemarks = (currentSub?.remarks || "").trim();
+        const extraRemarks = (body.remarks || "").trim();
+        const combined = [dbRemarks, extraRemarks].filter(Boolean).join("\n");
+        updates.remarks = combined ? `${combined}\n${financeRemark}` : financeRemark;
       } else {
         // Clear approval info when reverting
         updates.approved_by = null;

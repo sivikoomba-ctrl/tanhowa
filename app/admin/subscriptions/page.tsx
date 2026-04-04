@@ -594,7 +594,7 @@ export default function AdminSubscriptionsPage() {
     const hasLinked = adminSelectedMembers.size > 0 || adminSelectedPeriods.size > 0;
     const groupId = hasLinked ? crypto.randomUUID() : undefined;
 
-    let remarkBase = payForm.remarks || payDialog.remarks;
+    let remarkBase = payForm.remarks;
     if (payeeOverride && payeeInfo?.is_tanhowa_payment === false) {
       const overrideNote = `[OVERRIDE] Payee mismatch overridden — paid to: ${payeeInfo.paid_to || "unknown"}, account: ${payeeInfo.paid_account || "unknown"}`;
       remarkBase = remarkBase ? `${remarkBase}. ${overrideNote}` : overrideNote;
@@ -1567,15 +1567,20 @@ export default function AdminSubscriptionsPage() {
                             onClick={async () => {
                               setPayDialog(sub);
                               const today = new Date();
-                              let defaultRemark = sub.remarks || "";
-                              if (!defaultRemark && adminInfo.name) {
-                                const parts = [adminInfo.name];
-                                if (adminInfo.designation) parts.push(adminInfo.designation);
-                                if (!adminInfo.isSuperAdmin && adminInfo.district) parts.push(adminInfo.district);
-                                parts.push("TANHOWA");
-                                defaultRemark = adminInfo.isSuperAdmin
-                                  ? `Approved. - ${parts.join(", ")}.`
-                                  : `Provisionally approved. - ${parts.join(", ")}.`;
+                              let defaultRemark = "";
+                              // Finance Team members: remarks auto-appended by server, keep textarea empty
+                              // Other admins: pre-fill with existing remark or generate provisional/approved remark
+                              if (!adminInfo.isFinanceTeam) {
+                                defaultRemark = sub.remarks || "";
+                                if (!defaultRemark && adminInfo.name) {
+                                  const parts = [adminInfo.name];
+                                  if (adminInfo.designation) parts.push(adminInfo.designation);
+                                  if (!adminInfo.isSuperAdmin && adminInfo.district) parts.push(adminInfo.district);
+                                  parts.push("TANHOWA");
+                                  defaultRemark = adminInfo.isSuperAdmin
+                                    ? `Approved. - ${parts.join(", ")}.`
+                                    : `Provisionally approved. - ${parts.join(", ")}.`;
+                                }
                               }
                               setPayForm({
                                 remarks: defaultRemark,
@@ -1895,7 +1900,7 @@ export default function AdminSubscriptionsPage() {
                                 paid_at: paidAt || new Date().toISOString(),
                                 transaction_id: payDialog.transaction_id,
                                 payment_method: payForm.payment_method || payDialog.payment_method,
-                                remarks: payForm.remarks || payDialog.remarks || "",
+                                remarks: payForm.remarks || "",
                                 payment_group_id: groupId,
                               }),
                             });
