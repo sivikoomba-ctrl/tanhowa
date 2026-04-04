@@ -150,7 +150,7 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                 <Copy size={12} />
               </button>
               <Badge variant={u.role === "admin" || u.role === "super_admin" ? "default" : "outline"} className={`text-xs ${u.role === "super_admin" ? "bg-amber-600 hover:bg-amber-600" : ""}`}>
-                {u.role === "super_admin" ? "Super Admin" : u.role}
+                {u.role === "super_admin" ? "State-Admin" : u.role}
               </Badge>
               {u.official_type === "state" && (
                 <Badge className="text-xs bg-purple-600 hover:bg-purple-600 text-white">
@@ -159,7 +159,7 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
               )}
               {u.official_type === "district" && (
                 <Badge className="text-xs bg-blue-600 hover:bg-blue-600 text-white">
-                  <Building2 size={10} className="mr-1" />District Official
+                  <Building2 size={10} className="mr-1" />District-Admin
                 </Badge>
               )}
               {u.official_type === "volunteer" && (
@@ -257,7 +257,7 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                   <Crown size={14} className="mr-1" />State Official
                 </Button>
                 <Button size="sm" variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => onAction("set-official-district")}>
-                  <Building2 size={14} className="mr-1" />District Official
+                  <Building2 size={14} className="mr-1" />District-Admin
                 </Button>
                 <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" onClick={() => onAction("set-official-volunteer")}>
                   <Users size={14} className="mr-1" />Volunteer Admin

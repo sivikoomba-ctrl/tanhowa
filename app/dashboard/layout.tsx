@@ -34,6 +34,7 @@ import {
   MessageCircle,
   Landmark,
   Sparkles,
+  UtensilsCrossed,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -82,6 +83,7 @@ const navItems = [
   { href: "/dashboard/contributions", label: "Contributions", icon: Award },
   { href: "/dashboard/finance", label: "Finance", icon: Landmark },
   { href: "/dashboard/ai-tools", label: "AI Tools", icon: Sparkles },
+  { href: "/dashboard/food-orders", label: "Food Orders", icon: UtensilsCrossed, superAdminOnly: true },
 ];
 
 function getMissingFields(u: UserData): string[] {
@@ -237,7 +239,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     return (
       <>
-        {navItems.filter((item) => !("officialOnly" in item && item.officialOnly) || user?.official_type === "state" || user?.official_type === "district" || user?.role === "admin" || user?.role === "super_admin").map((item) => {
+        {navItems.filter((item) => {
+          if ("superAdminOnly" in item && item.superAdminOnly && user?.role !== "super_admin") return false;
+          if ("officialOnly" in item && item.officialOnly && !(user?.official_type === "state" || user?.official_type === "district" || user?.role === "admin" || user?.role === "super_admin")) return false;
+          return true;
+        }).map((item) => {
           const isActive = pathname === item.href;
           // Insert Feedback group after Document Vault
           if (item.href === "/dashboard/subscriptions") {

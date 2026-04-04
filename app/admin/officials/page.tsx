@@ -82,7 +82,7 @@ export default function AdminOfficialsPage() {
       body: JSON.stringify({ userId, action: "set-official", officialType }),
     });
     if (res.ok) {
-      const label = officialType === "state" ? "State Official" : officialType === "district" ? "District Official" : "regular member";
+      const label = officialType === "state" ? "State Official" : officialType === "district" ? "District-Admin" : "regular member";
       toast.success(`Set as ${label}`);
       loadUsers();
       setShowAdd(false);

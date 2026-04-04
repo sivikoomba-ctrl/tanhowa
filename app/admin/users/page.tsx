@@ -212,7 +212,7 @@ export default function AdminUsersPage() {
   }
 
   async function handleSetOfficial(userId: string, officialType: string | null) {
-    const label = officialType === "state" ? "State Official" : officialType === "district" ? "District Official" : "regular member";
+    const label = officialType === "state" ? "State Official" : officialType === "district" ? "District-Admin" : "regular member";
     const res = await fetch("/api/admin/users", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
