@@ -32,7 +32,7 @@ interface User {
   role: string;
   status: string;
   posting_details: PostingDetails;
-  social_links: { instagram?: string; twitter?: string; linkedin?: string };
+  social_links: { instagram?: string; twitter?: string; linkedin?: string; title?: string; gender?: string; qualification?: string };
   photo_url: string;
   created_at: string;
   updated_at: string;
@@ -97,9 +97,12 @@ function getNudgePendingFields(u: User): string[] {
 }
 
 function getProfileCompleteness(u: User): { percent: number; missing: string[] } {
+  const sl = u.social_links || {};
   const fields: { key: string; label: string; check: boolean }[] = [
     { key: "name", label: "Name", check: !!u.name?.trim() },
     { key: "phone", label: "Phone", check: !!u.phone?.trim() },
+    { key: "title", label: "Title (Mr./Mrs./Dr.)", check: !!sl.title },
+    { key: "gender", label: "Gender", check: !!sl.gender },
     { key: "dob", label: "Date of Birth", check: !!u.dob },
     { key: "occupation", label: "Designation", check: !!u.occupation?.trim() },
     { key: "photo", label: "Photo", check: !!u.photo_url },

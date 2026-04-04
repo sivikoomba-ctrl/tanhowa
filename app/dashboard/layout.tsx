@@ -35,6 +35,7 @@ import {
   Landmark,
   Sparkles,
   UtensilsCrossed,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +84,7 @@ const navItems = [
   { href: "/dashboard/contributions", label: "Contributions", icon: Award },
   { href: "/dashboard/finance", label: "Finance", icon: Landmark },
   { href: "/dashboard/ai-tools", label: "AI Tools", icon: Sparkles },
+  { href: "/dashboard/faq", label: "FAQ", icon: HelpCircle },
   { href: "/dashboard/food-orders", label: "Food Orders", icon: UtensilsCrossed, superAdminOnly: true },
 ];
 
