@@ -22,6 +22,7 @@ const translations = {
   "nav.contributions": { en: "Contributions", ta: "பங்களிப்புகள்" },
   "nav.finance": { en: "Finance", ta: "நிதி" },
   "nav.ai_tools": { en: "AI Tools", ta: "AI கருவிகள்" },
+  "nav.payment_status": { en: "Payment Status", ta: "கட்டண நிலை" },
   "nav.wishlist": { en: "Ideas Board", ta: "யோசனைகள்" },
   "nav.faq": { en: "FAQ", ta: "கேள்வி பதில்" },
   "nav.food_orders": { en: "Food Orders", ta: "உணவு ஆர்டர்" },
@@ -743,6 +744,21 @@ const translations = {
   "wishlist.newest": { en: "Newest", ta: "புதியவை" },
   "wishlist.no_ideas": { en: "No ideas yet", ta: "இன்னும் யோசனைகள் இல்லை" },
   "wishlist.no_ideas_desc": { en: "Be the first to share an idea for TANHOWA!", ta: "TANHOWA-க்கான முதல் யோசனையைப் பகிருங்கள்!" },
+
+  // Payment Status
+  "payment_status.title": { en: "Subscription Status", ta: "சந்தா நிலை" },
+  "payment_status.total_members": { en: "Total Members", ta: "மொத்த உறுப்பினர்கள்" },
+  "payment_status.paid": { en: "Paid", ta: "செலுத்தியது" },
+  "payment_status.pending": { en: "Pending", ta: "நிலுவையில்" },
+  "payment_status.collected": { en: "Collected", ta: "வசூலிக்கப்பட்டது" },
+  "payment_status.top_districts": { en: "Top Contributing Districts", ta: "அதிக பங்களிப்பு மாவட்டங்கள்" },
+  "payment_status.search_placeholder": { en: "Search by member name or district...", ta: "உறுப்பினர் பெயர் அல்லது மாவட்டம் தேடுங்கள்..." },
+
+  // ID Card
+  "id_card.title": { en: "Member ID Card", ta: "உறுப்பினர் அடையாள அட்டை" },
+  "id_card.download": { en: "Download PDF", ta: "PDF பதிவிறக்கம்" },
+  "id_card.member_since": { en: "Member Since", ta: "உறுப்பினர் ஆன்ட" },
+  "id_card.valid_until": { en: "Valid Until", ta: "செல்லும் தேதி" },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

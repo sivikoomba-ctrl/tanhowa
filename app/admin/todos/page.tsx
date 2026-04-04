@@ -28,6 +28,8 @@ import {
   CheckSquare,
   Square,
   Plus,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Todo, TodoNote, TodoAttachment, TodoVoucher, Member, Team, TimeEntry } from "./_components/types";
@@ -111,6 +113,9 @@ export default function AdminTodosPage() {
 
   // Create dialog
   const [showCreate, setShowCreate] = useState(false);
+
+  // Bulk classify
+  const [classifying, setClassifying] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -219,6 +224,34 @@ export default function AdminTodosPage() {
       fetchData();
     } catch {
       toast.error("Failed to clone task");
+    }
+  }
+
+  async function bulkClassify() {
+    const unassignedCount = todos.filter((t) => !t.assigned_team_id && !t.assigned_to && !["completed", "rejected", "cancelled"].includes(t.status)).length;
+    if (unassignedCount === 0) {
+      toast.info("No unassigned tasks to classify");
+      return;
+    }
+    if (!confirm(`Use AI to classify ${unassignedCount} unassigned tasks to teams?`)) return;
+    setClassifying(true);
+    try {
+      const res = await fetch("/api/todos/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "bulk" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Classified ${data.classified} tasks. ${data.skipped} skipped (low confidence).`);
+        fetchData();
+      } else {
+        toast.error(data.error || "Classification failed");
+      }
+    } catch {
+      toast.error("Classification failed");
+    } finally {
+      setClassifying(false);
     }
   }
 
@@ -445,6 +478,10 @@ export default function AdminTodosPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Task List</h1>
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={bulkClassify} disabled={classifying}>
+            {classifying ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {classifying ? "Classifying..." : "AI Classify"}
+          </Button>
           <Button size="sm" className="gap-1.5" onClick={() => setShowCreate(true)}>
             <Plus size={14} /> Create Task
           </Button>

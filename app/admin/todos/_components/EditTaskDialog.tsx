@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Star } from "lucide-react";
+import { AlertTriangle, Star, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Todo, Member, Team } from "./types";
 
@@ -28,6 +28,7 @@ export default function EditTaskDialog({ todo, open, onOpenChange, members, team
   const [editRemarks, setEditRemarks] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
   const [saving, setSaving] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
 
   useEffect(() => {
     if (todo) {
@@ -39,6 +40,29 @@ export default function EditTaskDialog({ todo, open, onOpenChange, members, team
       setEditDueDate(todo.due_date || "");
     }
   }, [todo]);
+
+  async function suggestTeam() {
+    if (!todo) return;
+    setSuggesting(true);
+    try {
+      const res = await fetch("/api/todos/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "suggest", title: todo.title, description: todo.description || "" }),
+      });
+      const data = await res.json();
+      if (data.suggestion) {
+        setEditAssignedTo(`team:${data.suggestion.team_id}`);
+        toast.success(`Suggested: ${data.suggestion.team_name} (${Math.round(data.suggestion.confidence * 100)}%)`);
+      } else {
+        toast.info("No clear team match found");
+      }
+    } catch {
+      toast.error("Failed to get suggestion");
+    } finally {
+      setSuggesting(false);
+    }
+  }
 
   async function handleUpdate() {
     if (!todo) return;
@@ -120,7 +144,20 @@ export default function EditTaskDialog({ todo, open, onOpenChange, members, team
             </div>
 
             <div className="space-y-2">
-              <Label>Assign To</Label>
+              <div className="flex items-center justify-between">
+                <Label>Assign To</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={suggestTeam}
+                  disabled={suggesting}
+                  className="h-7 gap-1 text-xs text-primary"
+                >
+                  {suggesting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  {suggesting ? "Analyzing..." : "AI Suggest"}
+                </Button>
+              </div>
               <Select value={editAssignedTo} onValueChange={setEditAssignedTo}>
                 <SelectTrigger><SelectValue placeholder="Select member or team" /></SelectTrigger>
                 <SelectContent>

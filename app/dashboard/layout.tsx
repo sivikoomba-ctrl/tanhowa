@@ -36,6 +36,7 @@ import {
   Sparkles,
   UtensilsCrossed,
   HelpCircle,
+  IndianRupee,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +81,7 @@ const navItems = [
   { href: "/dashboard/polls", labelKey: "nav.polls" as const, icon: BarChart3 },
   { href: "/dashboard/documents", labelKey: "nav.documents" as const, icon: FileText },
   { href: "/dashboard/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
+  { href: "/dashboard/payment-status", labelKey: "nav.payment_status" as const, icon: IndianRupee },
   { href: "/dashboard/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt, officialOnly: true },
   { href: "/dashboard/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
   { href: "/dashboard/todos", labelKey: "nav.todos" as const, icon: ListTodo },

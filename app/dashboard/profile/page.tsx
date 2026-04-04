@@ -14,10 +14,12 @@ import { PhotoCropDialog } from "@/components/photo-crop-dialog";
 import {
   Camera, Plus, X, AlertCircle, User, Briefcase, MapPin,
   GraduationCap, Globe, Save, Building2, ChevronDown, ChevronUp, Navigation, Bell,
+  Download, IdCard,
 } from "lucide-react";
 import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
 import { useT } from "@/lib/i18n";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import jsPDF from "jspdf";
 
 const titleOptions = ["", "Mr.", "Mrs.", "Miss.", "Dr."];
 
@@ -27,13 +29,7 @@ const occupationOptions: { value: string; key: TranslationKey }[] = [
   { value: "Deputy Director of Horticulture", key: "opt.ddh" },
   { value: "Joint Director of Horticulture", key: "opt.jdh" },
   { value: "Additional Director of Horticulture", key: "opt.addh" },
-  { value: "Retd. Horticultural Officer", key: "opt.retd_ho" },
-  { value: "Retd. Assistant Director of Horticulture", key: "opt.retd_adh" },
-  { value: "Retd. Deputy Director of Horticulture", key: "opt.retd_ddh" },
-  { value: "Retd. Joint Director of Horticulture", key: "opt.retd_jdh" },
-  { value: "Retd. Additional Director of Horticulture", key: "opt.retd_addh" },
   { value: "System Admin", key: "opt.system_admin" },
-  { value: "Others", key: "opt.others" },
 ];
 
 const occupationValues = occupationOptions.map((o) => o.value);
@@ -61,9 +57,12 @@ interface PostingDetails {
   special_farm: string;
   deputed_district: string;
   deputed_block: string;
+  official_designation?: string;
 }
 
 interface Profile {
+  id: string;
+  created_at: string;
   title: string;
   first_name: string;
   last_name: string;
@@ -134,6 +133,134 @@ function getProfileCompletion(p: Profile): { percent: number; missing: string[] 
   const filled = checks.filter(([ok]) => ok).length;
   const missing = checks.filter(([ok]) => !ok).map(([, name]) => name);
   return { percent: Math.round((filled / checks.length) * 100), missing };
+}
+
+async function downloadIdCard(profile: Profile, photoUrl: string | null) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [100, 65] });
+  const w = 100, h = 65;
+  const green = [45, 106, 79] as [number, number, number];
+
+  // Header bar
+  doc.setFillColor(...green);
+  doc.rect(0, 0, w, 14, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("TANHOWA", w / 2, 7, { align: "center" });
+  doc.setFontSize(5);
+  doc.setFont("helvetica", "normal");
+  doc.text("Tamil Nadu Horticultural Officers Welfare Association", w / 2, 11.5, { align: "center" });
+
+  // Photo placeholder
+  const photoX = 5, photoY = 17, photoW = 18, photoH = 22;
+  if (photoUrl) {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject();
+        img.src = photoUrl;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = 200;
+      canvas.height = 250;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, 200, 250);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      doc.addImage(dataUrl, "JPEG", photoX, photoY, photoW, photoH);
+    } catch {
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(photoX, photoY, photoW, photoH);
+      doc.setTextColor(150, 150, 150);
+      doc.setFontSize(6);
+      doc.text("Photo", photoX + photoW / 2, photoY + photoH / 2, { align: "center" });
+    }
+  } else {
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(photoX, photoY, photoW, photoH);
+  }
+
+  // Name & details
+  const infoX = 26;
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  const name = [profile.title, profile.first_name, profile.last_name].filter(Boolean).join(" ").toUpperCase();
+  doc.text(name || "MEMBER NAME", infoX, 21);
+
+  doc.setFontSize(6.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  doc.text(profile.occupation || "Designation", infoX, 25.5);
+
+  if (profile.posting_details.regular_district) {
+    doc.text(
+      profile.posting_details.regular_district + (profile.posting_details.regular_block ? `, ${profile.posting_details.regular_block}` : ""),
+      infoX, 29.5
+    );
+  }
+
+  if (profile.posting_details.official_designation) {
+    doc.setTextColor(...green);
+    doc.setFont("helvetica", "bold");
+    doc.text(profile.posting_details.official_designation, infoX, 34);
+  }
+
+  // Divider
+  doc.setDrawColor(200, 200, 200);
+  doc.line(5, 41, w - 5, 41);
+
+  // Details grid
+  doc.setTextColor(100, 100, 100);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(5.5);
+
+  doc.text("Member ID:", 5, 45);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 30, 30);
+  doc.text((profile.id || "").slice(0, 8).toUpperCase(), 22, 45);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  doc.text("Phone:", 52, 45);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 30, 30);
+  doc.text(profile.phone || "-", 63, 45);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  doc.text("Member Since:", 5, 49.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 30, 30);
+  doc.text(profile.created_at ? new Date(profile.created_at).getFullYear().toString() : "-", 27, 49.5);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  doc.text("Valid Until:", 52, 49.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 30, 30);
+  doc.text(`Dec ${new Date().getFullYear()}`, 68, 49.5);
+
+  // Email
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  doc.text("Email:", 5, 54);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(5);
+  doc.text(profile.email || "-", 15, 54);
+
+  // Footer
+  doc.setFillColor(...green);
+  doc.rect(0, h - 5, w, 5, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(5);
+  doc.setFont("helvetica", "normal");
+  doc.text("www.tanhowa.in", w / 2, h - 1.5, { align: "center" });
+
+  const fileName = `TANHOWA_ID_${(profile.first_name || "Member").replace(/\s/g, "_")}.pdf`;
+  doc.save(fileName);
 }
 
 export default function ProfilePage() {
@@ -372,6 +499,76 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
+      {/* Member ID Card */}
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2"><IdCard size={14} /> {t("id_card.title")}</h3>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => downloadIdCard(profile, photoPreview)}>
+              <Download size={12} /> {t("id_card.download")}
+            </Button>
+          </div>
+          {/* On-screen ID Card */}
+          <div className="mx-auto max-w-sm rounded-xl overflow-hidden shadow-lg border">
+            {/* Card header */}
+            <div className="bg-gradient-to-r from-[#2d6a4f] to-[#40916c] px-4 py-3 text-white text-center">
+              <p className="text-lg font-bold tracking-wider">TANHOWA</p>
+              <p className="text-[9px] opacity-80 tracking-wide">Tamil Nadu Horticultural Officers Welfare Association</p>
+            </div>
+            {/* Card body */}
+            <div className="bg-white px-4 py-3">
+              <div className="flex items-start gap-3">
+                {/* Photo */}
+                <div className="w-16 h-20 rounded-lg overflow-hidden bg-muted shrink-0 border">
+                  {photoPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoPreview} alt="Photo" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center"><User size={20} className="text-muted-foreground" /></div>
+                  )}
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm uppercase truncate">{displayName || "Member Name"}</p>
+                  <p className="text-xs text-muted-foreground">{designation || "Designation"}</p>
+                  {profile.posting_details.regular_district && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{profile.posting_details.regular_district}{profile.posting_details.regular_block ? `, ${profile.posting_details.regular_block}` : ""}</p>
+                  )}
+                  {profile.posting_details.official_designation && (
+                    <Badge className={`mt-1 text-[9px] px-1.5 py-0 ${profile.posting_details.official_designation.includes("Joint") ? "bg-teal-600 hover:bg-teal-600" : "bg-blue-600 hover:bg-blue-600"} text-white`}>
+                      {profile.posting_details.official_designation}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <Separator className="my-2" />
+              <div className="grid grid-cols-2 gap-1 text-[10px]">
+                <div>
+                  <span className="text-muted-foreground">Member ID: </span>
+                  <span className="font-mono font-semibold">{(profile.id || "").slice(0, 8).toUpperCase()}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{t("id_card.member_since")}: </span>
+                  <span className="font-semibold">{profile.created_at ? new Date(profile.created_at).getFullYear() : "—"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Phone: </span>
+                  <span className="font-semibold">{profile.phone || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{t("id_card.valid_until")}: </span>
+                  <span className="font-semibold">Dec {new Date().getFullYear()}</span>
+                </div>
+              </div>
+            </div>
+            {/* Card footer */}
+            <div className="bg-[#2d6a4f] px-4 py-1.5 text-center">
+              <p className="text-[8px] text-white/70">www.tanhowa.in</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Profile Completion */}
       {profile && (() => {
         const { percent, missing } = getProfileCompletion(profile);
@@ -472,12 +669,6 @@ export default function ProfilePage() {
                     </Select>
                   </div>
                 </div>
-                {profile.occupation === "Others" && (
-                  <div>
-                    <Label className="text-xs text-muted-foreground">{t("form.specify_designation")} *</Label>
-                    <Input value={profile.occupation_other} onChange={(e) => setProfile({ ...profile, occupation_other: e.target.value })} placeholder={t("ph.enter_designation")} required className="mt-1" />
-                  </div>
-                )}
                 <Separator />
                 <div className="grid grid-cols-1 gap-4">
                   <div>

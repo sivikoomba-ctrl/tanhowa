@@ -18,13 +18,7 @@ const occupationOptions: { value: string; key: TranslationKey }[] = [
   { value: "Deputy Director of Horticulture", key: "opt.ddh" },
   { value: "Joint Director of Horticulture", key: "opt.jdh" },
   { value: "Additional Director of Horticulture", key: "opt.addh" },
-  { value: "Retd. Horticultural Officer", key: "opt.retd_ho" },
-  { value: "Retd. Assistant Director of Horticulture", key: "opt.retd_adh" },
-  { value: "Retd. Deputy Director of Horticulture", key: "opt.retd_ddh" },
-  { value: "Retd. Joint Director of Horticulture", key: "opt.retd_jdh" },
-  { value: "Retd. Additional Director of Horticulture", key: "opt.retd_addh" },
   { value: "System Admin", key: "opt.system_admin" },
-  { value: "Others", key: "opt.others" },
 ];
 
 function parseTitleFromName(name: string): { firstName: string; lastName: string } {
@@ -52,7 +46,7 @@ export default function OnboardingPage() {
   const [gender, setGender] = useState("");
   const [phone, setPhone] = useState("");
   const [occupation, setOccupation] = useState("Horticultural Officer");
-  const [occupationOther, setOccupationOther] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -82,7 +76,7 @@ export default function OnboardingPage() {
     if (!lastName.trim()) { setError(t("onboard.err_last_name")); return; }
     if (!phone.trim()) { setError(t("onboard.err_phone")); return; }
     if (!isValidPhone(phone)) { setError(t("onboard.err_phone_invalid")); return; }
-    if (!occupation || (occupation === "Others" && !occupationOther.trim())) { setError(t("onboard.err_designation")); return; }
+    if (!occupation) { setError(t("onboard.err_designation")); return; }
     if (!title) { setError(t("onboard.err_title")); return; }
     if (!gender) { setError(t("onboard.err_gender")); return; }
 
@@ -90,7 +84,7 @@ export default function OnboardingPage() {
     try {
       const nameWithoutTitle = `${firstName.trim()} ${lastName.trim()}`.toUpperCase();
       const fullName = `${title} ${nameWithoutTitle}`;
-      const finalOccupation = occupation === "Others" ? occupationOther.trim() : occupation;
+      const finalOccupation = occupation;
       const res = await fetch("/api/users/me", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -202,18 +196,11 @@ export default function OnboardingPage() {
 
               <div>
                 <Label htmlFor="occupation">{t("form.designation")} *</Label>
-                <Select value={occupation} onValueChange={(val) => { setOccupation(val); if (val !== "Others") setOccupationOther(""); }}>
+                <Select value={occupation} onValueChange={setOccupation}>
                   <SelectTrigger><SelectValue placeholder={t("ph.designation")} /></SelectTrigger>
                   <SelectContent>{occupationOptions.map((opt) => <SelectItem key={opt.value} value={opt.value}>{t(opt.key)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-
-              {occupation === "Others" && (
-                <div>
-                  <Label htmlFor="occupation_other">{t("onboard.specify_designation")} *</Label>
-                  <Input id="occupation_other" value={occupationOther} onChange={(e) => setOccupationOther(e.target.value)} placeholder={t("ph.enter_designation")} required />
-                </div>
-              )}
 
               {error && <p className="text-sm text-destructive">{error}</p>}
 

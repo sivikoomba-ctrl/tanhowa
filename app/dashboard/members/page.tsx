@@ -63,6 +63,17 @@ function getActivityStatus(lastActive: string | null | undefined): { label: stri
   return { label: `${Math.floor(days)}d ago`, color: "text-muted-foreground", dot: "bg-gray-300" };
 }
 
+function getDesignationRank(occupation: string): number {
+  const o = (occupation || "").toLowerCase();
+  if (o.includes("additional director")) return 1;  // ADDH
+  if (o.includes("joint director")) return 2;       // JDH
+  if (o.includes("deputy director")) return 3;      // DDH
+  if (o.includes("assistant director")) return 4;   // ADH
+  if (o.includes("horticultural officer") && !o.includes("retd")) return 5; // HO
+  if (o.includes("retd")) return 6;
+  return 7;
+}
+
 function hasPosting(p?: PostingDetails) {
   if (!p) return false;
   return !!(p.regular_district || p.regular_block || p.special_duty_district || p.special_duty_block || p.special_duty_place || p.deputed_district || p.deputed_block);
@@ -108,21 +119,38 @@ export default function MembersPage() {
     return Array.from(set).sort();
   }, [members]);
 
-  const filtered = members.filter((m) => {
-    const q = search.toLowerCase();
-    const matchesSearch = !search ||
-      m.name?.toLowerCase().includes(q) ||
-      m.email?.toLowerCase().includes(q) ||
-      m.occupation?.toLowerCase().includes(q) ||
-      m.phone?.includes(q) ||
-      m.posting_details?.regular_district?.toLowerCase().includes(q) ||
-      m.posting_details?.regular_block?.toLowerCase().includes(q) ||
-      (m.posting_details as Record<string, string> | undefined)?.special_duty_district?.toLowerCase().includes(q) ||
-      (m.posting_details as Record<string, string> | undefined)?.deputed_district?.toLowerCase().includes(q);
-    const matchesDistrict = filterDistrict === "all" || m.posting_details?.regular_district === filterDistrict;
-    const matchesOccupation = filterOccupation === "all" || m.occupation === filterOccupation;
-    return matchesSearch && matchesDistrict && matchesOccupation;
-  });
+  const filtered = useMemo(() => {
+    const list = members.filter((m) => {
+      const q = search.toLowerCase();
+      const matchesSearch = !search ||
+        m.name?.toLowerCase().includes(q) ||
+        m.email?.toLowerCase().includes(q) ||
+        m.occupation?.toLowerCase().includes(q) ||
+        m.phone?.includes(q) ||
+        m.posting_details?.regular_district?.toLowerCase().includes(q) ||
+        m.posting_details?.regular_block?.toLowerCase().includes(q) ||
+        (m.posting_details as Record<string, string> | undefined)?.special_duty_district?.toLowerCase().includes(q) ||
+        (m.posting_details as Record<string, string> | undefined)?.deputed_district?.toLowerCase().includes(q);
+      const matchesDistrict = filterDistrict === "all" || m.posting_details?.regular_district === filterDistrict;
+      const matchesOccupation = filterOccupation === "all" || m.occupation === filterOccupation;
+      return matchesSearch && matchesDistrict && matchesOccupation;
+    });
+
+    // Sort: district → designation rank → block
+    list.sort((a, b) => {
+      const distA = (a.posting_details?.regular_district || "zzz").toLowerCase();
+      const distB = (b.posting_details?.regular_district || "zzz").toLowerCase();
+      if (distA !== distB) return distA.localeCompare(distB);
+      const rankA = getDesignationRank(a.occupation);
+      const rankB = getDesignationRank(b.occupation);
+      if (rankA !== rankB) return rankA - rankB;
+      const blockA = (a.posting_details?.regular_block || "").toLowerCase();
+      const blockB = (b.posting_details?.regular_block || "").toLowerCase();
+      return blockA.localeCompare(blockB);
+    });
+
+    return list;
+  }, [members, search, filterDistrict, filterOccupation]);
 
   const adminCount = members.filter((m) => m.role === "admin" || m.role === "super_admin").length;
   const officialCount = members.filter((m) => m.official_type === "state" || m.official_type === "district").length;
