@@ -11,7 +11,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useT } from "@/lib/i18n";
+import { useT, useLang } from "@/lib/i18n";
 
 interface FAQ {
   id: string;
@@ -29,14 +29,16 @@ export default function FAQPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState("All");
   const t = useT();
+  const { lang } = useLang();
 
   useEffect(() => {
-    fetch("/api/faq")
+    fetch(`/api/faq${lang === "ta" ? "?lang=ta" : ""}`)
       .then((r) => r.json())
       .then((d) => setFaqs(d.faqs || []))
       .catch(() => toast.error("Failed to load FAQs"))
       .finally(() => setLoading(false));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   const categories = useMemo(() => {
     const cats = [...new Set(faqs.map((f) => f.category))].sort();

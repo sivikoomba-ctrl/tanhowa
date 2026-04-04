@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Megaphone, Plus, Clock, UserPlus, CheckCheck, Search } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
-import { useT } from "@/lib/i18n";
+import { useT, useLang } from "@/lib/i18n";
 
 function renderSimpleMarkdown(text: string): string {
   return text
@@ -51,6 +51,7 @@ export default function AnnouncementsPage() {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const t = useT();
+  const { lang } = useLang();
 
   const markAsRead = useCallback((id: string) => {
     if (readIds.has(id)) return;
@@ -63,7 +64,7 @@ export default function AnnouncementsPage() {
   }, [readIds]);
 
   function loadAnnouncements() {
-    fetch("/api/announcements")
+    fetch(`/api/announcements${lang === "ta" ? "?lang=ta" : ""}`)
       .then((r) => r.json())
       .then((d) => setAnnouncements(d.announcements || []))
       .catch(() => toast.error("Failed to load announcements"));
@@ -91,7 +92,8 @@ export default function AnnouncementsPage() {
       .then((r) => r.json())
       .then((d) => setRecentMembers(d.members || []))
       .catch(() => {});
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   async function handleCreate() {
     if (!title.trim()) { toast.error("Title is required"); return; }

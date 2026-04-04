@@ -4,6 +4,7 @@ import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
+import { translateContent, getTranslations } from "@/lib/translate-content";
 
 export async function GET(req: NextRequest) {
   try {
@@ -40,7 +41,17 @@ export async function GET(req: NextRequest) {
     }
 
     const { data: grievances } = await query;
-    return NextResponse.json({ grievances: grievances || [] });
+    const items = grievances || [];
+    const lang = url.searchParams.get("lang");
+    if (lang === "ta" && items.length > 0) {
+      const ids = items.map((g: { id: string }) => g.id);
+      const translations = await getTranslations("grievances", ids, "ta");
+      for (const g of items) {
+        const t = translations[g.id];
+        if (t?.admin_remarks) g.admin_remarks = t.admin_remarks;
+      }
+    }
+    return NextResponse.json({ grievances: items });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/grievances", method: "GET", status_code: 500 });
@@ -120,6 +131,9 @@ export async function PUT(req: NextRequest) {
       logContribution(session.userId, "grievance_responded", "Responded to grievance");
     }
     logAudit(session.userId, "grievance_updated", "grievance", body.id, { status: body.status, priority: body.priority });
+    if (body.admin_remarks) {
+      translateContent("grievances", body.id, { admin_remarks: body.admin_remarks });
+    }
 
     return NextResponse.json({ message: "Updated" });
   } catch (error) {

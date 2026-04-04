@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { BarChart3, Plus, X, Users } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
-import { useT } from "@/lib/i18n";
+import { useT, useLang } from "@/lib/i18n";
 
 interface Poll {
   id: string;
@@ -32,9 +32,10 @@ export default function PollsPage() {
   const [newOptions, setNewOptions] = useState(["", ""]);
   const [creating, setCreating] = useState(false);
   const t = useT();
+  const { lang } = useLang();
 
   function load() {
-    fetch("/api/polls")
+    fetch(`/api/polls${lang === "ta" ? "?lang=ta" : ""}`)
       .then((r) => r.json())
       .then((d) => setPolls(d.polls || []))
       .catch(() => toast.error("Failed to load polls"));
@@ -52,7 +53,8 @@ export default function PollsPage() {
         }
       })
       .catch(() => {});
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   async function handleCreate() {
     const opts = newOptions.map((o) => o.trim()).filter(Boolean);

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Calendar, MapPin, Plus, Clock, UserCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
-import { useT } from "@/lib/i18n";
+import { useT, useLang } from "@/lib/i18n";
 
 interface Event {
   id: string;
@@ -32,6 +32,7 @@ export default function EventsPage() {
   const [rsvpCounts, setRsvpCounts] = useState<Record<string, number>>({});
   const [myRsvps, setMyRsvps] = useState<Record<string, string>>({});
   const t = useT();
+  const { lang } = useLang();
 
   function loadRsvps() {
     fetch("/api/events/rsvp")
@@ -65,7 +66,7 @@ export default function EventsPage() {
   }
 
   function loadEvents() {
-    fetch("/api/events")
+    fetch(`/api/events${lang === "ta" ? "?lang=ta" : ""}`)
       .then((r) => r.json())
       .then((d) => setEvents(d.events || []))
       .catch(() => toast.error("Failed to load events"));
@@ -86,7 +87,8 @@ export default function EventsPage() {
         }
       })
       .catch(() => {});
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   async function handleCreate() {
     if (!newTitle.trim() || !newDate) { toast.error("Title and date are required"); return; }

@@ -5,6 +5,7 @@ import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { notifyNewEvent } from "@/lib/mail";
+import { translateContent, getTranslations } from "@/lib/translate-content";
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,7 +24,21 @@ export async function GET(req: NextRequest) {
       .order("date", { ascending: true })
       .limit(limit);
 
-    return NextResponse.json({ events: events || [] });
+    const items = events || [];
+    const lang = url.searchParams.get("lang");
+    if (lang === "ta" && items.length > 0) {
+      const ids = items.map((e: { id: string }) => e.id);
+      const translations = await getTranslations("events", ids, "ta");
+      for (const e of items) {
+        const t = translations[e.id];
+        if (t) {
+          if (t.title) e.title = t.title;
+          if (t.description) e.description = t.description;
+          if (t.location) e.location = t.location;
+        }
+      }
+    }
+    return NextResponse.json({ events: items });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/events", method: "GET", status_code: 500 });
@@ -63,6 +78,7 @@ export async function POST(req: NextRequest) {
       notifyNewEvent(data.title, data.date, data.location);
       logContribution(session.userId, "event_created", "Created event: " + data.title);
       logAudit(session.userId, "event_created", "event", data.id);
+      translateContent("events", data.id, { title: data.title, description: data.description || "", location: data.location || "" });
     }
 
     return NextResponse.json({ event: data });

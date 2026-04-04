@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Vote, Plus, ThumbsUp, Check, X, Send, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { useT } from "@/lib/i18n";
+import { useT, useLang } from "@/lib/i18n";
 
 interface Resolution {
   id: string;
@@ -56,9 +56,10 @@ export default function ResolutionsPage() {
   const [votingIds, setVotingIds] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState("all");
   const t = useT();
+  const { lang } = useLang();
 
   function loadResolutions() {
-    fetch("/api/resolutions")
+    fetch(`/api/resolutions${lang === "ta" ? "?lang=ta" : ""}`)
       .then((r) => r.json())
       .then((d) => setResolutions(d.resolutions || []))
       .catch(() => toast.error("Failed to load resolutions"));
@@ -87,7 +88,8 @@ export default function ResolutionsPage() {
         }
       })
       .catch(() => {});
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   const categories = useMemo(() => Array.from(new Set(resolutions.map((r) => r.category).filter(Boolean))).sort(), [resolutions]);
   const filterByCategory = (list: Resolution[]) => categoryFilter === "all" ? list : list.filter((r) => r.category === categoryFilter);

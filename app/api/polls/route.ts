@@ -3,8 +3,9 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logAudit } from "@/lib/audit-log";
+import { translateContent, getTranslations } from "@/lib/translate-content";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -33,14 +34,30 @@ export async function GET() {
       totalVotes[v.poll_id] = (totalVotes[v.poll_id] || 0) + 1;
     }
 
-    return NextResponse.json({
-      polls: (polls || []).map((p) => ({
-        ...p,
-        voteCounts: voteCounts[p.id] || {},
-        totalVotes: totalVotes[p.id] || 0,
-        myVote: myVotes[p.id] ?? null,
-      })),
-    });
+    const enriched = (polls || []).map((p) => ({
+      ...p,
+      voteCounts: voteCounts[p.id] || {},
+      totalVotes: totalVotes[p.id] || 0,
+      myVote: myVotes[p.id] ?? null,
+    }));
+
+    const url = new URL(req.url);
+    const lang = url.searchParams.get("lang");
+    if (lang === "ta" && enriched.length > 0) {
+      const ids = enriched.map((p: { id: string }) => p.id);
+      const translations = await getTranslations("polls", ids, "ta");
+      for (const p of enriched) {
+        const t = translations[p.id];
+        if (t) {
+          if (t.title) p.title = t.title;
+          if (t.options) {
+            try { p.options = JSON.parse(t.options); } catch { /* keep original */ }
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ polls: enriched });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/polls", method: "GET", status_code: 500 });
@@ -69,6 +86,7 @@ export async function POST(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: "Failed to create poll" }, { status: 500 });
     logAudit(session.userId, "poll_created", "poll", data.id);
+    translateContent("polls", data.id, { title: data.title, options: JSON.stringify(data.options) });
     return NextResponse.json({ poll: data });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";

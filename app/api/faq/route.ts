@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { translateContent, getTranslations } from "@/lib/translate-content";
 
 // GET: List FAQs (all approved members)
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -17,7 +18,22 @@ export async function GET() {
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
 
-    return NextResponse.json({ faqs: data || [] });
+    const items = data || [];
+    const url = new URL(req.url);
+    const lang = url.searchParams.get("lang");
+    if (lang === "ta" && items.length > 0) {
+      const ids = items.map((f: { id: string }) => f.id);
+      const translations = await getTranslations("faqs", ids, "ta");
+      for (const f of items) {
+        const t = translations[f.id];
+        if (t) {
+          if (t.question) f.question = t.question;
+          if (t.answer) f.answer = t.answer;
+        }
+      }
+    }
+
+    return NextResponse.json({ faqs: items });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, path: "/api/faq", method: "GET", status_code: 500 });
@@ -58,6 +74,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create FAQ" }, { status: 500 });
     }
 
+    translateContent("faqs", data.id, { question: data.question, answer: data.answer });
+
     return NextResponse.json({ faq: data });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -91,6 +109,14 @@ export async function PUT(req: NextRequest) {
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/faq", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update FAQ" }, { status: 500 });
+    }
+
+    // Re-translate if question or answer changed
+    const fieldsToTranslate: Record<string, string> = {};
+    if (question) fieldsToTranslate.question = question.trim();
+    if (answer) fieldsToTranslate.answer = answer.trim();
+    if (Object.keys(fieldsToTranslate).length > 0) {
+      translateContent("faqs", id, fieldsToTranslate);
     }
 
     return NextResponse.json({ ok: true });

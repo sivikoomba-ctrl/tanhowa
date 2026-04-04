@@ -15,7 +15,7 @@ import { formatDate } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
-import { useT } from "@/lib/i18n";
+import { useT, useLang } from "@/lib/i18n";
 
 const categories = ["General", "Administrative", "Technical", "Others"];
 
@@ -37,16 +37,18 @@ export default function GrievancesPage() {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const t = useT();
+  const { lang } = useLang();
 
   function load() {
-    fetch("/api/grievances?type=grievance")
+    fetch(`/api/grievances?type=grievance${lang === "ta" ? "&lang=ta" : ""}`)
       .then((r) => r.json())
       .then((d) => setGrievances(d.grievances || []))
       .catch(() => toast.error("Failed to load grievances"))
       .finally(() => setLoaded(true));
   }
 
-  useEffect(() => { load(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [lang]);
 
   const stats = useMemo(() => {
     const pending = grievances.filter((g) => g.status === "pending").length;

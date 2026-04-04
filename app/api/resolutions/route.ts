@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole, getOfficialType } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logAudit } from "@/lib/audit-log";
+import { translateContent, getTranslations } from "@/lib/translate-content";
 
 export async function GET(req: NextRequest) {
   try {
@@ -66,11 +67,25 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const enriched = (resolutions || []).map((r: { id: string }) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enriched: any[] = (resolutions || []).map((r: { id: string }) => ({
       ...r,
       vote_count: voteCounts[r.id] || 0,
       user_voted: userVotes.has(r.id),
     }));
+
+    const lang = url.searchParams.get("lang");
+    if (lang === "ta" && enriched.length > 0) {
+      const ids = enriched.map((r: { id: string }) => r.id);
+      const translations = await getTranslations("resolutions", ids, "ta");
+      for (const r of enriched) {
+        const t = translations[r.id];
+        if (t) {
+          if (t.title) r.title = t.title;
+          if (t.description) r.description = t.description;
+        }
+      }
+    }
 
     return NextResponse.json({ resolutions: enriched });
   } catch (error) {
@@ -130,6 +145,7 @@ export async function POST(req: NextRequest) {
     }
 
     logAudit(session.userId, "resolution_created", "resolution", data.id);
+    translateContent("resolutions", data.id, { title: data.title, description: data.description });
 
     return NextResponse.json({ resolution: data });
   } catch (error) {

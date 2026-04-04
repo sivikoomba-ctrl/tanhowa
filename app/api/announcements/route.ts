@@ -5,6 +5,7 @@ import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { notifyNewAnnouncement } from "@/lib/mail";
+import { translateContent, getTranslations } from "@/lib/translate-content";
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,8 +33,23 @@ export async function GET(req: NextRequest) {
     }
 
     const { data: announcements } = await query;
+    const items = announcements || [];
 
-    return NextResponse.json({ announcements: announcements || [] });
+    // Merge Tamil translations if requested
+    const lang = url.searchParams.get("lang");
+    if (lang === "ta" && items.length > 0) {
+      const ids = items.map((a: { id: string }) => a.id);
+      const translations = await getTranslations("announcements", ids, "ta");
+      for (const a of items) {
+        const t = translations[a.id];
+        if (t) {
+          if (t.title) a.title = t.title;
+          if (t.content) a.content = t.content;
+        }
+      }
+    }
+
+    return NextResponse.json({ announcements: items });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/announcements", method: "GET", status_code: 500 });
@@ -82,6 +98,7 @@ export async function POST(req: NextRequest) {
 
     logContribution(session.userId, "announcement_created", "Created announcement: " + body.title);
     logAudit(session.userId, "announcement_created", "announcement", data.id);
+    translateContent("announcements", data.id, { title: data.title, content: data.content });
 
     return NextResponse.json({ announcement: data });
   } catch (error) {
@@ -113,6 +130,8 @@ export async function PUT(req: NextRequest) {
       await logError({ type: "api", message: error.message, path: "/api/announcements", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
     }
+
+    translateContent("announcements", id, { title: title.trim(), content: (content || "").trim() });
 
     return NextResponse.json({ message: "Updated" });
   } catch (error) {
