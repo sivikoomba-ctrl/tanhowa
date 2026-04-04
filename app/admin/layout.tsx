@@ -93,7 +93,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       })
       .then((d) => {
         if (!d.user) router.push("/");
-        else if (d.user.role !== "admin" && d.user.role !== "super_admin") router.push("/dashboard");
+        else if (d.user.role !== "admin" && d.user.role !== "super_admin" && !d.is_finance_team) router.push("/dashboard");
         else { setIsAdmin(true); setUser(d.user); if (d.user.role === "super_admin") fetchErrorCount(); }
       })
       .catch(() => router.push("/"));

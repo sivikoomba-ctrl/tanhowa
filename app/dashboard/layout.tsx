@@ -114,6 +114,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showTitlePicker, setShowTitlePicker] = useState(false);
   const [titleSaving, setTitleSaving] = useState(false);
   const [showVolunteerInvite, setShowVolunteerInvite] = useState(false);
+  const [isFinanceTeam, setIsFinanceTeam] = useState(false);
   const [volunteerInvite, setVolunteerInvite] = useState<{ id: string; district: string; inviterName: string } | null>(null);
   const [volunteerResponding, setVolunteerResponding] = useState(false);
   const router = useRouter();
@@ -157,6 +158,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }
           }
           setUser(data.user);
+          if (data.is_finance_team) setIsFinanceTeam(true);
           // Check for missing mandatory fields
           const missing = getMissingFields(data.user);
           if (missing.length > 0 && data.user.role !== "admin" && data.user.role !== "super_admin") {
@@ -362,7 +364,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           );
         })}
-        {(user?.role === "admin" || user?.role === "super_admin") && (
+        {(user?.role === "admin" || user?.role === "super_admin" || isFinanceTeam) && (
           <Link
             href="/admin"
             onClick={onItemClick}
