@@ -1,12 +1,13 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, IndianRupee, Receipt, Award, Users } from "lucide-react";
+import { BarChart3, IndianRupee, Receipt, Award, Users, ClipboardCheck } from "lucide-react";
 import { OverviewTab } from "./_components/overview-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
 import { SubscriptionsTab } from "./_components/subscriptions-tab";
 import { ContributionsTab } from "./_components/contributions-tab";
 import { MembersTab } from "./_components/members-tab";
+import { PerformanceTab } from "./_components/performance-tab";
 
 export default function ReportsPage() {
   return (
@@ -20,6 +21,7 @@ export default function ReportsPage() {
           <TabsTrigger value="expenses" className="flex items-center gap-1.5"><Receipt size={14} /> Expenses</TabsTrigger>
           <TabsTrigger value="contributions" className="flex items-center gap-1.5"><Award size={14} /> Contributions</TabsTrigger>
           <TabsTrigger value="members" className="flex items-center gap-1.5"><Users size={14} /> Members</TabsTrigger>
+          <TabsTrigger value="performance" className="flex items-center gap-1.5"><ClipboardCheck size={14} /> Performance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -40,6 +42,10 @@ export default function ReportsPage() {
 
         <TabsContent value="members" className="mt-4">
           <MembersTab />
+        </TabsContent>
+
+        <TabsContent value="performance" className="mt-4">
+          <PerformanceTab />
         </TabsContent>
       </Tabs>
     </div>
