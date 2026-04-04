@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin, getOfficialInfo } from "@/lib/auth";
+import { getSession, isAdmin, getOfficialInfo, isFinanceTeamMember } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
@@ -387,6 +387,15 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    // Final approval (status=paid) restricted to Finance Team members or super_admin
+    if (body.status === "paid") {
+      const isSuperAdminRole = officialInfo.role === "super_admin";
+      const isFinanceMember = await isFinanceTeamMember(session.userId);
+      if (!isSuperAdminRole && !isFinanceMember) {
+        return NextResponse.json({ error: "Only Finance Team members can give final payment approval" }, { status: 403 });
+      }
+    }
+
     const updates: Record<string, string | number | null> = { updated_at: new Date().toISOString() };
     if (body.status) {
       updates.status = body.status;
@@ -394,6 +403,12 @@ export async function PUT(req: NextRequest) {
         updates.paid_at = body.paid_at || new Date().toISOString();
         updates.approved_by = session.userId;
         updates.approved_at = new Date().toISOString();
+        // Auto-append Finance Team approval remark
+        const { data: approver } = await supabase.from("users").select("name").eq("id", session.userId).single();
+        const approverName = approver?.name || "Unknown";
+        const financeRemark = `Final approval by ${approverName}, Finance Team, TANHOWA.`;
+        const existing = (body.remarks || "").trim();
+        updates.remarks = existing ? `${existing}\n${financeRemark}` : financeRemark;
       } else {
         // Clear approval info when reverting
         updates.approved_by = null;
@@ -404,7 +419,7 @@ export async function PUT(req: NextRequest) {
     if (body.amount !== undefined) updates.amount = body.amount;
     if (body.payment_method !== undefined) updates.payment_method = body.payment_method;
     if (body.transaction_id !== undefined) updates.transaction_id = body.transaction_id;
-    if (body.remarks !== undefined) updates.remarks = body.remarks;
+    if (body.remarks !== undefined && body.status !== "paid") updates.remarks = body.remarks;
     if (body.payment_proof_url !== undefined) updates.payment_proof_url = body.payment_proof_url;
     if (body.payment_group_id !== undefined) updates.payment_group_id = body.payment_group_id;
 

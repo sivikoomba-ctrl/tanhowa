@@ -132,3 +132,24 @@ export async function isSuperAdmin(session: SessionPayload | null): Promise<bool
   const role = await getDbRole(session.userId);
   return role === "super_admin";
 }
+
+/**
+ * Check if a user is a member of the Finance Team.
+ * Matches team name case-insensitively containing "finance".
+ */
+export async function isFinanceTeamMember(userId: string): Promise<boolean> {
+  const supabase = getServiceClient();
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name")
+    .ilike("name", "%finance%");
+  if (!teams || teams.length === 0) return false;
+  const teamIds = teams.map((t) => t.id);
+  const { data: membership } = await supabase
+    .from("team_members")
+    .select("id")
+    .eq("user_id", userId)
+    .in("team_id", teamIds)
+    .limit(1);
+  return !!membership && membership.length > 0;
+}

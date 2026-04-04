@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, isSuperAdmin, isFinanceTeamMember } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { sendSubscriptionApprovedEmail, notifyPaymentVerified } from "@/lib/mail";
 
@@ -9,6 +9,13 @@ export async function POST(req: NextRequest) {
     const session = await getSession();
     if (!session || !(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Final approval restricted to Finance Team members or super_admin
+    const isSuperAdminRole = await isSuperAdmin(session);
+    const isFinanceMember = await isFinanceTeamMember(session.userId);
+    if (!isSuperAdminRole && !isFinanceMember) {
+      return NextResponse.json({ error: "Only Finance Team members can give final payment approval" }, { status: 403 });
     }
 
     const formData = await req.formData();
@@ -48,6 +55,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Auto-append Finance Team approval remark
+    const { data: approver } = await supabase.from("users").select("name").eq("id", session.userId).single();
+    const approverName = approver?.name || "Unknown";
+    const financeRemark = `Final approval by ${approverName}, Finance Team, TANHOWA.`;
+    const finalRemarks = remarks ? `${remarks}\n${financeRemark}` : financeRemark;
+
     // Batch update all selected subscriptions in a single query
     const updates: Record<string, string> = {
       status: "paid",
@@ -55,9 +68,9 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
       approved_by: session.userId,
       approved_at: new Date().toISOString(),
+      remarks: finalRemarks,
     };
     if (proofPath) updates.payment_proof_url = proofPath;
-    if (remarks) updates.remarks = remarks;
 
     const { error: batchError } = await supabase
       .from("subscriptions")

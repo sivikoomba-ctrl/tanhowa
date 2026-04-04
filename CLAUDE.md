@@ -126,6 +126,8 @@ export async function GET(req: NextRequest) {
 | `food_orders` | Member food orders | user_id, vendor_id, total, status (pending/confirmed/preparing/ready/delivered/cancelled), notes |
 | `food_order_items` | Order line items | order_id, item_id, quantity, price |
 | `content_translations` | Cached auto-translations (EN↔TA) | source_table, source_id, field, lang, translated_text |
+| `wishlist_ideas` | Community idea submissions | title, description, category, status (open/reviewing/approved/in_progress/completed/rejected), upvote_count, submitted_by, approved_by, admin_remarks, linked_task_id |
+| `wishlist_upvotes` | Idea upvote tracking (unique per user+idea) | idea_id, user_id |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -650,6 +652,7 @@ User-generated content is auto-translated via Gemini when created/edited, cached
 | faqs | question, answer |
 | resolutions | title, description |
 | polls | title, options (JSON array) |
+| wishlist_ideas | title, description |
 
 **API pattern:**
 ```typescript
@@ -674,6 +677,25 @@ useEffect(() => { load(); }, [lang]);
 ```
 
 **Tamil detection:** `isTamil()` heuristic (>30% Tamil Unicode chars U+0B80-U+0BFF) skips already-Tamil content.
+
+## Wishlist / Ideas Board
+
+Community-driven idea board where members submit ideas, others upvote, and admins review + convert to tasks.
+
+**Tables:** `wishlist_ideas` + `wishlist_upvotes`
+
+**Pages:**
+- Members: `/dashboard/wishlist` — submit ideas, upvote/unvote, search, category filter, sort by votes/newest
+- Admin: `/admin/wishlist` — review ideas, set status, add remarks, convert to task, delete
+
+**API:** `/api/wishlist` (GET/POST/PUT/DELETE)
+- PUT actions: `upvote`/`unvote` (any member), `update_status` (admin), `convert_to_task` (admin — creates todo with auto-generated ET-XXX event_id, links via `linked_task_id`)
+- Supports `?lang=ta` for Tamil translations
+- Logs `idea_submitted` and `idea_upvoted` contributions
+
+**Categories:** Training, Infrastructure, Events, Digital Tools, Policy, Welfare, Communication, Other
+
+**Statuses:** `open` → `reviewing` → `approved` → `in_progress` → `completed` (or `rejected`)
 
 ## Common Tasks
 
