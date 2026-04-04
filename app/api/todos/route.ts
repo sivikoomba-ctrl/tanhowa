@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { logAudit } from "@/lib/audit-log";
 import { notifyTaskCommitted, notifyTaskStatusChanged } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
@@ -207,6 +208,7 @@ export async function POST(req: NextRequest) {
     }
 
     logContribution(session.userId, "task_created", "Created task: " + body.title);
+    logAudit(session.userId, "task_created", "task", data.id);
 
     return NextResponse.json({ todo: data });
   } catch (error) {
@@ -524,6 +526,7 @@ export async function PUT(req: NextRequest) {
     // Log contribution for task update
     const statusLabel = body.status ? ` → ${body.status}` : "";
     logContribution(session.userId, "task_updated", `Updated task${statusLabel}`);
+    logAudit(session.userId, "task_" + (body.status || "updated"), "task", body.id);
 
     // Fire-and-forget: notify on status change
     if (body.status && dbRole === "admin") {
@@ -579,6 +582,7 @@ export async function DELETE(req: NextRequest) {
 
     const supabase = getServiceClient();
     await supabase.from("todos").delete().eq("id", id);
+    logAudit(session.userId, "task_deleted", "task", id);
 
     return NextResponse.json({ message: "Deleted" });
   } catch (error) {

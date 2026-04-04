@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logAudit } from "@/lib/audit-log";
 
 export async function GET() {
   try {
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return NextResponse.json({ error: "Failed to create poll" }, { status: 500 });
+    logAudit(session.userId, "poll_created", "poll", data.id);
     return NextResponse.json({ poll: data });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -90,6 +92,7 @@ export async function PUT(req: NextRequest) {
       const supabase = getServiceClient();
       const newStatus = body.action === "close" ? "closed" : "active";
       await supabase.from("polls").update({ status: newStatus }).eq("id", body.id);
+      logAudit(session.userId, "poll_" + body.action, "poll", body.id);
       return NextResponse.json({ ok: true });
     }
 
@@ -133,6 +136,7 @@ export async function DELETE(req: NextRequest) {
 
     const supabase = getServiceClient();
     await supabase.from("polls").delete().eq("id", id);
+    logAudit(session.userId, "poll_deleted", "poll", id);
     return NextResponse.json({ ok: true });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";

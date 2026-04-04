@@ -3,6 +3,7 @@ import { Poppins, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import ChatbotWidget from "@/components/chatbot-widget";
 import { ErrorBoundary, GlobalErrorCatcher } from "@/components/error-boundary";
+import { LanguageProvider } from "@/lib/i18n";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SeasonalTheme } from "@/components/seasonal-theme";
 import { Snowflakes } from "@/components/snowflakes";
@@ -52,11 +53,13 @@ export default function RootLayout({
       <body
         className={`${poppins.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        <ErrorBoundary>
-          <GlobalErrorCatcher>
-            {children}
-          </GlobalErrorCatcher>
-        </ErrorBoundary>
+        <LanguageProvider>
+          <ErrorBoundary>
+            <GlobalErrorCatcher>
+              {children}
+            </GlobalErrorCatcher>
+          </ErrorBoundary>
+        </LanguageProvider>
         <SeasonalTheme />
         <Snowflakes />
         <Toaster />

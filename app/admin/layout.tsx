@@ -43,31 +43,33 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useT } from "@/lib/i18n";
+import { SettingsPopover } from "@/components/settings-popover";
 
 const adminNavItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/users", label: "Member Approval", icon: Users },
-  { href: "/admin/officials", label: "Officials", icon: Crown },
-  { href: "/admin/teams", label: "Teams", icon: UsersRound },
-  { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
-  { href: "/admin/events", label: "Events", icon: Calendar },
-  { href: "/admin/documents", label: "Document Vault", icon: FileText },
-  { href: "/admin/subscriptions", label: "Subscriptions", icon: Wallet },
-  { href: "/admin/verify-payments", label: "Verify Payments", icon: ShieldCheck },
-  { href: "/admin/district-dues", label: "District Dues", icon: Calculator },
-  { href: "/admin/resolutions", label: "e-Resolutions", icon: Vote },
-  { href: "/admin/polls", label: "Polls", icon: PieChart },
-  { href: "/admin/todos", label: "Task List", icon: ListTodo },
-  { href: "/admin/vouchers", label: "Expense Vouchers", icon: Receipt },
-  { href: "/admin/contributions", label: "Contributions", icon: Award },
-  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
-  { href: "/admin/finance", label: "Finance", icon: Landmark },
-  { href: "/admin/nearby", label: "Nearby Members", icon: Navigation },
-  { href: "/admin/faq", label: "FAQ", icon: HelpCircle },
-  { href: "/admin/food-orders", label: "Food Orders", icon: UtensilsCrossed },
-  { href: "/admin/audit-logs", label: "Audit Log", icon: ClipboardList },
-  { href: "/admin/error-logs", label: "Error Logs", icon: AlertCircle },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin", labelKey: "nav.dashboard" as const, icon: LayoutDashboard },
+  { href: "/admin/users", labelKey: "nav.member_approval" as const, icon: Users },
+  { href: "/admin/officials", labelKey: "nav.officials" as const, icon: Crown },
+  { href: "/admin/teams", labelKey: "nav.teams" as const, icon: UsersRound },
+  { href: "/admin/announcements", labelKey: "nav.announcements" as const, icon: Megaphone },
+  { href: "/admin/events", labelKey: "nav.events" as const, icon: Calendar },
+  { href: "/admin/documents", labelKey: "nav.documents" as const, icon: FileText },
+  { href: "/admin/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
+  { href: "/admin/verify-payments", labelKey: "nav.verify_payments" as const, icon: ShieldCheck },
+  { href: "/admin/district-dues", labelKey: "nav.district_dues" as const, icon: Calculator },
+  { href: "/admin/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
+  { href: "/admin/polls", labelKey: "nav.polls" as const, icon: PieChart },
+  { href: "/admin/todos", labelKey: "nav.todos" as const, icon: ListTodo },
+  { href: "/admin/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt },
+  { href: "/admin/contributions", labelKey: "nav.contributions" as const, icon: Award },
+  { href: "/admin/reports", labelKey: "nav.reports" as const, icon: BarChart3 },
+  { href: "/admin/finance", labelKey: "nav.finance" as const, icon: Landmark },
+  { href: "/admin/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
+  { href: "/admin/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
+  { href: "/admin/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed },
+  { href: "/admin/audit-logs", labelKey: "nav.audit_log" as const, icon: ClipboardList },
+  { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
+  { href: "/admin/settings", labelKey: "nav.settings" as const, icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -128,6 +130,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.push("/");
   }
 
+  const t = useT();
+
   const [feedbackOpen, setFeedbackOpen] = useState(
     pathname === "/admin/suggestions" || pathname === "/admin/grievances"
   );
@@ -135,8 +139,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!isAdmin) return null;
 
   const feedbackItems = [
-    { href: "/admin/suggestions", label: "Suggestions", icon: Lightbulb },
-    { href: "/admin/grievances", label: "Grievances", icon: MessageSquareWarning },
+    { href: "/admin/suggestions", labelKey: "nav.suggestions" as const, icon: Lightbulb },
+    { href: "/admin/grievances", labelKey: "nav.grievances" as const, icon: MessageSquareWarning },
   ];
   const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);
 
@@ -162,7 +166,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   }`}
                 >
                   <MessageCircle size={18} />
-                  <span className="flex-1 text-left">Feedback</span>
+                  <span className="flex-1 text-left">{t("nav.feedback")}</span>
                   <ChevronDown size={14} className={`transition-transform ${feedbackOpen ? "rotate-180" : ""}`} />
                 </button>
                 {feedbackOpen && (
@@ -179,7 +183,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         }`}
                       >
                         <fi.icon size={16} />
-                        {fi.label}
+                        {t(fi.labelKey)}
                       </Link>
                     ))}
                   </div>
@@ -194,7 +198,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   }`}
                 >
                   <item.icon size={18} />
-                  <span className="flex-1">{item.label}</span>
+                  <span className="flex-1">{t(item.labelKey)}</span>
                 </Link>
               </div>
             );
@@ -212,7 +216,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               }`}
             >
               <item.icon size={18} />
-              <span className="flex-1">{item.label}</span>
+              <span className="flex-1">{t(item.labelKey)}</span>
               {showBadge && (
                 <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full ${badgeColor} text-white`}>
                   {badgeCount}
@@ -235,7 +239,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Flower2 className="w-7 h-7 text-sidebar-primary" />
               <div>
                 <span className="text-lg font-bold text-sidebar-foreground">TANHOWA</span>
-                <span className="text-xs text-sidebar-foreground/60 block -mt-1">Admin Panel</span>
+                <span className="text-xs text-sidebar-foreground/60 block -mt-1">{t("nav.admin_panel")}</span>
               </div>
             </Link>
             <button className="relative p-1.5 rounded-lg hover:bg-sidebar-accent/50 transition-colors" onClick={() => setShowNotifications(true)} aria-label="Notifications">
@@ -260,12 +264,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         <div className="shrink-0 p-3 border-t border-sidebar-border space-y-1">
+          <SettingsPopover />
           <Link
             href="/dashboard"
             className="flex items-center gap-2 px-3 py-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground rounded-lg hover:bg-sidebar-accent/50"
           >
             <ArrowLeft size={16} />
-            Back to Dashboard
+            {t("nav.back_to_dashboard")}
           </Link>
           <Button
             variant="ghost"
@@ -273,7 +278,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
           >
             <LogOut size={16} />
-            Logout
+            {t("common.logout")}
           </Button>
         </div>
       </aside>
@@ -317,13 +322,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <NavLinks onItemClick={() => setMobileOpen(false)} />
                 </nav>
                 <div className="shrink-0 p-3 border-t border-sidebar-border space-y-1">
+                  <SettingsPopover />
                   <Link
                     href="/dashboard"
                     onClick={() => setMobileOpen(false)}
                     className="flex items-center gap-2 px-3 py-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground rounded-lg hover:bg-sidebar-accent/50"
                   >
                     <ArrowLeft size={16} />
-                    Back to Dashboard
+                    {t("nav.back_to_dashboard")}
                   </Link>
                   <Button
                     variant="ghost"
@@ -331,7 +337,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
                   >
                     <LogOut size={16} />
-                    Logout
+                    {t("common.logout")}
                   </Button>
                 </div>
               </SheetContent>
@@ -350,12 +356,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bell size={18} />
-              Notifications
+              {t("notif.title")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             {notifications.total === 0 ? (
-              <p className="text-center text-muted-foreground py-6">You&apos;re all caught up!</p>
+              <p className="text-center text-muted-foreground py-6">{t("notif.all_caught_up")}</p>
             ) : (
               <>
                 {notifications.announcements > 0 && (
@@ -364,7 +370,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       <div className="p-2 rounded-full bg-accent/10">
                         <Megaphone size={16} className="text-accent" />
                       </div>
-                      <span className="text-sm font-medium">New Announcements</span>
+                      <span className="text-sm font-medium">{t("notif.new_announcements")}</span>
                     </div>
                     <Badge variant="secondary">{notifications.announcements}</Badge>
                   </Link>
@@ -375,7 +381,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       <div className="p-2 rounded-full bg-amber-500/10">
                         <Wallet size={16} className="text-amber-500" />
                       </div>
-                      <span className="text-sm font-medium">Subscriptions Due</span>
+                      <span className="text-sm font-medium">{t("notif.subscriptions_due")}</span>
                     </div>
                     <Badge variant="secondary">{notifications.subscriptions}</Badge>
                   </Link>
@@ -386,7 +392,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       <div className="p-2 rounded-full bg-blue-500/10">
                         <ListTodo size={16} className="text-blue-500" />
                       </div>
-                      <span className="text-sm font-medium">Active Tasks</span>
+                      <span className="text-sm font-medium">{t("notif.active_tasks")}</span>
                     </div>
                     <Badge variant="secondary">{notifications.tasks}</Badge>
                   </Link>

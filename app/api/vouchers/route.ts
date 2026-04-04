@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, isAdminOrOfficial, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { logAudit } from "@/lib/audit-log";
 import { sendVoucherStatusEmail } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
@@ -166,6 +167,12 @@ export async function PUT(req: NextRequest) {
       })();
     }
 
+    if (admin && body.status) {
+      for (const vid of ids) {
+        logAudit(session.userId, "voucher_" + body.status, "voucher", vid);
+      }
+    }
+
     return NextResponse.json({ message: "Updated", count: ids.length });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -196,6 +203,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await query;
+    logAudit(session.userId, "voucher_deleted", "voucher", id);
     return NextResponse.json({ message: "Deleted" });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";

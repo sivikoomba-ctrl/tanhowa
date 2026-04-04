@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { logAudit } from "@/lib/audit-log";
 import { notifyNewEvent } from "@/lib/mail";
 
 export async function GET(req: NextRequest) {
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
     if (data) {
       notifyNewEvent(data.title, data.date, data.location);
       logContribution(session.userId, "event_created", "Created event: " + data.title);
+      logAudit(session.userId, "event_created", "event", data.id);
     }
 
     return NextResponse.json({ event: data });
@@ -84,6 +86,7 @@ export async function DELETE(req: NextRequest) {
 
     const supabase = getServiceClient();
     await supabase.from("events").delete().eq("id", id);
+    logAudit(session.userId, "event_deleted", "event", id);
 
     return NextResponse.json({ message: "Deleted" });
   } catch (error) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole, getOfficialType } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logAudit } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest) {
   try {
@@ -128,6 +129,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create resolution" }, { status: 500 });
     }
 
+    logAudit(session.userId, "resolution_created", "resolution", data.id);
+
     return NextResponse.json({ resolution: data });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -202,6 +205,7 @@ export async function PUT(req: NextRequest) {
         admin_remarks: body.remarks || "",
         updated_at: new Date().toISOString(),
       }).eq("id", resolutionId);
+      logAudit(session.userId, "resolution_approve", "resolution", resolutionId);
 
     } else if (action === "reject") {
       if (!(await isAdmin(session))) {
@@ -215,6 +219,7 @@ export async function PUT(req: NextRequest) {
         admin_remarks: body.remarks || "",
         updated_at: new Date().toISOString(),
       }).eq("id", resolutionId);
+      logAudit(session.userId, "resolution_reject", "resolution", resolutionId);
 
     } else if (action === "open_voting") {
       if (!(await isAdmin(session))) {
@@ -239,6 +244,7 @@ export async function PUT(req: NextRequest) {
         votes_required: votesRequired,
         updated_at: new Date().toISOString(),
       }).eq("id", resolutionId);
+      logAudit(session.userId, "resolution_open_voting", "resolution", resolutionId);
 
     } else if (action === "close_voting") {
       if (!(await isAdmin(session))) {
@@ -260,6 +266,7 @@ export async function PUT(req: NextRequest) {
         voting_closed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }).eq("id", resolutionId);
+      logAudit(session.userId, "resolution_close_voting", "resolution", resolutionId);
 
       return NextResponse.json({ message: "Voting closed", status: finalStatus, votes: voteCount });
 
@@ -319,6 +326,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await supabase.from("resolutions").delete().eq("id", id);
+    logAudit(session.userId, "resolution_deleted", "resolution", id);
     return NextResponse.json({ message: "Deleted" });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";

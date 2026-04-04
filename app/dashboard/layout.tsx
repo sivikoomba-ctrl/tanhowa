@@ -42,6 +42,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useT } from "@/lib/i18n";
+import { SettingsPopover } from "@/components/settings-popover";
 
 interface UserData {
   name: string;
@@ -67,25 +69,25 @@ function hasTitle(name: string): boolean {
 }
 
 const navItems = [
-  { href: "/dashboard", label: "Overview", icon: Home },
-  { href: "/dashboard/profile", label: "Profile", icon: User },
-  { href: "/dashboard/members", label: "Members", icon: Users },
-  { href: "/dashboard/officials", label: "Officials", icon: Crown },
-  { href: "/dashboard/teams", label: "Teams", icon: UsersRound },
-  { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
-  { href: "/dashboard/events", label: "Events", icon: Calendar },
-  { href: "/dashboard/resolutions", label: "e-Resolutions", icon: Vote },
-  { href: "/dashboard/polls", label: "Polls", icon: BarChart3 },
-  { href: "/dashboard/documents", label: "Document Vault", icon: FileText },
-  { href: "/dashboard/subscriptions", label: "Subscriptions", icon: Wallet },
-  { href: "/dashboard/vouchers", label: "Expense Vouchers", icon: Receipt, officialOnly: true },
-  { href: "/dashboard/nearby", label: "Nearby Members", icon: Navigation },
-  { href: "/dashboard/todos", label: "Task List", icon: ListTodo },
-  { href: "/dashboard/contributions", label: "Contributions", icon: Award },
-  { href: "/dashboard/finance", label: "Finance", icon: Landmark },
-  { href: "/dashboard/ai-tools", label: "AI Tools", icon: Sparkles },
-  { href: "/dashboard/faq", label: "FAQ", icon: HelpCircle },
-  { href: "/dashboard/food-orders", label: "Food Orders", icon: UtensilsCrossed, superAdminOnly: true },
+  { href: "/dashboard", labelKey: "nav.overview" as const, icon: Home },
+  { href: "/dashboard/profile", labelKey: "nav.profile" as const, icon: User },
+  { href: "/dashboard/members", labelKey: "nav.members" as const, icon: Users },
+  { href: "/dashboard/officials", labelKey: "nav.officials" as const, icon: Crown },
+  { href: "/dashboard/teams", labelKey: "nav.teams" as const, icon: UsersRound },
+  { href: "/dashboard/announcements", labelKey: "nav.announcements" as const, icon: Megaphone },
+  { href: "/dashboard/events", labelKey: "nav.events" as const, icon: Calendar },
+  { href: "/dashboard/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
+  { href: "/dashboard/polls", labelKey: "nav.polls" as const, icon: BarChart3 },
+  { href: "/dashboard/documents", labelKey: "nav.documents" as const, icon: FileText },
+  { href: "/dashboard/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
+  { href: "/dashboard/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt, officialOnly: true },
+  { href: "/dashboard/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
+  { href: "/dashboard/todos", labelKey: "nav.todos" as const, icon: ListTodo },
+  { href: "/dashboard/contributions", labelKey: "nav.contributions" as const, icon: Award },
+  { href: "/dashboard/finance", labelKey: "nav.finance" as const, icon: Landmark },
+  { href: "/dashboard/ai-tools", labelKey: "nav.ai_tools" as const, icon: Sparkles },
+  { href: "/dashboard/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
+  { href: "/dashboard/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed, superAdminOnly: true },
 ];
 
 function getMissingFields(u: UserData): string[] {
@@ -232,10 +234,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     pathname === "/dashboard/suggestions" || pathname === "/dashboard/grievances"
   );
 
+  const t = useT();
+
   function NavLinks({ onItemClick }: { onItemClick?: () => void }) {
     const feedbackItems = [
-      { href: "/dashboard/suggestions", label: "Suggestions", icon: Lightbulb },
-      { href: "/dashboard/grievances", label: "Grievances", icon: MessageSquareWarning },
+      { href: "/dashboard/suggestions", labelKey: "nav.suggestions" as const, icon: Lightbulb },
+      { href: "/dashboard/grievances", labelKey: "nav.grievances" as const, icon: MessageSquareWarning },
     ];
     const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);
 
@@ -261,7 +265,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   }`}
                 >
                   <MessageCircle size={18} />
-                  <span className="flex-1 text-left">Feedback</span>
+                  <span className="flex-1 text-left">{t("nav.feedback")}</span>
                   <ChevronDown size={14} className={`transition-transform ${feedbackOpen ? "rotate-180" : ""}`} />
                 </button>
                 {feedbackOpen && (
@@ -278,7 +282,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         }`}
                       >
                         <fi.icon size={16} />
-                        {fi.label}
+                        {t(fi.labelKey)}
                       </Link>
                     ))}
                   </div>
@@ -294,7 +298,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   }`}
                 >
                   <item.icon size={18} />
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               </div>
             );
@@ -311,7 +315,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               }`}
             >
               <item.icon size={18} />
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           );
         })}
@@ -322,7 +326,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-primary hover:bg-sidebar-accent/50 transition-colors"
           >
             <Shield size={18} />
-            Admin Panel
+            {t("nav.admin_panel")}
           </Link>
         )}
       </>
@@ -377,13 +381,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email}</p>
             </div>
           </div>
+          <SettingsPopover />
           <Button
             variant="ghost"
             onClick={handleLogout}
             className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
           >
             <LogOut size={16} />
-            Logout
+            {t("common.logout")}
           </Button>
         </div>
       </aside>
@@ -423,14 +428,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <nav className="flex-1 overflow-y-auto p-3 space-y-1 pb-16">
                 <NavLinks onItemClick={() => setMobileOpen(false)} />
               </nav>
-              <div className="shrink-0 p-3 border-t border-sidebar-border">
+              <div className="shrink-0 p-3 border-t border-sidebar-border space-y-1">
+                <SettingsPopover />
                 <Button
                   variant="ghost"
                   onClick={handleLogout}
                   className="w-full justify-start gap-2 text-sidebar-foreground/70"
                 >
                   <LogOut size={16} />
-                  Logout
+                  {t("common.logout")}
                 </Button>
               </div>
             </SheetContent>
@@ -447,8 +453,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <ShieldCheck size={18} className="text-blue-600" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-800">Enable Location Sharing?</p>
-                <p className="text-xs text-blue-600 mt-0.5">Get notified about nearby meetings and events. Your location is only shared when you open the app.</p>
+                <p className="text-sm font-medium text-blue-800">{t("location.title")}</p>
+                <p className="text-xs text-blue-600 mt-0.5">{t("location.desc")}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Button
@@ -474,7 +480,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     );
                   }}
                 >
-                  {locationEnabling ? "Enabling..." : "Enable"}
+                  {locationEnabling ? t("location.enabling") : t("common.enable")}
                 </Button>
                 <Button
                   size="sm"
@@ -485,7 +491,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     localStorage.setItem("location_prompt_dismissed", "1");
                   }}
                 >
-                  Not now
+                  {t("common.not_now")}
                 </Button>
               </div>
             </div>
@@ -500,12 +506,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bell className="w-5 h-5 text-primary" />
-              Notifications
+              {t("notif.title")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             {notifications.total === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">You&apos;re all caught up!</p>
+              <p className="text-sm text-muted-foreground text-center py-6">{t("notif.all_caught_up")}</p>
             ) : (
               <>
                 {notifications.announcements > 0 && (
@@ -518,8 +524,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Megaphone size={16} className="text-accent" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">New Announcements</p>
-                      <p className="text-xs text-muted-foreground">{notifications.announcements} since your last visit</p>
+                      <p className="text-sm font-medium">{t("notif.new_announcements")}</p>
+                      <p className="text-xs text-muted-foreground">{notifications.announcements} {t("notif.since_last_visit")}</p>
                     </div>
                     <Badge className="bg-accent/10 text-accent border-0 text-xs">{notifications.announcements}</Badge>
                   </Link>
@@ -534,8 +540,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Wallet size={16} className="text-amber-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">Subscriptions Due</p>
-                      <p className="text-xs text-muted-foreground">{notifications.subscriptions} pending payment{notifications.subscriptions > 1 ? "s" : ""}</p>
+                      <p className="text-sm font-medium">{t("notif.subscriptions_due")}</p>
+                      <p className="text-xs text-muted-foreground">{notifications.subscriptions} {t("notif.pending_payments")}</p>
                     </div>
                     <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">{notifications.subscriptions}</Badge>
                   </Link>
@@ -550,8 +556,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <ListTodo size={16} className="text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">Active Tasks</p>
-                      <p className="text-xs text-muted-foreground">{notifications.tasks} task{notifications.tasks > 1 ? "s" : ""} assigned to you</p>
+                      <p className="text-sm font-medium">{t("notif.active_tasks")}</p>
+                      <p className="text-xs text-muted-foreground">{notifications.tasks} {t("notif.tasks_assigned")}</p>
                     </div>
                     <Badge className="bg-blue-100 text-blue-700 border-0 text-xs">{notifications.tasks}</Badge>
                   </Link>
@@ -566,10 +572,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Dialog open={showTitlePicker} onOpenChange={() => {}}>
         <DialogContent className="max-w-xs" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle className="text-center">Select Your Title</DialogTitle>
+            <DialogTitle className="text-center">{t("profile.select_title")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground text-center">
-            Please select your preferred title
+            {t("profile.select_title_desc")}
           </p>
           <div className="grid grid-cols-3 gap-2">
             {["Mrs.", "Miss.", "Dr."].map((title) => (
@@ -593,12 +599,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Flower2 className="w-5 h-5 text-primary" />
-              Welcome back, {user?.name?.split(" ")[0] || "Member"}!
+              {t("profile.incomplete_title")}, {user?.name?.split(" ")[0] || "Member"}!
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              We noticed your profile is missing some important details. Please update the following to help us serve you better:
+              {t("profile.incomplete_desc")}
             </p>
             <div className="rounded-xl border bg-amber-50 p-3 space-y-1.5">
               {missingFields.map((field) => (
@@ -615,13 +621,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 router.push("/dashboard/profile");
               }}
             >
-              Update My Profile
+              {t("profile.update_my_profile")}
             </Button>
             <button
               className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => setShowIncomplete(false)}
             >
-              Remind me later
+              {t("common.remind_later")}
             </button>
           </div>
         </DialogContent>

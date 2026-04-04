@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { logAudit } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest) {
   try {
@@ -124,6 +125,7 @@ export async function POST(req: NextRequest) {
     }
 
     logContribution(session.userId, "document_uploaded", "Uploaded document: " + body.title);
+    logAudit(session.userId, "document_uploaded", "document", data.id);
 
     return NextResponse.json({ document: data });
   } catch (error) {
@@ -174,6 +176,10 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    if (body.approved !== undefined) {
+      logAudit(session.userId, "document_" + (body.approved ? "approved" : "rejected"), "document", body.id);
+    }
+
     return NextResponse.json({ message: "Updated" });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -195,6 +201,7 @@ export async function DELETE(req: NextRequest) {
 
     const supabase = getServiceClient();
     await supabase.from("documents").delete().eq("id", id);
+    logAudit(session.userId, "document_deleted", "document", id);
 
     return NextResponse.json({ message: "Deleted" });
   } catch (error) {

@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { logAudit } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest) {
   try {
@@ -118,6 +119,7 @@ export async function PUT(req: NextRequest) {
     if (body.status || body.admin_remarks !== undefined) {
       logContribution(session.userId, "grievance_responded", "Responded to grievance");
     }
+    logAudit(session.userId, "grievance_updated", "grievance", body.id, { status: body.status, priority: body.priority });
 
     return NextResponse.json({ message: "Updated" });
   } catch (error) {
@@ -140,6 +142,7 @@ export async function DELETE(req: NextRequest) {
 
     const supabase = getServiceClient();
     await supabase.from("grievances").delete().eq("id", id);
+    logAudit(session.userId, "grievance_deleted", "grievance", id);
 
     return NextResponse.json({ message: "Deleted" });
   } catch (error) {
