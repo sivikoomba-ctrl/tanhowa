@@ -4,6 +4,7 @@ import { getSession, createSession } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { notifyAdminNewRegistration } from "@/lib/mail";
+import { triggerDailyGreetings } from "@/lib/daily-greetings";
 
 export async function GET() {
   try {
@@ -25,6 +26,9 @@ export async function GET() {
       .update({ last_active_at: new Date().toISOString() })
       .eq("id", session.userId)
       .then(() => {});
+
+    // Trigger daily greetings (birthday + festival) - runs once per day on first visitor
+    triggerDailyGreetings().catch(() => {});
 
     return NextResponse.json({ user });
   } catch (error) {
