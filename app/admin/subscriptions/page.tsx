@@ -513,7 +513,7 @@ export default function AdminSubscriptionsPage() {
           : filterStatus === "proof-uploaded"
             ? !!sub.payment_proof_url && sub.status !== "paid" && sub.status !== "rejected" && sub.status !== "hold"
             : filterStatus === "ds-verified"
-              ? !!sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved."))
+              ? !!sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved.") || sub.remarks.startsWith("Approved."))
               : sub.status === filterStatus);
       const matchesPeriod = filterPeriod === "all" || sub.period === filterPeriod;
       const matchesDistrict = filterDistrict === "all" || sub.users?.posting_details?.regular_district === filterDistrict;
@@ -663,7 +663,7 @@ export default function AdminSubscriptionsPage() {
       }
 
       // Auto-approve matching subscriptions (same txn ID, proof URL, or DS/DJS remark)
-      const remarksSig = payDialog.remarks?.match(/^Provisionally approved\.\s*(.+?)\.\s*\(/)?.[1] || null;
+      const remarksSig = payDialog.remarks?.match(/^(?:Provisionally )?[Aa]pproved\.\s*(.+?)\.\s*\(/)?.[1] || null;
       const autoMatches = subscriptions.filter(
         (s) => s.id !== payDialog.id && s.status !== "paid" && s.period === payDialog.period &&
           !adminSelectedMembers.has(s.id) && !adminSelectedPeriods.has(s.id) && (
@@ -1462,7 +1462,7 @@ export default function AdminSubscriptionsPage() {
                             Proof Uploaded
                           </Badge>
                         )}
-                        {(sub.remarks?.startsWith("Verified by") || sub.remarks?.startsWith("Provisionally approved.")) && sub.status !== "paid" && (
+                        {(sub.remarks?.startsWith("Verified by") || sub.remarks?.startsWith("Provisionally approved.") || sub.remarks?.startsWith("Approved.")) && sub.status !== "paid" && (
                           <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-[10px]">
                             DS/DJS Verified
                           </Badge>
@@ -1494,7 +1494,7 @@ export default function AdminSubscriptionsPage() {
                       <div className="flex flex-wrap items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
                         <span className="bg-muted px-1.5 py-0.5 rounded">Created {formatDate(sub.created_at)}</span>
                         {hasProof && <><span>&rarr;</span><span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">Proof Uploaded</span></>}
-                        {(sub.remarks?.startsWith("Verified by") || sub.remarks?.startsWith("Provisionally approved.")) && <><span>&rarr;</span><span className="bg-green-50 text-green-600 px-1.5 py-0.5 rounded">{sub.remarks.split(" on ")[0]}</span></>}
+                        {(sub.remarks?.startsWith("Verified by") || sub.remarks?.startsWith("Provisionally approved.") || sub.remarks?.startsWith("Approved.")) && <><span>&rarr;</span><span className="bg-green-50 text-green-600 px-1.5 py-0.5 rounded">{sub.remarks.split(" on ")[0]}</span></>}
                         {sub.approved_at && (
                           <><span>&rarr;</span><span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
                             Approved {formatDate(sub.approved_at)}{sub.approver?.name ? ` by ${sub.approver.name}` : ""}
@@ -1570,7 +1570,9 @@ export default function AdminSubscriptionsPage() {
                                 if (adminInfo.designation) parts.push(adminInfo.designation);
                                 if (!adminInfo.isSuperAdmin && adminInfo.district) parts.push(adminInfo.district);
                                 parts.push("TANHOWA");
-                                defaultRemark = `Provisionally approved. - ${parts.join(", ")}.`;
+                                defaultRemark = adminInfo.isSuperAdmin
+                                  ? `Approved. - ${parts.join(", ")}.`
+                                  : `Provisionally approved. - ${parts.join(", ")}.`;
                               }
                               setPayForm({
                                 remarks: defaultRemark,
@@ -1835,7 +1837,7 @@ export default function AdminSubscriptionsPage() {
               {/* Same payment — bulk approval (match by txn ID, proof URL, or DS/DJS approval remark) */}
               {(() => {
                 // Extract DS/DJS approver signature from remarks (e.g., "Provisionally approved. Mr. X, TANHOWA. (03 Apr 2026)")
-                const remarksSig = payDialog.remarks?.match(/^Provisionally approved\.\s*(.+?)\.\s*\(/)?.[1] || null;
+                const remarksSig = payDialog.remarks?.match(/^(?:Provisionally )?[Aa]pproved\.\s*(.+?)\.\s*\(/)?.[1] || null;
 
                 const sameTxn = subscriptions.filter(
                   (s) => s.id !== payDialog.id && s.status !== "paid" && s.period === payDialog.period && (
