@@ -17,23 +17,26 @@ import {
 } from "lucide-react";
 import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
 import { useT } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 const titleOptions = ["", "Mr.", "Mrs.", "Miss.", "Dr."];
 
-const occupationOptions = [
-  "Horticultural Officer",
-  "Assistant Director of Horticulture",
-  "Deputy Director of Horticulture",
-  "Joint Director of Horticulture",
-  "Additional Director of Horticulture",
-  "Retd. Horticultural Officer",
-  "Retd. Assistant Director of Horticulture",
-  "Retd. Deputy Director of Horticulture",
-  "Retd. Joint Director of Horticulture",
-  "Retd. Additional Director of Horticulture",
-  "System Admin",
-  "Others",
+const occupationOptions: { value: string; key: TranslationKey }[] = [
+  { value: "Horticultural Officer", key: "opt.ho" },
+  { value: "Assistant Director of Horticulture", key: "opt.adh" },
+  { value: "Deputy Director of Horticulture", key: "opt.ddh" },
+  { value: "Joint Director of Horticulture", key: "opt.jdh" },
+  { value: "Additional Director of Horticulture", key: "opt.addh" },
+  { value: "Retd. Horticultural Officer", key: "opt.retd_ho" },
+  { value: "Retd. Assistant Director of Horticulture", key: "opt.retd_adh" },
+  { value: "Retd. Deputy Director of Horticulture", key: "opt.retd_ddh" },
+  { value: "Retd. Joint Director of Horticulture", key: "opt.retd_jdh" },
+  { value: "Retd. Additional Director of Horticulture", key: "opt.retd_addh" },
+  { value: "System Admin", key: "opt.system_admin" },
+  { value: "Others", key: "opt.others" },
 ];
+
+const occupationValues = occupationOptions.map((o) => o.value);
 
 function parseTitleFromName(name: string): { title: string; firstName: string; lastName: string } {
   const upper = name.trim().toUpperCase();
@@ -160,7 +163,7 @@ export default function ProfilePage() {
     fetch("/api/users/me").then((r) => r.json()).then((d) => {
       if (d.user) {
         const occ = d.user.occupation || "";
-        const isPreset = occupationOptions.includes(occ);
+        const isPreset = occupationValues.includes(occ);
         const sl = d.user.social_links || {};
         const parsed = parseTitleFromName(d.user.name || "");
         // Default "Mr." for members without a title (unless female)
@@ -215,7 +218,7 @@ export default function ProfilePage() {
       fd.append("file", new File([blob], "photo.jpg", { type: "image/jpeg" }));
       const res = await fetch("/api/upload/avatar", { method: "POST", body: fd });
       const data = await res.json();
-      if (res.ok && profile) { setProfile({ ...profile, photo_url: data.photo_url }); toast.success("Photo updated"); }
+      if (res.ok && profile) { setProfile({ ...profile, photo_url: data.photo_url }); toast.success(t("profile.photo_updated")); }
       else { toast.error(data.error || "Upload failed"); setPhotoPreview(profile?.photo_url || ""); }
     } catch { toast.error("Upload failed"); setPhotoPreview(profile?.photo_url || ""); }
     finally { setUploadingPhoto(false); }
@@ -224,9 +227,9 @@ export default function ProfilePage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!profile) return;
-    if (!profile.title) { toast.error("Title is required (Mr., Mrs., Miss., Dr.)"); return; }
-    if (!profile.gender) { toast.error("Gender is required"); return; }
-    if (!profile.dob) { toast.error("Date of Birth is required"); return; }
+    if (!profile.title) { toast.error(t("profile.err_title_required")); return; }
+    if (!profile.gender) { toast.error(t("profile.err_gender_required")); return; }
+    if (!profile.dob) { toast.error(t("profile.err_dob_required")); return; }
     setLoading(true);
     try {
       const nameWithoutTitle = `${profile.first_name.trim()} ${profile.last_name.trim()}`.toUpperCase();
@@ -245,7 +248,7 @@ export default function ProfilePage() {
       const payload = { ...profile, name: fullName, occupation: profile.occupation === "Others" ? profile.occupation_other : profile.occupation, social_links: socialLinksWithExtras };
       const res = await fetch("/api/users/me", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
-      if (res.ok) { toast.success("Profile updated"); setNudge(null); }
+      if (res.ok) { toast.success(t("profile.updated")); setNudge(null); }
       else toast.error(data.error || "Failed to update profile");
     } catch { toast.error("Something went wrong"); }
     finally { setLoading(false); }
@@ -293,10 +296,8 @@ export default function ProfilePage() {
             <AlertCircle className="w-5 h-5 text-red-600" />
           </div>
           <div>
-            <p className="font-semibold text-red-900">Please correct your Title</p>
-            <p className="text-sm text-red-700 mt-1">
-              Your title is set to <span className="font-medium">Mr.</span> but your gender is <span className="font-medium">Female</span>. Please update your title to Mrs., Miss., or Dr. and save your profile.
-            </p>
+            <p className="font-semibold text-red-900">{t("profile.title_gender_mismatch")}</p>
+            <p className="text-sm text-red-700 mt-1">{t("profile.title_mr_female")}</p>
           </div>
         </div>
       )}
@@ -306,10 +307,8 @@ export default function ProfilePage() {
             <AlertCircle className="w-5 h-5 text-red-600" />
           </div>
           <div>
-            <p className="font-semibold text-red-900">Please correct your Title</p>
-            <p className="text-sm text-red-700 mt-1">
-              Your title is set to <span className="font-medium">{profile.title}</span> but your gender is <span className="font-medium">Male</span>. Please update your title to Mr. or Dr. and save your profile.
-            </p>
+            <p className="font-semibold text-red-900">{t("profile.title_gender_mismatch")}</p>
+            <p className="text-sm text-red-700 mt-1">{t("profile.title_mrs_male", { title: profile.title })}</p>
           </div>
         </div>
       )}
@@ -341,7 +340,7 @@ export default function ProfilePage() {
               )}
             </div>
             <div className="text-center sm:text-left flex-1 pb-1">
-              <h2 className="text-xl font-bold uppercase tracking-wide">{displayName || "Your Name"}</h2>
+              <h2 className="text-xl font-bold uppercase tracking-wide">{displayName || t("form.your_name")}</h2>
               {designation && (
                 <p className="text-sm text-muted-foreground mt-0.5">{designation}</p>
               )}
@@ -417,20 +416,23 @@ export default function ProfilePage() {
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("onboard.title")} *</Label>
                     <Select value={profile.title || "none"} onValueChange={(val) => setProfile({ ...profile, title: val === "none" ? "" : val })}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="None" /></SelectTrigger>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder={t("opt.none")} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {titleOptions.filter(Boolean).map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                        <SelectItem value="none">{t("opt.none")}</SelectItem>
+                        <SelectItem value="Mr.">{t("opt.mr")}</SelectItem>
+                        <SelectItem value="Mrs.">{t("opt.mrs")}</SelectItem>
+                        <SelectItem value="Miss.">{t("opt.miss")}</SelectItem>
+                        <SelectItem value="Dr.">{t("opt.dr")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("onboard.first_name")} *</Label>
-                    <Input value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder="SIVAKUMAR" required className="uppercase mt-1" />
+                    <Input value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder={t("ph.first_name")} required className="uppercase mt-1" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("onboard.last_name")} *</Label>
-                    <Input value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder="K" required className="uppercase mt-1" />
+                    <Input value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder={t("ph.last_name")} required className="uppercase mt-1" />
                   </div>
                 </div>
                 <Separator />
@@ -441,7 +443,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("profile.whatsapp")}</Label>
-                    <Input value={profile.social_links.whatsapp} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, whatsapp: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") } })} placeholder="+91 9876543210" className="mt-1" />
+                    <Input value={profile.social_links.whatsapp} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, whatsapp: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") } })} placeholder={t("ph.whatsapp")} className="mt-1" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("form.dob")} *</Label>
@@ -450,11 +452,11 @@ export default function ProfilePage() {
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("form.gender")} *</Label>
                     <Select value={profile.gender || "none"} onValueChange={(val) => setProfile({ ...profile, gender: val === "none" ? "" : val })}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder={t("opt.select")} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Select</SelectItem>
-                        <SelectItem value="Male">Male</SelectItem>
-                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="none">{t("opt.select")}</SelectItem>
+                        <SelectItem value="Male">{t("opt.male")}</SelectItem>
+                        <SelectItem value="Female">{t("opt.female")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -465,26 +467,26 @@ export default function ProfilePage() {
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("form.designation")} *</Label>
                     <Select value={profile.occupation} onValueChange={(val) => setProfile({ ...profile, occupation: val, occupation_other: val !== "Others" ? "" : profile.occupation_other })}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select designation" /></SelectTrigger>
-                      <SelectContent>{occupationOptions.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder={t("ph.designation")} /></SelectTrigger>
+                      <SelectContent>{occupationOptions.map((opt) => <SelectItem key={opt.value} value={opt.value}>{t(opt.key)}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
                 {profile.occupation === "Others" && (
                   <div>
-                    <Label className="text-xs text-muted-foreground">Specify Designation *</Label>
-                    <Input value={profile.occupation_other} onChange={(e) => setProfile({ ...profile, occupation_other: e.target.value })} placeholder="Enter your designation" required className="mt-1" />
+                    <Label className="text-xs text-muted-foreground">{t("form.specify_designation")} *</Label>
+                    <Input value={profile.occupation_other} onChange={(e) => setProfile({ ...profile, occupation_other: e.target.value })} placeholder={t("ph.enter_designation")} required className="mt-1" />
                   </div>
                 )}
                 <Separator />
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("profile.home_address")}</Label>
-                    <Textarea value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} placeholder="Your home address" rows={2} className="mt-1" />
+                    <Textarea value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} placeholder={t("ph.home_address")} rows={2} className="mt-1" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("form.office_address")}</Label>
-                    <Textarea value={profile.office_address} onChange={(e) => setProfile({ ...profile, office_address: e.target.value })} placeholder="Your office address" rows={2} className="mt-1" />
+                    <Textarea value={profile.office_address} onChange={(e) => setProfile({ ...profile, office_address: e.target.value })} placeholder={t("ph.office_address")} rows={2} className="mt-1" />
                   </div>
                 </div>
               </div>
@@ -504,66 +506,66 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("form.qualification")}</Label>
-                    <Input value={profile.qualification} onChange={(e) => setProfile({ ...profile, qualification: e.target.value })} placeholder="e.g., M.Sc. (Horticulture), Ph.D." className="mt-1" />
+                    <Input value={profile.qualification} onChange={(e) => setProfile({ ...profile, qualification: e.target.value })} placeholder={t("ph.qualification")} className="mt-1" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Specialisation</Label>
-                    <Input value={profile.specialisation} onChange={(e) => setProfile({ ...profile, specialisation: e.target.value })} placeholder="e.g., Fruit Crops, Floriculture" className="mt-1" />
+                    <Label className="text-xs text-muted-foreground">{t("form.specialisation")}</Label>
+                    <Input value={profile.specialisation} onChange={(e) => setProfile({ ...profile, specialisation: e.target.value })} placeholder={t("ph.specialisation")} className="mt-1" />
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Current Interest Area</Label>
-                  <Input value={profile.current_interest_area} onChange={(e) => setProfile({ ...profile, current_interest_area: e.target.value })} placeholder="e.g., Organic Farming, Precision Agriculture" className="mt-1" />
+                  <Label className="text-xs text-muted-foreground">{t("form.current_interest")}</Label>
+                  <Input value={profile.current_interest_area} onChange={(e) => setProfile({ ...profile, current_interest_area: e.target.value })} placeholder={t("ph.interest_area")} className="mt-1" />
                 </div>
 
                 <Separator />
 
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Skill Sets</Label>
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("skill.skill_sets")}</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mt-2">
                     {([
-                      ["typing_tamil", "Typing - Tamil"],
-                      ["typing_english", "Typing - English"],
-                      ["ms_word", "MS Word"],
-                      ["ms_excel", "MS Excel"],
-                      ["ms_powerpoint", "MS PowerPoint"],
-                      ["computer_operation", "Computer Operation"],
-                      ["mobile_operation", "Smart Phone"],
-                      ["zoom_app", "Zoom App"],
-                    ] as const).map(([key, label]) => (
+                      ["typing_tamil", "skill.typing_tamil"],
+                      ["typing_english", "skill.typing_english"],
+                      ["ms_word", "skill.ms_word"],
+                      ["ms_excel", "skill.ms_excel"],
+                      ["ms_powerpoint", "skill.ms_powerpoint"],
+                      ["computer_operation", "skill.computer_operation"],
+                      ["mobile_operation", "skill.mobile_operation"],
+                      ["zoom_app", "skill.zoom_app"],
+                    ] as [string, TranslationKey][]).map(([key, labelKey]) => (
                       <div key={key} className="flex items-center justify-between gap-2 py-1.5 border-b border-dashed last:border-0">
-                        <span className="text-sm">{label}</span>
-                        <Select value={profile.skill_sets[key] || ""} onValueChange={(v) => setProfile({ ...profile, skill_sets: { ...profile.skill_sets, [key]: v } })}>
-                          <SelectTrigger className="h-8 w-28 text-xs"><SelectValue placeholder="Level" /></SelectTrigger>
+                        <span className="text-sm">{t(labelKey)}</span>
+                        <Select value={profile.skill_sets[key as keyof typeof profile.skill_sets] || ""} onValueChange={(v) => setProfile({ ...profile, skill_sets: { ...profile.skill_sets, [key]: v } })}>
+                          <SelectTrigger className="h-8 w-28 text-xs"><SelectValue placeholder={t("opt.level")} /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            <SelectItem value="Beginner">Beginner</SelectItem>
-                            <SelectItem value="Medium">Medium</SelectItem>
-                            <SelectItem value="Expert">Expert</SelectItem>
+                            <SelectItem value="none">{t("opt.skill_none")}</SelectItem>
+                            <SelectItem value="Beginner">{t("opt.beginner")}</SelectItem>
+                            <SelectItem value="Medium">{t("opt.medium")}</SelectItem>
+                            <SelectItem value="Expert">{t("opt.expert")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                     ))}
                   </div>
                   <div className="mt-3">
-                    <Label className="text-xs text-muted-foreground">Other apps you are well versed in</Label>
-                    <Input value={profile.skill_sets.other_apps || ""} onChange={(e) => setProfile({ ...profile, skill_sets: { ...profile.skill_sets, other_apps: e.target.value } })} placeholder="e.g., Google Sheets, Canva, WhatsApp Business" className="mt-1" />
+                    <Label className="text-xs text-muted-foreground">{t("skill.other_apps")}</Label>
+                    <Input value={profile.skill_sets.other_apps || ""} onChange={(e) => setProfile({ ...profile, skill_sets: { ...profile.skill_sets, other_apps: e.target.value } })} placeholder={t("ph.other_apps")} className="mt-1" />
                   </div>
                 </div>
 
                 <Separator />
 
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Languages</Label>
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("lang.languages")}</Label>
                   <div className="mt-2 space-y-3">
                     {([
-                      ["Tamil", "tamil"],
-                      ["English", "english"],
-                    ] as const).map(([lang, prefix]) => (
+                      ["lang.tamil", "tamil"],
+                      ["lang.english", "english"],
+                    ] as [TranslationKey, string][]).map(([langKey, prefix]) => (
                       <div key={prefix} className="flex items-center gap-6 py-1.5">
-                        <span className="text-sm font-medium min-w-[60px]">{lang}</span>
+                        <span className="text-sm font-medium min-w-[60px]">{t(langKey)}</span>
                         <div className="flex items-center gap-4">
-                          {(["Read", "Write", "Speak"] as const).map((ability) => {
+                          {([["Read", "lang.read"], ["Write", "lang.write"], ["Speak", "lang.speak"]] as [string, TranslationKey][]).map(([ability, abilityKey]) => {
                             const key = `${prefix}_${ability.toLowerCase()}` as keyof typeof profile.languages;
                             return (
                               <label key={ability} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
@@ -573,7 +575,7 @@ export default function ProfilePage() {
                                   onChange={(e) => setProfile({ ...profile, languages: { ...profile.languages, [key]: e.target.checked } })}
                                   className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4"
                                 />
-                                {ability}
+                                {t(abilityKey)}
                               </label>
                             );
                           })}
@@ -581,8 +583,8 @@ export default function ProfilePage() {
                       </div>
                     ))}
                     <div>
-                      <Label className="text-xs text-muted-foreground">Other languages & abilities</Label>
-                      <Input value={profile.languages.other || ""} onChange={(e) => setProfile({ ...profile, languages: { ...profile.languages, other: e.target.value } })} placeholder="e.g., Hindi - Read, Write, Speak; Telugu - Speak" className="mt-1" />
+                      <Label className="text-xs text-muted-foreground">{t("lang.other")}</Label>
+                      <Input value={profile.languages.other || ""} onChange={(e) => setProfile({ ...profile, languages: { ...profile.languages, other: e.target.value } })} placeholder={t("ph.other_lang")} className="mt-1" />
                     </div>
                   </div>
                 </div>
@@ -602,11 +604,11 @@ export default function ProfilePage() {
               <div className="space-y-3 mt-2">
                 <div className="flex justify-end">
                   <Button type="button" variant="outline" size="sm" onClick={() => setProfile({ ...profile, experience: [...profile.experience, { institution: "", from: "", to: "", designation: "" }] })}>
-                    <Plus size={14} className="mr-1.5" /> Add Experience
+                    <Plus size={14} className="mr-1.5" /> {t("exp.add")}
                   </Button>
                 </div>
                 {profile.experience.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-6">No experience added yet</p>
+                  <p className="text-sm text-muted-foreground text-center py-6">{t("exp.none")}</p>
                 )}
                 {profile.experience.map((exp, i) => {
                   let duration = "";
@@ -633,21 +635,21 @@ export default function ProfilePage() {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="text-xs text-muted-foreground">Institution</Label>
-                          <Input value={exp.institution} onChange={(e) => updateExp("institution", e.target.value)} placeholder="Department of Horticulture, TN" className="mt-1" />
+                          <Label className="text-xs text-muted-foreground">{t("exp.institution")}</Label>
+                          <Input value={exp.institution} onChange={(e) => updateExp("institution", e.target.value)} placeholder={t("ph.institution")} className="mt-1" />
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">Designation</Label>
-                          <Input value={exp.designation} onChange={(e) => updateExp("designation", e.target.value)} placeholder="Horticultural Officer" className="mt-1" />
+                          <Label className="text-xs text-muted-foreground">{t("exp.designation")}</Label>
+                          <Input value={exp.designation} onChange={(e) => updateExp("designation", e.target.value)} placeholder={t("opt.ho")} className="mt-1" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div>
-                          <Label className="text-xs text-muted-foreground">From</Label>
+                          <Label className="text-xs text-muted-foreground">{t("exp.from")}</Label>
                           <Input type="month" value={exp.from} onChange={(e) => updateExp("from", e.target.value)} className="mt-1" />
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">To</Label>
+                          <Label className="text-xs text-muted-foreground">{t("exp.to")}</Label>
                           <Input type="month" value={exp.to} onChange={(e) => updateExp("to", e.target.value)} className="mt-1" />
                         </div>
                         {duration && (
@@ -675,20 +677,20 @@ export default function ProfilePage() {
               <div className="space-y-5 mt-2">
                 {/* Regular Posting */}
                 <div className="rounded-xl border-l-4 border-l-primary bg-primary/[0.02] p-4 space-y-3">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-wider">Regular Posting</p>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wider">{t("posting.regular")}</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-xs text-muted-foreground">District</Label>
+                      <Label className="text-xs text-muted-foreground">{t("posting.district")}</Label>
                       <Select value={profile.posting_details.regular_district || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_district: val === "none" ? "" : val, regular_block: "" } })}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select district" /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">— None —</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_district")} /></SelectTrigger>
+                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Block</Label>
+                      <Label className="text-xs text-muted-foreground">{t("posting.block")}</Label>
                       <Select value={profile.posting_details.regular_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_block: val === "none" ? "" : val } })} disabled={!profile.posting_details.regular_district}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select block" /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">— None —</SelectItem>{regularBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_block")} /></SelectTrigger>
+                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{regularBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -696,44 +698,44 @@ export default function ProfilePage() {
 
                 {/* Special Duty */}
                 <div className="rounded-xl border-l-4 border-l-accent bg-accent/[0.02] p-4 space-y-3">
-                  <p className="text-xs font-semibold text-accent uppercase tracking-wider">Special Duty (if applicable)</p>
+                  <p className="text-xs font-semibold text-accent uppercase tracking-wider">{t("posting.special")}</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-xs text-muted-foreground">District</Label>
+                      <Label className="text-xs text-muted-foreground">{t("posting.district")}</Label>
                       <Select value={profile.posting_details.special_duty_district || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_district: val === "none" ? "" : val, special_duty_block: "" } })}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select district" /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">— None —</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_district")} /></SelectTrigger>
+                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Block</Label>
+                      <Label className="text-xs text-muted-foreground">{t("posting.block")}</Label>
                       <Select value={profile.posting_details.special_duty_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_block: val === "none" ? "" : val } })} disabled={!profile.posting_details.special_duty_district}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select block" /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">— None —</SelectItem>{specialBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_block")} /></SelectTrigger>
+                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{specialBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="col-span-2">
-                      <Label className="text-xs text-muted-foreground">Place (other than above)</Label>
-                      <Input value={profile.posting_details.special_duty_place} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_place: e.target.value } })} placeholder="Place name" className="mt-1" />
+                      <Label className="text-xs text-muted-foreground">{t("posting.place")}</Label>
+                      <Input value={profile.posting_details.special_duty_place} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_place: e.target.value } })} placeholder={t("ph.place_name")} className="mt-1" />
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Special Designation</Label>
+                      <Label className="text-xs text-muted-foreground">{t("posting.special_designation")}</Label>
                       <Select value={profile.posting_details.special_designation || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_designation: val === "none" ? "" : val, special_farm: "" } })}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select designation" /></SelectTrigger>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("ph.designation")} /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">— None —</SelectItem>
-                          <SelectItem value="HO Tech (State Scheme)">HO Tech (State Scheme)</SelectItem>
-                          <SelectItem value="HO Tech (GOI)">HO Tech (GOI)</SelectItem>
-                          <SelectItem value="Farm Manager">Farm Manager</SelectItem>
+                          <SelectItem value="none">{t("opt.none")}</SelectItem>
+                          <SelectItem value="HO Tech (State Scheme)">{t("opt.ho_tech_state")}</SelectItem>
+                          <SelectItem value="HO Tech (GOI)">{t("opt.ho_tech_goi")}</SelectItem>
+                          <SelectItem value="Farm Manager">{t("opt.farm_manager")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     {profile.posting_details.special_designation === "Farm Manager" && (
                       <div>
-                        <Label className="text-xs text-muted-foreground">Farm</Label>
+                        <Label className="text-xs text-muted-foreground">{t("posting.farm")}</Label>
                         <Select value={profile.posting_details.special_farm || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_farm: val === "none" ? "" : val } })}>
-                          <SelectTrigger className="mt-1"><SelectValue placeholder="Select farm" /></SelectTrigger>
-                          <SelectContent><SelectItem value="none">— None —</SelectItem>{TN_HORTICULTURE_FARMS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                          <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_farm")} /></SelectTrigger>
+                          <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{TN_HORTICULTURE_FARMS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     )}
@@ -742,20 +744,20 @@ export default function ProfilePage() {
 
                 {/* Deputed */}
                 <div className="rounded-xl border-l-4 border-l-secondary bg-secondary/[0.02] p-4 space-y-3">
-                  <p className="text-xs font-semibold text-secondary uppercase tracking-wider">Deputed (if applicable)</p>
+                  <p className="text-xs font-semibold text-secondary uppercase tracking-wider">{t("posting.deputed")}</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-xs text-muted-foreground">District</Label>
+                      <Label className="text-xs text-muted-foreground">{t("posting.district")}</Label>
                       <Select value={profile.posting_details.deputed_district || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_district: val === "none" ? "" : val, deputed_block: "" } })}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select district" /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">— None —</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_district")} /></SelectTrigger>
+                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Block</Label>
+                      <Label className="text-xs text-muted-foreground">{t("posting.block")}</Label>
                       <Select value={profile.posting_details.deputed_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_block: val === "none" ? "" : val } })} disabled={!profile.posting_details.deputed_district}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select block" /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">— None —</SelectItem>{deputedBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_block")} /></SelectTrigger>
+                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{deputedBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -777,26 +779,26 @@ export default function ProfilePage() {
                 <div>
                   <Label className="text-xs text-muted-foreground">Instagram</Label>
                   <Input value={profile.social_links.instagram} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, instagram: e.target.value } })} placeholder="https://instagram.com/username" className="mt-1" />
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Open Instagram → Go to your profile → Copy the URL from the browser address bar</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{t("social.instagram_hint")}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Twitter / X</Label>
                   <Input value={profile.social_links.twitter} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, twitter: e.target.value } })} placeholder="https://x.com/username" className="mt-1" />
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Open X (Twitter) → Go to your profile → Copy the URL from the browser address bar</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{t("social.twitter_hint")}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">LinkedIn</Label>
                   <Input value={profile.social_links.linkedin} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, linkedin: e.target.value } })} placeholder="https://linkedin.com/in/username" className="mt-1" />
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Open LinkedIn → Go to your profile → Copy the URL from the browser address bar</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{t("social.linkedin_hint")}</p>
                 </div>
                 <Separator className="my-1" />
                 <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
-                  <p className="text-xs font-semibold text-blue-800 mb-1">Telegram Notifications</p>
-                  <p className="text-[11px] text-blue-700">Get real-time task alerts via Telegram! To link your account:</p>
+                  <p className="text-xs font-semibold text-blue-800 mb-1">{t("social.telegram_title")}</p>
+                  <p className="text-[11px] text-blue-700">{t("social.telegram_info")}</p>
                   <ol className="text-[11px] text-blue-700 mt-1 list-decimal list-inside space-y-0.5">
-                    <li>Open Telegram and search for <span className="font-medium">@TanhowaBot</span></li>
-                    <li>Send your registered email address to the bot</li>
-                    <li>The bot will confirm linking — you&apos;ll receive task notifications automatically</li>
+                    <li>{t("social.telegram_step1")}</li>
+                    <li>{t("social.telegram_step2")}</li>
+                    <li>{t("social.telegram_step3")}</li>
                   </ol>
                 </div>
               </div>
@@ -824,7 +826,7 @@ export default function ProfilePage() {
               <div>
                 <p className="text-sm font-medium">{t("profile.location")}</p>
                 <p className="text-xs text-muted-foreground">
-                  {locationSharing ? "Your location is shared when you open the app" : "Enable to get alerts for nearby meetings & events"}
+                  {locationSharing ? t("location.enabled_desc") : t("location.disabled_desc")}
                 </p>
               </div>
             </div>
@@ -878,7 +880,7 @@ export default function ProfilePage() {
                 }
               }}
             >
-              {locationToggling ? "..." : locationSharing ? "Enabled" : "Enable"}
+              {locationToggling ? "..." : locationSharing ? t("location.enabled") : t("location.enable")}
             </Button>
           </div>
         </CardContent>
@@ -893,19 +895,19 @@ export default function ProfilePage() {
             </div>
             <div>
               <p className="text-sm font-medium">{t("profile.notifications")}</p>
-              <p className="text-xs text-muted-foreground">Choose how you want to receive notifications</p>
+              <p className="text-xs text-muted-foreground">{t("notif.choose")}</p>
             </div>
           </div>
           <div className="space-y-3">
             {[
-              { key: "email" as const, label: "Email Notifications", desc: "Announcements, payment updates, task alerts" },
-              { key: "telegram" as const, label: "Telegram Notifications", desc: "Real-time task and payment alerts via bot" },
-              { key: "in_app" as const, label: "In-App Notifications", desc: "Bell icon alerts within the portal" },
+              { key: "email" as const, labelKey: "notif.email_label" as const, descKey: "notif.email_desc" as const },
+              { key: "telegram" as const, labelKey: "notif.telegram_label" as const, descKey: "notif.telegram_desc" as const },
+              { key: "in_app" as const, labelKey: "notif.in_app_label" as const, descKey: "notif.in_app_desc" as const },
             ].map((item) => (
               <div key={item.key} className="flex items-center justify-between py-2">
                 <div>
-                  <p className="text-sm font-medium">{item.label}</p>
-                  <p className="text-[11px] text-muted-foreground">{item.desc}</p>
+                  <p className="text-sm font-medium">{t(item.labelKey)}</p>
+                  <p className="text-[11px] text-muted-foreground">{t(item.descKey)}</p>
                 </div>
                 <Button
                   variant={notifPrefs[item.key] ? "default" : "outline"}
@@ -922,14 +924,14 @@ export default function ProfilePage() {
                     });
                     if (res.ok) {
                       setNotifPrefs(updated);
-                      toast.success(`${item.label} ${updated[item.key] ? "enabled" : "disabled"}`);
+                      toast.success(`${t(item.labelKey)} ${updated[item.key] ? t("notif.on") : t("notif.off")}`);
                     } else {
                       toast.error("Failed to update");
                     }
                     setNotifSaving(false);
                   }}
                 >
-                  {notifPrefs[item.key] ? "On" : "Off"}
+                  {notifPrefs[item.key] ? t("notif.on") : t("notif.off")}
                 </Button>
               </div>
             ))}

@@ -30,7 +30,8 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
 - `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`
-- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `razorpay.ts`, `rate-limit.ts`, `daily-greetings.ts`
+- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `razorpay.ts`, `rate-limit.ts`, `daily-greetings.ts`, `translate-content.ts`
+- `lib/i18n/` — Internationalization: `language-context.tsx` (React context + hooks), `translations.ts` (EN/TA dictionary), `index.ts` (barrel export)
 - `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
 - `supabase/schema.sql` — Base database DDL (additional migrations documented below)
 
@@ -124,6 +125,7 @@ export async function GET(req: NextRequest) {
 | `food_items` | Vendor menu items | vendor_id, name, price, category, available |
 | `food_orders` | Member food orders | user_id, vendor_id, total, status (pending/confirmed/preparing/ready/delivered/cancelled), notes |
 | `food_order_items` | Order line items | order_id, item_id, quantity, price |
+| `content_translations` | Cached auto-translations (EN↔TA) | source_table, source_id, field, lang, translated_text |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -580,7 +582,7 @@ Use this pattern whenever a child page modifies data that the layout displays.
 
 ## Audit Log
 
-`lib/audit.ts` provides `logAudit(user_id, user_name, user_email, action, target_type, target_id, details)` — fire-and-forget async IIFE that writes to the `audit_logs` table. Admin page at `/admin/audit-logs` with search, action filter, and target type filter. Color-coded icons per target type. Note: `logAudit()` is defined but not yet integrated into existing API routes — needs to be called from admin actions (user approval, subscription verification, etc.).
+`lib/audit.ts` provides `logAudit(userId, action, targetType, targetId, details?)` — fire-and-forget async IIFE that writes to the `audit_logs` table. Integrated into resolution actions (create, approve, reject, open/close voting, delete). Admin page at `/admin/audit-logs` with search, action filter, and target type filter. Color-coded icons per target type.
 
 ## Razorpay Integration
 
@@ -597,6 +599,81 @@ Admin can set priority (Low/Medium/High) on grievances and suggestions. Days-pen
 ## Profile Completeness
 
 `UserCard` component shows an 8-field profile completeness score with color-coded progress bar (green 100%, blue ≥75%, amber ≥50%, red <50%). Missing fields appear as clickable amber pill badges that open the nudge dialog. The nudge dialog (`NudgeDialog.tsx`) is a draggable floating panel (not a modal) — uses mouse event listeners for drag with bounds checking.
+
+## Internationalization (i18n)
+
+React Context-based bilingual system (English/Tamil) with font size control.
+
+**Files:**
+- `lib/i18n/index.ts` — barrel export
+- `lib/i18n/language-context.tsx` — `LanguageProvider` context, `useT()` and `useLang()` hooks
+- `lib/i18n/translations.ts` — dictionary with 500+ keys (EN/TA pairs)
+
+**Usage:**
+```typescript
+import { useT, useLang } from "@/lib/i18n";
+
+const t = useT();           // t("nav.dashboard") → "Dashboard" or "டாஷ்போர்டு"
+const { lang } = useLang(); // "en" or "ta"
+```
+
+**Key conventions:**
+- Translation keys use dot notation by category: `nav.*`, `common.*`, `status.*`, `announce.*`, `poll.*`, etc.
+- `useT()` supports parameter interpolation: `t("faq.showing", { filtered: "5", total: "20" })`
+- Fallback chain: current lang → English → raw key
+- `LanguageProvider` wraps the app in `app/layout.tsx` — all components using `useT()` must be inside it
+- Language persists to localStorage key `tanhowa-lang`, font size to `tanhowa-font-size`
+- Font sizes: `sm` (14px base), `md` (16px), `lg` (18px) — applied as CSS class on `<html>`
+
+**Adding translations for a new page:**
+1. Add keys to `lib/i18n/translations.ts` with `en` and `ta` values
+2. Import `useT` in the component, replace hardcoded strings with `t()` calls
+3. For content pages, also pass `?lang=ta` to API (see Content Auto-Translation below)
+
+## Content Auto-Translation (EN↔TA)
+
+User-generated content is auto-translated via Gemini when created/edited, cached in DB for fast retrieval.
+
+**Files:**
+- `lib/translate-content.ts` — `translateContent()` + `getTranslations()`
+- `supabase/content_translations_schema.sql` — table DDL
+
+**Table:** `content_translations` (source_table, source_id, field, lang, translated_text) with UNIQUE constraint for upsert.
+
+**Content types translated:**
+
+| Table | Fields |
+|-------|--------|
+| announcements | title, content |
+| events | title, description, location |
+| grievances | admin_remarks |
+| faqs | question, answer |
+| resolutions | title, description |
+| polls | title, options (JSON array) |
+
+**API pattern:**
+```typescript
+// GET — merge translations when ?lang=ta
+const lang = url.searchParams.get("lang");
+if (lang === "ta") {
+  const translations = await getTranslations("announcements", ids, "ta");
+  // merge translated fields, fallback to original if missing
+}
+
+// POST/PUT — fire-and-forget translate after DB write
+translateContent("announcements", data.id, { title, content });
+```
+
+**Frontend pattern:**
+```typescript
+const { lang } = useLang();
+// Append ?lang=ta to fetch URL when Tamil selected
+fetch(`/api/announcements${lang === "ta" ? "?lang=ta" : ""}`)
+// Re-fetch when language changes
+useEffect(() => { load(); }, [lang]);
+```
+
+**Tamil detection:** `isTamil()` heuristic (>30% Tamil Unicode chars U+0B80-U+0BFF) skips already-Tamil content.
 
 ## Common Tasks
 

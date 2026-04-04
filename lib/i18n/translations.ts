@@ -562,6 +562,163 @@ const translations = {
   "voucher.view_receipt": { en: "View Receipt", ta: "ரசீது பார்" },
   "voucher.approved_by": { en: "Approved by", ta: "அங்கீகரித்தவர்" },
   "voucher.remarks": { en: "Remarks", ta: "குறிப்புகள்" },
+
+  // --- Dropdown options: Title ---
+  "opt.select": { en: "Select", ta: "தேர்வு செய்க" },
+  "opt.none": { en: "— None —", ta: "— எதுவுமில்லை —" },
+  "opt.mr": { en: "Mr.", ta: "திரு." },
+  "opt.mrs": { en: "Mrs.", ta: "திருமதி." },
+  "opt.miss": { en: "Miss.", ta: "செல்வி." },
+  "opt.dr": { en: "Dr.", ta: "மருத்துவர்." },
+
+  // --- Dropdown options: Gender ---
+  "opt.male": { en: "Male", ta: "ஆண்" },
+  "opt.female": { en: "Female", ta: "பெண்" },
+
+  // --- Dropdown options: Designation ---
+  "opt.ho": { en: "Horticultural Officer", ta: "தோட்டக்கலை அலுவலர்" },
+  "opt.adh": { en: "Assistant Director of Horticulture", ta: "தோட்டக்கலை உதவி இயக்குநர்" },
+  "opt.ddh": { en: "Deputy Director of Horticulture", ta: "தோட்டக்கலை துணை இயக்குநர்" },
+  "opt.jdh": { en: "Joint Director of Horticulture", ta: "தோட்டக்கலை கூட்டு இயக்குநர்" },
+  "opt.addh": { en: "Additional Director of Horticulture", ta: "தோட்டக்கலை கூடுதல் இயக்குநர்" },
+  "opt.retd_ho": { en: "Retd. Horticultural Officer", ta: "ஓய்வுபெற்ற தோட்டக்கலை அலுவலர்" },
+  "opt.retd_adh": { en: "Retd. Assistant Director of Horticulture", ta: "ஓய்வுபெற்ற தோட்டக்கலை உதவி இயக்குநர்" },
+  "opt.retd_ddh": { en: "Retd. Deputy Director of Horticulture", ta: "ஓய்வுபெற்ற தோட்டக்கலை துணை இயக்குநர்" },
+  "opt.retd_jdh": { en: "Retd. Joint Director of Horticulture", ta: "ஓய்வுபெற்ற தோட்டக்கலை கூட்டு இயக்குநர்" },
+  "opt.retd_addh": { en: "Retd. Additional Director of Horticulture", ta: "ஓய்வுபெற்ற தோட்டக்கலை கூடுதல் இயக்குநர்" },
+  "opt.system_admin": { en: "System Admin", ta: "கணினி நிர்வாகி" },
+  "opt.others": { en: "Others", ta: "மற்றவை" },
+
+  // --- Dropdown options: Skill levels ---
+  "opt.skill_none": { en: "None", ta: "இல்லை" },
+  "opt.beginner": { en: "Beginner", ta: "தொடக்கநிலை" },
+  "opt.medium": { en: "Medium", ta: "நடுநிலை" },
+  "opt.expert": { en: "Expert", ta: "நிபுணர்" },
+  "opt.level": { en: "Level", ta: "நிலை" },
+
+  // --- Skill names ---
+  "skill.typing_tamil": { en: "Typing - Tamil", ta: "தட்டச்சு - தமிழ்" },
+  "skill.typing_english": { en: "Typing - English", ta: "தட்டச்சு - ஆங்கிலம்" },
+  "skill.ms_word": { en: "MS Word", ta: "MS Word" },
+  "skill.ms_excel": { en: "MS Excel", ta: "MS Excel" },
+  "skill.ms_powerpoint": { en: "MS PowerPoint", ta: "MS PowerPoint" },
+  "skill.computer_operation": { en: "Computer Operation", ta: "கணினி இயக்கம்" },
+  "skill.mobile_operation": { en: "Smart Phone", ta: "ஸ்மார்ட் போன்" },
+  "skill.zoom_app": { en: "Zoom App", ta: "Zoom செயலி" },
+  "skill.other_apps": { en: "Other apps you are well versed in", ta: "நீங்கள் நன்கு அறிந்த பிற செயலிகள்" },
+  "skill.skill_sets": { en: "Skill Sets", ta: "திறன்கள்" },
+
+  // --- Languages ---
+  "lang.tamil": { en: "Tamil", ta: "தமிழ்" },
+  "lang.english": { en: "English", ta: "ஆங்கிலம்" },
+  "lang.read": { en: "Read", ta: "படிக்க" },
+  "lang.write": { en: "Write", ta: "எழுத" },
+  "lang.speak": { en: "Speak", ta: "பேச" },
+  "lang.languages": { en: "Languages", ta: "மொழிகள்" },
+  "lang.other": { en: "Other languages & abilities", ta: "பிற மொழிகள் & திறன்கள்" },
+
+  // --- Posting details ---
+  "posting.regular": { en: "Regular Posting", ta: "வழக்கமான பணியிடம்" },
+  "posting.special": { en: "Special Duty (if applicable)", ta: "சிறப்பு பணி (பொருந்தினால்)" },
+  "posting.deputed": { en: "Deputed (if applicable)", ta: "பணி நியமனம் (பொருந்தினால்)" },
+  "posting.district": { en: "District", ta: "மாவட்டம்" },
+  "posting.block": { en: "Block", ta: "வட்டம்" },
+  "posting.place": { en: "Place (other than above)", ta: "இடம் (மேற்கூறியது தவிர)" },
+  "posting.select_district": { en: "Select district", ta: "மாவட்டம் தேர்வு செய்க" },
+  "posting.select_block": { en: "Select block", ta: "வட்டம் தேர்வு செய்க" },
+  "posting.special_designation": { en: "Special Designation", ta: "சிறப்பு பதவி" },
+  "posting.farm": { en: "Farm", ta: "பண்ணை" },
+  "posting.select_farm": { en: "Select farm", ta: "பண்ணை தேர்வு செய்க" },
+
+  // --- Special designation options ---
+  "opt.ho_tech_state": { en: "HO Tech (State Scheme)", ta: "தோ.அ. தொழில்நுட்பம் (மாநிலத் திட்டம்)" },
+  "opt.ho_tech_goi": { en: "HO Tech (GOI)", ta: "தோ.அ. தொழில்நுட்பம் (மத்திய அரசு)" },
+  "opt.farm_manager": { en: "Farm Manager", ta: "பண்ணை மேலாளர்" },
+
+  // --- Notification preferences ---
+  "notif.email_label": { en: "Email Notifications", ta: "மின்னஞ்சல் அறிவிப்புகள்" },
+  "notif.email_desc": { en: "Announcements, payment updates, task alerts", ta: "அறிவிப்புகள், கட்டண புதுப்பிப்புகள், பணி எச்சரிக்கைகள்" },
+  "notif.telegram_label": { en: "Telegram Notifications", ta: "டெலிகிராம் அறிவிப்புகள்" },
+  "notif.telegram_desc": { en: "Real-time task and payment alerts via bot", ta: "போட் மூலம் நிகழ்நேர பணி மற்றும் கட்டண எச்சரிக்கைகள்" },
+  "notif.in_app_label": { en: "In-App Notifications", ta: "ஆப் அறிவிப்புகள்" },
+  "notif.in_app_desc": { en: "Bell icon alerts within the portal", ta: "போர்ட்டலில் மணி ஐகான் எச்சரிக்கைகள்" },
+  "notif.choose": { en: "Choose how you want to receive notifications", ta: "அறிவிப்புகளை எவ்வாறு பெற விரும்புகிறீர்கள் என்பதைத் தேர்வு செய்யுங்கள்" },
+  "notif.on": { en: "On", ta: "இயக்கு" },
+  "notif.off": { en: "Off", ta: "நிறுத்து" },
+
+  // --- Location sharing ---
+  "location.enabled_desc": { en: "Your location is shared when you open the app", ta: "ஆப்பைத் திறக்கும்போது உங்கள் இருப்பிடம் பகிரப்படும்" },
+  "location.disabled_desc": { en: "Enable to get alerts for nearby meetings & events", ta: "அருகிலுள்ள கூட்டங்கள் & நிகழ்வுகளுக்கு எச்சரிக்கைகளைப் பெற இயக்கவும்" },
+  "location.enabled": { en: "Enabled", ta: "இயக்கப்பட்டது" },
+  "location.enable": { en: "Enable", ta: "இயக்கு" },
+
+  // --- Profile page: warnings ---
+  "profile.title_gender_mismatch": { en: "Please correct your Title", ta: "உங்கள் பட்டத்தை சரிசெய்யவும்" },
+  "profile.title_mr_female": { en: "Your title is set to Mr. but your gender is Female. Please update your title to Mrs., Miss., or Dr. and save your profile.", ta: "உங்கள் பட்டம் திரு. என்று அமைக்கப்பட்டுள்ளது ஆனால் உங்கள் பாலினம் பெண். உங்கள் பட்டத்தை திருமதி., செல்வி. அல்லது மருத்துவர். என மாற்றிச் சேமிக்கவும்." },
+  "profile.title_mrs_male": { en: "Your title is set to {title} but your gender is Male. Please update your title to Mr. or Dr. and save your profile.", ta: "உங்கள் பட்டம் {title} என்று அமைக்கப்பட்டுள்ளது ஆனால் உங்கள் பாலினம் ஆண். உங்கள் பட்டத்தை திரு. அல்லது மருத்துவர். என மாற்றிச் சேமிக்கவும்." },
+
+  // --- Profile page: experience ---
+  "exp.add": { en: "Add Experience", ta: "அனுபவம் சேர்" },
+  "exp.none": { en: "No experience added yet", ta: "இன்னும் அனுபவம் சேர்க்கப்படவில்லை" },
+  "exp.institution": { en: "Institution", ta: "நிறுவனம்" },
+  "exp.designation": { en: "Designation", ta: "பதவி" },
+  "exp.from": { en: "From", ta: "முதல்" },
+  "exp.to": { en: "To", ta: "வரை" },
+
+  // --- Profile page: social links ---
+  "social.instagram_hint": { en: "Open Instagram → Go to your profile → Copy the URL from the browser address bar", ta: "Instagram திற → உங்கள் சுயவிவரத்திற்குச் செல் → URL-ஐ நகலெடு" },
+  "social.twitter_hint": { en: "Open X (Twitter) → Go to your profile → Copy the URL from the browser address bar", ta: "X (Twitter) திற → உங்கள் சுயவிவரத்திற்குச் செல் → URL-ஐ நகலெடு" },
+  "social.linkedin_hint": { en: "Open LinkedIn → Go to your profile → Copy the URL from the browser address bar", ta: "LinkedIn திற → உங்கள் சுயவிவரத்திற்குச் செல் → URL-ஐ நகலெடு" },
+  "social.telegram_title": { en: "Telegram Notifications", ta: "டெலிகிராம் அறிவிப்புகள்" },
+  "social.telegram_info": { en: "Get real-time task alerts via Telegram! To link your account:", ta: "டெலிகிராம் வழியாக நிகழ்நேர பணி எச்சரிக்கைகளைப் பெறுங்கள்! உங்கள் கணக்கை இணைக்க:" },
+  "social.telegram_step1": { en: "Open Telegram and search for @TanhowaBot", ta: "டெலிகிராமைத் திற, @TanhowaBot-ஐ தேடு" },
+  "social.telegram_step2": { en: "Send your registered email address to the bot", ta: "உங்கள் பதிவு செய்த மின்னஞ்சலை போட்டுக்கு அனுப்பு" },
+  "social.telegram_step3": { en: "The bot will confirm linking — you'll receive task notifications automatically", ta: "போட் இணைப்பை உறுதிப்படுத்தும் — தானாகவே பணி அறிவிப்புகளைப் பெறுவீர்கள்" },
+
+  // --- Profile page: placeholders ---
+  "ph.first_name": { en: "e.g., SIVAKUMAR", ta: "உ.ம்., சிவகுமார்" },
+  "ph.last_name": { en: "e.g., K", ta: "உ.ம்., K" },
+  "ph.phone": { en: "9876543210", ta: "9876543210" },
+  "ph.whatsapp": { en: "+91 9876543210", ta: "+91 9876543210" },
+  "ph.home_address": { en: "Your home address", ta: "உங்கள் வீட்டு முகவரி" },
+  "ph.office_address": { en: "Your office address", ta: "உங்கள் அலுவலக முகவரி" },
+  "ph.qualification": { en: "e.g., M.Sc. (Horticulture), Ph.D.", ta: "உ.ம்., M.Sc. (தோட்டக்கலை), Ph.D." },
+  "ph.specialisation": { en: "e.g., Fruit Crops, Floriculture", ta: "உ.ம்., பழப்பயிர்கள், மலர்கலை" },
+  "ph.interest_area": { en: "e.g., Organic Farming, Precision Agriculture", ta: "உ.ம்., இயற்கை வேளாண்மை, துல்லிய வேளாண்மை" },
+  "ph.other_apps": { en: "e.g., Google Sheets, Canva, WhatsApp Business", ta: "உ.ம்., Google Sheets, Canva, WhatsApp Business" },
+  "ph.other_lang": { en: "e.g., Hindi - Read, Write, Speak; Telugu - Speak", ta: "உ.ம்., இந்தி - படிக்க, எழுத, பேச; தெலுங்கு - பேச" },
+  "ph.designation": { en: "Select your designation", ta: "உங்கள் பதவியைத் தேர்வு செய்க" },
+  "ph.institution": { en: "Department of Horticulture, TN", ta: "தோட்டக்கலைத் துறை, தமிழ்நாடு" },
+  "ph.enter_designation": { en: "Enter your designation", ta: "உங்கள் பதவியை உள்ளிடுக" },
+  "ph.place_name": { en: "Place name", ta: "இடத்தின் பெயர்" },
+  "ph.select_gender": { en: "Select gender", ta: "பாலினம் தேர்வு செய்க" },
+
+  // --- Profile: form labels not yet translated ---
+  "form.specialisation": { en: "Specialisation", ta: "சிறப்பு" },
+  "form.current_interest": { en: "Current Interest Area", ta: "தற்போதைய ஆர்வப் பகுதி" },
+  "form.specify_designation": { en: "Specify Designation", ta: "பதவியைக் குறிப்பிடவும்" },
+  "form.your_name": { en: "Your Name", ta: "உங்கள் பெயர்" },
+
+  // --- Onboarding: error messages ---
+  "onboard.err_first_name": { en: "First name is required", ta: "முதல் பெயர் தேவை" },
+  "onboard.err_last_name": { en: "Last name / Initial is required", ta: "குடும்பப் பெயர் / முதலெழுத்து தேவை" },
+  "onboard.err_phone": { en: "Phone number is required", ta: "தொலைபேசி எண் தேவை" },
+  "onboard.err_phone_invalid": { en: "Enter a valid Indian mobile number (10 digits starting with 6-9)", ta: "சரியான இந்திய மொபைல் எண்ணை உள்ளிடவும் (6-9 தொடங்கும் 10 இலக்கங்கள்)" },
+  "onboard.err_designation": { en: "Designation is required", ta: "பதவி தேவை" },
+  "onboard.err_title": { en: "Title is required", ta: "பட்டம் தேவை" },
+  "onboard.err_gender": { en: "Gender is required", ta: "பாலினம் தேவை" },
+  "onboard.err_generic": { en: "Something went wrong", ta: "ஏதோ தவறு ஏற்பட்டது" },
+
+  // --- Onboarding: warning messages ---
+  "onboard.warn_login_count": { en: "You have logged in {count} times without completing your profile. Please complete it now.", ta: "நீங்கள் சுயவிவரத்தை நிரப்பாமல் {count} முறை உள்நுழைந்துள்ளீர்கள். இப்போது நிரப்பவும்." },
+  "onboard.warn_final": { en: "You have logged in {count} times without completing your profile. Incomplete accounts will be removed.", ta: "நீங்கள் சுயவிவரத்தை நிரப்பாமல் {count} முறை உள்நுழைந்துள்ளீர்கள். முழுமையடையாத கணக்குகள் நீக்கப்படும்." },
+
+  // --- Profile: save/error toasts ---
+  "profile.err_title_required": { en: "Title is required (Mr., Mrs., Miss., Dr.)", ta: "பட்டம் தேவை (திரு., திருமதி., செல்வி., மருத்துவர்.)" },
+  "profile.err_gender_required": { en: "Gender is required", ta: "பாலினம் தேவை" },
+  "profile.err_dob_required": { en: "Date of Birth is required", ta: "பிறந்த தேதி தேவை" },
+  "profile.updated": { en: "Profile updated", ta: "சுயவிவரம் புதுப்பிக்கப்பட்டது" },
+  "profile.photo_updated": { en: "Photo updated", ta: "புகைப்படம் புதுப்பிக்கப்பட்டது" },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

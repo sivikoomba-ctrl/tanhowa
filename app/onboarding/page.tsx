@@ -10,20 +10,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Flower2, Clock, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 import { useT } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
-const occupationOptions = [
-  "Horticultural Officer",
-  "Assistant Director of Horticulture",
-  "Deputy Director of Horticulture",
-  "Joint Director of Horticulture",
-  "Additional Director of Horticulture",
-  "Retd. Horticultural Officer",
-  "Retd. Assistant Director of Horticulture",
-  "Retd. Deputy Director of Horticulture",
-  "Retd. Joint Director of Horticulture",
-  "Retd. Additional Director of Horticulture",
-  "System Admin",
-  "Others",
+const occupationOptions: { value: string; key: TranslationKey }[] = [
+  { value: "Horticultural Officer", key: "opt.ho" },
+  { value: "Assistant Director of Horticulture", key: "opt.adh" },
+  { value: "Deputy Director of Horticulture", key: "opt.ddh" },
+  { value: "Joint Director of Horticulture", key: "opt.jdh" },
+  { value: "Additional Director of Horticulture", key: "opt.addh" },
+  { value: "Retd. Horticultural Officer", key: "opt.retd_ho" },
+  { value: "Retd. Assistant Director of Horticulture", key: "opt.retd_adh" },
+  { value: "Retd. Deputy Director of Horticulture", key: "opt.retd_ddh" },
+  { value: "Retd. Joint Director of Horticulture", key: "opt.retd_jdh" },
+  { value: "Retd. Additional Director of Horticulture", key: "opt.retd_addh" },
+  { value: "System Admin", key: "opt.system_admin" },
+  { value: "Others", key: "opt.others" },
 ];
 
 function parseTitleFromName(name: string): { firstName: string; lastName: string } {
@@ -77,13 +78,13 @@ export default function OnboardingPage() {
 
   async function handleSubmit() {
     setError("");
-    if (!firstName.trim()) { setError("First name is required"); return; }
-    if (!lastName.trim()) { setError("Last name / Initial is required"); return; }
-    if (!phone.trim()) { setError("Phone number is required"); return; }
-    if (!isValidPhone(phone)) { setError("Enter a valid Indian mobile number (10 digits starting with 6-9)"); return; }
-    if (!occupation || (occupation === "Others" && !occupationOther.trim())) { setError("Designation is required"); return; }
-    if (!title) { setError("Title is required"); return; }
-    if (!gender) { setError("Gender is required"); return; }
+    if (!firstName.trim()) { setError(t("onboard.err_first_name")); return; }
+    if (!lastName.trim()) { setError(t("onboard.err_last_name")); return; }
+    if (!phone.trim()) { setError(t("onboard.err_phone")); return; }
+    if (!isValidPhone(phone)) { setError(t("onboard.err_phone_invalid")); return; }
+    if (!occupation || (occupation === "Others" && !occupationOther.trim())) { setError(t("onboard.err_designation")); return; }
+    if (!title) { setError(t("onboard.err_title")); return; }
+    if (!gender) { setError(t("onboard.err_gender")); return; }
 
     setLoading(true);
     try {
@@ -102,7 +103,7 @@ export default function OnboardingPage() {
       const meData = await meRes.json();
       if (meData.user?.status === "approved") { router.push("/dashboard"); return; }
       setSubmitted(true);
-    } catch { setError("Something went wrong"); }
+    } catch { setError(t("onboard.err_generic")); }
     finally { setLoading(false); }
   }
 
@@ -149,8 +150,8 @@ export default function OnboardingPage() {
                 </p>
                 <p className={`text-xs mt-0.5 ${loginCount >= 5 ? "text-red-700" : "text-amber-700"}`}>
                   {loginCount >= 5
-                    ? `You have logged in ${loginCount} times without completing your profile. Incomplete accounts will be removed.`
-                    : `You have logged in ${loginCount} times without completing your profile. Please complete it now.`}
+                    ? t("onboard.warn_final", { count: String(loginCount) })
+                    : t("onboard.warn_login_count", { count: String(loginCount) })}
                 </p>
               </div>
             </div>
@@ -162,34 +163,34 @@ export default function OnboardingPage() {
                 <div>
                   <Label htmlFor="title">{t("onboard.title")} *</Label>
                   <Select value={title || "none"} onValueChange={(val) => setTitle(val === "none" ? "" : val)}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("opt.select")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Select</SelectItem>
-                      <SelectItem value="Mr.">Mr.</SelectItem>
-                      <SelectItem value="Mrs.">Mrs.</SelectItem>
-                      <SelectItem value="Miss.">Miss.</SelectItem>
-                      <SelectItem value="Dr.">Dr.</SelectItem>
+                      <SelectItem value="none">{t("opt.select")}</SelectItem>
+                      <SelectItem value="Mr.">{t("opt.mr")}</SelectItem>
+                      <SelectItem value="Mrs.">{t("opt.mrs")}</SelectItem>
+                      <SelectItem value="Miss.">{t("opt.miss")}</SelectItem>
+                      <SelectItem value="Dr.">{t("opt.dr")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label htmlFor="first_name">{t("onboard.first_name")} *</Label>
-                  <Input id="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase())} placeholder="e.g., SIVAKUMAR" required className="uppercase" />
+                  <Input id="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase())} placeholder={t("ph.first_name")} required className="uppercase" />
                 </div>
                 <div>
                   <Label htmlFor="last_name">{t("onboard.last_name")} *</Label>
-                  <Input id="last_name" value={lastName} onChange={(e) => setLastName(e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase())} placeholder="e.g., K" required className="uppercase" />
+                  <Input id="last_name" value={lastName} onChange={(e) => setLastName(e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase())} placeholder={t("ph.last_name")} required className="uppercase" />
                 </div>
               </div>
 
               <div>
                 <Label htmlFor="gender">{t("form.gender")} *</Label>
                 <Select value={gender || "none"} onValueChange={(val) => setGender(val === "none" ? "" : val)}>
-                  <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("ph.select_gender")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Select</SelectItem>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="none">{t("opt.select")}</SelectItem>
+                    <SelectItem value="Male">{t("opt.male")}</SelectItem>
+                    <SelectItem value="Female">{t("opt.female")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -202,15 +203,15 @@ export default function OnboardingPage() {
               <div>
                 <Label htmlFor="occupation">{t("form.designation")} *</Label>
                 <Select value={occupation} onValueChange={(val) => { setOccupation(val); if (val !== "Others") setOccupationOther(""); }}>
-                  <SelectTrigger><SelectValue placeholder="Select your designation" /></SelectTrigger>
-                  <SelectContent>{occupationOptions.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                  <SelectTrigger><SelectValue placeholder={t("ph.designation")} /></SelectTrigger>
+                  <SelectContent>{occupationOptions.map((opt) => <SelectItem key={opt.value} value={opt.value}>{t(opt.key)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
 
               {occupation === "Others" && (
                 <div>
                   <Label htmlFor="occupation_other">{t("onboard.specify_designation")} *</Label>
-                  <Input id="occupation_other" value={occupationOther} onChange={(e) => setOccupationOther(e.target.value)} placeholder="Enter your designation" required />
+                  <Input id="occupation_other" value={occupationOther} onChange={(e) => setOccupationOther(e.target.value)} placeholder={t("ph.enter_designation")} required />
                 </div>
               )}
 
