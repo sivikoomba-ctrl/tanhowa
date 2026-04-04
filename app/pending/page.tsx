@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock, Flower2 } from "lucide-react";
 import Image from "next/image";
+import { useT } from "@/lib/i18n";
 
 export default function PendingPage() {
   const router = useRouter();
+  const t = useT();
 
   // Check immediately + poll every 30s
   useEffect(() => {
@@ -49,12 +51,12 @@ export default function PendingPage() {
             <Flower2 className="w-6 h-6 text-primary" />
             <h1 className="text-2xl font-bold text-primary">TANHOWA</h1>
           </div>
-          <h2 className="text-xl font-semibold mb-2">Awaiting Approval</h2>
+          <h2 className="text-xl font-semibold mb-2">{t("pending.awaiting")}</h2>
           <p className="text-muted-foreground mb-6">
-            Your account has been created and is under review. An admin will either approve or reject your membership. You&apos;ll be notified once a decision is made.
+            {t("pending.message")}
           </p>
           <Button variant="outline" onClick={handleLogout}>
-            Back to Home
+            {t("pending.back_home")}
           </Button>
         </CardContent>
       </Card>

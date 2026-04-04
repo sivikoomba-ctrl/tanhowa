@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Calendar, MapPin, Plus, Clock, UserCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
+import { useT } from "@/lib/i18n";
 
 interface Event {
   id: string;
@@ -30,6 +31,7 @@ export default function EventsPage() {
   const [creating, setCreating] = useState(false);
   const [rsvpCounts, setRsvpCounts] = useState<Record<string, number>>({});
   const [myRsvps, setMyRsvps] = useState<Record<string, string>>({});
+  const t = useT();
 
   function loadRsvps() {
     fetch("/api/events/rsvp")
@@ -113,44 +115,44 @@ export default function EventsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Events</h1>
+          <h1 className="text-2xl font-bold">{t("events.title")}</h1>
           {events.length > 0 && (
             <p className="text-sm text-muted-foreground mt-0.5">
-              {upcoming.length} upcoming{past.length > 0 ? ` · ${past.length} past` : ""}
+              {upcoming.length} {t("events.upcoming")}{past.length > 0 ? ` · ${past.length} ${t("events.past")}` : ""}
             </p>
           )}
         </div>
         {canCreate && (
           <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90">
-            <Plus size={16} className="mr-1" />New Event
+            <Plus size={16} className="mr-1" />{t("events.new_event")}
           </Button>
         )}
       </div>
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>New Event</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("events.new_event")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <Input placeholder="Title *" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
             <Textarea placeholder="Description" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} rows={3} />
             <Input type="datetime-local" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
             <Input placeholder="Location" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} />
             <Button onClick={handleCreate} disabled={creating} className="w-full bg-primary hover:bg-primary/90">
-              {creating ? "Creating..." : "Create Event"}
+              {creating ? t("events.creating") : t("events.create_event")}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {events.length === 0 ? (
-        <EmptyState icon={Calendar} title="No events scheduled" description="Events will appear here when created" />
+        <EmptyState icon={Calendar} title={t("events.no_events")} description={t("events.will_appear")} />
       ) : (
         <div className="space-y-8">
           {/* Upcoming Events */}
           {upcoming.length > 0 && (
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <Badge className="bg-green-100 text-green-700 border-green-300 text-xs px-3 py-1">Upcoming</Badge>
+                <Badge className="bg-green-100 text-green-700 border-green-300 text-xs px-3 py-1">{t("events.upcoming_label")}</Badge>
                 <div className="flex-1 h-px bg-border" />
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
@@ -174,7 +176,7 @@ export default function EventsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
                               <h3 className="font-semibold leading-snug">{ev.title}</h3>
-                              {isToday && <Badge className="bg-green-100 text-green-700 border-0 text-[10px] shrink-0">Today</Badge>}
+                              {isToday && <Badge className="bg-green-100 text-green-700 border-0 text-[10px] shrink-0">{t("events.today")}</Badge>}
                               {!isToday && isSoon && <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] shrink-0">In {daysUntil}d</Badge>}
                             </div>
                             {ev.description && (
@@ -200,11 +202,11 @@ export default function EventsPage() {
                                 onClick={() => handleRsvp(ev.id)}
                               >
                                 <UserCheck size={12} />
-                                {myRsvps[ev.id] === "going" ? "Going" : "RSVP"}
+                                {myRsvps[ev.id] === "going" ? t("events.going") : t("events.rsvp")}
                               </Button>
                               {(rsvpCounts[ev.id] || 0) > 0 && (
                                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                  <Users size={11} /> {rsvpCounts[ev.id]} going
+                                  <Users size={11} /> {t("events.going_count", { count: rsvpCounts[ev.id] })}
                                 </span>
                               )}
                             </div>
@@ -222,7 +224,7 @@ export default function EventsPage() {
           {past.length > 0 && (
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <Badge variant="outline" className="text-xs px-3 py-1 text-muted-foreground">Past Events</Badge>
+                <Badge variant="outline" className="text-xs px-3 py-1 text-muted-foreground">{t("events.past_label")}</Badge>
                 <div className="flex-1 h-px bg-border" />
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
@@ -253,7 +255,7 @@ export default function EventsPage() {
                               )}
                               {rsvpCounts[ev.id] > 0 && (
                                 <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <Users size={10} /> {rsvpCounts[ev.id]} attended
+                                  <Users size={10} /> {t("events.attended", { count: rsvpCounts[ev.id] })}
                                 </span>
                               )}
                             </div>

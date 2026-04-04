@@ -15,6 +15,7 @@ import { MetricCard } from "@/components/metric-card";
 import { statusStyles } from "@/components/status-badge";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 import { PaymentProofPreviewDialog } from "@/components/payment-proof-preview-dialog";
+import { useT } from "@/lib/i18n";
 
 interface PendingMember {
   id: string;
@@ -78,6 +79,7 @@ export default function SubscriptionsPage() {
   const [qrZoom, setQrZoom] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [member, setMember] = useState<MemberInfo | null>(null);
+  const t = useT();
 
   // Association Due Summary
   const [duesOpen, setDuesOpen] = useState(false);
@@ -574,7 +576,7 @@ export default function SubscriptionsPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-primary shrink-0" />
-                <h1 className="text-xl font-bold">My Subscriptions</h1>
+                <h1 className="text-xl font-bold">{t("subs.my_subscriptions")}</h1>
               </div>
               {member ? (
                 <>
@@ -607,7 +609,7 @@ export default function SubscriptionsPage() {
           <div className="px-5 py-3">
             <div className="flex items-center gap-2">
               <Calculator size={16} className="text-primary" />
-              <span className="font-semibold text-sm">Association Due Summary</span>
+              <span className="font-semibold text-sm">{t("subs.association_dues")}</span>
             </div>
           </div>
           <CardContent className="pt-0 pb-4 px-4">
@@ -806,9 +808,9 @@ export default function SubscriptionsPage() {
               )}
             </div>
             <div className="flex-1 text-center sm:text-left">
-              <h2 className="text-lg font-semibold mb-1">Pay via UPI / Bank Transfer</h2>
+              <h2 className="text-lg font-semibold mb-1">{t("subs.pay_via_upi")}</h2>
               <p className="text-sm text-muted-foreground mb-3">
-                Scan the QR code to make your subscription payment. After payment, upload the payment screenshot and fill in the transaction details.
+                {t("subs.scan_qr")}
               </p>
               <div className="space-y-1 text-sm">
                 <p className="text-muted-foreground"><span className="font-medium text-foreground">Step 1:</span> Scan QR code or transfer to the account</p>
@@ -823,9 +825,9 @@ export default function SubscriptionsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
-        <MetricCard label="Paid" value={paid} icon={CheckCircle2} borderColor="border-l-green-500" iconColor="text-green-500/40" />
-        <MetricCard label="Due" value={pending} icon={Clock} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
-        <MetricCard label="Total Paid" value={`₹${totalPaid.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-primary" iconColor="text-primary/40" />
+        <MetricCard label={t("subs.paid")} value={paid} icon={CheckCircle2} borderColor="border-l-green-500" iconColor="text-green-500/40" />
+        <MetricCard label={t("subs.due")} value={pending} icon={Clock} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
+        <MetricCard label={t("subs.total_paid")} value={`₹${totalPaid.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-primary" iconColor="text-primary/40" />
       </div>
 
       {/* Hidden file input */}
@@ -841,7 +843,7 @@ export default function SubscriptionsPage() {
       {subscriptions.length === 0 ? (
         <div className="text-center py-12">
           <Wallet className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground">No subscriptions yet</p>
+          <p className="text-muted-foreground">{t("subs.no_subscriptions")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -866,12 +868,12 @@ export default function SubscriptionsPage() {
                           </Badge>
                           {sub.period.toLowerCase().startsWith("volunteer") && (
                             <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">
-                              Voluntary
+                              {t("subs.voluntary")}
                             </Badge>
                           )}
                           {hasProof && sub.status !== "paid" && (
                             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-[10px]">
-                              Proof Uploaded
+                              {t("subs.proof_uploaded")}
                             </Badge>
                           )}
                         </div>
@@ -903,7 +905,7 @@ export default function SubscriptionsPage() {
                             className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
                           >
                             <ImageIcon size={12} />
-                            View payment proof
+                            {t("subs.view_payment_proof")}
                           </button>
                         )}
                         {sub.remarks && (
@@ -921,10 +923,10 @@ export default function SubscriptionsPage() {
                             onClick={() => triggerUpload(sub.id)}
                             disabled={isUploading}
                           >
-                            {isUploading ? "Uploading..." : (
+                            {isUploading ? t("subs.uploading") : (
                               <>
                                 <Upload size={12} className="mr-1" />
-                                {hasProof ? "Re-upload" : "Upload Proof"}
+                                {hasProof ? t("subs.re_upload") : t("subs.upload_proof")}
                               </>
                             )}
                           </Button>
@@ -936,7 +938,7 @@ export default function SubscriptionsPage() {
                               onClick={() => openEditDetails(sub)}
                             >
                               <Edit2 size={12} className="mr-1" />
-                              Edit Details
+                              {t("subs.edit_details")}
                             </Button>
                           )}
                         </>
@@ -951,7 +953,7 @@ export default function SubscriptionsPage() {
                               onClick={() => viewProof(sub)}
                             >
                               <Eye size={12} className="mr-1" />
-                              View Proof
+                              {t("subs.view_proof")}
                             </Button>
                           )}
                           <Button
@@ -961,7 +963,7 @@ export default function SubscriptionsPage() {
                             onClick={() => downloadReceipt(sub)}
                           >
                             <FileDown size={12} className="mr-1" />
-                            Receipt
+                            {t("subs.receipt")}
                           </Button>
                           <Button
                             size="sm"
@@ -971,7 +973,7 @@ export default function SubscriptionsPage() {
                             disabled={emailingSub === sub.id}
                           >
                             <Mail size={12} className="mr-1" />
-                            {emailingSub === sub.id ? "Sending..." : "Email Receipt"}
+                            {emailingSub === sub.id ? t("subs.sending") : t("subs.email_receipt")}
                           </Button>
                         </>
                       )}

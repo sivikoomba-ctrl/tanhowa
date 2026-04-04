@@ -14,6 +14,7 @@ import { MetricCard } from "@/components/metric-card";
 import { AdminContacts } from "@/components/admin-contacts";
 import { StatusBadge } from "@/components/status-badge";
 import { SectionError } from "@/components/section-error";
+import { useT } from "@/lib/i18n";
 
 interface Announcement {
   id: string;
@@ -50,6 +51,7 @@ export default function DashboardHome() {
   const [userRole, setUserRole] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const t = useT();
 
   function loadData() {
     setLoaded(false);
@@ -114,36 +116,36 @@ export default function DashboardHome() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          {userName ? `Welcome, ${userName.split(" ").slice(0, 2).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(" ")}` : "Dashboard"}
+          {userName ? t("dash.welcome_name", { name: userName.split(" ").slice(0, 2).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(" ") }) : t("dash.dashboard")}
         </h1>
         {pendingSubs > 0 && (
           <p className="text-sm text-amber-600 mt-0.5">
-            You have {pendingSubs} pending subscription{pendingSubs > 1 ? "s" : ""} — <Link href="/dashboard/subscriptions" className="underline font-medium">pay now</Link>
+            {t("dash.pending_subs", { count: pendingSubs })} — <Link href="/dashboard/subscriptions" className="underline font-medium">{t("dash.pay_now")}</Link>
           </p>
         )}
       </div>
 
       {/* Key Metrics */}
       {errors.stats ? (
-        <SectionError message="Failed to load statistics" onRetry={loadData} />
+        <SectionError message={t("dash.failed_stats")} onRetry={loadData} />
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <MetricCard label="Members" value={`${stats.members} / 797`} subtitle={`${Math.round((stats.members / 797) * 100)}% registered · ${797 - stats.members} yet to join`} icon={UserCheck} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-primary" />
-          <MetricCard label="Announcements" value={stats.announcements} subtitle="Published" icon={Megaphone} loading={!loaded} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
-          <MetricCard label="Events" value={stats.events} subtitle="Total events" icon={Calendar} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
-          <MetricCard label="My Contributions" value={myContributions.count} subtitle={loaded ? `${formatMinutes(myContributions.minutes)} this month` : ""} icon={Award} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
+          <MetricCard label={t("dash.members")} value={`${stats.members} / 797`} subtitle={`${Math.round((stats.members / 797) * 100)}% ${t("dash.registered")} · ${797 - stats.members} ${t("dash.yet_to_join")}`} icon={UserCheck} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-primary" />
+          <MetricCard label={t("nav.announcements")} value={stats.announcements} subtitle={t("dash.published")} icon={Megaphone} loading={!loaded} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
+          <MetricCard label={t("nav.events")} value={stats.events} subtitle={t("dash.total_events")} icon={Calendar} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
+          <MetricCard label={t("dash.my_contributions")} value={myContributions.count} subtitle={loaded ? `${formatMinutes(myContributions.minutes)} ${t("dash.this_month")}` : ""} icon={Award} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
         </div>
       )}
 
       {/* Quick Links */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
         {[
-          { label: "Announcements", icon: Megaphone, href: "/dashboard/announcements", color: "text-secondary" },
-          { label: "Events", icon: Calendar, href: "/dashboard/events", color: "text-primary" },
-          { label: "Documents", icon: FileText, href: "/dashboard/documents", color: "text-blue-600" },
-          { label: "Subscriptions", icon: Wallet, href: "/dashboard/subscriptions", color: "text-amber-600", badge: pendingSubs > 0 ? `${pendingSubs} due` : undefined },
-          { label: "Suggestions", icon: Lightbulb, href: "/dashboard/suggestions", color: "text-yellow-600" },
-          { label: "Tasks", icon: ListTodo, href: "/dashboard/todos", color: "text-green-600" },
+          { label: t("nav.announcements"), icon: Megaphone, href: "/dashboard/announcements", color: "text-secondary" },
+          { label: t("nav.events"), icon: Calendar, href: "/dashboard/events", color: "text-primary" },
+          { label: t("nav.documents"), icon: FileText, href: "/dashboard/documents", color: "text-blue-600" },
+          { label: t("nav.subscriptions"), icon: Wallet, href: "/dashboard/subscriptions", color: "text-amber-600", badge: pendingSubs > 0 ? `${pendingSubs} ${t("misc.due")}` : undefined },
+          { label: t("nav.suggestions"), icon: Lightbulb, href: "/dashboard/suggestions", color: "text-yellow-600" },
+          { label: t("nav.todos"), icon: ListTodo, href: "/dashboard/todos", color: "text-green-600" },
         ].map((item) => (
           <Link key={item.label} href={item.href}>
             <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
@@ -163,10 +165,10 @@ export default function DashboardHome() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Trophy size={14} className="text-amber-500" /> Top Contributors This Month
+                <Trophy size={14} className="text-amber-500" /> {t("dash.top_contributors")}
               </h3>
               <Link href="/dashboard/contributions" className="text-xs text-primary hover:underline flex items-center gap-1">
-                View All <ArrowRight size={12} />
+                {t("dash.view_all")} <ArrowRight size={12} />
               </Link>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -186,7 +188,7 @@ export default function DashboardHome() {
         <Card>
           <CardContent className="pt-4">
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
-              <Cake size={14} className="text-pink-500" /> Upcoming Birthdays
+              <Cake size={14} className="text-pink-500" /> {t("dash.upcoming_birthdays")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {birthdays.map((b) => (
@@ -203,21 +205,21 @@ export default function DashboardHome() {
       {/* Recent Announcements + Upcoming Events */}
       <div className="grid md:grid-cols-2 gap-4">
         {errors.announcements ? (
-          <SectionError message="Failed to load announcements" onRetry={loadData} />
+          <SectionError message={t("dash.failed_announcements")} onRetry={loadData} />
         ) : (
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <Megaphone size={14} className="text-accent" /> Recent Announcements
+                  <Megaphone size={14} className="text-accent" /> {t("dash.recent_announcements")}
                 </h3>
                 <Link href="/dashboard/announcements" className="text-xs text-primary hover:underline flex items-center gap-1">
-                  View All <ArrowRight size={12} />
+                  {t("dash.view_all")} <ArrowRight size={12} />
                 </Link>
               </div>
               <div className="space-y-3">
                 {announcements.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No announcements yet</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">{t("dash.no_announcements")}</p>
                 ) : (
                   announcements.map((a) => (
                     <div key={a.id} className="border-b last:border-0 pb-3 last:pb-0">
@@ -233,21 +235,21 @@ export default function DashboardHome() {
         )}
 
         {errors.events ? (
-          <SectionError message="Failed to load events" onRetry={loadData} />
+          <SectionError message={t("dash.failed_events")} onRetry={loadData} />
         ) : (
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <Calendar size={14} className="text-secondary" /> Upcoming Events
+                  <Calendar size={14} className="text-secondary" /> {t("dash.upcoming_events")}
                 </h3>
                 <Link href="/dashboard/events" className="text-xs text-primary hover:underline flex items-center gap-1">
-                  View All <ArrowRight size={12} />
+                  {t("dash.view_all")} <ArrowRight size={12} />
                 </Link>
               </div>
               <div className="space-y-3">
                 {events.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No upcoming events</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">{t("dash.no_events")}</p>
                 ) : (
                   events.map((ev) => (
                     <div key={ev.id} className="flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0">
@@ -277,21 +279,21 @@ export default function DashboardHome() {
       {/* My Subscriptions + Admin Contacts */}
       <div className="grid md:grid-cols-2 gap-4">
         {errors.subscriptions ? (
-          <SectionError message="Failed to load subscriptions" onRetry={loadData} />
+          <SectionError message={t("dash.failed_subscriptions")} onRetry={loadData} />
         ) : (
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <IndianRupee size={14} className="text-primary" /> My Subscriptions
+                  <IndianRupee size={14} className="text-primary" /> {t("dash.my_subscriptions")}
                 </h3>
                 <Link href="/dashboard/subscriptions" className="text-xs text-primary hover:underline flex items-center gap-1">
-                  View All <ArrowRight size={12} />
+                  {t("dash.view_all")} <ArrowRight size={12} />
                 </Link>
               </div>
               <div className="space-y-2">
                 {mySubscriptions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No subscriptions yet</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">{t("dash.no_subscriptions")}</p>
                 ) : (
                   mySubscriptions.map((sub) => (
                     <div key={sub.id} className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30">

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Flower2, ArrowLeft } from "lucide-react";
 import Image from "next/image";
+import { useT } from "@/lib/i18n";
 
 export default function VerifyPage() {
   return (
@@ -29,6 +30,7 @@ function VerifyContent() {
   const phone = searchParams.get("phone") || "";
   const sid = searchParams.get("sid") || "";
   const isPhoneMode = !!phone;
+  const t = useT();
 
   useEffect(() => {
     if (!email && !phone) router.push("/");
@@ -161,10 +163,8 @@ function VerifyContent() {
   }
 
   const displayIdentifier = isPhoneMode ? phone : email;
-  const verifyTitle = isPhoneMode ? "Verify Your Mobile" : "Verify Your Email";
-  const verifySubtitle = isPhoneMode
-    ? "We sent a 6-digit code to"
-    : "We sent a 6-digit code to";
+  const verifyTitle = isPhoneMode ? t("verify.title_mobile") : t("verify.title_email");
+  const verifySubtitle = t("verify.code_sent");
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -211,7 +211,7 @@ function VerifyContent() {
                   disabled={loading}
                   className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90"
                 >
-                  {loading ? "Verifying..." : "Verify Code"}
+                  {loading ? t("verify.verifying") : t("verify.verify_code")}
                 </Button>
               </form>
 
@@ -222,8 +222,8 @@ function VerifyContent() {
                   className="text-sm text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
                 >
                   {resendCooldown > 0
-                    ? `Resend code in ${resendCooldown}s`
-                    : "Resend code"}
+                    ? t("verify.resend_in", { seconds: resendCooldown })
+                    : t("verify.resend")}
                 </button>
               </div>
             </CardContent>
@@ -234,7 +234,7 @@ function VerifyContent() {
             className="mt-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft size={14} />
-            Back to login
+            {t("verify.back_login")}
           </button>
         </div>
       </div>

@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Megaphone, Plus, Clock, UserPlus, CheckCheck, Search } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
+import { useT } from "@/lib/i18n";
 
 function renderSimpleMarkdown(text: string): string {
   return text
@@ -49,6 +50,7 @@ export default function AnnouncementsPage() {
   const [recentMembers, setRecentMembers] = useState<RecentMember[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const t = useT();
 
   const markAsRead = useCallback((id: string) => {
     if (readIds.has(id)) return;
@@ -134,8 +136,8 @@ export default function AnnouncementsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Announcements</h1>
-          <p className="text-xs text-muted-foreground">Anyone can freely announce — personal, family functions, official events, or any update to all members.</p>
+          <h1 className="text-2xl font-bold">{t("announce.title")}</h1>
+          <p className="text-xs text-muted-foreground">{t("announce.subtitle")}</p>
           {announcements.length > 0 && (
             <p className="text-sm text-muted-foreground mt-0.5">
               {filteredAnnouncements.length !== announcements.length
@@ -146,19 +148,19 @@ export default function AnnouncementsPage() {
         </div>
         {canCreate && (
           <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90">
-            <Plus size={16} className="mr-1" />New
+            <Plus size={16} className="mr-1" />{t("announce.new")}
           </Button>
         )}
       </div>
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>New Announcement</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("announce.new_announcement")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <Input placeholder="Title *" value={title} onChange={(e) => setTitle(e.target.value)} />
             <Textarea placeholder="Content" value={content} onChange={(e) => setContent(e.target.value)} rows={4} />
             <Button onClick={handleCreate} disabled={creating} className="w-full bg-primary hover:bg-primary/90">
-              {creating ? "Publishing..." : "Publish"}
+              {creating ? t("announce.publishing") : t("announce.publish")}
             </Button>
           </div>
         </DialogContent>
@@ -169,7 +171,7 @@ export default function AnnouncementsPage() {
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search announcements..."
+            placeholder={t("announce.search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -183,7 +185,7 @@ export default function AnnouncementsPage() {
           <div className="flex items-center min-w-0">
             <div className="bg-primary text-white px-3 py-2 text-xs font-semibold shrink-0 flex items-center gap-1.5">
               <UserPlus size={14} />
-              New Members
+              {t("announce.new_members")}
             </div>
             <div className="flex-1 overflow-hidden relative py-2 min-w-0">
               <div
@@ -205,7 +207,7 @@ export default function AnnouncementsPage() {
       )}
 
       {announcements.length === 0 ? (
-        <EmptyState icon={Megaphone} title="No announcements yet" description="Check back later for updates" />
+        <EmptyState icon={Megaphone} title={t("announce.no_announcements")} description={t("announce.check_back")} />
       ) : (
         <div className="space-y-8">
           {grouped.map(([month, items]) => (
@@ -259,7 +261,7 @@ export default function AnnouncementsPage() {
                               )}
                               {readIds.has(a.id) && (
                                 <span className="flex items-center gap-0.5 text-[10px] text-blue-500">
-                                  <CheckCheck size={11} /> Read
+                                  <CheckCheck size={11} /> {t("announce.read")}
                                 </span>
                               )}
                             </div>

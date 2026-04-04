@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Flower2, Mail, Smartphone } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 const categories = [
   {
@@ -50,6 +51,7 @@ export default function LandingPage() {
   const [email, setEmail] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
   const router = useRouter();
+  const t = useT();
 
   // Auto-redirect approved members who already have a valid session
   useEffect(() => {
@@ -201,7 +203,7 @@ export default function LandingPage() {
                 <div className="h-px w-8 bg-gradient-to-l from-transparent to-primary/30" />
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Connecting Horticultural Officers across Tamil Nadu
+                {t("login.tagline")}
               </p>
             </div>
 
@@ -209,10 +211,10 @@ export default function LandingPage() {
             <Card className="w-full max-w-sm border-primary/15 shadow-2xl shadow-primary/10 backdrop-blur-sm bg-white/85 rounded-2xl">
               <CardContent className="pt-7 pb-7 px-7">
                 <h2 className="text-xl font-semibold text-foreground mb-1 text-center">
-                  Welcome
+                  {t("login.welcome")}
                 </h2>
                 <p className="text-sm text-muted-foreground mb-6 text-center">
-                  Sign in to access your account
+                  {t("login.sign_in")}
                 </p>
 
                 {error && (
@@ -231,13 +233,13 @@ export default function LandingPage() {
                     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                   </svg>
-                  Continue with Google
+                  {t("login.continue_google")}
                 </Button>
 
                 {/* Divider */}
                 <div className="flex items-center gap-3 my-5">
                   <div className="flex-1 h-px bg-primary/15" />
-                  <span className="text-xs text-muted-foreground">or</span>
+                  <span className="text-xs text-muted-foreground">{t("misc.or")}</span>
                   <div className="flex-1 h-px bg-primary/15" />
                 </div>
 
@@ -249,7 +251,7 @@ export default function LandingPage() {
                     className="w-full h-12 text-base font-semibold rounded-xl border-primary/30 hover:bg-primary/5 gap-3"
                   >
                     <Mail className="w-5 h-5 shrink-0" />
-                    Continue with Email
+                    {t("login.continue_email")}
                   </Button>
                 ) : (
                   <form onSubmit={handleEmailSubmit} className="space-y-3">
@@ -266,7 +268,7 @@ export default function LandingPage() {
                       disabled={emailLoading}
                       className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 rounded-xl"
                     >
-                      {emailLoading ? "Sending OTP..." : "Send Verification Code"}
+                      {emailLoading ? t("login.sending_otp") : t("login.send_verification")}
                     </Button>
                   </form>
                 )}
@@ -275,8 +277,8 @@ export default function LandingPage() {
 
                 <p className="mt-4 text-xs text-muted-foreground text-center">
                   {showEmailLogin
-                    ? "We'll send a one-time verification code to your email"
-                    : "Use your Google account or email to sign in"}
+                    ? t("login.email_code_msg")
+                    : t("login.use_google_or_email")}
                 </p>
               </CardContent>
             </Card>
@@ -286,9 +288,9 @@ export default function LandingPage() {
               <div className="flex items-start gap-3">
                 <Smartphone size={18} className="text-primary mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs font-semibold text-primary">Install TANHOWA App</p>
+                  <p className="text-xs font-semibold text-primary">{t("login.install_app")}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                    Open <span className="font-medium">tanhowa.in</span> in Chrome/Safari, tap the menu and select <span className="font-medium">&quot;Add to Home Screen&quot;</span> for the best experience.
+                    {t("login.install_desc")}
                   </p>
                 </div>
               </div>
@@ -299,7 +301,7 @@ export default function LandingPage() {
               <div className="h-px w-16 bg-gradient-to-r from-transparent to-primary/20" />
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-primary/30" />
-                <span className="text-[10px] font-bold text-primary/40 uppercase tracking-[0.2em]">Our Domains</span>
+                <span className="text-[10px] font-bold text-primary/40 uppercase tracking-[0.2em]">{t("login.our_domains")}</span>
                 <span className="w-2 h-2 rounded-full bg-primary/30" />
               </div>
               <div className="h-px w-16 bg-gradient-to-l from-transparent to-primary/20" />
@@ -339,7 +341,7 @@ export default function LandingPage() {
         <div className="lg:hidden px-5 pb-8">
           <div className="flex items-center justify-center gap-3 mb-5">
             <div className="h-px w-10 bg-primary/20" />
-            <h2 className="text-lg font-bold text-primary">Our Domains</h2>
+            <h2 className="text-lg font-bold text-primary">{t("login.our_domains")}</h2>
             <div className="h-px w-10 bg-primary/20" />
           </div>
           <div className="grid grid-cols-2 gap-3">

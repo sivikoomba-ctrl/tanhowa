@@ -16,6 +16,7 @@ import {
   GraduationCap, Globe, Save, Building2, ChevronDown, ChevronUp, Navigation, Bell,
 } from "lucide-react";
 import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
+import { useT } from "@/lib/i18n";
 
 const titleOptions = ["", "Mr.", "Mrs.", "Miss.", "Dr."];
 
@@ -149,6 +150,7 @@ export default function ProfilePage() {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { minDate, maxDate } = getDobLimits();
+  const t = useT();
 
   function toggleSection(key: string) {
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -267,7 +269,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">My Profile</h1>
+      <h1 className="text-2xl font-bold">{t("profile.my_profile")}</h1>
 
       {nudge && (
         <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 flex items-start gap-3">
@@ -275,10 +277,10 @@ export default function ProfilePage() {
             <AlertCircle className="w-5 h-5 text-amber-600" />
           </div>
           <div>
-            <p className="font-semibold text-amber-900">Admin has requested you to update your profile</p>
+            <p className="font-semibold text-amber-900">{t("profile.admin_nudge")}</p>
             {nudge.message && <p className="text-sm text-amber-700 mt-1">{nudge.message}</p>}
             <p className="text-sm text-amber-600 mt-1">
-              Please update: <span className="font-medium">{nudge.fields.join(", ")}</span>
+              {t("profile.please_update")}: <span className="font-medium">{nudge.fields.join(", ")}</span>
             </p>
           </div>
         </div>
@@ -363,11 +365,11 @@ export default function ProfilePage() {
               className="shrink-0"
             >
               <Camera size={14} className="mr-1.5" />
-              {photoPreview ? "Change" : "Upload"}
+              {photoPreview ? t("profile.change") : t("common.upload")}
             </Button>
           </div>
           <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoSelect} />
-          <p className="text-[10px] text-muted-foreground mt-2 text-center sm:text-right">Upload a clear passport-size photo of yourself. No group photos or landscapes. Max 2MB.</p>
+          <p className="text-[10px] text-muted-foreground mt-2 text-center sm:text-right">{t("profile.photo_hint")}</p>
         </CardContent>
       </Card>
 
@@ -378,7 +380,7 @@ export default function ProfilePage() {
           <Card>
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Profile Completion</span>
+                <span className="text-sm font-medium">{t("profile.completion")}</span>
                 <span className={`text-sm font-bold ${percent === 100 ? "text-green-600" : percent >= 75 ? "text-primary" : "text-amber-600"}`}>{percent}%</span>
               </div>
               <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
@@ -389,7 +391,7 @@ export default function ProfilePage() {
               </div>
               {missing.length > 0 && (
                 <p className="text-[11px] text-muted-foreground mt-2">
-                  Missing: {missing.join(", ")}
+                  {t("profile.missing")}: {missing.join(", ")}
                 </p>
               )}
             </CardContent>
@@ -402,51 +404,51 @@ export default function ProfilePage() {
         <Card>
           <CardContent className="pt-5">
             <button type="button" className="w-full flex items-center justify-between" onClick={() => toggleSection("personal")}>
-              <SectionHeader icon={User} title="Personal Information" subtitle="Basic details and contact" />
+              <SectionHeader icon={User} title={t("profile.personal_info")} subtitle={t("profile.personal_subtitle")} />
               {expandedSections.personal ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
             </button>
             {expandedSections.personal && (
               <div className="space-y-4 mt-2">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <Label className="text-xs text-muted-foreground">{t("form.email")}</Label>
                   <Input value={profile.email} disabled className="bg-muted/50 mt-1" />
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Title *</Label>
+                    <Label className="text-xs text-muted-foreground">{t("onboard.title")} *</Label>
                     <Select value={profile.title || "none"} onValueChange={(val) => setProfile({ ...profile, title: val === "none" ? "" : val })}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="None" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {titleOptions.filter(Boolean).map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        {titleOptions.filter(Boolean).map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">First Name *</Label>
+                    <Label className="text-xs text-muted-foreground">{t("onboard.first_name")} *</Label>
                     <Input value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder="SIVAKUMAR" required className="uppercase mt-1" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Last Name / Initial *</Label>
+                    <Label className="text-xs text-muted-foreground">{t("onboard.last_name")} *</Label>
                     <Input value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder="K" required className="uppercase mt-1" />
                   </div>
                 </div>
                 <Separator />
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Phone *</Label>
+                    <Label className="text-xs text-muted-foreground">{t("form.phone")} *</Label>
                     <Input value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") })} required className="mt-1" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">WhatsApp (if different)</Label>
+                    <Label className="text-xs text-muted-foreground">{t("profile.whatsapp")}</Label>
                     <Input value={profile.social_links.whatsapp} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, whatsapp: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") } })} placeholder="+91 9876543210" className="mt-1" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Date of Birth *</Label>
+                    <Label className="text-xs text-muted-foreground">{t("form.dob")} *</Label>
                     <Input type="date" value={profile.dob} onChange={(e) => setProfile({ ...profile, dob: e.target.value })} min={minDate} max={maxDate} className="mt-1" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Gender *</Label>
+                    <Label className="text-xs text-muted-foreground">{t("form.gender")} *</Label>
                     <Select value={profile.gender || "none"} onValueChange={(val) => setProfile({ ...profile, gender: val === "none" ? "" : val })}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>
@@ -457,11 +459,11 @@ export default function ProfilePage() {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Date of Joining (Service)</Label>
+                    <Label className="text-xs text-muted-foreground">{t("profile.date_of_joining")}</Label>
                     <Input type="date" value={profile.date_of_joining} onChange={(e) => setProfile({ ...profile, date_of_joining: e.target.value })} className="mt-1" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Designation *</Label>
+                    <Label className="text-xs text-muted-foreground">{t("form.designation")} *</Label>
                     <Select value={profile.occupation} onValueChange={(val) => setProfile({ ...profile, occupation: val, occupation_other: val !== "Others" ? "" : profile.occupation_other })}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select designation" /></SelectTrigger>
                       <SelectContent>{occupationOptions.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
@@ -477,11 +479,11 @@ export default function ProfilePage() {
                 <Separator />
                 <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Home Address</Label>
+                    <Label className="text-xs text-muted-foreground">{t("profile.home_address")}</Label>
                     <Textarea value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} placeholder="Your home address" rows={2} className="mt-1" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Office Address</Label>
+                    <Label className="text-xs text-muted-foreground">{t("form.office_address")}</Label>
                     <Textarea value={profile.office_address} onChange={(e) => setProfile({ ...profile, office_address: e.target.value })} placeholder="Your office address" rows={2} className="mt-1" />
                   </div>
                 </div>
@@ -494,14 +496,14 @@ export default function ProfilePage() {
         <Card>
           <CardContent className="pt-5">
             <button type="button" className="w-full flex items-center justify-between" onClick={() => toggleSection("qualification")}>
-              <SectionHeader icon={GraduationCap} title="Qualification & Skills" subtitle="Education, skills, and expertise" color="text-blue-600" />
+              <SectionHeader icon={GraduationCap} title={t("profile.qualification_skills")} subtitle={t("profile.qualification_subtitle")} color="text-blue-600" />
               {expandedSections.qualification ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
             </button>
             {expandedSections.qualification && (
               <div className="space-y-4 mt-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Qualification</Label>
+                    <Label className="text-xs text-muted-foreground">{t("form.qualification")}</Label>
                     <Input value={profile.qualification} onChange={(e) => setProfile({ ...profile, qualification: e.target.value })} placeholder="e.g., M.Sc. (Horticulture), Ph.D." className="mt-1" />
                   </div>
                   <div>
@@ -593,7 +595,7 @@ export default function ProfilePage() {
         <Card>
           <CardContent className="pt-5">
             <button type="button" className="w-full flex items-center justify-between" onClick={() => toggleSection("experience")}>
-              <SectionHeader icon={Briefcase} title="Experience" subtitle="Work history and career" color="text-amber-600" />
+              <SectionHeader icon={Briefcase} title={t("profile.experience")} subtitle={t("profile.experience_subtitle")} color="text-amber-600" />
               {expandedSections.experience ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
             </button>
             {expandedSections.experience && (
@@ -666,7 +668,7 @@ export default function ProfilePage() {
         <Card>
           <CardContent className="pt-5">
             <button type="button" className="w-full flex items-center justify-between" onClick={() => toggleSection("posting")}>
-              <SectionHeader icon={Building2} title="Posting Details" subtitle="Current and special duty postings" color="text-green-700" />
+              <SectionHeader icon={Building2} title={t("profile.posting_details")} subtitle={t("profile.posting_subtitle")} color="text-green-700" />
               {expandedSections.posting ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
             </button>
             {expandedSections.posting && (
@@ -767,7 +769,7 @@ export default function ProfilePage() {
         <Card>
           <CardContent className="pt-5">
             <button type="button" className="w-full flex items-center justify-between" onClick={() => toggleSection("social")}>
-              <SectionHeader icon={Globe} title="Social Links" subtitle="Connect your social profiles" color="text-purple-600" />
+              <SectionHeader icon={Globe} title={t("profile.social_links")} subtitle={t("profile.social_subtitle")} color="text-purple-600" />
               {expandedSections.social ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
             </button>
             {expandedSections.social && (
@@ -806,7 +808,7 @@ export default function ProfilePage() {
         <div className="sticky bottom-4 z-10">
           <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 shadow-lg h-11 text-sm font-medium">
             <Save size={16} className="mr-2" />
-            {loading ? "Saving Changes..." : "Save Changes"}
+            {loading ? t("profile.saving") : t("profile.save_profile")}
           </Button>
         </div>
       </form>
@@ -820,7 +822,7 @@ export default function ProfilePage() {
                 <Navigation size={18} className="text-blue-600" />
               </div>
               <div>
-                <p className="text-sm font-medium">Location Sharing</p>
+                <p className="text-sm font-medium">{t("profile.location")}</p>
                 <p className="text-xs text-muted-foreground">
                   {locationSharing ? "Your location is shared when you open the app" : "Enable to get alerts for nearby meetings & events"}
                 </p>
@@ -890,7 +892,7 @@ export default function ProfilePage() {
               <Bell size={18} className="text-amber-600" />
             </div>
             <div>
-              <p className="text-sm font-medium">Notification Preferences</p>
+              <p className="text-sm font-medium">{t("profile.notifications")}</p>
               <p className="text-xs text-muted-foreground">Choose how you want to receive notifications</p>
             </div>
           </div>

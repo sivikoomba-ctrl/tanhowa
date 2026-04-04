@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
+import { useT } from "@/lib/i18n";
 
 interface Member {
   id: string;
@@ -42,6 +43,7 @@ export default function MembersPage() {
   const [viewPhoto, setViewPhoto] = useState<{ url: string; name: string } | null>(null);
   const [loaded, setLoaded] = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
+  const t = useT();
 
   useEffect(() => {
     fetch("/api/users?limit=10000")
@@ -92,14 +94,14 @@ export default function MembersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Member Directory</h1>
+      <h1 className="text-2xl font-bold">{t("members.title")}</h1>
 
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="Total Members" value={members.length} icon={Users} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-primary" />
-        <MetricCard label="Districts" value={districts.length} subtitle="of 38" icon={MapPin} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
-        <MetricCard label="Officials" value={officialCount} icon={Briefcase} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
-        <MetricCard label="Admins" value={adminCount} icon={Users} loading={!loaded} borderColor="border-l-amber-500" iconColor="text-amber-500/40" subtitleColor="text-amber-600" />
+        <MetricCard label={t("members.total")} value={members.length} icon={Users} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-primary" />
+        <MetricCard label={t("members.districts")} value={districts.length} subtitle="of 38" icon={MapPin} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
+        <MetricCard label={t("members.officials")} value={officialCount} icon={Briefcase} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
+        <MetricCard label={t("members.admins")} value={adminCount} icon={Users} loading={!loaded} borderColor="border-l-amber-500" iconColor="text-amber-500/40" subtitleColor="text-amber-600" />
       </div>
 
       {/* Search & Filters */}
@@ -109,7 +111,7 @@ export default function MembersPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, phone, district, block..."
+                placeholder={t("members.search_placeholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -120,7 +122,7 @@ export default function MembersPage() {
                 <SelectValue placeholder="All Districts" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Districts</SelectItem>
+                <SelectItem value="all">{t("members.all_districts")}</SelectItem>
                 {districts.map((d) => (
                   <SelectItem key={d} value={d}>{d}</SelectItem>
                 ))}
@@ -131,7 +133,7 @@ export default function MembersPage() {
                 <SelectValue placeholder="All Designations" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Designations</SelectItem>
+                <SelectItem value="all">{t("members.all_designations")}</SelectItem>
                 {occupations.map((o) => (
                   <SelectItem key={o} value={o}>{o}</SelectItem>
                 ))}
@@ -139,7 +141,7 @@ export default function MembersPage() {
             </Select>
           </div>
           {(search || filterDistrict !== "all" || filterOccupation !== "all") && (
-            <p className="text-xs text-muted-foreground mt-2">{filtered.length} of {members.length} members shown</p>
+            <p className="text-xs text-muted-foreground mt-2">{t("members.of_shown", { filtered: filtered.length, total: members.length })}</p>
           )}
         </CardContent>
       </Card>
@@ -150,7 +152,7 @@ export default function MembersPage() {
           <div className="flex items-center min-w-0">
             <div className="bg-green-600 text-white px-3 py-2 text-xs font-semibold shrink-0 flex items-center gap-1.5">
               <IndianRupee size={14} />
-              Recent Payments
+              {t("members.recent_payments")}
             </div>
             <div className="flex-1 overflow-hidden relative py-2 min-w-0">
               <div
@@ -174,7 +176,7 @@ export default function MembersPage() {
 
       {/* Members Grid */}
       {filtered.length === 0 && loaded ? (
-        <EmptyState icon={Users} title="No members found" description={search ? "Try a different search term" : undefined} />
+        <EmptyState icon={Users} title={t("members.no_members")} description={search ? t("members.try_different") : undefined} />
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((m) => (

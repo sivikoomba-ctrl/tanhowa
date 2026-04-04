@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Flower2, Clock, AlertTriangle } from "lucide-react";
 import Image from "next/image";
+import { useT } from "@/lib/i18n";
 
 const occupationOptions = [
   "Horticultural Officer",
@@ -56,6 +57,7 @@ export default function OnboardingPage() {
   const [error, setError] = useState("");
   const [loginCount, setLoginCount] = useState(0);
   const router = useRouter();
+  const t = useT();
 
   useEffect(() => {
     fetch("/api/users/me").then((r) => r.json()).then((data) => {
@@ -115,10 +117,10 @@ export default function OnboardingPage() {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-secondary/20 mb-4">
                 <Clock className="w-8 h-8 text-secondary" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Profile Submitted</h2>
-              <p className="text-muted-foreground">Your profile is awaiting admin approval. You&apos;ll be able to access the dashboard once approved.</p>
-              <p className="text-sm text-muted-foreground mt-3">You can complete the rest of your profile (posting details, photo, address, etc.) after approval from the Dashboard.</p>
-              <Button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); router.push("/"); }} variant="outline" className="mt-6">Back to Home</Button>
+              <h2 className="text-2xl font-bold text-foreground mb-2">{t("onboard.profile_submitted")}</h2>
+              <p className="text-muted-foreground">{t("onboard.awaiting_approval")}</p>
+              <p className="text-sm text-muted-foreground mt-3">{t("onboard.complete_later")}</p>
+              <Button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); router.push("/"); }} variant="outline" className="mt-6">{t("onboard.back_home")}</Button>
             </CardContent>
           </Card>
         </div>
@@ -134,8 +136,8 @@ export default function OnboardingPage() {
         <div className="w-full max-w-md">
           <div className="text-center mb-6">
             <Flower2 className="w-10 h-10 text-primary mx-auto mb-2" />
-            <h1 className="text-3xl font-bold text-primary">Welcome to TANHOWA</h1>
-            <p className="text-sm text-muted-foreground mt-1">Please fill in the mandatory details to get started</p>
+            <h1 className="text-3xl font-bold text-primary">{t("onboard.welcome")}</h1>
+            <p className="text-sm text-muted-foreground mt-1">{t("onboard.fill_details")}</p>
           </div>
 
           {loginCount >= 3 && (
@@ -143,7 +145,7 @@ export default function OnboardingPage() {
               <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${loginCount >= 5 ? "text-red-600" : "text-amber-600"}`} />
               <div>
                 <p className={`text-sm font-semibold ${loginCount >= 5 ? "text-red-800" : "text-amber-800"}`}>
-                  {loginCount >= 5 ? "Final Warning — Account at Risk" : "Profile Incomplete"}
+                  {loginCount >= 5 ? t("onboard.final_warning") : t("onboard.profile_incomplete")}
                 </p>
                 <p className={`text-xs mt-0.5 ${loginCount >= 5 ? "text-red-700" : "text-amber-700"}`}>
                   {loginCount >= 5
@@ -158,7 +160,7 @@ export default function OnboardingPage() {
             <CardContent className="pt-6 space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="title">Title *</Label>
+                  <Label htmlFor="title">{t("onboard.title")} *</Label>
                   <Select value={title || "none"} onValueChange={(val) => setTitle(val === "none" ? "" : val)}>
                     <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
@@ -171,17 +173,17 @@ export default function OnboardingPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="first_name">First Name *</Label>
+                  <Label htmlFor="first_name">{t("onboard.first_name")} *</Label>
                   <Input id="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase())} placeholder="e.g., SIVAKUMAR" required className="uppercase" />
                 </div>
                 <div>
-                  <Label htmlFor="last_name">Last Name / Initial *</Label>
+                  <Label htmlFor="last_name">{t("onboard.last_name")} *</Label>
                   <Input id="last_name" value={lastName} onChange={(e) => setLastName(e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase())} placeholder="e.g., K" required className="uppercase" />
                 </div>
               </div>
 
               <div>
-                <Label htmlFor="gender">Gender *</Label>
+                <Label htmlFor="gender">{t("form.gender")} *</Label>
                 <Select value={gender || "none"} onValueChange={(val) => setGender(val === "none" ? "" : val)}>
                   <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
                   <SelectContent>
@@ -193,12 +195,12 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <Label htmlFor="phone">Phone *</Label>
+                <Label htmlFor="phone">{t("form.phone")} *</Label>
                 <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d\+\-\s\(\)]/g, ""))} placeholder="9876543210" required />
               </div>
 
               <div>
-                <Label htmlFor="occupation">Designation *</Label>
+                <Label htmlFor="occupation">{t("form.designation")} *</Label>
                 <Select value={occupation} onValueChange={(val) => { setOccupation(val); if (val !== "Others") setOccupationOther(""); }}>
                   <SelectTrigger><SelectValue placeholder="Select your designation" /></SelectTrigger>
                   <SelectContent>{occupationOptions.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
@@ -207,7 +209,7 @@ export default function OnboardingPage() {
 
               {occupation === "Others" && (
                 <div>
-                  <Label htmlFor="occupation_other">Specify Designation *</Label>
+                  <Label htmlFor="occupation_other">{t("onboard.specify_designation")} *</Label>
                   <Input id="occupation_other" value={occupationOther} onChange={(e) => setOccupationOther(e.target.value)} placeholder="Enter your designation" required />
                 </div>
               )}
@@ -215,11 +217,11 @@ export default function OnboardingPage() {
               {error && <p className="text-sm text-destructive">{error}</p>}
 
               <Button onClick={handleSubmit} disabled={loading} className="w-full bg-primary hover:bg-primary/90 mt-2">
-                {loading ? "Saving..." : "Submit & Continue"}
+                {loading ? t("onboard.saving") : t("onboard.submit_continue")}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
-                You can add posting details, photo, address, and social links later from your Profile page.
+                {t("onboard.add_later")}
               </p>
             </CardContent>
           </Card>
