@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGemini, SYSTEM_PROMPT } from "@/lib/gemini";
 import { logError } from "@/lib/error-logger";
+import { getSession } from "@/lib/auth";
 import { createRateLimiter } from "@/lib/rate-limit";
 
 const limiter = createRateLimiter(20);
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const ip = req.headers.get("x-forwarded-for") || "unknown";
 
     if (!limiter.check(ip)) {

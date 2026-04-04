@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { notifyNewNote } from "@/lib/telegram";
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
         for (const u of users || []) {
           notifyNewNote(u.telegram_chat_id, todo.title, todo.event_id, body.type || "note", authorName, body.content).catch(() => {});
         }
-      } catch { /* silent */ }
+      } catch (e) { logError({ type: "api", message: `Note notification failed: ${e instanceof Error ? e.message : String(e)}`, path: "/api/todos/notes", method: "POST", status_code: 500 }); }
     })();
 
     logContribution(session.userId, (body.type || "note") === "report" ? "task_report_added" : "task_note_added", (body.type || "note") === "report" ? "Submitted task report" : "Added task note");
@@ -140,7 +140,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }
 
-    if (note.user_id !== session.userId && session.role !== "admin" && session.role !== "super_admin") {
+    if (note.user_id !== session.userId && !(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

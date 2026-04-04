@@ -163,7 +163,7 @@ export async function PUT(req: NextRequest) {
               sendVoucherStatusEmail(sub.email, sub.name, v.title, v.amount, body.status, v.remarks || body.remarks || "").catch(() => {});
             }
           }
-        } catch { /* silent */ }
+        } catch (e) { logError({ type: "api", message: `Voucher email failed: ${e instanceof Error ? e.message : String(e)}`, path: "/api/vouchers", method: "PUT", status_code: 500 }); }
       })();
     }
 

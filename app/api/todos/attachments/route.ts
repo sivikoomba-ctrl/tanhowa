@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 const ALLOWED_TYPES = [
@@ -175,7 +175,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Attachment not found" }, { status: 404 });
     }
 
-    if (attachment.user_id !== session.userId && session.role !== "admin" && session.role !== "super_admin") {
+    if (attachment.user_id !== session.userId && !(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

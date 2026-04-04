@@ -313,7 +313,7 @@ export async function PUT(req: NextRequest) {
           for (const admin of admins || []) {
             notifyTaskCommitted(admin.telegram_chat_id, taskFull.title, taskFull.event_id, memberName, body.estimated_time || "", body.estimated_amount || 0, body.timebox_hours).catch(() => {});
           }
-        } catch { /* silent */ }
+        } catch (e) { logError({ type: "api", message: `Notification failed: ${e instanceof Error ? e.message : String(e)}`, path: "/api/todos", method: "PUT", status_code: 500 }); }
       })();
 
       logContribution(session.userId, "task_committed", "Committed to task");
@@ -360,7 +360,7 @@ export async function PUT(req: NextRequest) {
           for (const admin of admins || []) {
             notifyTaskStatusChanged(admin.telegram_chat_id, task.title, task.event_id, "review").catch(() => {});
           }
-        } catch { /* silent */ }
+        } catch (e) { logError({ type: "api", message: `Notification failed: ${e instanceof Error ? e.message : String(e)}`, path: "/api/todos", method: "PUT", status_code: 500 }); }
       })();
 
       return NextResponse.json({ message: "Review requested" });
@@ -561,7 +561,7 @@ export async function PUT(req: NextRequest) {
           for (const u of users || []) {
             notifyTaskStatusChanged(u.telegram_chat_id, taskFull.title, taskFull.event_id, body.status).catch(() => {});
           }
-        } catch { /* silent */ }
+        } catch (e) { logError({ type: "api", message: `Notification failed: ${e instanceof Error ? e.message : String(e)}`, path: "/api/todos", method: "PUT", status_code: 500 }); }
       })();
     }
 

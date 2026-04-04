@@ -149,6 +149,11 @@ export async function POST(req: NextRequest) {
     const supabase = getServiceClient();
     const body = await req.json();
 
+    // Validate period for all create actions
+    if (body.period && (!body.period.trim() || body.period.length > 100)) {
+      return NextResponse.json({ error: "Invalid period (max 100 chars)" }, { status: 400 });
+    }
+
     if (body.action === "bulk-create") {
       // Get all approved members including admins (exclude super_admin)
       const { data: allUsers } = await supabase
@@ -392,6 +397,25 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    // Validate status value
+    const VALID_STATUSES = ["pending", "paid", "overdue", "hold", "rejected"];
+    if (body.status && !VALID_STATUSES.includes(body.status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+
+    // Validate input lengths
+    if (body.remarks && body.remarks.length > 2000) {
+      return NextResponse.json({ error: "Remarks too long (max 2000 chars)" }, { status: 400 });
+    }
+
+    // Validate amount is a valid number
+    if (body.amount !== undefined && (isNaN(Number(body.amount)) || Number(body.amount) < 0)) {
+      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    }
+    if (body.paid_amount !== undefined && (isNaN(Number(body.paid_amount)) || Number(body.paid_amount) < 0)) {
+      return NextResponse.json({ error: "Invalid paid amount" }, { status: 400 });
+    }
+
     // Final approval (status=paid) restricted to Finance Team members or super_admin
     if (body.status === "paid") {
       const isSuperAdminRole = officialInfo.role === "super_admin";
@@ -489,7 +513,7 @@ export async function PUT(req: NextRequest) {
             sub?.amount || 0,
             rejectedBy,
             body.remarks,
-          ).catch(() => {});
+          ).catch((e) => logError({ type: "api", message: `Rejection email failed: ${e?.message || e}`, path: "/api/subscriptions", method: "PUT", status_code: 500 }));
 
           // Send Telegram alert
           if (previousApprover!.telegram_chat_id) {
@@ -500,9 +524,9 @@ export async function PUT(req: NextRequest) {
               sub?.amount || 0,
               rejectedBy,
               body.remarks,
-            ).catch(() => {});
+            ).catch((e) => logError({ type: "api", message: `Rejection Telegram failed: ${e?.message || e}`, path: "/api/subscriptions", method: "PUT", status_code: 500 }));
           }
-        } catch { /* silent — rejection already saved */ }
+        } catch (e) { logError({ type: "api", message: `Rejection alert failed: ${e instanceof Error ? e.message : String(e)}`, path: "/api/subscriptions", method: "PUT", status_code: 500 }); }
       })();
     }
 

@@ -169,7 +169,7 @@ export async function PUT(req: NextRequest) {
           if (submitter?.telegram_chat_id) {
             notifyVoucherAction(submitter.telegram_chat_id, voucher.title, eventId, body.status, body.remarks || "").catch(() => {});
           }
-        } catch { /* silent */ }
+        } catch (e) { logError({ type: "api", message: `Voucher notification failed: ${e instanceof Error ? e.message : String(e)}`, path: "/api/todos/vouchers", method: "PUT", status_code: 500 }); }
       })();
     }
 
