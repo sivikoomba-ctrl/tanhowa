@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { sendOTPEmail } from "@/lib/mail";
 import { logError } from "@/lib/error-logger";
 
 interface TelegramUpdate {
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
         chatId,
         "🌿 <b>Welcome to TANHOWA Tasks Bot!</b>\n\n" +
           "Link your TANHOWA account to receive task notifications and send updates.\n\n" +
-          "Send your registered <b>email address</b> to link your account.\n\n" +
+          "Send your registered <b>email address</b> to receive a verification code, then use <b>/link your@email.com 123456</b>.\n\n" +
           "<b>Commands:</b>\n" +
           "/mytasks — View your active tasks\n" +
           "/update ET-XXX Your message — Add a note to a task\n" +
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
       if (user) {
         await sendTelegramMessage(chatId, `✅ Linked to <b>${user.name}</b> (${user.email})`);
       } else {
-        await sendTelegramMessage(chatId, "❌ Not linked. Send your registered email to link your account.");
+        await sendTelegramMessage(chatId, "❌ Not linked. Send your registered email to receive a verification code, then use /link your@email.com 123456.");
       }
       return NextResponse.json({ ok: true });
     }
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (!user) {
-        await sendTelegramMessage(chatId, "❌ Account not linked. Send your email first.");
+        await sendTelegramMessage(chatId, "❌ Account not linked. Send your email first to receive a verification code.");
         return NextResponse.json({ ok: true });
       }
 
@@ -136,12 +137,13 @@ export async function POST(req: NextRequest) {
       return await handleAddNote(supabase, chatId, eventId, noteContent, "report");
     }
 
-    // Email linking — if it looks like an email
-    if (text.includes("@") && !text.startsWith("/")) {
-      const email = text.toLowerCase().trim();
+    const linkMatch = text.match(/^\/link\s+([^\s]+@[^\s]+)\s+(\d{6})$/i);
+    if (linkMatch) {
+      const email = linkMatch[1].toLowerCase().trim();
+      const code = linkMatch[2];
       const { data: user, error } = await supabase
         .from("users")
-        .select("id, name")
+        .select("id, name, telegram_chat_id")
         .eq("email", email)
         .single();
 
@@ -150,18 +152,34 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Check if already linked to another chat
-      const { data: existing } = await supabase
-        .from("users")
+      if (user.telegram_chat_id && user.telegram_chat_id !== String(chatId)) {
+        await sendTelegramMessage(chatId, "⚠️ This TANHOWA account is already linked to another Telegram chat. Please contact admin if you need to relink it.");
+        return NextResponse.json({ ok: true });
+      }
+
+      const { data: otpRecord } = await supabase
+        .from("otp_codes")
         .select("id")
-        .eq("telegram_chat_id", String(chatId))
+        .eq("email", email)
+        .eq("code", code)
+        .eq("used", false)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
         .single();
 
+      if (!otpRecord) {
+        await sendTelegramMessage(chatId, "❌ Invalid or expired verification code. Send your email again to request a new code.");
+        return NextResponse.json({ ok: true });
+      }
+
+      const { data: existing } = await supabase.from("users").select("id").eq("telegram_chat_id", String(chatId)).single();
       if (existing && existing.id !== user.id) {
         await sendTelegramMessage(chatId, "⚠️ This Telegram account is already linked to a different TANHOWA account.");
         return NextResponse.json({ ok: true });
       }
 
+      await supabase.from("otp_codes").update({ used: true }).eq("id", otpRecord.id);
       await supabase.from("users").update({ telegram_chat_id: String(chatId) }).eq("id", user.id);
       await sendTelegramMessage(
         chatId,
@@ -170,10 +188,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    // Email linking request — send OTP instead of linking directly
+    if (text.includes("@") && !text.startsWith("/")) {
+      const email = text.toLowerCase().trim();
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("id, name, telegram_chat_id")
+        .eq("email", email)
+        .single();
+
+      if (error || !user) {
+        await sendTelegramMessage(chatId, "❌ Email not found. Make sure you use your registered TANHOWA email.");
+        return NextResponse.json({ ok: true });
+      }
+
+      if (user.telegram_chat_id && user.telegram_chat_id !== String(chatId)) {
+        await sendTelegramMessage(chatId, "⚠️ This TANHOWA account is already linked to another Telegram chat. Please contact admin if you need to relink it.");
+        return NextResponse.json({ ok: true });
+      }
+
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      await supabase.from("otp_codes").insert({
+        email,
+        code: otp,
+        expires_at: expiresAt,
+      });
+      await sendOTPEmail(email, otp);
+      await sendTelegramMessage(
+        chatId,
+        `📨 Verification code sent to <b>${email}</b>.\n\nReply with:\n<link>${`/link ${email} 123456`}</link>\n\nReplace 123456 with the code from your email.`
+          .replace("<link>", "")
+          .replace("</link>", "")
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     // Unrecognized command
     await sendTelegramMessage(
       chatId,
-      "🤔 I didn't understand that.\n\n<b>Available commands:</b>\n/mytasks — Your active tasks\n/update ET-XXX message — Add update\n/report ET-XXX message — Submit report\n/status — Check link status\n\nOr send your email to link your account."
+      "🤔 I didn't understand that.\n\n<b>Available commands:</b>\n/mytasks — Your active tasks\n/update ET-XXX message — Add update\n/report ET-XXX message — Submit report\n/status — Check link status\n/link your@email.com 123456 — Complete account linking\n\nOr send your email to receive a verification code."
     );
 
     return NextResponse.json({ ok: true });
@@ -208,12 +262,27 @@ async function handleAddNote(supabase: any, chatId: number, eventId: string, con
   // Find task by event_id
   const { data: todo } = await supabase
     .from("todos")
-    .select("id, title")
+    .select("id, title, assigned_to, committed_by, assigned_team_id")
     .eq("event_id", eventId)
     .single();
 
   if (!todo) {
     await sendTelegramMessage(chatId, `❌ Task <b>${eventId}</b> not found.`);
+    return NextResponse.json({ ok: true });
+  }
+
+  const { data: userTeams } = await supabase
+    .from("team_members")
+    .select("team_id")
+    .eq("user_id", user.id);
+  const teamIds = new Set((userTeams || []).map((row: { team_id: string }) => row.team_id));
+  const canAccessTask =
+    todo.assigned_to === user.id ||
+    todo.committed_by === user.id ||
+    (todo.assigned_team_id && teamIds.has(todo.assigned_team_id));
+
+  if (!canAccessTask) {
+    await sendTelegramMessage(chatId, `❌ You do not have access to update <b>${eventId}</b>.`);
     return NextResponse.json({ ok: true });
   }
 

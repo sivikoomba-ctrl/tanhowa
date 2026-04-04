@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin, getOfficialType } from "@/lib/auth";
+import { getSession, isAdmin, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 /**
  * GET /api/finance?year=2025-26
  *
- * Full ledger: admins, state officials, district officials (DS/DJS)
+ * Full ledger: admins, state officials
+ * District-scoped ledger: district officials (DS/DJS)
  * Abstract summary only: regular members
  */
 export async function GET(req: NextRequest) {
@@ -17,8 +18,10 @@ export async function GET(req: NextRequest) {
     }
 
     const admin = await isAdmin(session);
-    const officialType = await getOfficialType(session.userId);
-    const hasFullAccess = admin || officialType === "state" || officialType === "district";
+    const officialInfo = await getOfficialInfo(session.userId);
+    const isStateOfficial = officialInfo.official_type === "state";
+    const isDistrictOfficial = officialInfo.official_type === "district" && !!officialInfo.district;
+    const hasFullAccess = admin || isStateOfficial || isDistrictOfficial;
 
     const url = new URL(req.url);
     const year = url.searchParams.get("year") || "2025-26";
@@ -45,7 +48,11 @@ export async function GET(req: NextRequest) {
     }
 
     // Build ledger entries — consolidate grouped payments (same payment_group_id) into single rows
-    const allSubs = subs || [];
+    const allSubs = (subs || []).filter((sub) => {
+      if (!isDistrictOfficial || admin || isStateOfficial) return true;
+      const user = sub.users as unknown as { posting_details: { regular_district?: string } | null };
+      return user?.posting_details?.regular_district === officialInfo.district;
+    });
 
     // Separate grouped and ungrouped subscriptions
     const groupedMap = new Map<string, typeof allSubs>();
@@ -208,7 +215,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Full access: admins, state officials, DS/DJS
+    // Full access: admins, state officials, district-scoped DS/DJS
     return NextResponse.json({
       year,
       abstract: false,

@@ -22,9 +22,13 @@ export async function GET(req: NextRequest) {
     const search = url.searchParams.get("search") || "";
     const offset = (page - 1) * limit;
 
+    const selectClause = isAdmin
+      ? "*"
+      : "id, name, email, occupation, phone, photo_url, role, official_type, posting_details, social_links, created_at, last_active_at";
+
     let query = supabase
       .from("users")
-      .select("*", { count: "exact" })
+      .select(selectClause, { count: "exact" })
       .order("name", { ascending: true });
 
     if (status) {

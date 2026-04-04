@@ -3,6 +3,8 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
+const PUBLIC_SETTINGS_KEYS = new Set(["payment_qr_url", "community_name", "tagline", "about"]);
+
 export async function GET() {
   try {
     const session = await getSession();
@@ -11,7 +13,12 @@ export async function GET() {
     }
 
     const supabase = getServiceClient();
-    const { data: rows } = await supabase.from("site_settings").select("key, value");
+    const admin = await isAdmin(session);
+    let query = supabase.from("site_settings").select("key, value");
+    if (!admin) {
+      query = query.in("key", Array.from(PUBLIC_SETTINGS_KEYS));
+    }
+    const { data: rows } = await query;
 
     const settings: Record<string, string> = {};
     rows?.forEach((r) => {

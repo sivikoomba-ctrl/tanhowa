@@ -74,6 +74,7 @@ function makeSupabaseMock() {
 }
 
 vi.mock("@/lib/auth", () => ({
+  DEFAULT_ADMIN_EMAIL: "tanhowaadmin@tanhowa.in",
   getSession: mockGetSession,
   getOfficialInfo: mockGetOfficialInfo,
   isAdmin: vi.fn(),
