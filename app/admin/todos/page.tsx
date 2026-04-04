@@ -268,7 +268,8 @@ export default function AdminTodosPage() {
 
   function TodoCard({ todo, compact }: { todo: Todo; compact?: boolean }) {
     const sc = statusConfig[todo.status] || statusConfig.pending;
-    const borderColor = todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400";
+    const quadrantBorder = (todo.urgent || todo.important) ? (todo.urgent && todo.important ? "border-l-red-500" : !todo.urgent && todo.important ? "border-l-blue-500" : todo.urgent && !todo.important ? "border-l-amber-500" : "border-l-gray-400") : "";
+    const borderColor = quadrantBorder || (todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400");
     return (
       <div
         className={`rounded-xl border border-l-4 ${borderColor} bg-white p-3 hover:shadow-md transition-shadow cursor-pointer ${compact ? "text-xs" : ""}`}

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -36,6 +36,8 @@ import {
   Hourglass,
   Search,
   Eye,
+  List,
+  LayoutGrid,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -177,6 +179,20 @@ function getQuadrantColor(urgent: boolean, important: boolean) {
   return "bg-gray-100 text-gray-600 border-gray-200";
 }
 
+function getQuadrantBorder(urgent: boolean, important: boolean) {
+  if (urgent && important) return "border-l-red-500";
+  if (!urgent && important) return "border-l-blue-500";
+  if (urgent && !important) return "border-l-amber-500";
+  return "border-l-gray-400";
+}
+
+const quadrants = [
+  { urgent: true, important: true, label: "Do First", subtitle: "Urgent & Important", color: "border-red-300 bg-red-50/50", headerColor: "bg-red-500 text-white", icon: Zap },
+  { urgent: false, important: true, label: "Schedule", subtitle: "Not Urgent & Important", color: "border-blue-300 bg-blue-50/50", headerColor: "bg-blue-500 text-white", icon: CalendarDays },
+  { urgent: true, important: false, label: "Delegate", subtitle: "Urgent & Not Important", color: "border-amber-300 bg-amber-50/50", headerColor: "bg-amber-500 text-white", icon: AlertTriangle },
+  { urgent: false, important: false, label: "Eliminate", subtitle: "Not Urgent & Not Important", color: "border-gray-300 bg-gray-50/50", headerColor: "bg-gray-500 text-white", icon: XCircle },
+];
+
 export default function TodosPage() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,6 +202,7 @@ export default function TodosPage() {
   const [formDueDate, setFormDueDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [viewMode, setViewMode] = useState<"list" | "matrix">("list");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Task detail view
@@ -1094,12 +1111,22 @@ export default function TodosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Task List</h1>
-        <Button onClick={() => { setShowCreate(true); setSubtaskParentId(null); }} className="gap-2">
-          <Plus size={16} />
-          Submit Task
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => { setShowCreate(true); setSubtaskParentId(null); }} className="gap-2">
+            <Plus size={16} />
+            Submit Task
+          </Button>
+          <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")} className="gap-1.5">
+            <List size={14} /> List
+          </Button>
+          <Button variant={viewMode === "matrix" ? "default" : "outline"} size="sm" onClick={() => setViewMode("matrix")} className="gap-1.5">
+            <LayoutGrid size={14} /> Matrix
+          </Button>
+        </div>
       </div>
 
+      {viewMode === "list" ? (
+      <>
       {/* Search */}
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -1140,7 +1167,7 @@ export default function TodosPage() {
             const sc = statusConfig[todo.status] || statusConfig.pending;
             const StatusIcon = sc.icon;
             return (
-              <Card key={todo.id} className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 ${todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400"}`} onClick={() => openTaskDetail(todo)}>
+              <Card key={todo.id} className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 ${(todo.urgent || todo.important) ? getQuadrantBorder(todo.urgent, todo.important) : todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400"}`} onClick={() => openTaskDetail(todo)}>
                 <CardContent className="pt-4">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5">
@@ -1155,7 +1182,7 @@ export default function TodosPage() {
                           <h3 className="font-semibold text-sm">{todo.title}</h3>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {(todo.urgent || todo.important) && todo.status !== "pending" && (
+                          {(todo.urgent || todo.important) && (
                             <Badge variant="outline" className={`text-xs ${getQuadrantColor(todo.urgent, todo.important)}`}>
                               {getQuadrantLabel(todo.urgent, todo.important)}
                             </Badge>
@@ -1258,6 +1285,68 @@ export default function TodosPage() {
           <ListTodo className="w-12 h-12 mx-auto mb-3 opacity-40" />
           <p>No tasks found.</p>
           <p className="text-sm mt-1">Submit a new task to get started.</p>
+        </div>
+      )}
+      </>
+      ) : (
+        /* Matrix View */
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Tasks organized by Eisenhower priority. Only approved, in-progress, and completed tasks appear here.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {quadrants.map((q) => {
+              const QuadIcon = q.icon;
+              const qTodos = todos
+                .filter((t) => t.status !== "pending" && t.status !== "rejected")
+                .filter((t) => t.urgent === q.urgent && t.important === q.important);
+              return (
+                <Card key={q.label} className={`${q.color} min-h-[200px]`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <div className={`rounded-lg p-1.5 ${q.headerColor}`}><QuadIcon size={14} /></div>
+                      <div>
+                        <span className="font-bold">{q.label}</span>
+                        <span className="text-xs text-muted-foreground ml-2 font-normal">{q.subtitle}</span>
+                      </div>
+                      <Badge variant="outline" className="ml-auto text-xs">{qTodos.length}</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {qTodos.length > 0 ? (
+                      qTodos.map((todo) => {
+                        const sc = statusConfig[todo.status] || statusConfig.pending;
+                        return (
+                          <div
+                            key={todo.id}
+                            className="rounded-lg border bg-background p-3 cursor-pointer hover:shadow-sm transition-shadow"
+                            onClick={() => openTaskDetail(todo)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20 shrink-0">
+                                {todo.event_id}
+                              </Badge>
+                              <span className="text-sm font-medium truncate">{todo.title}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <Badge variant="outline" className={`text-[10px] ${sc.color}`}>{sc.label}</Badge>
+                              {todo.due_date && (
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <CalendarDays size={10} /> {new Date(todo.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-xs text-muted-foreground text-center py-6">No tasks</p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
 

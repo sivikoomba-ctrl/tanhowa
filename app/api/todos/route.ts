@@ -189,16 +189,20 @@ export async function POST(req: NextRequest) {
       eventId = `ET-${String(maxNum + 1).padStart(3, "0")}`;
     }
 
+    const insertData: Record<string, unknown> = {
+      title: body.title,
+      description: body.description || "",
+      submitted_by: session.userId,
+      due_date: body.due_date || null,
+      parent_id: body.parent_id || null,
+      event_id: eventId,
+    };
+    if (typeof body.urgent === "boolean") insertData.urgent = body.urgent;
+    if (typeof body.important === "boolean") insertData.important = body.important;
+
     const { data, error } = await supabase
       .from("todos")
-      .insert({
-        title: body.title,
-        description: body.description || "",
-        submitted_by: session.userId,
-        due_date: body.due_date || null,
-        parent_id: body.parent_id || null,
-        event_id: eventId,
-      })
+      .insert(insertData)
       .select()
       .single();
 
