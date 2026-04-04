@@ -39,6 +39,67 @@ function validatePhone(phone: string): boolean {
   return /^(91)?[6-9]\d{9}$/.test(digits);
 }
 
+// Common Indian/Tamil female first names for auto-gender detection
+const FEMALE_NAMES = new Set([
+  "ANITHA", "ANUSHA", "ANURADHA", "ARUNA", "ARUNDHATI", "BHAVANI", "BHUVANA", "BRINDHA",
+  "CHITRA", "DEEPA", "DEEPIKA", "DEVI", "DEVIKA", "DHANALAKSHMI", "DHIVYA",
+  "DIVYA", "DURGA", "ESWARI", "GANGA", "GAYATHRI", "GEETHA", "GEETHALAKSHMI", "GOMATHI",
+  "HEMA", "HEMALATHA", "INDIRA", "INDRANI", "JANAKI", "JAYALAKSHMI", "JAYANTHI", "JEYANTHI",
+  "JOTHI", "JOTHILAKSHMI", "KALA", "KALAISELVI", "KAMALA", "KAMATCHI", "KANAGA", "KANCHANA",
+  "KANNAGI", "KARPAGAM", "KAVITHA", "KAVERI", "KAVIYA", "KEERTHANA", "KOKILA", "KOMALA",
+  "KUPPAMMAL", "LAKSHMI", "LALITHA", "LAVANYA", "LEELAVATHI", "LATHA", "MADHUMITHA",
+  "MALATHI", "MALLIGA", "MANIMEGALAI", "MANJULA", "MEENA", "MEENAKSHI", "MENAKA", "MOHANA",
+  "MUTHULAKSHMI", "NAGALAKSHMI", "NAGESWARI", "NALINI", "NANDINI", "NARMADA", "NITHYA",
+  "PADMA", "PADMAVATHI", "PANKAJAM", "PARVATHI", "PONNI", "POONGODI", "POORANI", "PRABHAVATHI",
+  "PRABHA", "PRAMEELA", "PREETHI", "PREMALATHA", "PRIYA", "PRIYADHARSHINI", "PUSHPA",
+  "RADHA", "RAJALAKSHMI", "RAJESHWARI", "RAJATHI", "RAJI", "RAMYA", "RANI", "RANGANAYAKI",
+  "RATHIKA", "RATHNA", "REVATHI", "ROHINI", "ROJA", "RUBY", "RUKMANI", "RUPA",
+  "SANGEETHA", "SARADHA", "SARASWATHI", "SAROJA", "SATHYA", "SAVITHRI",
+  "SELVI", "SHANTHI", "SHARMILA", "SHEELA", "SHOBHA", "SHOBANA", "SINDHUJA", "SIVAKAMI",
+  "SIVA LAKSHMI", "SIVAGAMI", "SOUNDARYA", "SOWMYA", "SRIDEVI", "SRIVIDYA", "SUBHA",
+  "SUBHASHINI", "SUGANYA", "SUGUNA", "SULOCHANA", "SUMATHI", "SUNDARI", "SUPRIYA",
+  "SWARNALATHA", "SWATHI", "TAMILSELVI", "THANGAM", "THENMOZHI", "THILAGAVATHI",
+  "THAMARAI", "UMAMAHESWARI", "UMA", "USHA", "VAANI", "VALARMATHI", "VANAJA", "VANI",
+  "VASANTHI", "VASUKI", "VEDAVALLI", "VEERALAKSHMI", "VIJAYA", "VIJAYALAKSHMI", "VIMALA",
+  "YAMUNA", "YASODHA",
+  // Common suffixes that indicate female names
+  "AMMAL", "AMMA",
+]);
+
+// Female name suffixes that are strong indicators
+const FEMALE_SUFFIXES = ["LAKSHMI", "DEVI", "MATHI", "SELVI", "VALLI", "AMMAL", "RANI", "PRIYA", "NAYAKI"];
+
+/**
+ * Auto-detect gender from name and title.
+ * Returns "Male", "Female", or null (unknown).
+ */
+function detectGender(fullName: string, existingGender?: string): string | null {
+  // Don't override if already set
+  if (existingGender) return null;
+
+  const upper = fullName.toUpperCase().trim();
+
+  // Detect from title prefix
+  if (upper.startsWith("MRS.") || upper.startsWith("MISS.")) return "Female";
+  if (upper.startsWith("MR.")) return "Male";
+
+  // Extract first name (after title if present)
+  const withoutTitle = upper.replace(/^(MR\.|MRS\.|MISS\.|DR\.)\s*/i, "").trim();
+  const firstName = withoutTitle.split(/\s+/)[0];
+
+  if (!firstName) return null;
+
+  // Direct match
+  if (FEMALE_NAMES.has(firstName)) return "Female";
+
+  // Check female suffixes (e.g., JAYALAKSHMI, TAMILSELVI, PADMAVALLI)
+  for (const suffix of FEMALE_SUFFIXES) {
+    if (firstName.endsWith(suffix) && firstName.length > suffix.length) return "Female";
+  }
+
+  return null;
+}
+
 export async function PUT(req: NextRequest) {
   try {
     const session = await getSession();
@@ -96,6 +157,18 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    // Auto-detect gender from name/title if not already set
+    const finalSocialLinks = body.social_links || {};
+    const detectedGender = detectGender(name, finalSocialLinks.gender);
+    if (detectedGender) {
+      finalSocialLinks.gender = detectedGender;
+      // Also auto-set title if missing
+      if (!finalSocialLinks.title) {
+        if (detectedGender === "Female") finalSocialLinks.title = "Mrs.";
+        if (detectedGender === "Male") finalSocialLinks.title = "Mr.";
+      }
+    }
+
     // Check if this is a first-time onboarding (pending user with no name yet)
     const { data: currentUser } = await supabase
       .from("users")
@@ -105,15 +178,14 @@ export async function PUT(req: NextRequest) {
     const isFirstOnboarding = currentUser && !currentUser.name && currentUser.status === "pending";
 
     // Check if mandatory fields are filled for auto-approval
-    const socialLinks = body.social_links || {};
     const hasMandatoryFields = !!(
       name &&
       phone &&
       dob &&
       occupation &&
       (body.office_address || "").trim() &&
-      socialLinks.gender &&
-      socialLinks.qualification
+      finalSocialLinks.gender &&
+      finalSocialLinks.qualification
     );
 
     // Auto-approve: admins always, pending members when all mandatory fields are filled
@@ -131,7 +203,7 @@ export async function PUT(req: NextRequest) {
       dob,
       occupation,
       photo_url: body.photo_url || "",
-      social_links: body.social_links || {},
+      social_links: finalSocialLinks,
       posting_details: body.posting_details || {},
       profile_nudge: null,
     };
