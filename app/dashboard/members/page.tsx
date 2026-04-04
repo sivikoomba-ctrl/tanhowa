@@ -8,10 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase } from "lucide-react";
+import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase, ChevronDown, ChevronUp, Calendar, Crown, Building2 } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { useT } from "@/lib/i18n";
+import { formatDate } from "@/lib/utils";
+
+interface PostingDetails {
+  regular_district?: string;
+  regular_block?: string;
+  special_duty_district?: string;
+  special_duty_block?: string;
+  special_duty_place?: string;
+  special_designation?: string;
+  special_farm?: string;
+  deputed_district?: string;
+  deputed_block?: string;
+  official_designation?: string;
+}
 
 interface Member {
   id: string;
@@ -21,17 +35,37 @@ interface Member {
   phone: string;
   photo_url: string;
   role: string;
-  official_type?: "state" | "district" | null;
-  posting_details?: {
-    regular_district?: string;
-    regular_block?: string;
-  };
+  official_type?: "state" | "district" | "volunteer" | null;
+  posting_details?: PostingDetails;
+  social_links?: { instagram?: string; twitter?: string; linkedin?: string; title?: string; gender?: string; qualification?: string };
+  address?: string;
+  office_address?: string;
+  dob?: string;
+  last_active_at?: string | null;
+  created_at?: string;
 }
 
 interface RecentPayment {
   name: string;
   period: string;
   paid_at: string;
+}
+
+function getActivityStatus(lastActive: string | null | undefined): { label: string; color: string; dot: string } {
+  if (!lastActive) return { label: "—", color: "text-muted-foreground", dot: "bg-gray-300" };
+  const diff = Date.now() - new Date(lastActive).getTime();
+  const mins = diff / 60000;
+  if (mins < 5) return { label: "Online", color: "text-green-600", dot: "bg-green-500" };
+  if (mins < 60) return { label: `${Math.floor(mins)}m ago`, color: "text-green-600", dot: "bg-green-400" };
+  const hours = diff / 3600000;
+  if (hours < 24) return { label: `${Math.floor(hours)}h ago`, color: "text-amber-600", dot: "bg-amber-400" };
+  const days = diff / 86400000;
+  return { label: `${Math.floor(days)}d ago`, color: "text-muted-foreground", dot: "bg-gray-300" };
+}
+
+function hasPosting(p?: PostingDetails) {
+  if (!p) return false;
+  return !!(p.regular_district || p.regular_block || p.special_duty_district || p.special_duty_block || p.special_duty_place || p.deputed_district || p.deputed_block);
 }
 
 export default function MembersPage() {
@@ -42,6 +76,7 @@ export default function MembersPage() {
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
   const [viewPhoto, setViewPhoto] = useState<{ url: string; name: string } | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const tickerRef = useRef<HTMLDivElement>(null);
   const t = useT();
 
@@ -91,6 +126,10 @@ export default function MembersPage() {
 
   const adminCount = members.filter((m) => m.role === "admin" || m.role === "super_admin").length;
   const officialCount = members.filter((m) => m.official_type === "state" || m.official_type === "district").length;
+  const onlineCount = members.filter((m) => {
+    if (!m.last_active_at) return false;
+    return (Date.now() - new Date(m.last_active_at).getTime()) < 5 * 60 * 1000;
+  }).length;
 
   return (
     <div className="space-y-6">
@@ -98,7 +137,7 @@ export default function MembersPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label={t("members.total")} value={members.length} icon={Users} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-primary" />
+        <MetricCard label={t("members.total")} value={members.length} subtitle={onlineCount > 0 ? `${onlineCount} online` : undefined} icon={Users} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-green-600" />
         <MetricCard label={t("members.districts")} value={districts.length} subtitle="of 38" icon={MapPin} loading={!loaded} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
         <MetricCard label={t("members.officials")} value={officialCount} icon={Briefcase} loading={!loaded} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
         <MetricCard label={t("members.admins")} value={adminCount} icon={Users} loading={!loaded} borderColor="border-l-amber-500" iconColor="text-amber-500/40" subtitleColor="text-amber-600" />
@@ -174,63 +213,197 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* Members Grid */}
+      {/* Members List */}
       {filtered.length === 0 && loaded ? (
         <EmptyState icon={Users} title={t("members.no_members")} description={search ? t("members.try_different") : undefined} />
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((m) => (
-            <Card key={m.id} className="hover:shadow-md transition-all hover:border-primary/20 group">
-              <CardContent className="pt-4 pb-4">
-                <div className="flex items-start gap-3">
-                  <Avatar
-                    className="w-14 h-14 cursor-pointer ring-2 ring-transparent group-hover:ring-primary/20 transition-all"
-                    onClick={() => m.photo_url && setViewPhoto({ url: m.photo_url, name: m.name })}
+        <div className="space-y-3">
+          {filtered.map((m) => {
+            const isExpanded = expandedId === m.id;
+            const activity = getActivityStatus(m.last_active_at);
+            return (
+              <Card key={m.id} className="hover:shadow-md transition-all hover:border-primary/20">
+                <CardContent className="pt-4 pb-4">
+                  {/* Header row — always visible */}
+                  <div
+                    className="flex items-start gap-3 cursor-pointer"
+                    onClick={() => setExpandedId(isExpanded ? null : m.id)}
                   >
-                    {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
-                    <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
-                      {m.name?.charAt(0)?.toUpperCase() || "?"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="font-semibold text-sm truncate uppercase">{m.name || "Unnamed"}</h3>
-                      {(m.role === "admin" || m.role === "super_admin") && (
-                        <Badge className="bg-accent/15 text-accent border-accent/30 text-[10px] px-1.5 py-0">Admin</Badge>
-                      )}
-                      {m.official_type === "state" && (
-                        <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-[10px] px-1.5 py-0">State</Badge>
-                      )}
-                      {m.official_type === "district" && (
-                        <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-[10px] px-1.5 py-0">District</Badge>
-                      )}
+                    <div className="relative shrink-0">
+                      <Avatar
+                        className="w-12 h-12 ring-2 ring-transparent hover:ring-primary/20 transition-all"
+                        onClick={(e) => { if (m.photo_url) { e.stopPropagation(); setViewPhoto({ url: m.photo_url, name: m.name }); } }}
+                      >
+                        {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
+                        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
+                          {m.name?.charAt(0)?.toUpperCase() || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${activity.dot}`} title={activity.label} />
                     </div>
-                    {m.occupation && (
-                      <p className="text-xs text-muted-foreground mt-1">{m.occupation}</p>
-                    )}
-                    {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <MapPin size={10} className="text-muted-foreground shrink-0" />
-                        <p className="text-xs text-muted-foreground truncate">
-                          {[m.posting_details.regular_district, m.posting_details.regular_block].filter(Boolean).join(", ")}
-                        </p>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="font-semibold text-sm truncate uppercase">{m.name || "Unnamed"}</h3>
+                        {(m.role === "admin" || m.role === "super_admin") && (
+                          <Badge className={`text-[10px] px-1.5 py-0 ${m.role === "super_admin" ? "bg-amber-600 hover:bg-amber-600 text-white" : "bg-accent/15 text-accent border-accent/30"}`}>
+                            {m.role === "super_admin" ? "State-Admin" : "Admin"}
+                          </Badge>
+                        )}
+                        {m.official_type === "state" && (
+                          <Badge className="bg-purple-600 hover:bg-purple-600 text-white text-[10px] px-1.5 py-0">
+                            <Crown size={9} className="mr-0.5" />State
+                          </Badge>
+                        )}
+                        {m.official_type === "district" && (
+                          <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] px-1.5 py-0">
+                            <Building2 size={9} className="mr-0.5" />{m.posting_details?.official_designation || "District"}
+                          </Badge>
+                        )}
+                        {m.official_type === "volunteer" && (
+                          <Badge className="bg-green-600 hover:bg-green-600 text-white text-[10px] px-1.5 py-0">
+                            <Users size={9} className="mr-0.5" />Volunteer
+                          </Badge>
+                        )}
                       </div>
-                    )}
-                    <div className="flex flex-wrap items-center gap-x-3 mt-1.5">
-                      {m.phone && (
-                        <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-                          <Phone size={10} /> {m.phone}
-                        </a>
+                      {m.occupation && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{m.occupation}</p>
                       )}
-                      <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline truncate">
-                        <Mail size={10} /> {m.email}
-                      </a>
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <MapPin size={10} className="shrink-0" />
+                            {[m.posting_details.regular_district, m.posting_details.regular_block].filter(Boolean).join(", ")}
+                          </span>
+                        )}
+                        {m.phone && (
+                          <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
+                            <Phone size={10} /> {m.phone}
+                          </a>
+                        )}
+                        <span className={`text-[11px] ${activity.color}`}>{activity.label}</span>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 mt-1">
+                      {isExpanded ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                  {/* Expanded details */}
+                  {isExpanded && (
+                    <div className="mt-4 pt-4 border-t space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                        <div className="flex items-start gap-2">
+                          <Mail size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">{t("form.email")}</p>
+                            <a href={`mailto:${m.email}`} className="font-medium text-primary hover:underline">{m.email}</a>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Phone size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">{t("form.phone")}</p>
+                            <p className="font-medium">{m.phone || "—"}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Briefcase size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">{t("form.designation")}</p>
+                            <p className="font-medium">{m.occupation || "—"}</p>
+                          </div>
+                        </div>
+                        {m.dob && (
+                          <div className="flex items-start gap-2">
+                            <Calendar size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">{t("form.dob")}</p>
+                              <p className="font-medium">{formatDate(m.dob)}</p>
+                            </div>
+                          </div>
+                        )}
+                        {m.office_address && (
+                          <div className="flex items-start gap-2">
+                            <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">{t("form.office_address")}</p>
+                              <p className="font-medium">{m.office_address}</p>
+                            </div>
+                          </div>
+                        )}
+                        {m.address && (
+                          <div className="flex items-start gap-2">
+                            <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">{t("form.address")}</p>
+                              <p className="font-medium">{m.address}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Posting Details */}
+                      {hasPosting(m.posting_details) && (
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("profile.posting_details")}</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm bg-muted/50 rounded-lg p-3">
+                            {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (
+                              <div>
+                                <p className="text-xs font-semibold text-primary">{t("form.district")}</p>
+                                {m.posting_details.regular_district && <p>{m.posting_details.regular_district}</p>}
+                                {m.posting_details.regular_block && <p>{t("form.block")}: {m.posting_details.regular_block}</p>}
+                              </div>
+                            )}
+                            {(m.posting_details?.special_duty_district || m.posting_details?.special_duty_block || m.posting_details?.special_duty_place) && (
+                              <div>
+                                <p className="text-xs font-semibold text-accent">Special Duty</p>
+                                {m.posting_details.special_duty_district && <p>{m.posting_details.special_duty_district}</p>}
+                                {m.posting_details.special_duty_block && <p>{m.posting_details.special_duty_block}</p>}
+                                {m.posting_details.special_duty_place && <p>{m.posting_details.special_duty_place}</p>}
+                              </div>
+                            )}
+                            {(m.posting_details?.deputed_district || m.posting_details?.deputed_block) && (
+                              <div>
+                                <p className="text-xs font-semibold text-secondary">Deputed</p>
+                                {m.posting_details.deputed_district && <p>{m.posting_details.deputed_district}</p>}
+                                {m.posting_details.deputed_block && <p>{m.posting_details.deputed_block}</p>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Social Links */}
+                      {(m.social_links?.instagram || m.social_links?.twitter || m.social_links?.linkedin) && (
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("profile.social_links")}</h4>
+                          <div className="flex flex-wrap gap-2 text-sm">
+                            {m.social_links.instagram && <Badge variant="outline">Instagram: {m.social_links.instagram}</Badge>}
+                            {m.social_links.twitter && <Badge variant="outline">Twitter: {m.social_links.twitter}</Badge>}
+                            {m.social_links.linkedin && <Badge variant="outline">LinkedIn: {m.social_links.linkedin}</Badge>}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Joined date */}
+                      {m.created_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Joined: {formatDate(m.created_at)}
+                          {m.last_active_at && (
+                            <span className={`ml-3 ${activity.color}`}>
+                              Active: {activity.label}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
