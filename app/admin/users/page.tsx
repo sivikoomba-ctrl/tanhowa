@@ -212,7 +212,7 @@ export default function AdminUsersPage() {
   }
 
   async function handleSetOfficial(userId: string, officialType: string | null) {
-    const label = officialType === "state" ? "State Official" : officialType === "district" ? "District-Admin" : "regular member";
+    const label = officialType === "state" ? "State Official" : officialType === "district" ? "District-Admin" : officialType === "volunteer" ? "Volunteer Admin" : "regular member";
     const res = await fetch("/api/admin/users", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -222,7 +222,8 @@ export default function AdminUsersPage() {
       toast.success(`User set as ${label}`);
       loadUsers();
     } else {
-      toast.error("Action failed");
+      const err = await res.json().catch(() => null);
+      toast.error(err?.error || "Action failed");
     }
   }
 
