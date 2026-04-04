@@ -8,10 +8,26 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Megaphone, Plus, Clock, UserPlus, CheckCheck, Search } from "lucide-react";
+import { Megaphone, Plus, Clock, UserPlus, CheckCheck, Search, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { useT, useLang } from "@/lib/i18n";
+
+function timeAgo(dateStr: string): string {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
 
 function renderSimpleMarkdown(text: string): string {
   return text
@@ -246,11 +262,16 @@ export default function AnnouncementsPage() {
                             {a.content && (
                               <div className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(a.content) }} />
                             )}
-                            <div className="flex items-center gap-3 mt-3">
+                            <div className="flex items-center gap-3 mt-3 flex-wrap">
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground" title={date.toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" })}>
+                                <Calendar size={11} />
+                                {date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                              </div>
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Clock size={11} />
-                                {date.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}
+                                {date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                               </div>
+                              <span className="text-[10px] text-muted-foreground/70">{timeAgo(a.created_at)}</span>
                               {a.users?.name && (
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                   <Avatar className="w-4 h-4">
