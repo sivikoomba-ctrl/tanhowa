@@ -29,7 +29,9 @@ export type ContributionAction =
   | "used_ai_crop_advice"
   | "used_ai_translation"
   | "used_ai_ocr"
-  | "used_ai_voice_notes";
+  | "used_ai_voice_notes"
+  | "idea_submitted"
+  | "idea_upvoted";
 
 const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number }> = {
   payment_proof_uploaded:  { label: "Uploaded payment proof", minutes: 5 },
@@ -61,6 +63,8 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   used_ai_translation:      { label: "Used AI Translation", minutes: 1 },
   used_ai_ocr:              { label: "Used AI OCR", minutes: 1 },
   used_ai_voice_notes:      { label: "Used AI Voice Notes", minutes: 1 },
+  idea_submitted:            { label: "Submitted an idea", minutes: 3 },
+  idea_upvoted:              { label: "Upvoted an idea", minutes: 1 },
 };
 
 export function getActionConfig(action: ContributionAction) {

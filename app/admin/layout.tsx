@@ -65,6 +65,7 @@ const adminNavItems = [
   { href: "/admin/reports", labelKey: "nav.reports" as const, icon: BarChart3 },
   { href: "/admin/finance", labelKey: "nav.finance" as const, icon: Landmark },
   { href: "/admin/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
+  { href: "/admin/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },
   { href: "/admin/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
   { href: "/admin/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed },
   { href: "/admin/audit-logs", labelKey: "nav.audit_log" as const, icon: ClipboardList },

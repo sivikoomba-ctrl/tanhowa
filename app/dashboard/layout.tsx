@@ -85,6 +85,7 @@ const navItems = [
   { href: "/dashboard/todos", labelKey: "nav.todos" as const, icon: ListTodo },
   { href: "/dashboard/contributions", labelKey: "nav.contributions" as const, icon: Award },
   { href: "/dashboard/finance", labelKey: "nav.finance" as const, icon: Landmark },
+  { href: "/dashboard/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },
   { href: "/dashboard/ai-tools", labelKey: "nav.ai_tools" as const, icon: Sparkles },
   { href: "/dashboard/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
   { href: "/dashboard/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed, superAdminOnly: true },

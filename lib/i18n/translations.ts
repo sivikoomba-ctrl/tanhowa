@@ -22,6 +22,7 @@ const translations = {
   "nav.contributions": { en: "Contributions", ta: "பங்களிப்புகள்" },
   "nav.finance": { en: "Finance", ta: "நிதி" },
   "nav.ai_tools": { en: "AI Tools", ta: "AI கருவிகள்" },
+  "nav.wishlist": { en: "Ideas Board", ta: "யோசனைகள்" },
   "nav.faq": { en: "FAQ", ta: "கேள்வி பதில்" },
   "nav.food_orders": { en: "Food Orders", ta: "உணவு ஆர்டர்" },
   "nav.feedback": { en: "Feedback", ta: "கருத்து" },
@@ -719,6 +720,29 @@ const translations = {
   "profile.err_dob_required": { en: "Date of Birth is required", ta: "பிறந்த தேதி தேவை" },
   "profile.updated": { en: "Profile updated", ta: "சுயவிவரம் புதுப்பிக்கப்பட்டது" },
   "profile.photo_updated": { en: "Photo updated", ta: "புகைப்படம் புதுப்பிக்கப்பட்டது" },
+
+  // --- Wishlist / Ideas Board ---
+  "wishlist.title": { en: "Ideas Board", ta: "யோசனை பலகை" },
+  "wishlist.subtitle": { en: "Share ideas, upvote what matters, shape TANHOWA's future", ta: "யோசனைகளைப் பகிருங்கள், முக்கியமானவற்றை ஆதரிக்கவும், TANHOWA-வின் எதிர்காலத்தை வடிவமையுங்கள்" },
+  "wishlist.submit_idea": { en: "Submit Idea", ta: "யோசனை சமர்ப்பி" },
+  "wishlist.new_idea": { en: "Share Your Idea", ta: "உங்கள் யோசனையைப் பகிருங்கள்" },
+  "wishlist.idea_title": { en: "Idea Title", ta: "யோசனை தலைப்பு" },
+  "wishlist.idea_title_ph": { en: "What do you want TANHOWA to do?", ta: "TANHOWA என்ன செய்ய வேண்டும் என்று நினைக்கிறீர்கள்?" },
+  "wishlist.idea_desc": { en: "Description", ta: "விவரம்" },
+  "wishlist.idea_desc_ph": { en: "Explain your idea in detail — why it matters, who benefits, how it could work...", ta: "உங்கள் யோசனையை விரிவாக விளக்கவும் — ஏன் முக்கியம், யாருக்கு பயன், எப்படி செயல்படும்..." },
+  "wishlist.category": { en: "Category", ta: "வகை" },
+  "wishlist.select_category": { en: "Select category", ta: "வகையைத் தேர்வு செய்க" },
+  "wishlist.submitting": { en: "Submitting...", ta: "சமர்ப்பிக்கிறது..." },
+  "wishlist.submitted": { en: "Idea submitted! Others can now upvote it.", ta: "யோசனை சமர்ப்பிக்கப்பட்டது! மற்றவர்கள் இப்போது ஆதரிக்கலாம்." },
+  "wishlist.title_desc_required": { en: "Title and description are required", ta: "தலைப்பும் விவரமும் தேவை" },
+  "wishlist.total_ideas": { en: "Total Ideas", ta: "மொத்த யோசனைகள்" },
+  "wishlist.my_upvotes": { en: "My Upvotes", ta: "என் ஆதரவுகள்" },
+  "wishlist.top_votes": { en: "Top Votes", ta: "அதிக ஆதரவு" },
+  "wishlist.search": { en: "Search ideas...", ta: "யோசனைகளைத் தேடு..." },
+  "wishlist.most_voted": { en: "Most Voted", ta: "அதிக ஆதரவு" },
+  "wishlist.newest": { en: "Newest", ta: "புதியவை" },
+  "wishlist.no_ideas": { en: "No ideas yet", ta: "இன்னும் யோசனைகள் இல்லை" },
+  "wishlist.no_ideas_desc": { en: "Be the first to share an idea for TANHOWA!", ta: "TANHOWA-க்கான முதல் யோசனையைப் பகிருங்கள்!" },
 } as const;
 
 export type TranslationKey = keyof typeof translations;
