@@ -40,6 +40,7 @@ import {
   UtensilsCrossed,
   HelpCircle,
   ClipboardCheck,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +69,7 @@ const adminNavItems = [
   { href: "/admin/finance", labelKey: "nav.finance" as const, icon: Landmark },
   { href: "/admin/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
   { href: "/admin/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },
+  { href: "/admin/trainings", labelKey: "nav.trainings" as const, icon: GraduationCap },
   { href: "/admin/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
   { href: "/admin/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed },
   { href: "/admin/special-tasks", labelKey: "nav.special_tasks" as const, icon: ClipboardCheck },

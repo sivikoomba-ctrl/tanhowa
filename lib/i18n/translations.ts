@@ -374,6 +374,13 @@ const translations = {
   "ai.translate_desc": { en: "Translate text between English and Tamil instantly", ta: "ஆங்கிலம் மற்றும் தமிழுக்கு இடையில் உடனடியாக மொழிபெயர்க்கவும்" },
   "ai.ocr_desc": { en: "Extract text from images, documents, or photos", ta: "படங்கள், ஆவணங்கள் அல்லது புகைப்படங்களிலிருந்து உரையைப் பிரித்தெடுக்கவும்" },
   "ai.voice_desc": { en: "Record voice and convert to text notes in English or Tamil", ta: "குரலைப் பதிவுசெய்து ஆங்கிலம் அல்லது தமிழில் உரைக் குறிப்புகளாக மாற்றவும்" },
+  "ai.doc_summarizer": { en: "Document Summarizer", ta: "ஆவண சுருக்கம்" },
+  "ai.doc_summarize_desc": { en: "Upload a document or photo to get an AI-powered summary", ta: "AI சுருக்கத்தைப் பெற ஆவணம் அல்லது புகைப்படத்தைப் பதிவேற்றவும்" },
+  "ai.weather_advisory": { en: "Weather Advisory", ta: "வானிலை ஆலோசனை" },
+  "ai.weather_desc": { en: "Get weather-based agriculture advisory for your district", ta: "உங்கள் மாவட்டத்திற்கான வானிலை அடிப்படையிலான விவசாய ஆலோசனை பெறுங்கள்" },
+  "ai.expense_ocr": { en: "Expense OCR", ta: "செலவு OCR" },
+  "ai.expense_ocr_desc": { en: "Extract expense details from receipt or invoice photos", ta: "ரசீது அல்லது விலைப்பட்டியல் புகைப்படங்களிலிருந்து செலவு விவரங்களைப் பிரித்தெடுக்கவும்" },
+  "nav.trainings": { en: "Trainings", ta: "பயிற்சிகள்" },
 
   // AI Tool components
   "ai.click_upload_plant": { en: "Click to upload a plant photo", ta: "தாவர புகைப்படத்தைப் பதிவேற்ற கிளிக் செய்யவும்" },

@@ -3,19 +3,25 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bug, Leaf, Languages, ScanText, Mic, ArrowLeft, Sparkles } from "lucide-react";
+import { Bug, Leaf, Languages, ScanText, Mic, ArrowLeft, Sparkles, FileText, CloudSun, Receipt } from "lucide-react";
 import { PestIdentifier } from "./_components/pest-identifier";
 import { CropAdviser } from "./_components/crop-adviser";
 import { Translator } from "./_components/translator";
 import { OcrTool } from "./_components/ocr-tool";
 import { VoiceNotes } from "./_components/voice-notes";
+import { DocSummarizer } from "./_components/doc-summarizer";
+import { WeatherAdvisory } from "./_components/weather-advisory";
+import { ExpenseOcr } from "./_components/expense-ocr";
 import { useT } from "@/lib/i18n";
 
-type ToolKey = "pest" | "crop" | "translate" | "ocr" | "voice";
+type ToolKey = "pest" | "crop" | "translate" | "ocr" | "voice" | "doc_summarize" | "weather" | "expense_ocr";
 
 const tools: { key: ToolKey; labelKey: string; descKey: string; icon: typeof Bug; color: string }[] = [
   { key: "pest", labelKey: "ai.pest_id", descKey: "ai.pest_desc", icon: Bug, color: "bg-red-100 text-red-600" },
   { key: "crop", labelKey: "ai.crop_advice", descKey: "ai.crop_desc", icon: Leaf, color: "bg-green-100 text-green-600" },
+  { key: "weather", labelKey: "ai.weather_advisory", descKey: "ai.weather_desc", icon: CloudSun, color: "bg-sky-100 text-sky-600" },
+  { key: "doc_summarize", labelKey: "ai.doc_summarizer", descKey: "ai.doc_summarize_desc", icon: FileText, color: "bg-teal-100 text-teal-600" },
+  { key: "expense_ocr", labelKey: "ai.expense_ocr", descKey: "ai.expense_ocr_desc", icon: Receipt, color: "bg-orange-100 text-orange-600" },
   { key: "translate", labelKey: "ai.translator", descKey: "ai.translate_desc", icon: Languages, color: "bg-blue-100 text-blue-600" },
   { key: "ocr", labelKey: "ai.ocr", descKey: "ai.ocr_desc", icon: ScanText, color: "bg-purple-100 text-purple-600" },
   { key: "voice", labelKey: "ai.voice_notes", descKey: "ai.voice_desc", icon: Mic, color: "bg-amber-100 text-amber-600" },
@@ -27,6 +33,9 @@ const toolComponents: Record<ToolKey, React.FC> = {
   translate: Translator,
   ocr: OcrTool,
   voice: VoiceNotes,
+  doc_summarize: DocSummarizer,
+  weather: WeatherAdvisory,
+  expense_ocr: ExpenseOcr,
 };
 
 export default function AIToolsPage() {
