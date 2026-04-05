@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { createSession, DEFAULT_ADMIN_EMAIL } from "@/lib/auth";
+import { createSession, DEFAULT_ADMIN_EMAIL, SUPER_ADMIN_EMAILS } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { getRequestIp } from "@/lib/request-ip";
@@ -54,15 +54,15 @@ export async function POST(req: NextRequest) {
     let user = existingUser;
     let isNewUser = false;
 
-    // Auto-promote default admin email to super_admin if not already
-    if (user && normalizedEmail === DEFAULT_ADMIN_EMAIL && (user.role !== "super_admin" || user.status !== "approved")) {
+    // Auto-promote super admin emails to super_admin if not already
+    if (user && SUPER_ADMIN_EMAILS.has(normalizedEmail) && (user.role !== "super_admin" || user.status !== "approved")) {
       await supabase.from("users").update({ role: "super_admin", status: "approved" }).eq("id", user.id);
       user = { ...user, role: "super_admin", status: "approved" };
     }
 
     if (!user) {
       // Auto-admin: first user OR the default admin email
-      const isDefaultAdmin = normalizedEmail === DEFAULT_ADMIN_EMAIL;
+      const isDefaultAdmin = SUPER_ADMIN_EMAILS.has(normalizedEmail);
       let isFirstUser = false;
       if (!isDefaultAdmin) {
         const { count } = await supabase

@@ -6,6 +6,8 @@ const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
 // Default admin email — always auto-approved as admin on login
 export const DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in";
+export const SYSTEM_ADMIN_EMAIL = "tanhowa19791@gmail.com";
+export const SUPER_ADMIN_EMAILS = new Set([DEFAULT_ADMIN_EMAIL, SYSTEM_ADMIN_EMAIL]);
 
 export interface SessionPayload {
   userId: string;
