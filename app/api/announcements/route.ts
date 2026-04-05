@@ -18,17 +18,18 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const limit = parseInt(url.searchParams.get("limit") || "50");
 
-    // Show published announcements that are either not scheduled or past their scheduled time
+    // Admins see all (including drafts); members see only published
+    const { data: user } = await supabase.from("users").select("role").eq("id", session.userId).single();
+    const isAdminUser = user?.role === "admin" || user?.role === "super_admin";
+
     let query = supabase
       .from("announcements")
       .select("*, users(name)")
-      .eq("published", true)
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    // For non-admins, filter out future scheduled announcements
-    const { data: user } = await supabase.from("users").select("role").eq("id", session.userId).single();
-    if (user?.role !== "admin" && user?.role !== "super_admin") {
+    if (!isAdminUser) {
+      query = query.eq("published", true);
       query = query.or(`scheduled_at.is.null,scheduled_at.lte.${new Date().toISOString()}`);
     }
 
@@ -116,14 +117,22 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, title, content } = body;
+    const { id, title, content, published } = body;
     if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
-    if (!title?.trim()) return NextResponse.json({ error: "Title is required" }, { status: 400 });
 
     const supabase = getServiceClient();
+    const updates: Record<string, unknown> = {};
+    if (title !== undefined) updates.title = title.trim();
+    if (content !== undefined) updates.content = (content || "").trim();
+    if (published !== undefined) updates.published = published;
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+    }
+
     const { error } = await supabase
       .from("announcements")
-      .update({ title: title.trim(), content: (content || "").trim() })
+      .update(updates)
       .eq("id", id);
 
     if (error) {
@@ -131,7 +140,20 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
     }
 
-    translateContent("announcements", id, { title: title.trim(), content: (content || "").trim() });
+    if (updates.title || updates.content) {
+      // Fetch current values for translation if only one field changed
+      const { data: current } = await supabase.from("announcements").select("title, content").eq("id", id).single();
+      if (current) translateContent("announcements", id, { title: current.title, content: current.content });
+    }
+
+    // If just published, trigger notification broadcast
+    if (published === true) {
+      const { data: ann } = await supabase.from("announcements").select("title, content").eq("id", id).single();
+      if (ann) {
+        notifyNewAnnouncement(ann.title, ann.content);
+        translateContent("announcements", id, { title: ann.title, content: ann.content });
+      }
+    }
 
     return NextResponse.json({ message: "Updated" });
   } catch (error) {

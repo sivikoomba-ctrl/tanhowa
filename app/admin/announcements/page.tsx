@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Eye, Pencil } from "lucide-react";
+import { Plus, Trash2, Eye, Pencil, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ export default function AdminAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<
     { id: string; title: string; content: string; published: boolean; created_at: string }[]
   >([]);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -72,6 +73,22 @@ export default function AdminAnnouncementsPage() {
       toast.success("Deleted");
       load();
     }
+  }
+
+  async function handlePublish(id: string) {
+    setPublishingId(id);
+    const res = await fetch("/api/announcements", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, published: true }),
+    });
+    if (res.ok) {
+      toast.success("Announcement published");
+      load();
+    } else {
+      toast.error("Failed to publish");
+    }
+    setPublishingId(null);
   }
 
   function openEdit(a: { id: string; title: string; content: string }) {
@@ -136,22 +153,32 @@ export default function AdminAnnouncementsPage() {
 
       <div className="space-y-3">
         {announcements.map((a) => (
-          <Card key={a.id}>
+          <Card key={a.id} className={!a.published ? "border-amber-300 bg-amber-50/30" : ""}>
             <CardContent className="pt-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold">{a.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">{a.title}</h3>
+                    {!a.published && <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px]">Draft</Badge>}
+                  </div>
                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{a.content}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <p className="text-xs text-muted-foreground">
                       {formatDate(a.created_at)}
                     </p>
-                    <Badge variant="outline" className="text-[10px] gap-1">
-                      <Eye size={10} /> {readCounts[a.id] || 0} read
-                    </Badge>
+                    {a.published && (
+                      <Badge variant="outline" className="text-[10px] gap-1">
+                        <Eye size={10} /> {readCounts[a.id] || 0} read
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-1 shrink-0">
+                  {!a.published && (
+                    <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => handlePublish(a.id)} disabled={publishingId === a.id}>
+                      <Send size={12} className="mr-1" />{publishingId === a.id ? "..." : "Publish"}
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => openEdit(a)}>
                     <Pencil size={14} />
                   </Button>
