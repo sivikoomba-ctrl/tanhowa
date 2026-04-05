@@ -44,6 +44,21 @@ interface DailyData {
   sessions: number;
 }
 
+interface PerfRoute {
+  path: string;
+  count: number;
+  avgMs: number;
+  maxMs: number;
+  errors: number;
+}
+
+interface PerfData {
+  routes: PerfRoute[];
+  overallAvg: number;
+  slowCount: number;
+  totalRequests: number;
+}
+
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState("7d");
   const [loading, setLoading] = useState(true);
@@ -52,23 +67,26 @@ export default function AnalyticsPage() {
   const [clicks, setClicks] = useState<ClickData[]>([]);
   const [devices, setDevices] = useState<DeviceData | null>(null);
   const [daily, setDaily] = useState<DailyData[]>([]);
+  const [perf, setPerf] = useState<PerfData | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sRes, pRes, cRes, dRes, dlRes] = await Promise.all([
+      const [sRes, pRes, cRes, dRes, dlRes, pfRes] = await Promise.all([
         fetch(`/api/analytics?type=summary&period=${period}`),
         fetch(`/api/analytics?type=pages&period=${period}`),
         fetch(`/api/analytics?type=clicks&period=${period}`),
         fetch(`/api/analytics?type=devices&period=${period}`),
         fetch(`/api/analytics?type=daily&period=${period}`),
+        fetch(`/api/analytics?type=perf&period=${period}`),
       ]);
-      const [s, p, c, d, dl] = await Promise.all([sRes.json(), pRes.json(), cRes.json(), dRes.json(), dlRes.json()]);
+      const [s, p, c, d, dl, pf] = await Promise.all([sRes.json(), pRes.json(), cRes.json(), dRes.json(), dlRes.json(), pfRes.json()]);
       setSummary(s);
       setPages(p.pages || []);
       setClicks(c.clicks || []);
       setDevices(d);
       setDaily(dl.daily || []);
+      setPerf(pf.routes ? pf : null);
     } catch {
       toast.error("Failed to load analytics");
     } finally {
@@ -229,6 +247,53 @@ export default function AnalyticsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* API Performance */}
+      {perf && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Activity size={14} />API Performance (slow requests &gt;100ms)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold">{perf.overallAvg}ms</p>
+                <p className="text-xs text-muted-foreground">Avg Response</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-amber-600">{perf.slowCount}</p>
+                <p className="text-xs text-muted-foreground">Slow (&gt;1s)</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold">{perf.totalRequests}</p>
+                <p className="text-xs text-muted-foreground">Total Tracked</p>
+              </div>
+            </div>
+            {perf.routes.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex text-[10px] text-muted-foreground font-medium px-2 py-1">
+                  <span className="flex-1">Route</span>
+                  <span className="w-14 text-right">Count</span>
+                  <span className="w-16 text-right">Avg</span>
+                  <span className="w-16 text-right">Max</span>
+                  <span className="w-14 text-right">Errors</span>
+                </div>
+                {perf.routes.map((r) => (
+                  <div key={r.path} className={`flex items-center text-sm px-2 py-1.5 rounded ${r.avgMs > 1000 ? "bg-red-50" : r.avgMs > 500 ? "bg-amber-50" : ""}`}>
+                    <span className="flex-1 truncate font-mono text-xs">{r.path}</span>
+                    <span className="w-14 text-right text-xs">{r.count}</span>
+                    <span className={`w-16 text-right text-xs font-semibold ${r.avgMs > 1000 ? "text-red-600" : r.avgMs > 500 ? "text-amber-600" : "text-green-600"}`}>{r.avgMs}ms</span>
+                    <span className="w-16 text-right text-xs text-muted-foreground">{r.maxMs}ms</span>
+                    <span className={`w-14 text-right text-xs ${r.errors > 0 ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>{r.errors}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

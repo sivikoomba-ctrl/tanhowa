@@ -3,11 +3,13 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { logApiPerf } from "@/lib/api-perf";
 import { logAudit } from "@/lib/audit-log";
 import { notifyNewAnnouncement } from "@/lib/mail";
 import { translateContent, getTranslations } from "@/lib/translate-content";
 
 export async function GET(req: NextRequest) {
+  const _perfStart = Date.now();
   try {
     const session = await getSession();
     if (!session) {
@@ -50,8 +52,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    logApiPerf("/api/announcements", "GET", 200, _perfStart);
     return NextResponse.json({ announcements: items });
   } catch (error) {
+    logApiPerf("/api/announcements", "GET", 500, _perfStart);
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/announcements", method: "GET", status_code: 500 });
     return NextResponse.json({ error: "Failed to fetch announcements" }, { status: 500 });

@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, createSession, isFinanceTeamMember } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logApiPerf } from "@/lib/api-perf";
 import { logContribution } from "@/lib/contributions";
 import { notifyAdminNewRegistration } from "@/lib/mail";
 import { triggerDailyGreetings } from "@/lib/daily-greetings";
 
 export async function GET() {
+  const _perfStart = Date.now();
   try {
     const session = await getSession();
     if (!session) {
@@ -35,8 +37,10 @@ export async function GET() {
       ? await isFinanceTeamMember(session.userId)
       : false;
 
+    logApiPerf("/api/users/me", "GET", 200, _perfStart);
     return NextResponse.json({ user, is_finance_team: isFinance });
   } catch (error) {
+    logApiPerf("/api/users/me", "GET", 500, _perfStart);
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/users/me", method: "GET", status_code: 500 });
     return NextResponse.json({ error: "Failed to fetch user" }, { status: 500 });

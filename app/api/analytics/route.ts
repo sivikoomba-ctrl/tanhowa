@@ -161,6 +161,41 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ daily });
     }
 
+    if (type === "perf") {
+      const { data: perfData } = await supabase
+        .from("api_perf")
+        .select("path, method, status_code, duration_ms, created_at")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(1000);
+
+      const entries = perfData || [];
+      // Aggregate by path
+      const pathStats: Record<string, { count: number; totalMs: number; maxMs: number; errors: number }> = {};
+      for (const e of entries) {
+        if (!pathStats[e.path]) pathStats[e.path] = { count: 0, totalMs: 0, maxMs: 0, errors: 0 };
+        pathStats[e.path].count++;
+        pathStats[e.path].totalMs += e.duration_ms;
+        pathStats[e.path].maxMs = Math.max(pathStats[e.path].maxMs, e.duration_ms);
+        if (e.status_code >= 400) pathStats[e.path].errors++;
+      }
+
+      const routes = Object.entries(pathStats)
+        .map(([path, s]) => ({
+          path,
+          count: s.count,
+          avgMs: Math.round(s.totalMs / s.count),
+          maxMs: s.maxMs,
+          errors: s.errors,
+        }))
+        .sort((a, b) => b.avgMs - a.avgMs);
+
+      const overallAvg = entries.length > 0 ? Math.round(entries.reduce((s, e) => s + e.duration_ms, 0) / entries.length) : 0;
+      const slowCount = entries.filter((e) => e.duration_ms > 1000).length;
+
+      return NextResponse.json({ routes, overallAvg, slowCount, totalRequests: entries.length });
+    }
+
     return NextResponse.json({ error: "Unknown type" }, { status: 400 });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
