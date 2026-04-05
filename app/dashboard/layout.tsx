@@ -561,86 +561,83 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            {notifications.total === 0 ? (
+            {notifications.draftAnnouncements > 0 && (
+              <Link href="/admin/announcements" onClick={() => setShowNotifications(false)} className="flex items-center gap-3 p-3 rounded-xl transition-colors border border-amber-200 bg-amber-50">
+                <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                  <Megaphone size={16} className="text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-amber-800">Draft Announcements</p>
+                  <p className="text-xs text-amber-600">Pending your approval — review & publish</p>
+                </div>
+                <Badge className="bg-amber-500 text-white border-0 text-xs">{notifications.draftAnnouncements}</Badge>
+              </Link>
+            )}
+            {notifications.announcements > 0 && (
+              <Link
+                href="/dashboard/announcements"
+                onClick={() => setShowNotifications(false)}
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                  <Megaphone size={16} className="text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{t("notif.new_announcements")}</p>
+                  <p className="text-xs text-muted-foreground">{notifications.announcements} {t("notif.since_last_visit")}</p>
+                </div>
+                <Badge className="bg-accent/10 text-accent border-0 text-xs">{notifications.announcements}</Badge>
+              </Link>
+            )}
+            {notifications.subscriptions > 0 && (
+              <Link
+                href="/dashboard/subscriptions"
+                onClick={() => setShowNotifications(false)}
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                  <Wallet size={16} className="text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{t("notif.subscriptions_due")}</p>
+                  <p className="text-xs text-muted-foreground">{notifications.subscriptions} {t("notif.pending_payments")}</p>
+                </div>
+                <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">{notifications.subscriptions}</Badge>
+              </Link>
+            )}
+            {notifications.tasks > 0 && (
+              <Link
+                href="/dashboard/todos"
+                onClick={() => setShowNotifications(false)}
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                  <ListTodo size={16} className="text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{t("notif.active_tasks")}</p>
+                  <p className="text-xs text-muted-foreground">{notifications.tasks} {t("notif.tasks_assigned")}</p>
+                </div>
+                <Badge className="bg-blue-100 text-blue-700 border-0 text-xs">{notifications.tasks}</Badge>
+              </Link>
+            )}
+            {notifications.volunteerInvites > 0 && (
+              <button
+                onClick={() => { setShowNotifications(false); setShowVolunteerInvite(true); }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+                  <Users size={16} className="text-green-600" />
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium">{t("volunteer.invite_title")}</p>
+                  <p className="text-xs text-muted-foreground">{t("volunteer.invite_desc")}</p>
+                </div>
+                <Badge className="bg-green-100 text-green-700 border-0 text-xs">1</Badge>
+              </button>
+            )}
+            {notifications.total === 0 && (
               <p className="text-sm text-muted-foreground text-center py-6">{t("notif.all_caught_up")}</p>
-            ) : (
-              <>
-                {notifications.announcements > 0 && (
-                  <Link
-                    href="/dashboard/announcements"
-                    onClick={() => setShowNotifications(false)}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
-                      <Megaphone size={16} className="text-accent" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{t("notif.new_announcements")}</p>
-                      <p className="text-xs text-muted-foreground">{notifications.announcements} {t("notif.since_last_visit")}</p>
-                    </div>
-                    <Badge className="bg-accent/10 text-accent border-0 text-xs">{notifications.announcements}</Badge>
-                  </Link>
-                )}
-                {notifications.subscriptions > 0 && (
-                  <Link
-                    href="/dashboard/subscriptions"
-                    onClick={() => setShowNotifications(false)}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                      <Wallet size={16} className="text-amber-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{t("notif.subscriptions_due")}</p>
-                      <p className="text-xs text-muted-foreground">{notifications.subscriptions} {t("notif.pending_payments")}</p>
-                    </div>
-                    <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">{notifications.subscriptions}</Badge>
-                  </Link>
-                )}
-                {notifications.tasks > 0 && (
-                  <Link
-                    href="/dashboard/todos"
-                    onClick={() => setShowNotifications(false)}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                      <ListTodo size={16} className="text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{t("notif.active_tasks")}</p>
-                      <p className="text-xs text-muted-foreground">{notifications.tasks} {t("notif.tasks_assigned")}</p>
-                    </div>
-                    <Badge className="bg-blue-100 text-blue-700 border-0 text-xs">{notifications.tasks}</Badge>
-                  </Link>
-                )}
-                {notifications.volunteerInvites > 0 && (
-                  <button
-                    onClick={() => { setShowNotifications(false); setShowVolunteerInvite(true); }}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
-                      <Users size={16} className="text-green-600" />
-                    </div>
-                    <div className="flex-1 min-w-0 text-left">
-                      <p className="text-sm font-medium">{t("volunteer.invite_title")}</p>
-                      <p className="text-xs text-muted-foreground">{t("volunteer.invite_desc")}</p>
-                    </div>
-                    <Badge className="bg-green-100 text-green-700 border-0 text-xs">1</Badge>
-                  </button>
-                )}
-                {notifications.draftAnnouncements > 0 && (
-                  <Link href="/admin/announcements" onClick={() => setShowNotifications(false)} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors border border-amber-200 bg-amber-50/50">
-                    <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                      <Megaphone size={16} className="text-amber-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">Draft Announcements</p>
-                      <p className="text-xs text-muted-foreground">Pending your approval</p>
-                    </div>
-                    <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">{notifications.draftAnnouncements}</Badge>
-                  </Link>
-                )}
-              </>
             )}
           </div>
         </DialogContent>
