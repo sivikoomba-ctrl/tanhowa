@@ -1,13 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { Settings } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLang } from "@/lib/i18n";
 
 export function SettingsPopover() {
   const { lang, setLang, fontSize, setFontSize, t } = useLang();
   const [open, setOpen] = useState(false);
+  const [theme, setThemeState] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("tanhowa-theme") as "light" | "dark" | null;
+    if (saved === "dark") {
+      document.documentElement.classList.add("dark");
+      setThemeState("dark");
+    }
+  }, []);
+
+  function setTheme(t: "light" | "dark") {
+    setThemeState(t);
+    localStorage.setItem("tanhowa-theme", t);
+    if (t === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }
 
   return (
     <div className="relative">
@@ -43,6 +62,29 @@ export function SettingsPopover() {
                   onClick={() => setLang("ta")}
                 >
                   தமிழ்
+                </Button>
+              </div>
+            </div>
+
+            {/* Theme */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-1.5">{t("settings.theme")}</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <Button
+                  size="sm"
+                  variant={theme === "light" ? "default" : "outline"}
+                  className="h-8 text-xs gap-1"
+                  onClick={() => setTheme("light")}
+                >
+                  <Sun size={12} />Light
+                </Button>
+                <Button
+                  size="sm"
+                  variant={theme === "dark" ? "default" : "outline"}
+                  className="h-8 text-xs gap-1"
+                  onClick={() => setTheme("dark")}
+                >
+                  <Moon size={12} />Dark
                 </Button>
               </div>
             </div>

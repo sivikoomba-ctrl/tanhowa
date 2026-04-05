@@ -384,6 +384,7 @@ const translations = {
   "nav.analytics": { en: "Analytics", ta: "பகுப்பாய்வு" },
   "nav.search": { en: "Search", ta: "தேடல்" },
   "nav.my_activity": { en: "My Activity", ta: "எனது செயல்பாடு" },
+  "settings.theme": { en: "Theme", ta: "தீம்" },
   "training.browse_enroll": { en: "Browse and enroll in training sessions", ta: "பயிற்சி அமர்வுகளை உலாவி பதிவு செய்யுங்கள்" },
   "training.upcoming": { en: "Upcoming", ta: "வரவிருக்கும்" },
   "training.my_enrollments": { en: "My Enrollments", ta: "எனது பதிவுகள்" },
