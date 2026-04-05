@@ -37,9 +37,9 @@ export async function GET(req: NextRequest) {
       query = query.eq("status", "approved");
     }
 
-    // Hide test account from regular member views
+    // Hide test accounts from regular member views
     if (!isAdmin) {
-      query = query.neq("email", "tanhowa19791@gmail.com");
+      query = query.neq("email", "tanhowa19791@gmail.com").neq("email", "tanhowaadmin@tanhowa.in");
     }
 
     if (search) {
