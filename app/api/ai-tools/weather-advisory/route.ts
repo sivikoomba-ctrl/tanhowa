@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many requests. Please wait a moment." }, { status: 429 });
     }
 
-    const { district } = await req.json();
+    const { district, block, place } = await req.json();
     if (!district || typeof district !== "string") {
       return NextResponse.json({ error: "District is required" }, { status: 400 });
     }
@@ -81,7 +81,8 @@ export async function POST(req: NextRequest) {
     const current = weatherData.current || {};
     const daily = weatherData.daily || {};
 
-    const weatherSummary = `District: ${district}
+    const locationLabel = `${district}${block ? `, ${block} block` : ""}${place ? ` (${place})` : ""}`;
+    const weatherSummary = `Location: ${locationLabel}
 Current Temperature: ${current.temperature_2m || "N/A"}°C
 Humidity: ${current.relative_humidity_2m || "N/A"}%
 Wind Speed: ${current.wind_speed_10m || "N/A"} km/h
@@ -98,11 +99,13 @@ ${(daily.time || []).map((date: string, i: number) => `${date}: ${daily.temperat
       {
         text: `You are a senior agricultural meteorologist advising horticultural officers in Tamil Nadu, India.
 
-Based on the following weather data for ${district} district, provide practical agriculture advisory:
+Based on the following weather data for ${locationLabel}, provide practical agriculture advisory:
 
 ${weatherSummary}
 
 Today's date: ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}
+${block ? `\nBlock: ${block} — provide block-specific advice considering local terrain and crops grown in this block.` : ""}
+${place ? `\nPlace of interest: ${place} — include specific advice relevant to this location (if it's a horticulture farm, include nursery/plantation advice).` : ""}
 
 Provide advice on:
 1. **Irrigation** — when and how much to water based on current conditions
@@ -110,8 +113,9 @@ Provide advice on:
 3. **Field Operations** — recommended activities (spraying, harvesting, planting)
 4. **Precautions** — weather warnings and protective measures
 5. **Seasonal Tips** — what to plant/prepare for in the coming days
+${block ? "6. **Block-specific** — crops and horticulture activities specific to this block" : ""}
 
-Keep it practical, specific to ${district}'s agro-climatic zone, and useful for field officers. Use bullet points. Keep it concise (under 300 words).`,
+Keep it practical, specific to ${district}'s agro-climatic zone${block ? ` and ${block} block` : ""}, and useful for ADHs and HOs. Use bullet points. Keep it concise (under 400 words).`,
       },
     ]);
 
