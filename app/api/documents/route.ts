@@ -4,6 +4,7 @@ import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
+import { resolveDocumentUrl } from "@/lib/document-urls";
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,10 +45,11 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      const docsWithAccess = (documents || []).map((d: { id: string; visibility?: string }) => ({
+      const docsWithAccess = await Promise.all((documents || []).map(async (d: { id: string; visibility?: string; file_url: string }) => ({
         ...d,
+        file_url: await resolveDocumentUrl(supabase, d.file_url),
         assigned_users: accessMap[d.id] || [],
-      }));
+      })));
 
       return NextResponse.json({ documents: docsWithAccess });
     } else {
@@ -63,10 +65,15 @@ export async function GET(req: NextRequest) {
       const accessibleDocIds = new Set((accessRows || []).map((r: { document_id: string }) => r.document_id));
 
       // Filter: show docs with visibility=all OR docs specifically assigned to this user
-      const documents = (allApproved || []).filter((d: { id: string; visibility?: string }) => {
+      const filteredDocuments = (allApproved || []).filter((d: { id: string; visibility?: string }) => {
         if (!d.visibility || d.visibility === "all") return true;
         return accessibleDocIds.has(d.id);
       });
+
+      const documents = await Promise.all(filteredDocuments.map(async (d: { file_url: string }) => ({
+        ...d,
+        file_url: await resolveDocumentUrl(supabase, d.file_url),
+      })));
 
       return NextResponse.json({ documents });
     }

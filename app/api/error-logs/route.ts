@@ -2,10 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isSuperAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { getRequestIp } from "@/lib/request-ip";
+
+const clientErrorLogLimiter = createRateLimiter(20, 15 * 60 * 1000);
 
 // POST: Client-side error submission (no auth required)
 export async function POST(req: NextRequest) {
   try {
+    const ip = getRequestIp(req);
+    if (!clientErrorLogLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many log submissions" }, { status: 429 });
+    }
+
     const body = await req.json();
 
     if (!body.message) {

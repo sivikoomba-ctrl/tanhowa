@@ -89,9 +89,13 @@ async function sendTelegram(chatId: string, text: string) {
 
 export async function GET(req: NextRequest) {
   try {
+    if (!CRON_SECRET) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+    }
+
     // Verify cron secret (Vercel sends this header)
     const authHeader = req.headers.get("authorization");
-    if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+    if (authHeader !== `Bearer ${CRON_SECRET}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

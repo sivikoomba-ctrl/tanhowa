@@ -2,11 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { sendOTPEmail } from "@/lib/mail";
 import { logError } from "@/lib/error-logger";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { getRequestIp } from "@/lib/request-ip";
 
 const OTP_PURPOSE_LOGIN = "login";
+const sendOtpLimiter = createRateLimiter(5, 15 * 60 * 1000);
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getRequestIp(req);
+    if (!sendOtpLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many OTP requests. Please wait before trying again." }, { status: 429 });
+    }
+
     const { email } = await req.json();
 
     if (!email || !email.includes("@")) {
@@ -14,7 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     const supabase = getServiceClient();
 

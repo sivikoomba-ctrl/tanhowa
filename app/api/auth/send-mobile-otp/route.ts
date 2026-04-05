@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendSmsOtp } from "@/lib/sms";
 import { logError } from "@/lib/error-logger";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { getRequestIp } from "@/lib/request-ip";
+
+const sendMobileOtpLimiter = createRateLimiter(5, 15 * 60 * 1000);
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getRequestIp(req);
+    if (!sendMobileOtpLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many OTP requests. Please wait before trying again." }, { status: 429 });
+    }
+
     const { phone } = await req.json();
 
     if (!phone) {

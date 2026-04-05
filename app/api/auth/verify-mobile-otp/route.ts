@@ -3,9 +3,18 @@ import { getServiceClient } from "@/lib/supabase";
 import { createSession, DEFAULT_ADMIN_EMAIL } from "@/lib/auth";
 import { verifySmsOtp } from "@/lib/sms";
 import { logError } from "@/lib/error-logger";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { getRequestIp } from "@/lib/request-ip";
+
+const verifyMobileOtpLimiter = createRateLimiter(10, 15 * 60 * 1000);
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getRequestIp(req);
+    if (!verifyMobileOtpLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many verification attempts. Please wait before trying again." }, { status: 429 });
+    }
+
     const { phone, code, sessionId } = await req.json();
 
     if (!phone || !code || !sessionId) {

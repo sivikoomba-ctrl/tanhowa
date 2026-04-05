@@ -2,11 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { createSession, DEFAULT_ADMIN_EMAIL } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { getRequestIp } from "@/lib/request-ip";
 
 const OTP_PURPOSE_LOGIN = "login";
+const verifyOtpLimiter = createRateLimiter(10, 15 * 60 * 1000);
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getRequestIp(req);
+    if (!verifyOtpLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many verification attempts. Please wait before trying again." }, { status: 429 });
+    }
+
     const { email, code } = await req.json();
 
     if (!email || !code) {

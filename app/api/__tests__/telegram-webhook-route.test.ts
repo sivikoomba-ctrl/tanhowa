@@ -69,7 +69,7 @@ vi.mock("@/lib/supabase", () => ({
 describe("POST /api/telegram/webhook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.TELEGRAM_WEBHOOK_SECRET = "";
+    process.env.TELEGRAM_WEBHOOK_SECRET = "test-secret";
   });
 
   it("sends an OTP for email linking instead of linking the account directly", async () => {
@@ -86,7 +86,9 @@ describe("POST /api/telegram/webhook", () => {
           text: "member@example.com",
         },
       }),
-      headers: new Headers(),
+      headers: new Headers({
+        "x-telegram-bot-api-secret-token": "test-secret",
+      }),
     } as never);
 
     expect(response.status).toBe(200);
@@ -104,5 +106,20 @@ describe("POST /api/telegram/webhook", () => {
       12345,
       expect.stringContaining("/link member@example.com 123456")
     );
+  });
+
+  it("rejects requests when the webhook secret header is missing", async () => {
+    const { POST } = await import("../telegram/webhook/route");
+    const response = await POST({
+      json: async () => ({
+        message: {
+          chat: { id: 12345 },
+          text: "/start",
+        },
+      }),
+      headers: new Headers(),
+    } as never);
+
+    expect(response.status).toBe(403);
   });
 });

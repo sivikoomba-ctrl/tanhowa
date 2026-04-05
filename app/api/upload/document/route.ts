@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     // Auto-create bucket if it doesn't exist
     if (uploadError?.message?.includes("Bucket not found")) {
-      await supabase.storage.createBucket("documents", { public: true });
+      await supabase.storage.createBucket("documents", { public: false });
       const retry = await supabase.storage
         .from("documents")
         .upload(fileName, buffer, {
@@ -89,11 +89,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Upload failed: " + uploadError.message }, { status: 500 });
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileName);
-
     return NextResponse.json({
-      file_url: urlData.publicUrl,
+      file_url: fileName,
       file_type: ext,
       file_name: file.name,
     });
