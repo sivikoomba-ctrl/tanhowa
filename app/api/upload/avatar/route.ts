@@ -3,6 +3,9 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { getGemini } from "@/lib/gemini";
 import { logError } from "@/lib/error-logger";
+import { createRateLimiter } from "@/lib/rate-limit";
+
+const uploadLimiter = createRateLimiter(10);
 
 async function validatePortraitPhoto(buffer: Buffer, mimeType: string): Promise<{ valid: boolean; reason: string }> {
   try {
@@ -48,6 +51,11 @@ export async function POST(req: NextRequest) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!uploadLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many uploads. Please wait." }, { status: 429 });
     }
 
     const formData = await req.formData();

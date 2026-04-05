@@ -16,7 +16,7 @@ export async function GET() {
     const supabase = getServiceClient();
     const { data: user } = await supabase
       .from("users")
-      .select("*")
+      .select("id, name, email, phone, address, office_address, dob, occupation, photo_url, role, status, official_type, posting_details, social_links, created_at, last_active_at, login_count, location")
       .eq("id", session.userId)
       .single();
 

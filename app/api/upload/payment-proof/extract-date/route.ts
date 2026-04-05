@@ -3,12 +3,20 @@ import { getSession } from "@/lib/auth";
 import { getGemini } from "@/lib/gemini";
 import { logError } from "@/lib/error-logger";
 import { isTanhowaPayment, isTrustedPaymentProofUrl } from "@/lib/payment-verification";
+import { createRateLimiter } from "@/lib/rate-limit";
+
+const extractLimiter = createRateLimiter(10);
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!extractLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const formData = await req.formData();

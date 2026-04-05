@@ -43,8 +43,18 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const supabase = getServiceClient();
 
+    const ALLOWED_SETTINGS_KEYS = new Set([
+      "payment_qr_url", "community_name", "tagline", "about",
+      "bank_name", "bank_account", "bank_ifsc", "bank_branch",
+      "razorpay_enabled", "online_payment_enabled",
+      "announcement_auto_translate", "email_notifications_enabled",
+    ]);
+
     const entries = Object.entries(body) as [string, string][];
     for (const [key, value] of entries) {
+      if (!ALLOWED_SETTINGS_KEYS.has(key)) {
+        return NextResponse.json({ error: `Setting key "${key}" is not allowed` }, { status: 400 });
+      }
       await supabase
         .from("site_settings")
         .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });

@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { createRateLimiter } from "@/lib/rate-limit";
+
+const uploadLimiter = createRateLimiter(10);
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!uploadLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many uploads. Please wait." }, { status: 429 });
     }
 
     const formData = await req.formData();
