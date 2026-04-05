@@ -97,11 +97,16 @@ export default function AdminUsersPage() {
       );
     }
     if (joinedFilter !== "all") {
+      const now = Date.now();
+      // Hourly filters: filter by last_active_at (recently active users)
+      const isActivityFilter = ["1h", "2h", "3h", "6h", "12h"].includes(joinedFilter);
       if (joinedFilter === "today") {
+        const todayStr = new Date().toISOString().split("T")[0];
+        result = result.filter((u) => u.last_active_at?.startsWith(todayStr));
+      } else if (joinedFilter === "joined_today") {
         const todayStr = new Date().toISOString().split("T")[0];
         result = result.filter((u) => u.created_at?.startsWith(todayStr));
       } else {
-        const now = Date.now();
         const cutoff = joinedFilter === "1h" ? now - 3600000
           : joinedFilter === "2h" ? now - 2 * 3600000
           : joinedFilter === "3h" ? now - 3 * 3600000
@@ -113,7 +118,13 @@ export default function AdminUsersPage() {
           : joinedFilter === "6m" ? now - 180 * 86400000
           : joinedFilter === "1y" ? now - 365 * 86400000
           : 0;
-        result = result.filter((u) => new Date(u.created_at).getTime() >= cutoff);
+        if (isActivityFilter) {
+          // Filter by last activity time
+          result = result.filter((u) => u.last_active_at && new Date(u.last_active_at).getTime() >= cutoff);
+        } else {
+          // Filter by joined date
+          result = result.filter((u) => new Date(u.created_at).getTime() >= cutoff);
+        }
       }
     }
     // Sort: most recently active first, then by name
@@ -360,17 +371,18 @@ export default function AdminUsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="1h">Last 1 Hour</SelectItem>
-                <SelectItem value="2h">Last 2 Hours</SelectItem>
-                <SelectItem value="3h">Last 3 Hours</SelectItem>
-                <SelectItem value="6h">Last 6 Hours</SelectItem>
-                <SelectItem value="12h">Last 12 Hours</SelectItem>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="7d">Last 7 Days</SelectItem>
-                <SelectItem value="30d">Last 30 Days</SelectItem>
-                <SelectItem value="90d">Last 3 Months</SelectItem>
-                <SelectItem value="6m">Last 6 Months</SelectItem>
-                <SelectItem value="1y">Last 1 Year</SelectItem>
+                <SelectItem value="1h">Active in 1 Hour</SelectItem>
+                <SelectItem value="2h">Active in 2 Hours</SelectItem>
+                <SelectItem value="3h">Active in 3 Hours</SelectItem>
+                <SelectItem value="6h">Active in 6 Hours</SelectItem>
+                <SelectItem value="12h">Active in 12 Hours</SelectItem>
+                <SelectItem value="today">Active Today</SelectItem>
+                <SelectItem value="joined_today">Joined Today</SelectItem>
+                <SelectItem value="7d">Joined Last 7 Days</SelectItem>
+                <SelectItem value="30d">Joined Last 30 Days</SelectItem>
+                <SelectItem value="90d">Joined Last 3 Months</SelectItem>
+                <SelectItem value="6m">Joined Last 6 Months</SelectItem>
+                <SelectItem value="1y">Joined Last 1 Year</SelectItem>
               </SelectContent>
             </Select>
             <Select value={districtFilter} onValueChange={setDistrictFilter}>

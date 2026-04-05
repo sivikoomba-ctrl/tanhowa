@@ -295,7 +295,7 @@ On profile save (`PUT /api/users/me`), `detectGender()` auto-detects gender from
 
 ## Reports & Analytics (`/admin/reports`)
 
-The reports page is organized into 5 tabs, each in its own component under `app/admin/reports/_components/`:
+The reports page is organized into 6 tabs, each in its own component under `app/admin/reports/_components/`:
 
 | Tab | Component | Data Source | Charts |
 |-----|-----------|-------------|--------|
@@ -304,6 +304,7 @@ The reports page is organized into 5 tabs, each in its own component under `app/
 | Expenses | `expenses-tab.tsx` | `/api/reports/expenses` | Category pie, Status bar |
 | Contributions | `contributions-tab.tsx` | `/api/contributions?breakdown=true` | Monthly trend area, Action type pie + time bar |
 | Members | `members-tab.tsx` | `/api/reports/members` | Registration trend area, District bar, Profile completion donut |
+| Performance | `performance-tab.tsx` | `/api/reports/performance` | Team comparison bar, Task completion trend area. Period/team filters, ranked member table (top 3 gold/silver/bronze), PDF export |
 
 **Charts:** Use recharts via the shadcn `chart` component (`ChartContainer`, `ChartTooltip`, `ChartTooltipContent`). Brand colors are defined in `lib/chart-config.ts` — use `CHART_COLORS` for status colors and `CATEGORY_PALETTE` for category/district breakdowns.
 
@@ -461,6 +462,16 @@ Admin creates via "Special Subscription" button on `/admin/subscriptions`. Distr
 
 ## Task Management System
 
+### AI Task-to-Team Classification
+
+Gemini-powered team assignment for tasks. API at `/api/todos/classify`:
+- `action: "suggest"` — single task, returns team suggestion with confidence + reasoning (no DB write)
+- `action: "bulk"` — classifies all unassigned tasks, applies assignments above 0.7 confidence threshold
+- Teams fetched dynamically from DB — works with any team structure admin creates
+- Batched at 20 tasks per Gemini call with 1.5s delay between batches
+- Rate limited to 10/min via `createRateLimiter`
+- UI: "AI Suggest" sparkles button on Create/Edit task dialogs, "AI Classify" bulk button on admin todos page header
+
 ### Event ID Format
 Every task gets a unique, human-readable Event ID auto-generated on creation:
 - **Task:** `ET-001`, `ET-002`, ...
@@ -584,7 +595,11 @@ Use this pattern whenever a child page modifies data that the layout displays.
 
 ## Audit Log
 
-`lib/audit.ts` provides `logAudit(userId, action, targetType, targetId, details?)` — fire-and-forget async IIFE that writes to the `audit_logs` table. Integrated into resolution actions (create, approve, reject, open/close voting, delete). Admin page at `/admin/audit-logs` with search, action filter, and target type filter. Color-coded icons per target type.
+Two audit libraries exist — use the correct one:
+- `lib/audit.ts` — `logAudit({ userId, action, targetType, targetId, details })` (1 object arg). Used by resolutions, polls, etc.
+- `lib/audit-log.ts` — `logAudit(userId, action, targetType, targetId, details)` (5 positional args). Used by task classification, newer features.
+
+Both fire-and-forget to the `audit_logs` table. Admin page at `/admin/audit-logs` with search, action filter, and target type filter. Color-coded icons per target type.
 
 ## Razorpay Integration
 
@@ -696,6 +711,36 @@ Community-driven idea board where members submit ideas, others upvote, and admin
 **Categories:** Training, Infrastructure, Events, Digital Tools, Policy, Welfare, Communication, Other
 
 **Statuses:** `open` → `reviewing` → `approved` → `in_progress` → `completed` (or `rejected`)
+
+## Payment Status Transparency
+
+All logged-in members can view district-wise subscription payment status at `/dashboard/payment-status`.
+
+- **API:** `GET /api/subscriptions/payment-status?period=2026` — any authenticated user (not admin-only)
+- **Response:** `{ districts[], periods[], summary, topDistricts[] }` — members grouped by district with paid/pending/overdue status
+- **UI:** 4 summary MetricCards, top 5 districts by payment rate with progress bars, district-wise expandable accordion with member names + StatusBadge, period selector, search filter
+- **Sorting:** Members within each district sorted by designation hierarchy (ADDH → JDH → DDH → ADH → HO)
+- **Excludes:** Test accounts (tanhowa19791@gmail.com, tanhowaadmin@tanhowa.in)
+
+## Digital Member ID Card
+
+On-screen TANHOWA-branded ID card displayed on the profile page + downloadable PDF.
+
+- **On-screen:** CSS card with TANHOWA green gradient header, photo, name, designation, district/block, DS/DJS badge, member ID (first 8 chars of UUID), member since year, valid until end of current year, phone
+- **PDF download:** `downloadIdCard()` using jsPDF, portrait 100×65mm custom size. Photo loaded via canvas→base64 for cross-origin images. TANHOWA branding header (RGB 45, 106, 79).
+- **Location:** Profile page (`/dashboard/profile`) — ID card section at top
+
+## Member Directory Sorting
+
+Members page (`/dashboard/members`) sorts by designation hierarchy within each district:
+
+```
+ADDH (1) → JDH (2) → DDH (3) → ADH (4) → HO (5) → Retd (6) → Others (7)
+```
+
+`getDesignationRank()` function matches on `occupation` field substrings. Secondary sort by block name, tertiary by member name.
+
+**Designation options:** "Others" (with custom input) and all 5 retired designation variants have been removed from both onboarding and profile pages. Only active designations remain: HO, ADH, DDH, JDH, ADDH, System Admin.
 
 ## Common Tasks
 
