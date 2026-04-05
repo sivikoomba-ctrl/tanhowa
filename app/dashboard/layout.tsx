@@ -113,7 +113,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showIncomplete, setShowIncomplete] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0, volunteerInvites: 0 });
+  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0, volunteerInvites: 0, draftAnnouncements: 0 });
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationEnabling, setLocationEnabling] = useState(false);
   const [showTitlePicker, setShowTitlePicker] = useState(false);
@@ -627,6 +627,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                     <Badge className="bg-green-100 text-green-700 border-0 text-xs">1</Badge>
                   </button>
+                )}
+                {notifications.draftAnnouncements > 0 && (
+                  <Link href="/admin/announcements" onClick={() => setShowNotifications(false)} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors border border-amber-200 bg-amber-50/50">
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                      <Megaphone size={16} className="text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Draft Announcements</p>
+                      <p className="text-xs text-muted-foreground">Pending your approval</p>
+                    </div>
+                    <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">{notifications.draftAnnouncements}</Badge>
+                  </Link>
                 )}
               </>
             )}
