@@ -44,7 +44,7 @@ describe("/api/trainings", () => {
     mockGetSession.mockResolvedValue(null);
     const { GET } = await import("../trainings/route");
     const req = new Request("http://localhost/api/trainings");
-    const res = await GET(req as any);
+    const res = await GET(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(401);
   });
 
@@ -52,7 +52,7 @@ describe("/api/trainings", () => {
     mockGetSession.mockResolvedValue({ userId: "user-1", email: "test@test.com", role: "member", status: "approved" });
     const { GET } = await import("../trainings/route");
     const req = new Request("http://localhost/api/trainings");
-    const res = await GET(req as any);
+    const res = await GET(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.trainings).toBeDefined();
@@ -67,7 +67,7 @@ describe("/api/trainings", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: "Test", trainer_name: "Trainer" }),
     });
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(403);
   });
 });

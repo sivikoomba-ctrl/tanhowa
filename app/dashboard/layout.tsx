@@ -49,6 +49,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useT } from "@/lib/i18n";
 import { SettingsPopover } from "@/components/settings-popover";
 import { GlobalSearch } from "@/components/global-search";
+import { PushManager } from "@/components/push-manager";
 
 interface UserData {
   name: string;
@@ -555,6 +556,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
           <div className="relative z-10">{children}</div>
+          <PushManager />
         </main>
       </div>
 

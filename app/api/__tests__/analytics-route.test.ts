@@ -37,7 +37,7 @@ describe("/api/analytics", () => {
       headers: { "Content-Type": "application/json", "x-forwarded-for": "127.0.0.1" },
       body: JSON.stringify([{ event_type: "page_view", page_path: "/dashboard" }]),
     });
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -47,7 +47,7 @@ describe("/api/analytics", () => {
     mockGetSession.mockResolvedValue({ userId: "u1", email: "member@test.com", role: "member", status: "approved" });
     const { GET } = await import("../analytics/route");
     const req = new Request("http://localhost/api/analytics?type=summary&period=7d");
-    const res = await GET(req as any);
+    const res = await GET(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(403);
   });
 
@@ -55,7 +55,7 @@ describe("/api/analytics", () => {
     mockGetSession.mockResolvedValue({ userId: "u1", email: "admin@tanhowa.in", role: "super_admin", status: "approved" });
     const { GET } = await import("../analytics/route");
     const req = new Request("http://localhost/api/analytics?type=summary&period=7d");
-    const res = await GET(req as any);
+    const res = await GET(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(200);
   });
 });

@@ -22,7 +22,7 @@ describe("GET /api/search", () => {
     mockGetSession.mockResolvedValue(null);
     const { GET } = await import("../search/route");
     const req = new Request("http://localhost/api/search?q=test");
-    const res = await GET(req as any);
+    const res = await GET(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(401);
   });
 
@@ -30,7 +30,7 @@ describe("GET /api/search", () => {
     mockGetSession.mockResolvedValue({ userId: "u1", email: "a@b.com", role: "member", status: "approved" });
     const { GET } = await import("../search/route");
     const req = new Request("http://localhost/api/search?q=a");
-    const res = await GET(req as any);
+    const res = await GET(req as unknown as import("next/server").NextRequest);
     const body = await res.json();
     expect(body.results).toEqual([]);
   });
@@ -39,7 +39,7 @@ describe("GET /api/search", () => {
     mockGetSession.mockResolvedValue({ userId: "u1", email: "a@b.com", role: "member", status: "approved" });
     const { GET } = await import("../search/route");
     const req = new Request("http://localhost/api/search?q=meeting");
-    const res = await GET(req as any);
+    const res = await GET(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(200);
     expect(mockFrom).toHaveBeenCalled();
   });
