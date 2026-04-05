@@ -1,4 +1,4 @@
-const CACHE_NAME = "tanhowa-v3";
+const CACHE_NAME = "tanhowa-v4";
 const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [
   "/icons/icon-192x192.png",
@@ -6,8 +6,12 @@ const STATIC_ASSETS = [
 ];
 
 // Cache key for API responses (network-first with offline fallback)
-const API_CACHE = "tanhowa-api-v2";
-const CACHEABLE_API = ["/api/announcements", "/api/events", "/api/polls", "/api/documents", "/api/resolutions", "/api/stats"];
+const API_CACHE = "tanhowa-api-v3";
+const CACHEABLE_API = [
+  "/api/announcements", "/api/events", "/api/polls", "/api/documents",
+  "/api/resolutions", "/api/stats", "/api/trainings", "/api/faq",
+  "/api/wishlist", "/api/notifications",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
