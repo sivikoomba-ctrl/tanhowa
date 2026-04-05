@@ -30,6 +30,7 @@ const translations = {
   "nav.suggestions": { en: "Suggestions", ta: "பரிந்துரைகள்" },
   "nav.service_requests": { en: "Service Requests", ta: "சேவை கோரிக்கைகள்" },
   "nav.special_tasks": { en: "Special Tasks", ta: "சிறப்பு பணிகள்" },
+  "nav.special_documents": { en: "Special Docs", ta: "சிறப்பு ஆவணங்கள்" },
   "nav.grievances": { en: "Grievances", ta: "குறைகள்" },
   "nav.admin_panel": { en: "Admin Panel", ta: "நிர்வாகப் பலகம்" },
   "nav.back_to_dashboard": { en: "Back to Dashboard", ta: "முகப்புக்குத் திரும்பு" },

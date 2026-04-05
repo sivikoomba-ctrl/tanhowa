@@ -71,6 +71,7 @@ const adminNavItems = [
   { href: "/admin/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
   { href: "/admin/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed },
   { href: "/admin/special-tasks", labelKey: "nav.special_tasks" as const, icon: ClipboardCheck },
+  { href: "/admin/special-documents", labelKey: "nav.special_documents" as const, icon: FileText },
   { href: "/admin/audit-logs", labelKey: "nav.audit_log" as const, icon: ClipboardList },
   { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
   { href: "/admin/settings", labelKey: "nav.settings" as const, icon: Settings },
@@ -154,7 +155,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <>
         {adminNavItems.filter((item) => {
           const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks"];
-          return !superAdminOnly.includes(item.href) || user?.role === "super_admin";
+          if (superAdminOnly.includes(item.href)) return user?.role === "super_admin";
+          if (item.href === "/admin/special-documents") return user?.email === "tanhowa19791@gmail.com";
+          return true;
         }).map((item) => {
           const isActive = pathname === item.href;
           const showBadge = (item.href === "/admin/users" && pendingCount > 0) || (item.href === "/admin/error-logs" && errorCount > 0);
