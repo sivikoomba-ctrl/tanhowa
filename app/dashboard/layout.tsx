@@ -39,6 +39,7 @@ import {
   HelpCircle,
   IndianRupee,
   GraduationCap,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +89,7 @@ const navItems = [
   { href: "/dashboard/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt, officialOnly: true },
   { href: "/dashboard/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
   { href: "/dashboard/todos", labelKey: "nav.todos" as const, icon: ListTodo },
+  { href: "/dashboard/activity", labelKey: "nav.my_activity" as const, icon: Activity },
   { href: "/dashboard/contributions", labelKey: "nav.contributions" as const, icon: Award },
   { href: "/dashboard/finance", labelKey: "nav.finance" as const, icon: Landmark },
   { href: "/dashboard/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },

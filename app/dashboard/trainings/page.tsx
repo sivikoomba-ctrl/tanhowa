@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,28 @@ export default function TrainingsPage() {
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const checkinDone = useRef(false);
+
+  // Auto check-in via QR code URL
+  useEffect(() => {
+    const checkinId = searchParams.get("checkin");
+    if (checkinId && !checkinDone.current) {
+      checkinDone.current = true;
+      fetch("/api/trainings/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ training_id: checkinId }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.message) toast.success(`Checked in: ${d.training || "Training"}`);
+          else toast.error(d.error || "Check-in failed");
+          load();
+        })
+        .catch(() => toast.error("Check-in failed"));
+    }
+  }, [searchParams]);
 
   function load() {
     setLoading(true);

@@ -13,8 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import {
   GraduationCap, Plus, Trash2, Calendar, MapPin, Clock, Users,
-  Video, Building, Pencil, UserCheck, Loader2, ExternalLink,
+  Video, Building, Pencil, UserCheck, Loader2, ExternalLink, QrCode,
 } from "lucide-react";
+import QRCode from "qrcode";
 import { formatDate } from "@/lib/utils";
 
 interface Training {
@@ -61,6 +62,8 @@ export default function AdminTrainingsPage() {
   const [editTraining, setEditTraining] = useState<Training | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [qrTitle, setQrTitle] = useState("");
 
   function load() {
     setLoading(true);
@@ -127,6 +130,13 @@ export default function AdminTrainingsPage() {
     });
     if (res.ok) { toast.success("Status updated"); load(); }
     else toast.error("Failed to update status");
+  }
+
+  async function showQR(id: string, title: string) {
+    const checkinUrl = `${window.location.origin}/dashboard/trainings?checkin=${id}`;
+    const dataUrl = await QRCode.toDataURL(checkinUrl, { width: 300, margin: 2 });
+    setQrUrl(dataUrl);
+    setQrTitle(title);
   }
 
   async function handleDelete(id: string) {
@@ -312,6 +322,11 @@ export default function AdminTrainingsPage() {
                           {t.status === "ongoing" && (
                             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleStatusChange(t.id, "completed")}>Complete</Button>
                           )}
+                          {(t.status === "upcoming" || t.status === "ongoing") && (
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="QR Check-in" onClick={() => showQR(t.id, t.title)}>
+                              <QrCode size={14} />
+                            </Button>
+                          )}
                           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { openEdit(t); }}>
                             <Pencil size={14} />
                           </Button>
@@ -328,6 +343,19 @@ export default function AdminTrainingsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* QR Code Dialog */}
+      <Dialog open={!!qrUrl} onOpenChange={(v) => { if (!v) { setQrUrl(null); setQrTitle(""); } }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader><DialogTitle className="text-center text-sm">QR Check-in</DialogTitle></DialogHeader>
+          <div className="text-center space-y-3">
+            <p className="text-sm font-medium">{qrTitle}</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {qrUrl && <img src={qrUrl} alt="QR Code" className="mx-auto rounded-lg" />}
+            <p className="text-xs text-muted-foreground">Members scan this QR code to mark attendance</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

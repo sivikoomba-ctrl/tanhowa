@@ -383,6 +383,7 @@ const translations = {
   "nav.trainings": { en: "Trainings", ta: "பயிற்சிகள்" },
   "nav.analytics": { en: "Analytics", ta: "பகுப்பாய்வு" },
   "nav.search": { en: "Search", ta: "தேடல்" },
+  "nav.my_activity": { en: "My Activity", ta: "எனது செயல்பாடு" },
 
   // AI Tool components
   "ai.click_upload_plant": { en: "Click to upload a plant photo", ta: "தாவர புகைப்படத்தைப் பதிவேற்ற கிளிக் செய்யவும்" },
