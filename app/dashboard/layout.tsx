@@ -14,6 +14,7 @@ import {
   FileText,
   MessageSquareWarning,
   Lightbulb,
+  TicketCheck,
   Receipt,
   Wallet,
   LogOut,
@@ -278,7 +279,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const [feedbackOpen, setFeedbackOpen] = useState(
-    pathname === "/dashboard/suggestions" || pathname === "/dashboard/grievances"
+    pathname === "/dashboard/suggestions" || pathname === "/dashboard/grievances" || pathname === "/dashboard/service-requests"
   );
 
   const t = useT();
@@ -286,6 +287,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   function NavLinks({ onItemClick }: { onItemClick?: () => void }) {
     const feedbackItems = [
       { href: "/dashboard/suggestions", labelKey: "nav.suggestions" as const, icon: Lightbulb },
+      { href: "/dashboard/service-requests", labelKey: "nav.service_requests" as const, icon: TicketCheck },
       { href: "/dashboard/grievances", labelKey: "nav.grievances" as const, icon: MessageSquareWarning },
     ];
     const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);

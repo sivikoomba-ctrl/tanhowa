@@ -11,6 +11,7 @@ export type ContributionAction =
   | "event_created"
   | "document_uploaded"
   | "suggestion_submitted"
+  | "service_request_submitted"
   | "grievance_submitted"
   | "grievance_responded"
   | "task_created"
@@ -44,6 +45,7 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   event_created:           { label: "Created event", minutes: 10 },
   document_uploaded:       { label: "Uploaded document", minutes: 5 },
   suggestion_submitted:    { label: "Submitted suggestion", minutes: 5 },
+  service_request_submitted: { label: "Submitted service request", minutes: 5 },
   grievance_submitted:     { label: "Submitted grievance", minutes: 5 },
   grievance_responded:     { label: "Responded to grievance", minutes: 5 },
   task_created:            { label: "Created task", minutes: 5 },

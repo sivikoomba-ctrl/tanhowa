@@ -6,6 +6,8 @@ import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { translateContent, getTranslations } from "@/lib/translate-content";
 
+const SERVICE_REQUEST_CATEGORIES = ["Transfer", "Training", "Legal Help", "Certificate", "Letter/Recommendation", "Welfare", "IT Support", "Other Service"];
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
@@ -24,11 +26,13 @@ export async function GET(req: NextRequest) {
       .select("*, users(name)")
       .order("created_at", { ascending: false });
 
-    // Filter by type: "suggestion" shows only Suggestion category, "grievance" excludes it
+    // Filter by type
     if (type === "suggestion") {
       query = query.eq("category", "Suggestion");
+    } else if (type === "service-request") {
+      query = query.in("category", SERVICE_REQUEST_CATEGORIES);
     } else if (type === "grievance") {
-      query = query.neq("category", "Suggestion");
+      query = query.neq("category", "Suggestion").not("category", "in", `(${SERVICE_REQUEST_CATEGORIES.join(",")})`);
     }
 
     const dbRole = await getDbRole(session.userId);
@@ -92,7 +96,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to submit grievance" }, { status: 500 });
     }
 
-    logContribution(session.userId, body.category === "Suggestion" ? "suggestion_submitted" : "grievance_submitted", "Submitted: " + body.subject);
+    const actionType = body.category === "Suggestion" ? "suggestion_submitted"
+      : SERVICE_REQUEST_CATEGORIES.includes(body.category) ? "service_request_submitted"
+      : "grievance_submitted";
+    logContribution(session.userId, actionType, "Submitted: " + body.subject);
 
     return NextResponse.json({ grievance: data });
   } catch (error) {

@@ -13,6 +13,7 @@ import {
   FileText,
   MessageSquareWarning,
   Lightbulb,
+  TicketCheck,
   Receipt,
   Wallet,
   UsersRound,
@@ -134,13 +135,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const t = useT();
 
   const [feedbackOpen, setFeedbackOpen] = useState(
-    pathname === "/admin/suggestions" || pathname === "/admin/grievances"
+    pathname === "/admin/suggestions" || pathname === "/admin/grievances" || pathname === "/admin/service-requests"
   );
 
   if (!isAdmin) return null;
 
   const feedbackItems = [
     { href: "/admin/suggestions", labelKey: "nav.suggestions" as const, icon: Lightbulb },
+    { href: "/admin/service-requests", labelKey: "nav.service_requests" as const, icon: TicketCheck },
     { href: "/admin/grievances", labelKey: "nav.grievances" as const, icon: MessageSquareWarning },
   ];
   const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);
