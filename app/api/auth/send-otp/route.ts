@@ -3,6 +3,8 @@ import { getServiceClient } from "@/lib/supabase";
 import { sendOTPEmail } from "@/lib/mail";
 import { logError } from "@/lib/error-logger";
 
+const OTP_PURPOSE_LOGIN = "login";
+
 export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json();
@@ -21,12 +23,14 @@ export async function POST(req: NextRequest) {
       .from("otp_codes")
       .update({ used: true })
       .eq("email", email.toLowerCase())
+      .eq("purpose", OTP_PURPOSE_LOGIN)
       .eq("used", false);
 
     // Store new OTP
     const { error: dbError } = await supabase.from("otp_codes").insert({
       email: email.toLowerCase(),
       code: otp,
+      purpose: OTP_PURPOSE_LOGIN,
       expires_at: expiresAt.toISOString(),
     });
 

@@ -4,6 +4,8 @@ import { sendTelegramMessage } from "@/lib/telegram";
 import { sendOTPEmail } from "@/lib/mail";
 import { logError } from "@/lib/error-logger";
 
+const OTP_PURPOSE_TELEGRAM_LINK = "telegram_link";
+
 interface TelegramUpdate {
   message?: {
     chat: { id: number };
@@ -162,6 +164,7 @@ export async function POST(req: NextRequest) {
         .select("id")
         .eq("email", email)
         .eq("code", code)
+        .eq("purpose", OTP_PURPOSE_TELEGRAM_LINK)
         .eq("used", false)
         .gt("expires_at", new Date().toISOString())
         .order("created_at", { ascending: false })
@@ -209,11 +212,25 @@ export async function POST(req: NextRequest) {
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-      await supabase.from("otp_codes").insert({
+      await supabase
+        .from("otp_codes")
+        .update({ used: true })
+        .eq("email", email)
+        .eq("purpose", OTP_PURPOSE_TELEGRAM_LINK)
+        .eq("used", false);
+
+      const { error: otpInsertError } = await supabase.from("otp_codes").insert({
         email,
         code: otp,
+        purpose: OTP_PURPOSE_TELEGRAM_LINK,
         expires_at: expiresAt,
       });
+
+      if (otpInsertError) {
+        await sendTelegramMessage(chatId, "❌ Failed to generate a verification code right now. Please try again.");
+        return NextResponse.json({ ok: true });
+      }
+
       await sendOTPEmail(email, otp);
       await sendTelegramMessage(
         chatId,

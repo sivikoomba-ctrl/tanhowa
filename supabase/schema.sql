@@ -23,6 +23,7 @@ CREATE TABLE otp_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT NOT NULL,
   code TEXT NOT NULL,
+  purpose TEXT NOT NULL DEFAULT 'login',
   expires_at TIMESTAMPTZ NOT NULL,
   used BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -78,11 +79,13 @@ INSERT INTO site_settings (key, value) VALUES
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_status ON users(status);
 CREATE INDEX idx_otp_email ON otp_codes(email);
+CREATE INDEX idx_otp_email_purpose ON otp_codes(email, purpose);
 CREATE INDEX idx_announcements_published ON announcements(published);
 CREATE INDEX idx_events_date ON events(date);
 
 -- Users posting details (added after initial schema)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS posting_details JSONB DEFAULT '{}';
+ALTER TABLE otp_codes ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'login';
 
 -- Documents extras (added after initial schema)
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';

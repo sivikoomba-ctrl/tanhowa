@@ -3,6 +3,8 @@ import { getServiceClient } from "@/lib/supabase";
 import { createSession, DEFAULT_ADMIN_EMAIL } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
+const OTP_PURPOSE_LOGIN = "login";
+
 export async function POST(req: NextRequest) {
   try {
     const { email, code } = await req.json();
@@ -20,6 +22,7 @@ export async function POST(req: NextRequest) {
       .select("*")
       .eq("email", normalizedEmail)
       .eq("code", code)
+      .eq("purpose", OTP_PURPOSE_LOGIN)
       .eq("used", false)
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })

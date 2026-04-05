@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSendTelegramMessage = vi.fn();
 const mockSendOTPEmail = vi.fn();
+const mockOtpUpdateEqUsed = vi.fn(async () => ({ error: null }));
+const mockOtpUpdateEqPurpose = vi.fn(() => ({ eq: mockOtpUpdateEqUsed }));
+const mockOtpUpdateEqEmail = vi.fn(() => ({ eq: mockOtpUpdateEqPurpose }));
 const mockInsert = vi.fn(async () => ({ error: null }));
 const mockUpdateEq = vi.fn(async () => ({ error: null }));
 const mockUpdate = vi.fn(() => ({ eq: mockUpdateEq }));
@@ -45,7 +48,7 @@ vi.mock("@/lib/supabase", () => ({
               })),
             })),
           })),
-          update: vi.fn(() => ({ eq: vi.fn(async () => ({ error: null })) })),
+          update: vi.fn(() => ({ eq: mockOtpUpdateEqEmail })),
         };
       }
       if (table === "todos") {
@@ -87,7 +90,14 @@ describe("POST /api/telegram/webhook", () => {
     } as never);
 
     expect(response.status).toBe(200);
+    expect(mockOtpUpdateEqEmail).toHaveBeenCalledWith("email", "member@example.com");
+    expect(mockOtpUpdateEqPurpose).toHaveBeenCalledWith("purpose", "telegram_link");
+    expect(mockOtpUpdateEqUsed).toHaveBeenCalledWith("used", false);
     expect(mockInsert).toHaveBeenCalledOnce();
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+      email: "member@example.com",
+      purpose: "telegram_link",
+    }));
     expect(mockSendOTPEmail).toHaveBeenCalledOnce();
     expect(mockUpdate).not.toHaveBeenCalled();
     expect(mockSendTelegramMessage).toHaveBeenCalledWith(
