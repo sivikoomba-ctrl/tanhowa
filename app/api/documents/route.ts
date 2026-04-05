@@ -5,6 +5,7 @@ import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { resolveDocumentUrl } from "@/lib/document-urls";
+import { getGemini } from "@/lib/gemini";
 
 export async function GET(req: NextRequest) {
   try {
@@ -133,6 +134,29 @@ export async function POST(req: NextRequest) {
 
     logContribution(session.userId, "document_uploaded", "Uploaded document: " + body.title);
     logAudit(session.userId, "document_uploaded", "document", data.id);
+
+    // Auto-summarize document (fire-and-forget)
+    if (body.file_url && (body.file_type === "application/pdf" || body.file_type?.startsWith("image/"))) {
+      (async () => {
+        try {
+          const fileRes = await fetch(body.file_url);
+          if (!fileRes.ok) return;
+          const buffer = Buffer.from(await fileRes.arrayBuffer());
+          if (buffer.length > 10 * 1024 * 1024) return; // Skip files > 10MB
+
+          const genAI = getGemini();
+          const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+          const result = await model.generateContent([
+            { inlineData: { data: buffer.toString("base64"), mimeType: body.file_type } },
+            { text: "Summarize this document in 2-3 sentences. Focus on the main purpose, key details, and any action items. If in Tamil, summarize in both Tamil and English. Be concise." },
+          ]);
+          const summary = result.response.text().trim();
+          if (summary) {
+            await supabase.from("documents").update({ summary }).eq("id", data.id);
+          }
+        } catch { /* silent */ }
+      })();
+    }
 
     return NextResponse.json({ document: data });
   } catch (error) {

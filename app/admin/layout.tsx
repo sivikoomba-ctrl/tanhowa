@@ -49,6 +49,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useT } from "@/lib/i18n";
 import { SettingsPopover } from "@/components/settings-popover";
+import { GlobalSearch } from "@/components/global-search";
 
 const adminNavItems = [
   { href: "/admin", labelKey: "nav.dashboard" as const, icon: LayoutDashboard },
@@ -275,6 +276,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {user?.status && (
             <p className="text-[10px] text-sidebar-foreground/40 capitalize">{user.status}</p>
           )}
+        </div>
+
+        <div className="px-3 pt-2">
+          <GlobalSearch />
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">

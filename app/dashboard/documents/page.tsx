@@ -33,6 +33,7 @@ interface Document {
   file_type: string;
   category: string;
   approved: boolean;
+  summary?: string;
   created_at: string;
   users?: { name: string };
 }
@@ -446,6 +447,9 @@ export default function DocumentsPage() {
                     <h3 className="font-semibold text-sm leading-tight">{doc.title}</h3>
                     {doc.description && (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{doc.description}</p>
+                    )}
+                    {doc.summary && (
+                      <p className="text-xs text-blue-600/80 mt-1 line-clamp-2 italic">AI: {doc.summary}</p>
                     )}
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
                       {doc.category && (

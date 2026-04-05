@@ -47,6 +47,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useT } from "@/lib/i18n";
 import { SettingsPopover } from "@/components/settings-popover";
+import { GlobalSearch } from "@/components/global-search";
 
 interface UserData {
   name: string;
@@ -414,6 +415,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {user?.name && (
             <p className="mt-1.5 text-xs text-sidebar-foreground/60 truncate">{user.name}</p>
           )}
+        </div>
+
+        <div className="px-3 pt-2">
+          <GlobalSearch />
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">

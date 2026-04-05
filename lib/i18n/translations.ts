@@ -382,6 +382,7 @@ const translations = {
   "ai.expense_ocr_desc": { en: "Extract expense details from receipt or invoice photos", ta: "ரசீது அல்லது விலைப்பட்டியல் புகைப்படங்களிலிருந்து செலவு விவரங்களைப் பிரித்தெடுக்கவும்" },
   "nav.trainings": { en: "Trainings", ta: "பயிற்சிகள்" },
   "nav.analytics": { en: "Analytics", ta: "பகுப்பாய்வு" },
+  "nav.search": { en: "Search", ta: "தேடல்" },
 
   // AI Tool components
   "ai.click_upload_plant": { en: "Click to upload a plant photo", ta: "தாவர புகைப்படத்தைப் பதிவேற்ற கிளிக் செய்யவும்" },
