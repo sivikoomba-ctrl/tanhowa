@@ -13,6 +13,7 @@ import {
   Building, UserCheck, UserX, Loader2, ExternalLink,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 interface Training {
   id: string;
@@ -103,9 +104,10 @@ export default function TrainingsPage() {
     else toast.error("Failed to cancel");
   }
 
-  const upcoming = trainings.filter((t) => t.status === "upcoming" || t.status === "ongoing");
-  const enrolled = trainings.filter((t) => t.user_enrolled === "enrolled" || t.user_enrolled === "attended");
-  const completed = trainings.filter((t) => t.status === "completed");
+  const upcoming = trainings.filter((tr) => tr.status === "upcoming" || tr.status === "ongoing");
+  const enrolled = trainings.filter((tr) => tr.user_enrolled === "enrolled" || tr.user_enrolled === "attended");
+  const completed = trainings.filter((tr) => tr.status === "completed");
+  const t = useT();
 
   return (
     <div className="space-y-6">
@@ -114,84 +116,84 @@ export default function TrainingsPage() {
           <GraduationCap size={20} className="text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Trainings</h1>
-          <p className="text-sm text-muted-foreground">Browse and enroll in training sessions</p>
+          <h1 className="text-2xl font-bold">{t("nav.trainings")}</h1>
+          <p className="text-sm text-muted-foreground">{t("training.browse_enroll")}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <MetricCard label="Upcoming" value={upcoming.length} icon={Calendar} borderColor="border-blue-500" loading={loading} />
-        <MetricCard label="My Enrollments" value={enrolled.length} icon={UserCheck} borderColor="border-green-500" loading={loading} />
-        <MetricCard label="Completed" value={completed.length} icon={GraduationCap} borderColor="border-gray-500" loading={loading} />
+        <MetricCard label={t("training.upcoming")} value={upcoming.length} icon={Calendar} borderColor="border-blue-500" loading={loading} />
+        <MetricCard label={t("training.my_enrollments")} value={enrolled.length} icon={UserCheck} borderColor="border-green-500" loading={loading} />
+        <MetricCard label={t("training.completed")} value={completed.length} icon={GraduationCap} borderColor="border-gray-500" loading={loading} />
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : trainings.length === 0 ? (
-        <EmptyState icon={GraduationCap} title="No trainings available yet" />
+        <EmptyState icon={GraduationCap} title={t("training.no_trainings")} />
       ) : (
         <div className="space-y-3">
-          {trainings.map((t) => {
-            const config = statusConfig[t.status] || statusConfig.upcoming;
-            const ModeIcon = modeIcons[t.mode] || Building;
-            const isFull = t.max_participants > 0 && t.enrolled_count >= t.max_participants;
-            const canEnroll = (t.status === "upcoming" || t.status === "ongoing") && !t.user_enrolled && !isFull;
-            const isEnrolled = t.user_enrolled === "enrolled";
+          {trainings.map((tr) => {
+            const config = statusConfig[tr.status] || statusConfig.upcoming;
+            const ModeIcon = modeIcons[tr.mode] || Building;
+            const isFull = tr.max_participants > 0 && tr.enrolled_count >= tr.max_participants;
+            const canEnroll = (tr.status === "upcoming" || tr.status === "ongoing") && !tr.user_enrolled && !isFull;
+            const isEnrolled = tr.user_enrolled === "enrolled";
 
             return (
-              <Card key={t.id} className="hover:shadow-sm transition-shadow">
+              <Card key={tr.id} className="hover:shadow-sm transition-shadow">
                 <CardContent className="pt-4 pb-4">
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold">{t.title}</h3>
+                        <h3 className="font-semibold">{tr.title}</h3>
                         <Badge variant="outline" className={config.color}>{config.label}</Badge>
-                        {t.topic && <Badge variant="outline" className="text-xs">{t.topic}</Badge>}
+                        {tr.topic && <Badge variant="outline" className="text-xs">{tr.topic}</Badge>}
                       </div>
-                      {t.description && <p className="text-sm text-muted-foreground mt-1">{t.description}</p>}
+                      {tr.description && <p className="text-sm text-muted-foreground mt-1">{tr.description}</p>}
 
                       <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><UserCheck size={12} />Trainer: {t.trainer_name}</span>
-                        {t.date && <span className="flex items-center gap-1"><Calendar size={12} />{formatDate(t.date)}</span>}
-                        {t.duration_hours > 0 && <span className="flex items-center gap-1"><Clock size={12} />{t.duration_hours}h</span>}
-                        {t.location && <span className="flex items-center gap-1"><MapPin size={12} />{t.location}</span>}
-                        <span className="flex items-center gap-1"><ModeIcon size={12} />{t.mode}</span>
+                        <span className="flex items-center gap-1"><UserCheck size={12} />{t("training.trainer")}: {tr.trainer_name}</span>
+                        {tr.date && <span className="flex items-center gap-1"><Calendar size={12} />{formatDate(tr.date)}</span>}
+                        {tr.duration_hours > 0 && <span className="flex items-center gap-1"><Clock size={12} />{tr.duration_hours}h</span>}
+                        {tr.location && <span className="flex items-center gap-1"><MapPin size={12} />{tr.location}</span>}
+                        <span className="flex items-center gap-1"><ModeIcon size={12} />{tr.mode}</span>
                         <span className="flex items-center gap-1">
-                          <Users size={12} />{t.enrolled_count}{t.max_participants > 0 ? `/${t.max_participants}` : ""} enrolled
+                          <Users size={12} />{tr.enrolled_count}{tr.max_participants > 0 ? `/${tr.max_participants}` : ""} {t("training.enrolled_label")}
                         </span>
                       </div>
 
-                      {t.meeting_link && t.mode !== "offline" && (
-                        <a href={t.meeting_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1">
-                          <Video size={12} />Join Meeting
+                      {tr.meeting_link && tr.mode !== "offline" && (
+                        <a href={tr.meeting_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1">
+                          <Video size={12} />{t("training.join_meeting")}
                         </a>
                       )}
-                      {t.materials_url && (
-                        <a href={t.materials_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 ml-3 inline-flex items-center gap-1">
-                          <ExternalLink size={12} />Materials
+                      {tr.materials_url && (
+                        <a href={tr.materials_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 ml-3 inline-flex items-center gap-1">
+                          <ExternalLink size={12} />{t("training.materials")}
                         </a>
                       )}
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
                       {canEnroll && (
-                        <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleEnroll(t.id)} disabled={enrolling === t.id}>
-                          {enrolling === t.id ? <Loader2 size={14} className="animate-spin mr-1" /> : <UserCheck size={14} className="mr-1" />}
-                          Enroll
+                        <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleEnroll(tr.id)} disabled={enrolling === tr.id}>
+                          {enrolling === tr.id ? <Loader2 size={14} className="animate-spin mr-1" /> : <UserCheck size={14} className="mr-1" />}
+                          {t("training.enroll")}
                         </Button>
                       )}
                       {isEnrolled && (
                         <>
-                          <Badge className="bg-green-100 text-green-700 border-green-300">Enrolled</Badge>
-                          {t.status === "upcoming" && (
-                            <Button size="sm" variant="outline" className="text-xs" onClick={() => handleCancel(t.id)}>
-                              <UserX size={14} className="mr-1" />Cancel
+                          <Badge className="bg-green-100 text-green-700 border-green-300">{t("training.enrolled_status")}</Badge>
+                          {tr.status === "upcoming" && (
+                            <Button size="sm" variant="outline" className="text-xs" onClick={() => handleCancel(tr.id)}>
+                              <UserX size={14} className="mr-1" />{t("common.cancel")}
                             </Button>
                           )}
                         </>
                       )}
-                      {t.user_enrolled === "attended" && <Badge className="bg-blue-100 text-blue-700 border-blue-300">Attended</Badge>}
-                      {isFull && !t.user_enrolled && <Badge variant="outline" className="text-amber-600">Full</Badge>}
+                      {tr.user_enrolled === "attended" && <Badge className="bg-blue-100 text-blue-700 border-blue-300">{t("training.attended")}</Badge>}
+                      {isFull && !tr.user_enrolled && <Badge variant="outline" className="text-amber-600">{t("training.full")}</Badge>}
                     </div>
                   </div>
                 </CardContent>
