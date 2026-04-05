@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [errorCount, setErrorCount] = useState(0);
   const [isFinanceTeam, setIsFinanceTeam] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0 });
+  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0, draftAnnouncements: 0 });
   const router = useRouter();
   const pathname = usePathname();
 
@@ -410,6 +410,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       <span className="text-sm font-medium">{t("notif.active_tasks")}</span>
                     </div>
                     <Badge variant="secondary">{notifications.tasks}</Badge>
+                  </Link>
+                )}
+                {notifications.draftAnnouncements > 0 && (
+                  <Link href="/admin/announcements" onClick={() => setShowNotifications(false)} className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors border-amber-200 bg-amber-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-amber-500/10">
+                        <Megaphone size={16} className="text-amber-600" />
+                      </div>
+                      <span className="text-sm font-medium">Draft Announcements — Pending Approval</span>
+                    </div>
+                    <Badge className="bg-amber-100 text-amber-700 border-amber-300">{notifications.draftAnnouncements}</Badge>
                   </Link>
                 )}
               </>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, SUPER_ADMIN_EMAILS } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 export async function GET() {
@@ -59,7 +59,18 @@ export async function GET() {
     const pendingSubs = pendingSubsRes.count || 0;
     const activeTasks = assignedTodosRes.count || 0;
     const volunteerInvites = volunteerInviteRes.count || 0;
-    const total = newAnnouncements + pendingSubs + activeTasks + volunteerInvites;
+
+    // Draft announcements pending approval (only for super admin emails)
+    let draftAnnouncements = 0;
+    if (SUPER_ADMIN_EMAILS.has(session.email)) {
+      const { count } = await supabase
+        .from("announcements")
+        .select("id", { count: "exact", head: true })
+        .eq("published", false);
+      draftAnnouncements = count || 0;
+    }
+
+    const total = newAnnouncements + pendingSubs + activeTasks + volunteerInvites + draftAnnouncements;
 
     return NextResponse.json({
       total,
@@ -67,6 +78,7 @@ export async function GET() {
       subscriptions: pendingSubs,
       tasks: activeTasks,
       volunteerInvites,
+      draftAnnouncements,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
