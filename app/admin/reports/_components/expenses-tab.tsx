@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Download, FileText, CheckCircle, Clock, FileDown, Receipt, XCircle } from "lucide-react";
+import { Download, FileText, CheckCircle, Clock, FileDown, Receipt, XCircle, Sheet } from "lucide-react";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Bar, BarChart, Cell, Legend, Pie, PieChart, XAxis } from "recharts";
@@ -179,6 +180,14 @@ export function ExpensesTab() {
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={downloadExpensePDF} disabled={vouchers.length === 0}><FileDown size={14} className="mr-2" /> PDF</Button>
         <Button variant="outline" onClick={downloadExpenseCSV} disabled={vouchers.length === 0}><Download size={14} className="mr-2" /> CSV</Button>
+        <Button variant="outline" onClick={() => {
+          if (vouchers.length === 0) { toast.error("No data"); return; }
+          const sheets = [];
+          if (byCategory.length > 0) sheets.push({ name: "By Category", data: byCategory.map((c) => ({ Category: c.category, Count: c.count, Approved: c.approved, Pending: c.pending, Rejected: c.rejected })) });
+          if (byOfficial.length > 0) sheets.push({ name: "By Official", data: byOfficial.map((o) => ({ Official: o.name, Type: o.official_type, Count: o.count, Approved: o.approved, Pending: o.pending })) });
+          sheets.push({ name: "Vouchers", data: vouchers.map((v) => ({ Title: v.title, Amount: v.amount, Category: v.category, Status: v.status, "Invoice No": v.invoice_number, Vendor: v.vendor_name, "Expense Date": v.expense_date || "", Official: v.submitter_name, "Created At": v.created_at })) });
+          downloadXlsx(sheets, "Expenses-Report");
+        }} disabled={vouchers.length === 0}><Sheet size={14} className="mr-2" /> Excel</Button>
       </div>
 
       {/* Filters */}

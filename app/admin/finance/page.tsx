@@ -293,6 +293,20 @@ export default function FinancePage() {
             {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             Export PDF
           </Button>
+          <Button variant="outline" className="gap-1.5" onClick={() => {
+            if (ledger.length === 0) return;
+            import("@/lib/export-xlsx").then(({ downloadXlsx }) => {
+              const sheets = [
+                { name: "Ledger", data: filtered.map((e) => ({ Date: e.date, Member: e.member_name, Phone: e.member_phone, District: e.district, Period: e.period, Credit: e.credit, "Payment Method": e.payment_method, "Transaction ID": e.transaction_id, Remarks: e.remarks })) },
+                { name: "By Period", data: byPeriod.map((p) => ({ Period: p.period, Count: p.count, Total: p.total })) },
+                { name: "By District", data: byDistrict.map((d) => ({ District: d.district, Count: d.count, Total: d.total })) },
+              ];
+              downloadXlsx(sheets, `Finance-${year}`);
+            });
+          }} disabled={ledger.length === 0}>
+            <FileText size={14} />
+            Export Excel
+          </Button>
         </div>
       </div>
 

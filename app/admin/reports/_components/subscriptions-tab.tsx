@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Download, FileText, CheckCircle, Clock, AlertTriangle, FileDown, IndianRupee, Users } from "lucide-react";
+import { Download, FileText, CheckCircle, Clock, AlertTriangle, FileDown, IndianRupee, Users, Sheet } from "lucide-react";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
@@ -175,6 +176,16 @@ export function SubscriptionsTab() {
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={downloadPDF} disabled={members.length === 0}><FileDown size={14} className="mr-2" /> PDF</Button>
         <Button variant="outline" onClick={downloadCSV} disabled={members.length === 0}><Download size={14} className="mr-2" /> CSV</Button>
+        <Button variant="outline" onClick={() => {
+          if (members.length === 0) { toast.error("No data"); return; }
+          const label = district === "all" ? "State" : district;
+          const sheets = [];
+          if (districtSummary.length > 0) {
+            sheets.push({ name: "District Summary", data: districtSummary.map((d) => ({ District: d.district, Total: d.total, Paid: d.paid, Pending: d.pending, Overdue: d.overdue, Amount: d.amount })) });
+          }
+          sheets.push({ name: "Members", data: members.map((m) => ({ Name: m.name, Email: m.email, Phone: m.phone, Designation: m.occupation, District: m.district, Block: m.block, Period: m.period, Amount: m.amount, Status: m.status, "Paid At": m.paid_at || "", "Payment Method": m.payment_method || "", "Transaction ID": m.transaction_id || "" })) });
+          downloadXlsx(sheets, `Subscriptions-${label}-${period === "all" ? "All" : period}`);
+        }} disabled={members.length === 0}><Sheet size={14} className="mr-2" /> Excel</Button>
       </div>
 
       {/* Filters */}
