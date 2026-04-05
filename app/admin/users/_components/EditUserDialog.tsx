@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Pencil } from "lucide-react";
+import { DateDropdowns } from "@/components/date-dropdowns";
 import { DISTRICT_NAMES, getBlocks } from "@/lib/tn-districts";
 
 interface PostingDetails {
@@ -169,7 +170,7 @@ export default function EditUserDialog({ user, open, onOpenChange, onSave }: Edi
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-sm">Date of Birth</Label>
-              <Input type="date" value={editForm.dob} onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })} />
+              <DateDropdowns value={editForm.dob} onChange={(v) => setEditForm({ ...editForm, dob: v })} minYear={1940} maxYear={new Date().getFullYear() - 18} />
             </div>
             <div>
               <Label className="text-sm">Gender</Label>

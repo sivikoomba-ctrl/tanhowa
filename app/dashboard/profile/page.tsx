@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
 import { useT } from "@/lib/i18n";
+import { DateDropdowns } from "@/components/date-dropdowns";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import jsPDF from "jspdf";
 
@@ -636,7 +637,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("form.dob")} *</Label>
-                    <Input type="date" value={profile.dob} onChange={(e) => setProfile({ ...profile, dob: e.target.value })} min={minDate} max={maxDate} className="mt-1" />
+                    <DateDropdowns value={profile.dob} onChange={(v) => setProfile({ ...profile, dob: v })} minYear={1940} maxYear={new Date().getFullYear() - 18} className="mt-1" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("form.gender")} *</Label>
@@ -651,7 +652,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("profile.date_of_joining")}</Label>
-                    <Input type="date" value={profile.date_of_joining} onChange={(e) => setProfile({ ...profile, date_of_joining: e.target.value })} className="mt-1" />
+                    <DateDropdowns value={profile.date_of_joining} onChange={(v) => setProfile({ ...profile, date_of_joining: v })} minYear={1970} maxYear={new Date().getFullYear()} className="mt-1" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">{t("form.designation")} *</Label>
