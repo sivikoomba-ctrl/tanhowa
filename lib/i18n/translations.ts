@@ -591,6 +591,7 @@ const translations = {
   // --- Dropdown options: Designation ---
   "opt.ho": { en: "Horticultural Officer", ta: "தோட்டக்கலை அலுவலர்" },
   "opt.adh": { en: "Assistant Director of Horticulture", ta: "தோட்டக்கலை உதவி இயக்குநர்" },
+  "opt.adh_pm": { en: "Assistant Director of Horticulture (PM)", ta: "தோட்டக்கலை உதவி இயக்குநர் (PM)" },
   "opt.ddh": { en: "Deputy Director of Horticulture", ta: "தோட்டக்கலை துணை இயக்குநர்" },
   "opt.jdh": { en: "Joint Director of Horticulture", ta: "தோட்டக்கலை கூட்டு இயக்குநர்" },
   "opt.addh": { en: "Additional Director of Horticulture", ta: "தோட்டக்கலை கூடுதல் இயக்குநர்" },

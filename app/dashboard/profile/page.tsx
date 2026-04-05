@@ -27,6 +27,7 @@ const titleOptions = ["", "Mr.", "Mrs.", "Miss.", "Dr."];
 const occupationOptions: { value: string; key: TranslationKey }[] = [
   { value: "Horticultural Officer", key: "opt.ho" },
   { value: "Assistant Director of Horticulture", key: "opt.adh" },
+  { value: "Assistant Director of Horticulture (PM)", key: "opt.adh_pm" },
   { value: "Deputy Director of Horticulture", key: "opt.ddh" },
   { value: "Joint Director of Horticulture", key: "opt.jdh" },
   { value: "Additional Director of Horticulture", key: "opt.addh" },
