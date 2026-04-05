@@ -84,6 +84,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<any>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [errorCount, setErrorCount] = useState(0);
+  const [isFinanceTeam, setIsFinanceTeam] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0 });
   const router = useRouter();
@@ -98,7 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .then((d) => {
         if (!d.user) router.push("/");
         else if (d.user.role !== "admin" && d.user.role !== "super_admin" && !d.is_finance_team) router.push("/dashboard");
-        else { setIsAdmin(true); setUser(d.user); if (d.user.role === "super_admin") fetchErrorCount(); }
+        else { setIsAdmin(true); setUser(d.user); setIsFinanceTeam(!!d.is_finance_team); if (d.user.role === "super_admin") fetchErrorCount(); }
       })
       .catch(() => router.push("/"));
 
@@ -157,6 +158,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks"];
           if (superAdminOnly.includes(item.href)) return user?.role === "super_admin";
           if (item.href === "/admin/special-documents") return user?.email === "tanhowa19791@gmail.com";
+          if (item.href === "/admin/vouchers") return user?.role === "super_admin" || isFinanceTeam;
           return true;
         }).map((item) => {
           const isActive = pathname === item.href;

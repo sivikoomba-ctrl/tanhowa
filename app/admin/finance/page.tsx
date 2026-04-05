@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Link2,
 } from "lucide-react";
+import { FinanceOtpGate } from "@/components/finance-otp-gate";
 
 interface LinkedMember {
   name: string;
@@ -264,6 +265,7 @@ export default function FinancePage() {
   }
 
   return (
+    <FinanceOtpGate>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -482,5 +484,6 @@ export default function FinancePage() {
         </CardContent>
       </Card>
     </div>
+    </FinanceOtpGate>
   );
 }

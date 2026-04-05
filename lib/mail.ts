@@ -496,6 +496,241 @@ export async function sendVoucherStatusEmail(to: string, officialName: string, t
   `));
 }
 
+export async function generateVoucherPdf(voucher: {
+  id: string;
+  title: string;
+  amount: number;
+  description?: string;
+  invoice_number?: string;
+  vendor_name?: string;
+  expense_date?: string | null;
+  category?: string;
+  status: string;
+  remarks?: string;
+  created_at: string;
+  submitter_name?: string;
+  submitter_email?: string;
+  submitter_phone?: string;
+  submitter_official_type?: string;
+  approver_name?: string;
+  approved_at?: string | null;
+}): Promise<string> {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF();
+  const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const statusLabel = voucher.status === "approved" ? "APPROVED" : voucher.status === "rejected" ? "REJECTED" : "PENDING";
+
+  // Header
+  doc.setFontSize(20);
+  doc.setTextColor(45, 106, 79);
+  doc.setFont("helvetica", "bold");
+  doc.text("TANHOWA", 105, 18, { align: "center" });
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100);
+  doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, 25, { align: "center" });
+  doc.setFontSize(12);
+  doc.setTextColor(45, 106, 79);
+  doc.setFont("helvetica", "bold");
+  doc.text("EXPENSE VOUCHER", 105, 33, { align: "center" });
+
+  // Voucher number & date
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120);
+  doc.text(`Voucher #: ${voucher.id.substring(0, 8).toUpperCase()}`, 25, 40);
+  doc.text(`Date: ${today}`, 190, 40, { align: "right" });
+
+  doc.setDrawColor(45, 106, 79);
+  doc.setLineWidth(0.5);
+  doc.line(20, 43, 190, 43);
+
+  // Official details
+  let y = 52;
+  doc.setFontSize(9);
+  doc.setTextColor(45, 106, 79);
+  doc.setFont("helvetica", "bold");
+  doc.text("SUBMITTED BY", 25, y);
+  y += 7;
+
+  doc.setFontSize(10);
+  doc.setTextColor(0);
+  const officialRows: [string, string][] = [];
+  if (voucher.submitter_name) officialRows.push(["Name", voucher.submitter_name]);
+  if (voucher.submitter_email) officialRows.push(["Email", voucher.submitter_email]);
+  if (voucher.submitter_phone) officialRows.push(["Phone", voucher.submitter_phone]);
+  if (voucher.submitter_official_type) officialRows.push(["Type", voucher.submitter_official_type === "state" ? "State Official" : "District Official"]);
+  for (const [label, value] of officialRows) {
+    doc.setFont("helvetica", "bold");
+    doc.text(label, 25, y);
+    doc.setFont("helvetica", "normal");
+    doc.text(value, 80, y);
+    y += 7;
+  }
+
+  // Expense details
+  y += 3;
+  doc.setDrawColor(220);
+  doc.setLineWidth(0.2);
+  doc.line(20, y, 190, y);
+  y += 7;
+  doc.setFontSize(9);
+  doc.setTextColor(45, 106, 79);
+  doc.setFont("helvetica", "bold");
+  doc.text("EXPENSE DETAILS", 25, y);
+  y += 7;
+
+  doc.setFontSize(10);
+  doc.setTextColor(0);
+  const expenseRows: [string, string][] = [
+    ["Title", voucher.title],
+    ["Amount", `Rs. ${(voucher.amount || 0).toLocaleString("en-IN")}`],
+  ];
+  if (voucher.category) expenseRows.push(["Category", voucher.category]);
+  if (voucher.invoice_number) expenseRows.push(["Invoice No.", voucher.invoice_number]);
+  if (voucher.vendor_name) expenseRows.push(["Vendor / Payee", voucher.vendor_name]);
+  if (voucher.expense_date) {
+    expenseRows.push(["Expense Date", new Date(voucher.expense_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })]);
+  }
+  expenseRows.push(["Submitted On", new Date(voucher.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })]);
+  expenseRows.push(["Status", statusLabel]);
+  if (voucher.approver_name) expenseRows.push(["Approved By", voucher.approver_name]);
+  if (voucher.approved_at) {
+    expenseRows.push(["Approved Date", new Date(voucher.approved_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })]);
+  }
+
+  for (const [label, value] of expenseRows) {
+    doc.setFont("helvetica", "bold");
+    doc.text(label, 25, y);
+    doc.setFont("helvetica", "normal");
+    if (label === "Status") {
+      if (voucher.status === "approved") doc.setTextColor(34, 139, 34);
+      else if (voucher.status === "rejected") doc.setTextColor(220, 38, 38);
+      else doc.setTextColor(180, 130, 0);
+      doc.setFont("helvetica", "bold");
+    }
+    doc.text(value, 80, y);
+    doc.setTextColor(0);
+    y += 7;
+  }
+
+  // Description
+  if (voucher.description) {
+    y += 3;
+    doc.setDrawColor(220);
+    doc.setLineWidth(0.2);
+    doc.line(20, y, 190, y);
+    y += 7;
+    doc.setFontSize(9);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("DESCRIPTION", 25, y);
+    y += 6;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(60);
+    const descLines = doc.splitTextToSize(voucher.description, 160);
+    for (const line of descLines) {
+      doc.text(line, 25, y);
+      y += 5;
+    }
+  }
+
+  // Admin remarks
+  if (voucher.remarks) {
+    y += 3;
+    doc.setDrawColor(220);
+    doc.setLineWidth(0.2);
+    doc.line(20, y, 190, y);
+    y += 7;
+    doc.setFontSize(9);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("ADMIN REMARKS", 25, y);
+    y += 6;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(60);
+    const remarkLines = doc.splitTextToSize(voucher.remarks, 160);
+    for (const line of remarkLines) {
+      doc.text(line, 25, y);
+      y += 5;
+    }
+  }
+
+  // Signature
+  y += 8;
+  doc.setDrawColor(45, 106, 79);
+  doc.setLineWidth(0.3);
+  doc.line(20, y, 190, y);
+  y += 8;
+  doc.setFontSize(10);
+  doc.setTextColor(45, 106, 79);
+  doc.setFont("helvetica", "bold");
+  doc.text("President", 105, y, { align: "center" });
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, y, { align: "center" });
+
+  // Footer
+  y += 12;
+  doc.setDrawColor(200);
+  doc.line(20, y, 190, y);
+  y += 5;
+  doc.setFontSize(7);
+  doc.setTextColor(140);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Generated on ${today} from tanhowa.in`, 105, y, { align: "center" });
+  doc.text("This is a computer-generated document and does not require a signature.", 105, y + 4, { align: "center" });
+
+  const arrayBuffer = doc.output("arraybuffer");
+  return Buffer.from(arrayBuffer).toString("base64");
+}
+
+export async function sendVoucherReceiptEmail(
+  to: string,
+  officialName: string,
+  voucher: Parameters<typeof generateVoucherPdf>[0],
+) {
+  const pdfBase64 = await generateVoucherPdf(voucher);
+  const fileName = `TANHOWA-Voucher-${voucher.id.substring(0, 8).toUpperCase()}.pdf`;
+
+  await sendEmail(
+    to,
+    `TANHOWA Expense Voucher — ${voucher.title}`,
+    wrapEmailTemplate(`
+      <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Expense Voucher</h2>
+      <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+        Dear <strong>${officialName}</strong>,
+      </p>
+      <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+        Please find your expense voucher attached as PDF.
+      </p>
+      <div style="background: #f0fdf4; border-radius: 8px; padding: 16px; margin: 0 0 16px;">
+        <table style="width: 100%; font-size: 14px; color: #333;">
+          <tr>
+            <td style="padding: 4px 0; color: #666;">Expense</td>
+            <td style="padding: 4px 0; font-weight: 600; text-align: right;">${voucher.title}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #666;">Amount</td>
+            <td style="padding: 4px 0; font-weight: 600; text-align: right;">&#8377;${(voucher.amount || 0).toLocaleString("en-IN")}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #666;">Status</td>
+            <td style="padding: 4px 0; font-weight: 600; text-align: right;">${voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1)}</td>
+          </tr>
+        </table>
+      </div>
+      <div style="text-align: center;">
+        <a href="https://tanhowa.in/dashboard/vouchers" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">View My Vouchers</a>
+      </div>
+    `),
+    [{ content: pdfBase64, mime_type: "application/pdf", name: fileName }],
+  );
+}
+
 export async function sendNudgeOfficialEmail(to: string, officialName: string, district: string, pendingCount: number, totalAmount: number) {
   // Nudge emails bypass HOLD_MEMBER_EMAILS — they're for officials, not regular members
   await sendEmail(to, `${pendingCount} Pending Payments in ${district} — Action Needed`, wrapEmailTemplate(`

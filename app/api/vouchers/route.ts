@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin, isAdminOrOfficial, getDbRole } from "@/lib/auth";
+import { getSession, isAdmin, isAdminOrOfficial, getDbRole, isSuperAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { sendVoucherStatusEmail } from "@/lib/mail";
+
+const FINANCE_TEAM_ID = "1c09bb67-5df7-4d1a-9b08-e0860a350061";
+
+async function isFinanceTeamMember(userId: string): Promise<boolean> {
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("team_members")
+    .select("user_id")
+    .eq("team_id", FINANCE_TEAM_ID)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return !!data;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,7 +29,8 @@ export async function GET(req: NextRequest) {
     const supabase = getServiceClient();
     const url = new URL(req.url);
     const status = url.searchParams.get("status");
-    const dbRole = await getDbRole(session.userId);
+    const superAdmin = await isSuperAdmin(session);
+    const financeAccess = superAdmin || await isFinanceTeamMember(session.userId);
 
     let query = supabase
       .from("expense_vouchers")
@@ -27,8 +41,8 @@ export async function GET(req: NextRequest) {
       query = query.eq("status", status);
     }
 
-    // Officials see only their own; admins see all
-    if (dbRole !== "admin") {
+    // Finance team + super_admin see all vouchers; others see only their own
+    if (!financeAccess) {
       query = query.eq("submitted_by", session.userId);
     }
 
@@ -112,11 +126,12 @@ export async function PUT(req: NextRequest) {
     }
 
     const supabase = getServiceClient();
-    const admin = await isAdmin(session);
+    const superAdmin = await isSuperAdmin(session);
+    const financeAccess = superAdmin || await isFinanceTeamMember(session.userId);
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-    if (admin) {
+    if (financeAccess) {
       if (body.status !== undefined) {
         updates.status = body.status;
         if (body.status === "approved" || body.status === "rejected") {
@@ -138,7 +153,7 @@ export async function PUT(req: NextRequest) {
     }
 
     let query = supabase.from("expense_vouchers").update(updates).in("id", ids);
-    if (!admin) {
+    if (!financeAccess) {
       query = query.eq("submitted_by", session.userId).eq("status", "pending");
     }
 
@@ -150,7 +165,7 @@ export async function PUT(req: NextRequest) {
     }
 
     // Send email notifications for status changes (fire-and-forget)
-    if (admin && body.status && (body.status === "approved" || body.status === "rejected")) {
+    if (financeAccess && body.status && (body.status === "approved" || body.status === "rejected")) {
       (async () => {
         try {
           const { data: updatedVouchers } = await supabase
@@ -167,7 +182,7 @@ export async function PUT(req: NextRequest) {
       })();
     }
 
-    if (admin && body.status) {
+    if (financeAccess && body.status) {
       for (const vid of ids) {
         logAudit(session.userId, "voucher_" + body.status, "voucher", vid);
       }
@@ -195,10 +210,11 @@ export async function DELETE(req: NextRequest) {
     }
 
     const supabase = getServiceClient();
-    const admin = await isAdmin(session);
+    const superAdmin = await isSuperAdmin(session);
+    const financeAccess = superAdmin || await isFinanceTeamMember(session.userId);
 
     let query = supabase.from("expense_vouchers").delete().eq("id", id);
-    if (!admin) {
+    if (!financeAccess) {
       query = query.eq("submitted_by", session.userId).eq("status", "pending");
     }
 

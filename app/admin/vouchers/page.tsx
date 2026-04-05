@@ -11,8 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle } from "lucide-react";
+import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail } from "lucide-react";
+import jsPDF from "jspdf";
 import { formatDate } from "@/lib/utils";
+import { FinanceOtpGate } from "@/components/finance-otp-gate";
 
 const expenseCategories = ["Travel", "Printing", "Food & Refreshments", "Stationery", "Communication", "Venue & Hall", "Transport", "Miscellaneous"];
 const HIGH_AMOUNT_THRESHOLD = 10000;
@@ -218,7 +220,194 @@ export default function AdminVouchersPage() {
 
   const totalPending = vouchers.filter((v) => v.status === "pending").reduce((sum, v) => sum + (v.amount || 0), 0);
 
+  function downloadVoucherPdf(v: Voucher) {
+    const doc = new jsPDF();
+    const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const statusLabel = v.status === "approved" ? "APPROVED" : v.status === "rejected" ? "REJECTED" : "PENDING";
+
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("TANHOWA", 105, 18, { align: "center" });
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, 25, { align: "center" });
+    doc.setFontSize(12);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("EXPENSE VOUCHER", 105, 33, { align: "center" });
+
+    // Voucher number & date
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120);
+    doc.text(`Voucher #: ${v.id.substring(0, 8).toUpperCase()}`, 25, 40);
+    doc.text(`Date: ${today}`, 190, 40, { align: "right" });
+
+    doc.setDrawColor(45, 106, 79);
+    doc.setLineWidth(0.5);
+    doc.line(20, 43, 190, 43);
+
+    // Official details
+    let y = 52;
+    doc.setFontSize(9);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("SUBMITTED BY", 25, y);
+    y += 7;
+
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    const officialRows: [string, string][] = [];
+    if (v.submitter?.name) officialRows.push(["Name", v.submitter.name]);
+    if (v.submitter?.email) officialRows.push(["Email", v.submitter.email]);
+    if (v.submitter?.phone) officialRows.push(["Phone", v.submitter.phone]);
+    if (v.submitter?.official_type) officialRows.push(["Type", v.submitter.official_type === "state" ? "State Official" : "District Official"]);
+    for (const [label, value] of officialRows) {
+      doc.setFont("helvetica", "bold");
+      doc.text(label, 25, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(value, 80, y);
+      y += 7;
+    }
+
+    // Expense details
+    y += 3;
+    doc.setDrawColor(220);
+    doc.setLineWidth(0.2);
+    doc.line(20, y, 190, y);
+    y += 7;
+    doc.setFontSize(9);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("EXPENSE DETAILS", 25, y);
+    y += 7;
+
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    const expenseRows: [string, string][] = [
+      ["Title", v.title],
+      ["Amount", `Rs. ${(v.amount || 0).toLocaleString("en-IN")}`],
+    ];
+    if (v.category) expenseRows.push(["Category", v.category]);
+    if (v.invoice_number) expenseRows.push(["Invoice No.", v.invoice_number]);
+    if (v.vendor_name) expenseRows.push(["Vendor / Payee", v.vendor_name]);
+    if (v.expense_date) {
+      expenseRows.push(["Expense Date", new Date(v.expense_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })]);
+    }
+    expenseRows.push(["Submitted On", formatDate(v.created_at)]);
+    expenseRows.push(["Status", statusLabel]);
+    if (v.approver?.name) expenseRows.push(["Approved By", v.approver.name]);
+    if (v.approved_at) {
+      expenseRows.push(["Approved Date", new Date(v.approved_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })]);
+    }
+
+    for (const [label, value] of expenseRows) {
+      doc.setFont("helvetica", "bold");
+      doc.text(label, 25, y);
+      doc.setFont("helvetica", "normal");
+      if (label === "Status") {
+        if (v.status === "approved") doc.setTextColor(34, 139, 34);
+        else if (v.status === "rejected") doc.setTextColor(220, 38, 38);
+        else doc.setTextColor(180, 130, 0);
+        doc.setFont("helvetica", "bold");
+      }
+      doc.text(value, 80, y);
+      doc.setTextColor(0);
+      y += 7;
+    }
+
+    // Description
+    if (v.description) {
+      y += 3;
+      doc.setDrawColor(220);
+      doc.setLineWidth(0.2);
+      doc.line(20, y, 190, y);
+      y += 7;
+      doc.setFontSize(9);
+      doc.setTextColor(45, 106, 79);
+      doc.setFont("helvetica", "bold");
+      doc.text("DESCRIPTION", 25, y);
+      y += 6;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(60);
+      const descLines = doc.splitTextToSize(v.description, 160);
+      for (const line of descLines) {
+        doc.text(line, 25, y);
+        y += 5;
+      }
+    }
+
+    // Admin remarks
+    if (v.remarks) {
+      y += 3;
+      doc.setDrawColor(220);
+      doc.setLineWidth(0.2);
+      doc.line(20, y, 190, y);
+      y += 7;
+      doc.setFontSize(9);
+      doc.setTextColor(45, 106, 79);
+      doc.setFont("helvetica", "bold");
+      doc.text("ADMIN REMARKS", 25, y);
+      y += 6;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(60);
+      const remarkLines = doc.splitTextToSize(v.remarks, 160);
+      for (const line of remarkLines) {
+        doc.text(line, 25, y);
+        y += 5;
+      }
+    }
+
+    // Signature
+    y += 8;
+    doc.setDrawColor(45, 106, 79);
+    doc.setLineWidth(0.3);
+    doc.line(20, y, 190, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.setTextColor(45, 106, 79);
+    doc.setFont("helvetica", "bold");
+    doc.text("President", 105, y, { align: "center" });
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, y, { align: "center" });
+
+    // Footer
+    y += 12;
+    doc.setDrawColor(200);
+    doc.line(20, y, 190, y);
+    y += 5;
+    doc.setFontSize(7);
+    doc.setTextColor(140);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Generated on ${today} from tanhowa.in`, 105, y, { align: "center" });
+    doc.text("This is a computer-generated document and does not require a signature.", 105, y + 4, { align: "center" });
+
+    doc.save(`TANHOWA-Voucher-${v.id.substring(0, 8).toUpperCase()}.pdf`);
+  }
+
+  async function handleEmailVoucher(id: string) {
+    const res = await fetch("/api/vouchers/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (res.ok) {
+      toast.success("Voucher PDF emailed to official");
+    } else {
+      const data = await res.json().catch(() => null);
+      toast.error(data?.error || "Failed to send email");
+    }
+  }
+
   return (
+    <FinanceOtpGate>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -435,6 +624,12 @@ export default function AdminVouchersPage() {
                                 </Button>
                               </>
                             )}
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Download PDF" onClick={() => downloadVoucherPdf(v)}>
+                              <Download size={14} />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Email PDF to official" onClick={() => handleEmailVoucher(v.id)}>
+                              <Mail size={14} />
+                            </Button>
                             <Button size="sm" variant="ghost" className="text-destructive h-7 w-7 p-0" onClick={() => handleDelete(v.id)}>
                               <Trash2 size={14} />
                             </Button>
@@ -492,5 +687,6 @@ export default function AdminVouchersPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </FinanceOtpGate>
   );
 }
