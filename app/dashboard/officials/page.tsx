@@ -173,7 +173,7 @@ function OfficialCard({ official: o, onPhotoClick }: { official: Official; onPho
           {o.occupation && (
             <div className="flex items-center gap-2">
               <Briefcase size={13} className="shrink-0" />
-              <span className="truncate">{o.occupation}</span>
+              <span className="truncate">{o.occupation}{o.posting_details?.official_designation ? ` / ${o.posting_details.official_designation}` : ""}</span>
             </div>
           )}
           {o.posting_details?.regular_district && (

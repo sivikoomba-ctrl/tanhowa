@@ -8,8 +8,20 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Crown, Building2, Phone, Mail, MapPin, Briefcase, Plus, X, Search, Users } from "lucide-react";
+
+const TANHOWA_DESIGNATIONS = [
+  "President",
+  "State Secretary",
+  "Treasurer",
+  "District Secretary",
+  "District Joint Secretary",
+  "Volunteer Member",
+  "Member",
+  "TANHOWA Admin",
+];
 
 interface User {
   id: string;
@@ -146,6 +158,21 @@ export default function AdminOfficialsPage() {
     }
   }
 
+  async function handleSetDesignation(userId: string, designation: string) {
+    const res = await fetch("/api/admin/users", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, action: "set-tanhowa-designation", designation }),
+    });
+    if (res.ok) {
+      toast.success(designation ? `TANHOWA designation set: ${designation}` : "TANHOWA designation removed");
+      loadUsers();
+    } else {
+      const err = await res.json().catch(() => null);
+      toast.error(err?.error || "Failed to update designation");
+    }
+  }
+
   function openAddDialog(type: "state" | "district" | "volunteer") {
     setAddType(type);
     setMemberSearch("");
@@ -183,7 +210,7 @@ export default function AdminOfficialsPage() {
           ) : (
             <div className="space-y-3">
               {stateOfficials.map((u) => (
-                <OfficialRow key={u.id} user={u} onRemove={() => handleSetOfficial(u.id, null)} />
+                <OfficialRow key={u.id} user={u} onRemove={() => handleSetOfficial(u.id, null)} isSuperAdmin={isSuperOrState} onDesignationChange={handleSetDesignation} />
               ))}
             </div>
           )}
@@ -207,7 +234,7 @@ export default function AdminOfficialsPage() {
                   </div>
                   <div className="space-y-3">
                     {members.map((u) => (
-                      <OfficialRow key={u.id} user={u} onRemove={() => handleSetOfficial(u.id, null)} />
+                      <OfficialRow key={u.id} user={u} onRemove={() => handleSetOfficial(u.id, null)} isSuperAdmin={isSuperOrState} onDesignationChange={handleSetDesignation} />
                     ))}
                   </div>
                 </div>
@@ -235,7 +262,7 @@ export default function AdminOfficialsPage() {
                   </div>
                   <div className="space-y-3">
                     {members.map((u) => (
-                      <OfficialRow key={u.id} user={u} onRemove={() => handleSetOfficial(u.id, null)} />
+                      <OfficialRow key={u.id} user={u} onRemove={() => handleSetOfficial(u.id, null)} isSuperAdmin={isSuperOrState} onDesignationChange={handleSetDesignation} />
                     ))}
                   </div>
                 </div>
@@ -303,7 +330,7 @@ export default function AdminOfficialsPage() {
   );
 }
 
-function OfficialRow({ user: u, onRemove }: { user: User; onRemove: () => void }) {
+function OfficialRow({ user: u, onRemove, isSuperAdmin, onDesignationChange }: { user: User; onRemove: () => void; isSuperAdmin?: boolean; onDesignationChange?: (userId: string, designation: string) => void }) {
   return (
     <Card>
       <CardContent className="pt-4">
@@ -323,16 +350,34 @@ function OfficialRow({ user: u, onRemove }: { user: User; onRemove: () => void }
                 </Badge>
               </div>
               <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1 flex-wrap">
-                {u.occupation && <span className="flex items-center gap-1"><Briefcase size={11} />{u.occupation}</span>}
+                {u.occupation && <span className="flex items-center gap-1"><Briefcase size={11} />{u.occupation}{u.posting_details?.official_designation ? ` / ${u.posting_details.official_designation}` : ""}</span>}
                 {u.posting_details?.regular_district && <span className="flex items-center gap-1"><MapPin size={11} />{u.posting_details.regular_district}{u.posting_details.regular_block && ` — ${u.posting_details.regular_block}`}</span>}
                 {u.phone && <span className="flex items-center gap-1"><Phone size={11} />{u.phone}</span>}
                 {u.email && <span className="flex items-center gap-1"><Mail size={11} />{u.email}</span>}
               </div>
             </div>
           </div>
-          <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 shrink-0" onClick={onRemove}>
-            <X size={14} className="mr-1" />Remove
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {isSuperAdmin && onDesignationChange && (
+              <Select
+                value={u.posting_details?.official_designation || "none"}
+                onValueChange={(val) => onDesignationChange(u.id, val === "none" ? "" : val)}
+              >
+                <SelectTrigger className="w-[180px] h-8 text-xs">
+                  <SelectValue placeholder="TANHOWA Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No TANHOWA Role</SelectItem>
+                  {TANHOWA_DESIGNATIONS.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 shrink-0" onClick={onRemove}>
+              <X size={14} className="mr-1" />Remove
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

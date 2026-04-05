@@ -122,6 +122,28 @@ export async function PUT(req: NextRequest) {
       }
 
       await supabase.from("users").update({ official_type: officialType }).eq("id", userId);
+    } else if (action === "set-tanhowa-designation") {
+      // Only super_admin or state officials can set TANHOWA designations
+      const callerInfo = await getOfficialInfo(session.userId);
+      if (callerInfo.role !== "super_admin" && callerInfo.official_type !== "state") {
+        return NextResponse.json({ error: "Only TANHOWA Admin can assign TANHOWA designations" }, { status: 403 });
+      }
+
+      const { designation } = body;
+      const validDesignations = ["President", "State Secretary", "Treasurer", "District Secretary", "District Joint Secretary", "Volunteer Member", "Member", "TANHOWA Admin", ""];
+      if (typeof designation !== "string" || !validDesignations.includes(designation)) {
+        return NextResponse.json({ error: "Invalid TANHOWA designation" }, { status: 400 });
+      }
+
+      // Get current posting_details and update official_designation
+      const { data: targetUser } = await supabase.from("users").select("posting_details").eq("id", userId).single();
+      const postingDetails = (targetUser?.posting_details || {}) as Record<string, unknown>;
+      if (designation) {
+        postingDetails.official_designation = designation;
+      } else {
+        delete postingDetails.official_designation;
+      }
+      await supabase.from("users").update({ posting_details: postingDetails }).eq("id", userId);
     } else if (action === "edit-profile") {
       const updates: Record<string, unknown> = {};
       if (body.name !== undefined) updates.name = typeof body.name === "string" ? body.name.trim().toUpperCase() : body.name;

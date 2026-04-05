@@ -78,7 +78,8 @@ export async function GET(req: NextRequest) {
     let totalCollected = 0;
 
     for (const u of users) {
-      const district = (u.posting_details as Record<string, string> | null)?.regular_district || "Unassigned";
+      const pd = (u.posting_details || {}) as Record<string, string>;
+      const district = pd.regular_district || "Unassigned";
       const sub = subByUser.get(u.id);
       const status = sub?.status || "none";
       const amount = sub?.amount || 0;
@@ -90,7 +91,7 @@ export async function GET(req: NextRequest) {
       districtMap.get(district)!.members.push({
         id: u.id,
         name: u.name || "",
-        occupation: u.occupation || "",
+        occupation: (u.occupation || "") + (pd.official_designation ? ` / ${pd.official_designation}` : ""),
         status,
         amount,
         paid_at: sub?.paid_at || null,

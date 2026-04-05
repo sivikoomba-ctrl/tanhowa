@@ -295,7 +295,9 @@ export default function MembersPage() {
                         )}
                       </div>
                       {m.occupation && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{m.occupation}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {m.occupation}{m.posting_details?.official_designation ? ` / ${m.posting_details.official_designation}` : ""}
+                        </p>
                       )}
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
                         {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (

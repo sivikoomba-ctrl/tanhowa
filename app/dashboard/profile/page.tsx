@@ -192,19 +192,14 @@ async function downloadIdCard(profile: Profile, photoUrl: string | null) {
   doc.setFontSize(6.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text(profile.occupation || "Designation", infoX, 25.5);
+  const designationText = (profile.occupation || "Designation") + (profile.posting_details.official_designation ? ` / ${profile.posting_details.official_designation}` : "");
+  doc.text(designationText, infoX, 25.5);
 
   if (profile.posting_details.regular_district) {
     doc.text(
       profile.posting_details.regular_district + (profile.posting_details.regular_block ? `, ${profile.posting_details.regular_block}` : ""),
       infoX, 29.5
     );
-  }
-
-  if (profile.posting_details.official_designation) {
-    doc.setTextColor(...green);
-    doc.setFont("helvetica", "bold");
-    doc.text(profile.posting_details.official_designation, infoX, 34);
   }
 
   // Divider
@@ -530,14 +525,11 @@ export default function ProfilePage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm uppercase truncate">{displayName || "Member Name"}</p>
-                  <p className="text-xs text-muted-foreground">{designation || "Designation"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {designation || "Designation"}{profile.posting_details.official_designation ? ` / ${profile.posting_details.official_designation}` : ""}
+                  </p>
                   {profile.posting_details.regular_district && (
                     <p className="text-xs text-muted-foreground mt-0.5">{profile.posting_details.regular_district}{profile.posting_details.regular_block ? `, ${profile.posting_details.regular_block}` : ""}</p>
-                  )}
-                  {profile.posting_details.official_designation && (
-                    <Badge className={`mt-1 text-[9px] px-1.5 py-0 ${profile.posting_details.official_designation.includes("Joint") ? "bg-teal-600 hover:bg-teal-600" : "bg-blue-600 hover:bg-blue-600"} text-white`}>
-                      {profile.posting_details.official_designation}
-                    </Badge>
                   )}
                 </div>
               </div>

@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
       districts[district].push({
         id: u.id,
         name: u.name || "",
-        designation: (pd.official_designation || u.occupation || "") as string,
+        designation: ((u.occupation || "") + (pd.official_designation ? ` / ${pd.official_designation}` : "")) as string,
         phone: u.phone || "",
         district,
         dues2025: us.dues2025,

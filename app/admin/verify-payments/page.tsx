@@ -97,7 +97,7 @@ export default function VerifyPaymentsPage() {
             role: d.user.role,
             official_type: d.user.official_type,
             name: d.user.name || "",
-            designation: pd.official_designation || d.user.occupation || "",
+            designation: (d.user.occupation || "") + (pd.official_designation ? ` / ${pd.official_designation}` : ""),
             district: pd.regular_district || "",
             isSuperAdmin: d.user.role === "super_admin",
           });

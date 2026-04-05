@@ -481,7 +481,7 @@ export default function AdminSubscriptionsPage() {
     fetch("/api/users/me").then((r) => r.json()).then((d) => {
       if (d.user) {
         const pd = d.user.posting_details || {};
-        const designation = pd.official_designation || d.user.occupation || "";
+        const designation = (d.user.occupation || "") + (pd.official_designation ? ` / ${pd.official_designation}` : "");
         const district = pd.regular_district || "";
         const isFinanceTeam = !!d.is_finance_team;
         setAdminInfo({ name: d.user.name || "", designation, district, isSuperAdmin: d.user.role === "super_admin", isFinanceTeam });
