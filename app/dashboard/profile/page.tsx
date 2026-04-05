@@ -137,23 +137,34 @@ function getProfileCompletion(p: Profile): { percent: number; missing: string[] 
 }
 
 async function downloadIdCard(profile: Profile, photoUrl: string | null) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [100, 65] });
-  const w = 100, h = 65;
+  // Standard ID card size: 85.6mm x 54mm (credit card, landscape)
+  const w = 85.6, h = 54;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [h, w] });
   const green = [45, 106, 79] as [number, number, number];
+  const darkGreen = [30, 70, 52] as [number, number, number];
+
+  // Border
+  doc.setDrawColor(...green);
+  doc.setLineWidth(0.8);
+  doc.rect(1.5, 1.5, w - 3, h - 3);
 
   // Header bar
   doc.setFillColor(...green);
-  doc.rect(0, 0, w, 14, "F");
+  doc.rect(0, 0, w, 12, "F");
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(12);
+  doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
-  doc.text("TANHOWA", w / 2, 7, { align: "center" });
-  doc.setFontSize(5);
+  doc.text("TANHOWA", w / 2, 6.5, { align: "center" });
+  doc.setFontSize(4.5);
   doc.setFont("helvetica", "normal");
-  doc.text("Tamil Nadu Horticultural Officers Welfare Association", w / 2, 11.5, { align: "center" });
+  doc.text("Tamil Nadu Horticultural Officers Welfare Association", w / 2, 10, { align: "center" });
 
-  // Photo placeholder
-  const photoX = 5, photoY = 17, photoW = 18, photoH = 22;
+  // Thin accent line below header
+  doc.setFillColor(200, 170, 80);
+  doc.rect(0, 12, w, 0.6, "F");
+
+  // Photo
+  const photoX = 4, photoY = 15, photoW = 20, photoH = 24;
   if (photoUrl) {
     try {
       const img = new Image();
@@ -165,95 +176,112 @@ async function downloadIdCard(profile: Profile, photoUrl: string | null) {
       });
       const canvas = document.createElement("canvas");
       canvas.width = 200;
-      canvas.height = 250;
+      canvas.height = 240;
       const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0, 200, 250);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      ctx.drawImage(img, 0, 0, 200, 240);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
       doc.addImage(dataUrl, "JPEG", photoX, photoY, photoW, photoH);
+      // Photo border
+      doc.setDrawColor(...green);
+      doc.setLineWidth(0.4);
+      doc.rect(photoX, photoY, photoW, photoH);
     } catch {
-      doc.setDrawColor(200, 200, 200);
+      doc.setDrawColor(180, 180, 180);
+      doc.setLineWidth(0.3);
       doc.rect(photoX, photoY, photoW, photoH);
       doc.setTextColor(150, 150, 150);
-      doc.setFontSize(6);
+      doc.setFontSize(7);
       doc.text("Photo", photoX + photoW / 2, photoY + photoH / 2, { align: "center" });
     }
   } else {
-    doc.setDrawColor(200, 200, 200);
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.3);
     doc.rect(photoX, photoY, photoW, photoH);
   }
 
-  // Name & details
-  const infoX = 26;
+  // Name
+  const infoX = 27;
   doc.setTextColor(30, 30, 30);
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   const name = [profile.title, profile.first_name, profile.last_name].filter(Boolean).join(" ").toUpperCase();
-  doc.text(name || "MEMBER NAME", infoX, 21);
+  const displayName = name || "MEMBER NAME";
+  // Truncate long names
+  const maxNameWidth = w - infoX - 4;
+  const nameLines = doc.splitTextToSize(displayName, maxNameWidth);
+  doc.text(nameLines[0], infoX, 18.5);
 
+  // Designation (Govt / TANHOWA)
   doc.setFontSize(6.5);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
+  doc.setTextColor(...darkGreen);
   const designationText = (profile.occupation || "Designation") + (profile.posting_details.official_designation ? ` / ${profile.posting_details.official_designation}` : "");
-  doc.text(designationText, infoX, 25.5);
+  doc.text(designationText, infoX, 23);
 
+  // District, Block
   if (profile.posting_details.regular_district) {
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(6);
     doc.text(
       profile.posting_details.regular_district + (profile.posting_details.regular_block ? `, ${profile.posting_details.regular_block}` : ""),
-      infoX, 29.5
+      infoX, 27
     );
+  }
+
+  // Phone
+  if (profile.phone) {
+    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(6);
+    doc.text("Ph: " + profile.phone, infoX, 31);
+  }
+
+  // Email
+  if (profile.email) {
+    doc.setFontSize(5);
+    doc.setTextColor(100, 100, 100);
+    const emailText = profile.email.length > 35 ? profile.email.slice(0, 34) + "..." : profile.email;
+    doc.text(emailText, infoX, 35);
   }
 
   // Divider
   doc.setDrawColor(200, 200, 200);
-  doc.line(5, 41, w - 5, 41);
+  doc.setLineWidth(0.3);
+  doc.line(4, 40.5, w - 4, 40.5);
 
-  // Details grid
-  doc.setTextColor(100, 100, 100);
-  doc.setFont("helvetica", "normal");
+  // Bottom details row
   doc.setFontSize(5.5);
 
-  doc.text("Member ID:", 5, 45);
+  // Member ID
+  doc.setTextColor(100, 100, 100);
+  doc.setFont("helvetica", "normal");
+  doc.text("ID:", 4, 44);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 30, 30);
-  doc.text((profile.id || "").slice(0, 8).toUpperCase(), 22, 45);
+  doc.text((profile.id || "").slice(0, 8).toUpperCase(), 9, 44);
 
+  // Member Since
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text("Phone:", 52, 45);
+  doc.text("Since:", 30, 44);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 30, 30);
-  doc.text(profile.phone || "-", 63, 45);
+  doc.text(profile.created_at ? new Date(profile.created_at).getFullYear().toString() : "-", 40, 44);
 
+  // Valid Until
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text("Member Since:", 5, 49.5);
+  doc.text("Valid:", 55, 44);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 30, 30);
-  doc.text(profile.created_at ? new Date(profile.created_at).getFullYear().toString() : "-", 27, 49.5);
+  doc.text(`Dec ${new Date().getFullYear()}`, 64, 44);
 
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  doc.text("Valid Until:", 52, 49.5);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 30, 30);
-  doc.text(`Dec ${new Date().getFullYear()}`, 68, 49.5);
-
-  // Email
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  doc.text("Email:", 5, 54);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 30, 30);
-  doc.setFontSize(5);
-  doc.text(profile.email || "-", 15, 54);
-
-  // Footer
+  // Footer bar
   doc.setFillColor(...green);
-  doc.rect(0, h - 5, w, 5, "F");
+  doc.rect(0, h - 5.5, w, 5.5, "F");
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(5);
-  doc.setFont("helvetica", "normal");
-  doc.text("www.tanhowa.in", w / 2, h - 1.5, { align: "center" });
+  doc.setFontSize(5.5);
+  doc.setFont("helvetica", "bold");
+  doc.text("www.tanhowa.in", w / 2, h - 2, { align: "center" });
 
   const fileName = `TANHOWA_ID_${(profile.first_name || "Member").replace(/\s/g, "_")}.pdf`;
   doc.save(fileName);
