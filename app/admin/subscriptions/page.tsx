@@ -59,6 +59,7 @@ interface Subscription {
   paid_amount: number | null;
   payment_group_id: string | null;
   created_at: string;
+  updated_at: string;
   users?: { name: string; email: string; phone: string; posting_details?: { regular_district?: string } };
   approver?: { name: string } | null;
 }
@@ -87,6 +88,7 @@ export default function AdminSubscriptionsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [filterDistrict, setFilterDistrict] = useState("all");
+  const [filterUploadTime, setFilterUploadTime] = useState("all");
 
   // Bulk create dialog
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -520,9 +522,24 @@ export default function AdminSubscriptionsPage() {
               : sub.status === filterStatus);
       const matchesPeriod = filterPeriod === "all" || sub.period === filterPeriod;
       const matchesDistrict = filterDistrict === "all" || sub.users?.posting_details?.regular_district === filterDistrict;
-      return matchesSearch && matchesStatus && matchesPeriod && matchesDistrict;
+      let matchesUploadTime = true;
+      if (filterUploadTime !== "all" && sub.payment_proof_url) {
+        const now = Date.now();
+        const cutoff = filterUploadTime === "1h" ? now - 3600000
+          : filterUploadTime === "3h" ? now - 3 * 3600000
+          : filterUploadTime === "6h" ? now - 6 * 3600000
+          : filterUploadTime === "12h" ? now - 12 * 3600000
+          : filterUploadTime === "24h" ? now - 24 * 3600000
+          : filterUploadTime === "today" ? new Date().setHours(0, 0, 0, 0)
+          : filterUploadTime === "7d" ? now - 7 * 86400000
+          : 0;
+        matchesUploadTime = new Date(sub.updated_at).getTime() >= cutoff;
+      } else if (filterUploadTime !== "all" && !sub.payment_proof_url) {
+        matchesUploadTime = false;
+      }
+      return matchesSearch && matchesStatus && matchesPeriod && matchesDistrict && matchesUploadTime;
     });
-  }, [subscriptions, searchQuery, filterStatus, filterPeriod, filterDistrict]);
+  }, [subscriptions, searchQuery, filterStatus, filterPeriod, filterDistrict, filterUploadTime]);
 
   async function handleBulkCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -1399,6 +1416,21 @@ export default function AdminSubscriptionsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={filterUploadTime} onValueChange={setFilterUploadTime}>
+                <SelectTrigger className="w-[calc(50%-4px)] sm:w-[170px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Upload Times</SelectItem>
+                  <SelectItem value="1h">Uploaded in 1 Hour</SelectItem>
+                  <SelectItem value="3h">Uploaded in 3 Hours</SelectItem>
+                  <SelectItem value="6h">Uploaded in 6 Hours</SelectItem>
+                  <SelectItem value="12h">Uploaded in 12 Hours</SelectItem>
+                  <SelectItem value="24h">Uploaded in 24 Hours</SelectItem>
+                  <SelectItem value="today">Uploaded Today</SelectItem>
+                  <SelectItem value="7d">Uploaded in 7 Days</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -1409,7 +1441,7 @@ export default function AdminSubscriptionsPage() {
         <p className="text-xs text-muted-foreground">
           Showing {filtered.length} of {subscriptions.length} subscription{subscriptions.length !== 1 ? "s" : ""}
           {filtered.length !== subscriptions.length && (
-            <button className="ml-2 text-primary hover:underline" onClick={() => { setFilterStatus("all"); setFilterPeriod("all"); setFilterDistrict("all"); setSearchQuery(""); }}>
+            <button className="ml-2 text-primary hover:underline" onClick={() => { setFilterStatus("all"); setFilterPeriod("all"); setFilterDistrict("all"); setFilterUploadTime("all"); setSearchQuery(""); }}>
               Clear filters
             </button>
           )}
