@@ -149,7 +149,7 @@ export function MembersTab() {
               <p className="text-xs text-muted-foreground">Never logged in</p>
             </div>
             <div className="text-center p-3 rounded-xl bg-muted/30">
-              <p className="text-lg font-bold">{data.loginActivity.averageLoginCount.toFixed(1)}</p>
+              <p className="text-lg font-bold">{(data.loginActivity.averageLoginCount || 0).toFixed(1)}</p>
               <p className="text-xs text-muted-foreground">Avg. login count</p>
             </div>
           </div>

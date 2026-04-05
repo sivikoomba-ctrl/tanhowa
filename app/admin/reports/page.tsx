@@ -7,8 +7,8 @@ import { OverviewTab } from "./_components/overview-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
 import { SubscriptionsTab } from "./_components/subscriptions-tab";
 import { ContributionsTab } from "./_components/contributions-tab";
-import { MembersTab } from "./_components/members-tab";
 
+const MembersTab = lazy(() => import("./_components/members-tab").then(m => ({ default: m.MembersTab })));
 const PerformanceTab = lazy(() => import("./_components/performance-tab").then(m => ({ default: m.PerformanceTab })));
 
 export default function ReportsPage() {
@@ -43,7 +43,9 @@ export default function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="members" className="mt-4">
-          <MembersTab />
+          <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
+            <MembersTab />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="performance" className="mt-4">
