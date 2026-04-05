@@ -350,9 +350,10 @@ export default function ProfilePage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!profile) return;
-    if (!profile.title) { toast.error(t("profile.err_title_required")); return; }
-    if (!profile.gender) { toast.error(t("profile.err_gender_required")); return; }
-    if (!profile.dob) { toast.error(t("profile.err_dob_required")); return; }
+    const isTestAdmin = profile.email === "tanhowaadmin@tanhowa.in" || profile.email === "tanhowa19791@gmail.com";
+    if (!isTestAdmin && !profile.title) { toast.error(t("profile.err_title_required")); return; }
+    if (!isTestAdmin && !profile.gender) { toast.error(t("profile.err_gender_required")); return; }
+    if (!isTestAdmin && !profile.dob) { toast.error(t("profile.err_dob_required")); return; }
     setLoading(true);
     try {
       const nameWithoutTitle = `${profile.first_name.trim()} ${profile.last_name.trim()}`.toUpperCase();
