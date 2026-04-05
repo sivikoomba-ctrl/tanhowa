@@ -39,6 +39,7 @@ import {
   Calculator,
   UtensilsCrossed,
   HelpCircle,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +70,7 @@ const adminNavItems = [
   { href: "/admin/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },
   { href: "/admin/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
   { href: "/admin/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed },
+  { href: "/admin/special-tasks", labelKey: "nav.special_tasks" as const, icon: ClipboardCheck },
   { href: "/admin/audit-logs", labelKey: "nav.audit_log" as const, icon: ClipboardList },
   { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
   { href: "/admin/settings", labelKey: "nav.settings" as const, icon: Settings },
@@ -150,7 +152,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   function NavLinks({ onItemClick }: { onItemClick?: () => void }) {
     return (
       <>
-        {adminNavItems.filter((item) => item.href !== "/admin/error-logs" || user?.role === "super_admin").map((item) => {
+        {adminNavItems.filter((item) => {
+          const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks"];
+          return !superAdminOnly.includes(item.href) || user?.role === "super_admin";
+        }).map((item) => {
           const isActive = pathname === item.href;
           const showBadge = (item.href === "/admin/users" && pendingCount > 0) || (item.href === "/admin/error-logs" && errorCount > 0);
           const badgeCount = item.href === "/admin/users" ? pendingCount : errorCount;
