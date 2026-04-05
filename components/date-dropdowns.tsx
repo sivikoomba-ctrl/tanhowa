@@ -58,13 +58,13 @@ export function DateDropdowns({
 
   return (
     <div className={`flex gap-2 ${className}`}>
-      <Select value={year} onValueChange={(v) => update(v, month, day)} disabled={disabled}>
-        <SelectTrigger className="w-[100px]">
-          <SelectValue placeholder="Year" />
+      <Select value={day} onValueChange={(v) => update(year, month, v)} disabled={disabled}>
+        <SelectTrigger className="w-[80px]">
+          <SelectValue placeholder="Day" />
         </SelectTrigger>
         <SelectContent className="max-h-[200px]">
-          {years.map((y) => (
-            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+          {days.map((d) => (
+            <SelectItem key={d} value={String(d)}>{d}</SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -80,13 +80,13 @@ export function DateDropdowns({
         </SelectContent>
       </Select>
 
-      <Select value={day} onValueChange={(v) => update(year, month, v)} disabled={disabled}>
-        <SelectTrigger className="w-[80px]">
-          <SelectValue placeholder="Day" />
+      <Select value={year} onValueChange={(v) => update(v, month, day)} disabled={disabled}>
+        <SelectTrigger className="w-[100px]">
+          <SelectValue placeholder="Year" />
         </SelectTrigger>
         <SelectContent className="max-h-[200px]">
-          {days.map((d) => (
-            <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+          {years.map((y) => (
+            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
           ))}
         </SelectContent>
       </Select>
