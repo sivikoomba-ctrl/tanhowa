@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/lib/i18n";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SeasonalTheme } from "@/components/seasonal-theme";
 import { Snowflakes } from "@/components/snowflakes";
+import { AnalyticsTracker } from "@/components/analytics-tracker";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -65,6 +66,7 @@ export default function RootLayout({
         <Snowflakes />
         <Toaster />
         <SpeedInsights />
+        <AnalyticsTracker />
       </body>
     </html>
   );

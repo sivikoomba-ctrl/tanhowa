@@ -8,6 +8,7 @@ const ALLOWED_FOR_ALL = [
   "/api/auth/",
   "/api/users/me",
   "/api/error-logs",
+  "/api/analytics",
 ];
 
 export async function middleware(req: NextRequest) {
