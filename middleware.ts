@@ -3,12 +3,13 @@ import { jwtVerify } from "jose";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
-// API routes that pending/rejected users CAN access (auth, profile, error logging)
+// API routes that pending/rejected/suspended users CAN access
 const ALLOWED_FOR_ALL = [
   "/api/auth/",
   "/api/users/me",
   "/api/error-logs",
   "/api/analytics",
+  "/api/subscriptions", // Suspended members can view their subscription history
 ];
 
 export async function middleware(req: NextRequest) {
@@ -26,9 +27,10 @@ export async function middleware(req: NextRequest) {
     const { payload } = await jwtVerify(token, secret);
     const status = (payload as { status?: string }).status;
 
-    // Block pending/rejected users from data APIs
+    // Block pending/rejected/suspended users from data APIs
     if (status && status !== "approved") {
-      return NextResponse.json({ error: "Account not approved" }, { status: 403 });
+      const msg = status === "suspended" ? "Account suspended" : "Account not approved";
+      return NextResponse.json({ error: msg }, { status: 403 });
     }
   } catch {
     // Invalid token — let individual routes handle

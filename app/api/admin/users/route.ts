@@ -4,7 +4,8 @@ import { getSession, isAdmin, getDbRole, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
-import { notifyNewMemberRegistered } from "@/lib/mail";
+import { notifyNewMemberRegistered, sendSuspensionEmail, sendReinstatementEmail } from "@/lib/mail";
+import { sendTelegramMessage } from "@/lib/telegram";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -161,6 +162,71 @@ export async function PUT(req: NextRequest) {
 
       await supabase.from("users").update(updates).eq("id", userId);
       logContribution(session.userId, "member_profile_edited", "Edited profile for user: " + userId);
+    } else if (action === "suspend") {
+      // Only tanhowa19791@gmail.com can suspend members
+      if (session.email !== "tanhowa19791@gmail.com") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      const { reason, remarks } = body;
+      const validReasons = ["non_payment", "disciplinary", "voluntary", "transfer", "retirement", "other"];
+      if (!reason || !validReasons.includes(reason)) {
+        return NextResponse.json({ error: "Valid suspension reason required" }, { status: 400 });
+      }
+
+      // Cannot suspend admins
+      const targetRole = await getDbRole(userId);
+      if (targetRole === "super_admin") {
+        return NextResponse.json({ error: "Cannot suspend a super admin" }, { status: 400 });
+      }
+
+      const suspensionDetails = {
+        reason,
+        remarks: remarks || "",
+        suspended_by: session.userId,
+        suspended_at: new Date().toISOString(),
+      };
+
+      await supabase.from("users").update({
+        status: "suspended",
+        suspension_details: suspensionDetails,
+      }).eq("id", userId);
+
+      // Send notifications (fire-and-forget)
+      const { data: targetUser } = await supabase.from("users").select("name, email, telegram_chat_id").eq("id", userId).single();
+      if (targetUser) {
+        const reasonLabels: Record<string, string> = {
+          non_payment: "Non-payment of subscriptions",
+          disciplinary: "Disciplinary action",
+          voluntary: "Voluntary withdrawal",
+          transfer: "Transfer out of TN Horticulture",
+          retirement: "Retirement",
+          other: "Administrative decision",
+        };
+        sendSuspensionEmail(targetUser.email, targetUser.name || "Member", reasonLabels[reason], remarks || "").catch(() => {});
+        if (targetUser.telegram_chat_id) {
+          sendTelegramMessage(targetUser.telegram_chat_id, `⚠️ <b>Membership Suspended</b>\n\nYour TANHOWA membership has been suspended.\n<b>Reason:</b> ${reasonLabels[reason]}${remarks ? `\n<b>Remarks:</b> ${remarks}` : ""}\n\nPlease contact admin for queries.`).catch(() => {});
+        }
+      }
+    } else if (action === "reinstate") {
+      // Only tanhowa19791@gmail.com can reinstate members
+      if (session.email !== "tanhowa19791@gmail.com") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      await supabase.from("users").update({
+        status: "approved",
+        suspension_details: null,
+      }).eq("id", userId);
+
+      // Send notifications (fire-and-forget)
+      const { data: targetUser } = await supabase.from("users").select("name, email, telegram_chat_id").eq("id", userId).single();
+      if (targetUser) {
+        sendReinstatementEmail(targetUser.email, targetUser.name || "Member").catch(() => {});
+        if (targetUser.telegram_chat_id) {
+          sendTelegramMessage(targetUser.telegram_chat_id, `✅ <b>Membership Reinstated</b>\n\nYour TANHOWA membership has been reinstated. You can now access the portal.\n\n🌐 <a href="https://www.tanhowa.in">tanhowa.in</a>`).catch(() => {});
+        }
+      }
     } else if (action === "nudge") {
       const { fields, message } = body;
       if (!fields || !Array.isArray(fields) || fields.length === 0) {

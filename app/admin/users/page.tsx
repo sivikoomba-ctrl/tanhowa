@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Search, Filter, Calendar } from "lucide-react";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
 import UserCard from "./_components/UserCard";
@@ -61,6 +63,14 @@ export default function AdminUsersPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [zoomPhoto, setZoomPhoto] = useState<{ name: string; url: string } | null>(null);
   const [editUser, setEditUser] = useState<User | null>(null);
+  const [callerEmail, setCallerEmail] = useState("");
+  const [suspendTarget, setSuspendTarget] = useState<string | null>(null);
+  const [suspendReason, setSuspendReason] = useState("non_payment");
+  const [suspendRemarks, setSuspendRemarks] = useState("");
+
+  useEffect(() => {
+    fetch("/api/users/me").then(r => r.json()).then(d => { if (d.user?.email) setCallerEmail(d.user.email); }).catch(() => {});
+  }, []);
 
   const loadUsers = useCallback(() => {
     fetch("/api/users?status=" + (tab === "all" ? "" : tab))
@@ -310,9 +320,31 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function handleSuspend() {
+    if (!suspendTarget) return;
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: suspendTarget, action: "suspend", reason: suspendReason, remarks: suspendRemarks }),
+      });
+      if (!res.ok) { const d = await res.json(); toast.error(d.error || "Failed"); return; }
+      toast.success("Member suspended");
+      setSuspendTarget(null);
+      setSuspendReason("non_payment");
+      setSuspendRemarks("");
+      loadUsers();
+    } catch { toast.error("Failed to suspend member"); }
+  }
+
   function handleCardAction(userId: string, action: string, extra?: string) {
     if (action === "delete") {
       handleDelete(userId);
+    } else if (action === "suspend") {
+      setSuspendTarget(userId);
+    } else if (action === "reinstate") {
+      if (!confirm("Reinstate this member? They will regain full portal access.")) return;
+      handleAction(userId, "reinstate");
     } else if (action === "set-official-state") {
       handleSetOfficial(userId, "state");
     } else if (action === "set-official-district") {
@@ -338,6 +370,7 @@ export default function AdminUsersPage() {
           <TabsTrigger value="approved">Approved</TabsTrigger>
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
+          {callerEmail === "tanhowa19791@gmail.com" && <TabsTrigger value="suspended">Suspended</TabsTrigger>}
         </TabsList>
 
         <TabsContent value={tab} className="mt-4 space-y-4">
@@ -448,6 +481,7 @@ export default function AdminUsersPage() {
                   onEditClick={() => openEditDialog(u)}
                   onNudgeClick={() => { setNudgeUserId(u.id); }}
                   onPhotoZoom={(name, url) => setZoomPhoto({ name, url })}
+                  callerEmail={callerEmail}
                 />
               ))}
               {visibleCount < filteredUsers.length && (
@@ -476,6 +510,39 @@ export default function AdminUsersPage() {
         onOpenChange={(open) => { if (!open) setEditUser(null); }}
         onSave={handleEditSave}
       />
+
+      {/* Suspend Dialog */}
+      <Dialog open={!!suspendTarget} onOpenChange={(open) => { if (!open) { setSuspendTarget(null); setSuspendReason("non_payment"); setSuspendRemarks(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Suspend Member</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Reason *</Label>
+              <Select value={suspendReason} onValueChange={setSuspendReason}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="non_payment">Non-payment of subscriptions</SelectItem>
+                  <SelectItem value="disciplinary">Disciplinary action</SelectItem>
+                  <SelectItem value="voluntary">Voluntary withdrawal</SelectItem>
+                  <SelectItem value="transfer">Transfer out of TN Horticulture</SelectItem>
+                  <SelectItem value="retirement">Retirement</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Remarks (optional)</Label>
+              <Textarea value={suspendRemarks} onChange={(e) => setSuspendRemarks(e.target.value)} className="mt-1" rows={2} placeholder="Additional details..." />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setSuspendTarget(null)}>Cancel</Button>
+              <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleSuspend}>Suspend Member</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Photo Zoom Dialog */}
       <Dialog open={!!zoomPhoto} onOpenChange={(open) => !open && setZoomPhoto(null)}>

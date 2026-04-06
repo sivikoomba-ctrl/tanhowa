@@ -124,6 +124,8 @@ function VerifyContent() {
         }
       } else if (data.user.status === "pending") {
         router.push("/pending");
+      } else if (data.user.status === "suspended") {
+        router.push("/suspended");
       } else {
         router.push("/onboarding");
       }

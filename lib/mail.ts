@@ -776,3 +776,44 @@ export async function sendOTPEmail(to: string, otp: string) {
     </div>
   `);
 }
+
+export async function sendSuspensionEmail(to: string, memberName: string, reason: string, remarks: string) {
+  if (HOLD_MEMBER_EMAILS) return;
+  return sendEmail(to, "TANHOWA — Membership Suspended", `
+    <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+      <div style="background: #991b1b; padding: 16px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h2 style="color: #fff; margin: 0; font-size: 18px;">Membership Suspended</h2>
+      </div>
+      <div style="padding: 24px; background: #fff; border: 1px solid #fecaca; border-radius: 0 0 8px 8px;">
+        <p style="color: #333; font-size: 15px;">Dear ${memberName},</p>
+        <p style="color: #333; font-size: 14px;">Your TANHOWA membership has been suspended. Portal access is restricted during the suspension period.</p>
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin: 16px 0;">
+          <p style="color: #991b1b; font-size: 13px; margin: 0 0 4px;"><strong>Reason:</strong> ${reason}</p>
+          ${remarks ? `<p style="color: #7f1d1d; font-size: 12px; margin: 0;">${remarks}</p>` : ""}
+        </div>
+        <p style="color: #666; font-size: 13px;">If you believe this is an error, please contact the TANHOWA administration.</p>
+        <p style="color: #999; font-size: 11px; margin-top: 16px;">TANHOWA — Tamil Nadu Horticultural Officers Welfare Association</p>
+      </div>
+    </div>
+  `);
+}
+
+export async function sendReinstatementEmail(to: string, memberName: string) {
+  if (HOLD_MEMBER_EMAILS) return;
+  return sendEmail(to, "TANHOWA — Membership Reinstated", `
+    <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+      <div style="background: #2d6a4f; padding: 16px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h2 style="color: #fff; margin: 0; font-size: 18px;">Membership Reinstated</h2>
+      </div>
+      <div style="padding: 24px; background: #fff; border: 1px solid #bbf7d0; border-radius: 0 0 8px 8px;">
+        <p style="color: #333; font-size: 15px;">Dear ${memberName},</p>
+        <p style="color: #333; font-size: 14px;">Your TANHOWA membership has been reinstated. You can now access the portal with full functionality.</p>
+        <div style="text-align: center; margin: 20px 0;">
+          <a href="https://www.tanhowa.in" style="background: #2d6a4f; color: #fff; padding: 10px 24px; text-decoration: none; border-radius: 8px; font-size: 14px;">Login to Portal</a>
+        </div>
+        <p style="color: #999; font-size: 11px; margin-top: 16px;">TANHOWA — Tamil Nadu Horticultural Officers Welfare Association</p>
+      </div>
+    </div>
+  `);
+}
+

@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Shield, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Send, Clock, Crown, Building2, Pencil, Copy, Users } from "lucide-react";
+import { Check, X, Shield, ShieldX, ShieldCheck, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Send, Clock, Crown, Building2, Pencil, Copy, Users } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -52,6 +52,7 @@ interface UserCardProps {
   onEditClick: () => void;
   onNudgeClick: () => void;
   onPhotoZoom: (name: string, url: string) => void;
+  callerEmail?: string;
 }
 
 function getActivityStatus(lastActive: string | null): { label: string; color: string; dot: string } {
@@ -115,7 +116,7 @@ function getProfileCompleteness(u: User): { percent: number; missing: string[] }
   return { percent: Math.round((filled / fields.length) * 100), missing };
 }
 
-export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpandToggle, onSelectToggle, onAction, onEditClick, onNudgeClick, onPhotoZoom }: UserCardProps) {
+export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpandToggle, onSelectToggle, onAction, onEditClick, onNudgeClick, onPhotoZoom, callerEmail }: UserCardProps) {
   const profile = getProfileCompleteness(u);
   return (
     <Card className={isSelected ? "border-primary/50 bg-primary/[0.02]" : ""}>
@@ -300,6 +301,28 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
               >
                 <Shield size={14} className="mr-1" />
                 Make Admin
+              </Button>
+            )}
+            {callerEmail === "tanhowa19791@gmail.com" && u.status === "approved" && u.role !== "super_admin" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onAction("suspend")}
+                className="text-red-700 border-red-300 hover:bg-red-50"
+              >
+                <ShieldX size={14} className="mr-1" />
+                Suspend
+              </Button>
+            )}
+            {callerEmail === "tanhowa19791@gmail.com" && u.status === "suspended" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onAction("reinstate")}
+                className="text-green-700 border-green-300 hover:bg-green-50"
+              >
+                <ShieldCheck size={14} className="mr-1" />
+                Reinstate
               </Button>
             )}
             <Button

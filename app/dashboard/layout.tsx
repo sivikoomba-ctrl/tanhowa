@@ -146,6 +146,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       })
       .then((data) => {
         if (data.user) {
+          if (data.user.status === "suspended") {
+            router.push("/suspended");
+            return;
+          }
           if (data.user.status === "pending" && data.user.role !== "super_admin") {
             router.push("/pending");
             return;

@@ -177,6 +177,8 @@ export async function GET(req: NextRequest) {
       redirectPath = "/dashboard";
     } else if (user.status === "pending") {
       redirectPath = "/pending";
+    } else if (user.status === "suspended") {
+      redirectPath = "/suspended";
     } else {
       redirectPath = "/onboarding";
     }
