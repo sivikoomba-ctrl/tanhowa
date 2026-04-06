@@ -1,3 +1,4 @@
+// @ts-expect-error -- no type declarations for web-push
 import webpush from "web-push";
 import { getServiceClient } from "@/lib/supabase";
 
