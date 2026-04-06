@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   Megaphone, Calendar, FileText, UserCheck,
   Wallet, ListTodo, Award, Lightbulb, IndianRupee,
-  ArrowRight, Trophy, Cake,
+  ArrowRight, Trophy, Cake, MessageCircle, User,
+  Flame, Sun, Moon, CloudSun,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -15,6 +16,13 @@ import { AdminContacts } from "@/components/admin-contacts";
 import { StatusBadge } from "@/components/status-badge";
 import { SectionError } from "@/components/section-error";
 import { useT } from "@/lib/i18n";
+
+function getGreeting(): { text: string; icon: typeof Sun } {
+  const h = new Date().getHours();
+  if (h < 12) return { text: "Good morning", icon: Sun };
+  if (h < 17) return { text: "Good afternoon", icon: CloudSun };
+  return { text: "Good evening", icon: Moon };
+}
 
 interface Announcement {
   id: string;
@@ -49,17 +57,35 @@ export default function DashboardHome() {
   const [birthdays, setBirthdays] = useState<{ name: string; isToday: boolean; daysUntil: number }[]>([]);
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
+  const [profileComplete, setProfileComplete] = useState(100);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [streak, setStreak] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const t = useT();
+  const greeting = getGreeting();
 
   function loadData() {
     setLoaded(false);
     setErrors({});
 
-    // Fetch user name
+    // Fetch user info + profile completeness
     fetch("/api/users/me").then((r) => r.json())
-      .then((d) => { if (d.user?.name) setUserName(d.user.name); if (d.user?.role) setUserRole(d.user.role); })
+      .then((d) => {
+        if (d.user?.name) setUserName(d.user.name);
+        if (d.user?.role) setUserRole(d.user.role);
+        // Profile completeness (10 fields)
+        const u = d.user;
+        const pd = u?.posting_details || {};
+        const sl = u?.social_links || {};
+        const fields = [u?.name, u?.phone, u?.occupation, pd.regular_district, u?.photo_url, sl.gender, sl.date_of_birth, sl.qualification, u?.office_address, pd.regular_block];
+        setProfileComplete(Math.round((fields.filter(Boolean).length / fields.length) * 100));
+      })
+      .catch(() => {});
+
+    // Fetch unread messages
+    fetch("/api/messages?unread_count=true").then((r) => r.json())
+      .then((d) => setUnreadMessages(d.unreadCount || 0))
       .catch(() => {});
 
     // Fetch independently so one failure doesn't block others
@@ -88,6 +114,29 @@ export default function DashboardHome() {
       .catch(() => setErrors((e) => ({ ...e, contributions: true })))
       .finally(() => setLoaded(true));
 
+    // Fetch activity streak (distinct active days)
+    fetch("/api/contributions?me=true&period=week").then((r) => r.json())
+      .then((d) => {
+        const contribs = d.contributions || [];
+        // Count consecutive days ending today
+        const today = new Date();
+        const daySet = new Set<string>();
+        for (const c of contribs) {
+          daySet.add(new Date(c.created_at).toLocaleDateString("en-CA"));
+        }
+        // Also count today since they're active now
+        daySet.add(today.toLocaleDateString("en-CA"));
+        let days = 0;
+        for (let i = 0; i < 7; i++) {
+          const d2 = new Date(today);
+          d2.setDate(d2.getDate() - i);
+          if (daySet.has(d2.toLocaleDateString("en-CA"))) days++;
+          else break;
+        }
+        setStreak(days);
+      })
+      .catch(() => {});
+
     // Fetch birthdays
     fetch("/api/users/birthdays").then((r) => r.json())
       .then((d) => setBirthdays(d.birthdays || []))
@@ -114,16 +163,52 @@ export default function DashboardHome() {
 
   return (
     <div className="space-y-6">
+      {/* Welcome Greeting */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">
-          {userName ? t("dash.welcome_name", { name: userName.split(" ").slice(0, 2).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(" ") }) : t("dash.dashboard")}
-        </h1>
+        <div className="flex items-center gap-2">
+          <greeting.icon size={20} className="text-amber-500" />
+          <h1 className="text-2xl font-bold text-foreground">
+            {userName ? `${greeting.text}, ${userName.split(" ").slice(0, 2).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(" ")}!` : t("dash.dashboard")}
+          </h1>
+          {streak >= 2 && (
+            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300 text-xs gap-1">
+              <Flame size={12} />{streak}-day streak
+            </Badge>
+          )}
+        </div>
         {pendingSubs > 0 && (
           <p className="text-sm text-amber-600 mt-0.5">
             {t("dash.pending_subs", { count: pendingSubs })} — <Link href="/dashboard/subscriptions" className="underline font-medium">{t("dash.pay_now")}</Link>
           </p>
         )}
       </div>
+
+      {/* Quick Actions — show contextual actions based on member's pending items */}
+      {loaded && (pendingSubs > 0 || profileComplete < 100 || unreadMessages > 0) && (
+        <div className="flex flex-wrap gap-2">
+          {pendingSubs > 0 && (
+            <Link href="/dashboard/subscriptions">
+              <Badge className="bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 cursor-pointer py-1.5 px-3 text-xs gap-1.5">
+                <Wallet size={13} />{pendingSubs} subscription{pendingSubs > 1 ? "s" : ""} due — Pay now
+              </Badge>
+            </Link>
+          )}
+          {unreadMessages > 0 && (
+            <Link href="/dashboard/messages">
+              <Badge className="bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200 cursor-pointer py-1.5 px-3 text-xs gap-1.5">
+                <MessageCircle size={13} />{unreadMessages} unread message{unreadMessages > 1 ? "s" : ""}
+              </Badge>
+            </Link>
+          )}
+          {profileComplete < 100 && (
+            <Link href="/dashboard/profile">
+              <Badge className="bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-200 cursor-pointer py-1.5 px-3 text-xs gap-1.5">
+                <User size={13} />Profile {profileComplete}% complete — Update
+              </Badge>
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Key Metrics */}
       {errors.stats ? (
@@ -219,7 +304,10 @@ export default function DashboardHome() {
               </div>
               <div className="space-y-3">
                 {announcements.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">{t("dash.no_announcements")}</p>
+                  <div className="text-center py-6">
+                    <Megaphone size={28} className="mx-auto text-muted-foreground/30 mb-2" />
+                    <p className="text-sm text-muted-foreground">{t("dash.no_announcements")}</p>
+                  </div>
                 ) : (
                   announcements.map((a) => (
                     <div key={a.id} className="border-b last:border-0 pb-3 last:pb-0">
@@ -249,7 +337,10 @@ export default function DashboardHome() {
               </div>
               <div className="space-y-3">
                 {events.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">{t("dash.no_events")}</p>
+                  <div className="text-center py-6">
+                    <Calendar size={28} className="mx-auto text-muted-foreground/30 mb-2" />
+                    <p className="text-sm text-muted-foreground">{t("dash.no_events")}</p>
+                  </div>
                 ) : (
                   events.map((ev) => (
                     <div key={ev.id} className="flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0">
@@ -293,7 +384,10 @@ export default function DashboardHome() {
               </div>
               <div className="space-y-2">
                 {mySubscriptions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">{t("dash.no_subscriptions")}</p>
+                  <div className="text-center py-6">
+                    <Wallet size={28} className="mx-auto text-muted-foreground/30 mb-2" />
+                    <p className="text-sm text-muted-foreground">{t("dash.no_subscriptions")}</p>
+                  </div>
                 ) : (
                   mySubscriptions.map((sub) => (
                     <div key={sub.id} className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30">
