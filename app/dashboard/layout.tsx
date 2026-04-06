@@ -40,6 +40,9 @@ import {
   IndianRupee,
   GraduationCap,
   Activity,
+  MessageSquarePlus,
+  Trophy,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -80,8 +83,10 @@ const navItems = [
   { href: "/dashboard/members", labelKey: "nav.members" as const, icon: Users },
   { href: "/dashboard/officials", labelKey: "nav.officials" as const, icon: Crown },
   { href: "/dashboard/teams", labelKey: "nav.teams" as const, icon: UsersRound },
+  { href: "/dashboard/messages", labelKey: "nav.messages" as const, icon: MessageSquarePlus },
   { href: "/dashboard/announcements", labelKey: "nav.announcements" as const, icon: Megaphone },
   { href: "/dashboard/events", labelKey: "nav.events" as const, icon: Calendar },
+  { href: "/dashboard/calendar", labelKey: "nav.calendar" as const, icon: CalendarDays },
   { href: "/dashboard/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
   { href: "/dashboard/polls", labelKey: "nav.polls" as const, icon: BarChart3 },
   { href: "/dashboard/documents", labelKey: "nav.documents" as const, icon: FileText },
@@ -91,6 +96,7 @@ const navItems = [
   { href: "/dashboard/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
   { href: "/dashboard/todos", labelKey: "nav.todos" as const, icon: ListTodo },
   { href: "/dashboard/activity", labelKey: "nav.my_activity" as const, icon: Activity },
+  { href: "/dashboard/achievements", labelKey: "nav.achievements" as const, icon: Trophy },
   { href: "/dashboard/contributions", labelKey: "nav.contributions" as const, icon: Award },
   { href: "/dashboard/finance", labelKey: "nav.finance" as const, icon: Landmark },
   { href: "/dashboard/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },
@@ -124,6 +130,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [titleSaving, setTitleSaving] = useState(false);
   const [showVolunteerInvite, setShowVolunteerInvite] = useState(false);
   const [isFinanceTeam, setIsFinanceTeam] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const [volunteerInvite, setVolunteerInvite] = useState<{ id: string; district: string; inviterName: string } | null>(null);
   const [volunteerResponding, setVolunteerResponding] = useState(false);
   const router = useRouter();
@@ -187,6 +194,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then((d) => { if (d.total !== undefined) setNotifications(d); })
       .catch(() => {});
 
+    // Fetch unread message count
+    fetch("/api/messages?unread_count=true")
+      .then((r) => r.json())
+      .then((d) => { if (d.count !== undefined) setUnreadMessages(d.count); })
+      .catch(() => {});
+
     // Location: silently update if enabled, or prompt if never asked
     if (navigator.geolocation) {
       fetch("/api/users/me").then((r) => r.json()).then((d) => {
@@ -218,6 +231,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .then((r) => r.json())
         .then((d) => { if (d.total !== undefined) setNotifications(d); })
         .catch(() => {});
+      fetch("/api/messages?unread_count=true")
+        .then((r) => r.json())
+        .then((d) => { if (d.count !== undefined) setUnreadMessages(d.count); })
+        .catch(() => {});
     }, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -233,7 +250,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           setVolunteerInvite({ id: d.invite.id, district: d.invite.district, inviterName });
         }
       })
-      .catch(() => {});
+      .catch(() => { setVolunteerInvite(null); });
   }, [showVolunteerInvite]);
 
   async function handleVolunteerResponse(action: "accept" | "decline") {
@@ -370,7 +387,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               }`}
             >
               <item.icon size={18} />
-              {t(item.labelKey)}
+              <span className="flex-1">{t(item.labelKey)}</span>
+              {item.href === "/dashboard/messages" && unreadMessages > 0 && (
+                <span className="min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">
+                  {unreadMessages > 99 ? "99+" : unreadMessages}
+                </span>
+              )}
             </Link>
           );
         })}

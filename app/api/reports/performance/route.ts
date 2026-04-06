@@ -68,13 +68,14 @@ export async function GET(req: NextRequest) {
 
     // Build lookup maps
     const userMap = new Map(users.map(u => [u.id, u]));
+    const teamsMap = new Map(teams.map(t => [t.id, t]));
     const teamMembersByTeam = new Map<string, string[]>();
     const userTeams = new Map<string, string[]>();
     for (const tm of teamMembers) {
       if (!teamMembersByTeam.has(tm.team_id)) teamMembersByTeam.set(tm.team_id, []);
       teamMembersByTeam.get(tm.team_id)!.push(tm.user_id);
       if (!userTeams.has(tm.user_id)) userTeams.set(tm.user_id, []);
-      const team = teams.find(t => t.id === tm.team_id);
+      const team = teamsMap.get(tm.team_id);
       if (team) userTeams.get(tm.user_id)!.push(team.name);
     }
 

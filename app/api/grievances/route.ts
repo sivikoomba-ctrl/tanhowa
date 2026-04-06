@@ -5,6 +5,8 @@ import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { translateContent, getTranslations } from "@/lib/translate-content";
+import { validate, grievanceCreateSchema, grievanceUpdateSchema } from "@/lib/validation";
+import { writeLimiter } from "@/lib/rate-limit";
 
 const SERVICE_REQUEST_CATEGORIES = ["Transfer", "Training", "Legal Help", "Certificate", "Letter/Recommendation", "Welfare", "IT Support", "Other Service"];
 
@@ -18,13 +20,16 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const status = url.searchParams.get("status");
     const type = url.searchParams.get("type");
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "100"), 200);
+    const offset = parseInt(url.searchParams.get("offset") || "0");
 
     const supabase = getServiceClient();
 
     let query = supabase
       .from("grievances")
-      .select("*, users(name)")
-      .order("created_at", { ascending: false });
+      .select("*, users(name)", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     // Filter by type
     if (type === "suggestion") {
@@ -44,7 +49,7 @@ export async function GET(req: NextRequest) {
       query = query.eq("submitted_by", session.userId);
     }
 
-    const { data: grievances } = await query;
+    const { data: grievances, count } = await query;
     const items = grievances || [];
     const lang = url.searchParams.get("lang");
     if (lang === "ta" && items.length > 0) {
@@ -55,7 +60,7 @@ export async function GET(req: NextRequest) {
         if (t?.admin_remarks) g.admin_remarks = t.admin_remarks;
       }
     }
-    return NextResponse.json({ grievances: items });
+    return NextResponse.json({ grievances: items, total: count ?? items.length });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/grievances", method: "GET", status_code: 500 });
@@ -70,22 +75,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    }
+
     const body = await req.json();
 
-    const subject = (body.subject || "").trim();
-    const description = (body.description || "").trim();
-    if (!subject || !description) {
-      return NextResponse.json({ error: "Subject and description are required" }, { status: 400 });
-    }
+    const v = validate(grievanceCreateSchema, body);
+    if (!v.success) return NextResponse.json({ error: v.error }, { status: 400 });
 
     const supabase = getServiceClient();
 
     const { data, error } = await supabase
       .from("grievances")
       .insert({
-        subject,
-        description,
-        category: (body.category || "").trim(),
+        subject: v.data.subject,
+        description: v.data.description,
+        category: v.data.category,
         submitted_by: session.userId,
       })
       .select()
@@ -96,10 +103,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to submit grievance" }, { status: 500 });
     }
 
-    const actionType = body.category === "Suggestion" ? "suggestion_submitted"
-      : SERVICE_REQUEST_CATEGORIES.includes(body.category) ? "service_request_submitted"
+    const actionType = v.data.category === "Suggestion" ? "suggestion_submitted"
+      : SERVICE_REQUEST_CATEGORIES.includes(v.data.category) ? "service_request_submitted"
       : "grievance_submitted";
-    logContribution(session.userId, actionType, "Submitted: " + body.subject);
+    logContribution(session.userId, actionType, "Submitted: " + v.data.subject);
 
     return NextResponse.json({ grievance: data });
   } catch (error) {
@@ -116,30 +123,39 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    }
+
     const body = await req.json();
+
+    const v = validate(grievanceUpdateSchema, body);
+    if (!v.success) return NextResponse.json({ error: v.error }, { status: 400 });
+
     const supabase = getServiceClient();
 
     const updates: Record<string, string> = { updated_at: new Date().toISOString() };
-    if (body.status) updates.status = body.status;
-    if (body.admin_remarks !== undefined) updates.admin_remarks = body.admin_remarks;
-    if (body.priority) updates.priority = body.priority;
+    if (v.data.status) updates.status = v.data.status;
+    if (v.data.admin_remarks !== undefined) updates.admin_remarks = v.data.admin_remarks;
+    if (v.data.priority) updates.priority = v.data.priority;
 
     const { error } = await supabase
       .from("grievances")
       .update(updates)
-      .eq("id", body.id);
+      .eq("id", v.data.id);
 
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/grievances", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
     }
 
-    if (body.status || body.admin_remarks !== undefined) {
+    if (v.data.status || v.data.admin_remarks !== undefined) {
       logContribution(session.userId, "grievance_responded", "Responded to grievance");
     }
-    logAudit(session.userId, "grievance_updated", "grievance", body.id, { status: body.status, priority: body.priority });
-    if (body.admin_remarks) {
-      translateContent("grievances", body.id, { admin_remarks: body.admin_remarks });
+    logAudit(session.userId, "grievance_updated", "grievance", v.data.id, { status: v.data.status, priority: v.data.priority });
+    if (v.data.admin_remarks) {
+      translateContent("grievances", v.data.id, { admin_remarks: v.data.admin_remarks });
     }
 
     return NextResponse.json({ message: "Updated" });
@@ -155,6 +171,11 @@ export async function DELETE(req: NextRequest) {
     const session = await getSession();
     if (!session || !(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const url = new URL(req.url);

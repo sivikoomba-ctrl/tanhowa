@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { createRateLimiter } from "@/lib/rate-limit";
+import { validate, searchSchema } from "@/lib/validation";
 
 const limiter = createRateLimiter(20);
 
@@ -18,10 +19,12 @@ export async function GET(req: NextRequest) {
     }
 
     const url = new URL(req.url);
-    const q = (url.searchParams.get("q") || "").trim();
-    if (!q || q.length < 2) {
+    const rawQ = url.searchParams.get("q") || "";
+    const sv = validate(searchSchema, { q: rawQ });
+    if (!sv.success) {
       return NextResponse.json({ results: [] });
     }
+    const q = sv.data.q;
 
     const supabase = getServiceClient();
     const search = `%${q}%`;

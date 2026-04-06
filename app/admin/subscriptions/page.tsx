@@ -634,6 +634,7 @@ export default function AdminSubscriptionsPage() {
     });
     if (res.ok) {
       let extraCount = 0;
+      const failedIds: string[] = [];
 
       // Also verify same member's other periods (split payment across years)
       if (adminSelectedPeriods.size > 0) {
@@ -653,8 +654,8 @@ export default function AdminSubscriptionsPage() {
                 ...(groupId ? { payment_group_id: groupId } : {}),
               }),
             });
-            if (periodRes.ok) extraCount++;
-          } catch { /* continue */ }
+            if (periodRes.ok) extraCount++; else failedIds.push(subId);
+          } catch { failedIds.push(subId); }
         }
       }
 
@@ -677,8 +678,8 @@ export default function AdminSubscriptionsPage() {
                 ...(groupId ? { payment_group_id: groupId } : {}),
               }),
             });
-            if (linkedRes.ok) extraCount++;
-          } catch { /* continue */ }
+            if (linkedRes.ok) extraCount++; else failedIds.push(subId);
+          } catch { failedIds.push(subId); }
         }
       }
 
@@ -717,12 +718,14 @@ export default function AdminSubscriptionsPage() {
                 payment_group_id: autoGroupId,
               }),
             });
-            if (r.ok) extraCount++;
-          } catch { /* continue */ }
+            if (r.ok) extraCount++; else failedIds.push(s.id);
+          } catch { failedIds.push(s.id); }
         }
       }
 
-      if (extraCount > 0) {
+      if (failedIds.length > 0) {
+        toast.warning(`Payment verified. ${extraCount} additional approved, ${failedIds.length} failed.`);
+      } else if (extraCount > 0) {
         toast.success(`Payment verified + ${extraCount} additional subscription${extraCount > 1 ? "s" : ""}`);
       } else {
         toast.success("Payment verified and marked as paid");
@@ -1663,7 +1666,7 @@ export default function AdminSubscriptionsPage() {
                                     } else {
                                       setPayeeInfo(null);
                                     }
-                                  } catch {}
+                                  } catch { toast.error("Could not extract payment details — please enter manually"); }
                                   setExtractingDate(false);
                                 } catch {
                                   toast.error("Failed to load proof");

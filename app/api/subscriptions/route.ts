@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getOfficialInfo, isFinanceTeamMember, DEFAULT_ADMIN_EMAIL } from "@/lib/auth";
+import { validate, subscriptionUpdateSchema } from "@/lib/validation";
 
 // Emails excluded from subscription dues (test/system accounts)
 const SUBSCRIPTION_EXEMPT_EMAILS = [DEFAULT_ADMIN_EMAIL, "tanhowa19791@gmail.com"];
@@ -9,6 +10,7 @@ import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification, sendPaymentRejectionAlertEmail } from "@/lib/mail";
 import { notifyPaymentRejected } from "@/lib/telegram";
+import { writeLimiter } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -67,15 +69,19 @@ export async function GET(req: NextRequest) {
       }
 
       // Build query — fetch subscriptions and stats in parallel
+      const limit = Math.min(parseInt(url.searchParams.get("limit") || "500"), 1000);
+      const offset = parseInt(url.searchParams.get("offset") || "0");
+
       let query = supabase
         .from("subscriptions")
-        .select("*, users!subscriptions_user_id_fkey(name, email, phone, posting_details), approver:users!subscriptions_approved_by_fkey(name)")
-        .order("created_at", { ascending: false });
+        .select("*, users!subscriptions_user_id_fkey(name, email, phone, posting_details), approver:users!subscriptions_approved_by_fkey(name)", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
 
       if (period) query = query.eq("period", period);
       if (status && status !== "all") query = query.eq("status", status);
 
-      const [{ data: subscriptions, error: subError }, paidRes, pendingRes, overdueRes, totalAmountRes] = await Promise.all([
+      const [{ data: subscriptions, count: totalCount, error: subError }, paidRes, pendingRes, overdueRes, totalAmountRes] = await Promise.all([
         query,
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "paid"),
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -118,6 +124,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         subscriptions: visibleSubscriptions,
         stats,
+        total: totalCount ?? visibleSubscriptions.length,
       });
     } else {
       const { data: subscriptions } = await supabase
@@ -144,6 +151,11 @@ export async function POST(req: NextRequest) {
 
     if (!(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden — admin role required" }, { status: 403 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const supabase = getServiceClient();
@@ -324,7 +336,16 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    }
+
     const body = await req.json();
+
+    const v = validate(subscriptionUpdateSchema, body);
+    if (!v.success) return NextResponse.json({ error: v.error }, { status: 400 });
+
     const supabase = getServiceClient();
 
     const officialInfo = await getOfficialInfo(session.userId);

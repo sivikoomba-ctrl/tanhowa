@@ -7,6 +7,8 @@ import { logApiPerf } from "@/lib/api-perf";
 import { logAudit } from "@/lib/audit-log";
 import { notifyNewAnnouncement } from "@/lib/mail";
 import { translateContent, getTranslations } from "@/lib/translate-content";
+import { validate, announcementCreateSchema } from "@/lib/validation";
+import { writeLimiter } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
   const _perfStart = Date.now();
@@ -69,23 +71,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const body = await req.json();
-    const title = (body.title || "").trim();
-    const content = (body.content || "").trim();
-    if (!title) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
+
+    const body = await req.json();
+
+    const v = validate(announcementCreateSchema, body);
+    if (!v.success) return NextResponse.json({ error: v.error }, { status: 400 });
 
     const supabase = getServiceClient();
 
     const { data, error } = await supabase
       .from("announcements")
       .insert({
-        title,
-        content,
+        title: v.data.title,
+        content: v.data.content,
         author_id: session.userId,
-        published: body.published ?? true,
-        scheduled_at: body.scheduled_at || null,
+        published: v.data.published ?? true,
+        scheduled_at: v.data.scheduled_at || null,
       })
       .select()
       .single();
@@ -101,7 +106,7 @@ export async function POST(req: NextRequest) {
       notifyNewAnnouncement(data.title, data.content);
     }
 
-    logContribution(session.userId, "announcement_created", "Created announcement: " + body.title);
+    logContribution(session.userId, "announcement_created", "Created announcement: " + v.data.title);
     logAudit(session.userId, "announcement_created", "announcement", data.id);
     translateContent("announcements", data.id, { title: data.title, content: data.content });
 
@@ -120,8 +125,13 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    }
+
     const body = await req.json();
-    const { id, title, content, published } = body;
+    const { id, title, content, published, scheduled_at } = body;
     if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
     const supabase = getServiceClient();
@@ -129,6 +139,7 @@ export async function PUT(req: NextRequest) {
     if (title !== undefined) updates.title = title.trim();
     if (content !== undefined) updates.content = (content || "").trim();
     if (published !== undefined) updates.published = published;
+    if (scheduled_at !== undefined) updates.scheduled_at = scheduled_at || null;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
@@ -172,6 +183,11 @@ export async function DELETE(req: NextRequest) {
     const session = await getSession();
     if (!session || !(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const url = new URL(req.url);

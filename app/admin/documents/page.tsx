@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, FileText, Check, X, FileUp, Link, Upload, Users, Globe, UserCheck } from "lucide-react";
+import { Plus, Trash2, FileText, Check, X, FileUp, Link, Upload, Users, Globe, UserCheck, History } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 const docCategories = [
@@ -39,6 +39,17 @@ interface Document {
   users?: { name: string };
 }
 
+interface DocVersion {
+  id: string;
+  version_num: number;
+  file_url: string;
+  title: string;
+  description: string;
+  change_summary: string;
+  created_at: string;
+  users?: { name: string };
+}
+
 interface Member {
   id: string;
   name: string;
@@ -61,6 +72,11 @@ export default function AdminDocumentsPage() {
   const [uploadMode, setUploadMode] = useState<"file" | "url">("file");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyDocId, setHistoryDocId] = useState<string | null>(null);
+  const [historyDocTitle, setHistoryDocTitle] = useState("");
+  const [versions, setVersions] = useState<DocVersion[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
 
   const load = useCallback(() => {
     fetch("/api/documents?status=" + tab)
@@ -219,6 +235,18 @@ export default function AdminDocumentsPage() {
     } else {
       toast.error("Failed to update access");
     }
+  }
+
+  function openHistory(doc: Document) {
+    setHistoryDocId(doc.id);
+    setHistoryDocTitle(doc.title);
+    setHistoryDialogOpen(true);
+    setLoadingVersions(true);
+    fetch(`/api/documents?versions=${doc.id}`)
+      .then((r) => r.json())
+      .then((d) => setVersions(d.versions || []))
+      .catch(() => toast.error("Failed to load version history"))
+      .finally(() => setLoadingVersions(false));
   }
 
   function getMemberName(userId: string) {
@@ -509,6 +537,49 @@ export default function AdminDocumentsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Version History Dialog */}
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Version History: {historyDocTitle}</DialogTitle>
+          </DialogHeader>
+          {loadingVersions ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">Loading versions...</div>
+          ) : versions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">No previous versions found</div>
+          ) : (
+            <div className="space-y-3">
+              {versions.map((v) => (
+                <Card key={v.id}>
+                  <CardContent className="pt-3 pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">v{v.version_num}</Badge>
+                          <span className="text-sm font-medium">{v.title || "Untitled"}</span>
+                        </div>
+                        {v.change_summary && (
+                          <p className="text-xs text-muted-foreground mt-1">{v.change_summary}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                          {v.users?.name && <span className="uppercase">by {v.users.name}</span>}
+                          <span>{formatDate(v.created_at)}</span>
+                        </div>
+                      </div>
+                      <a href={v.file_url} target="_blank" rel="noopener noreferrer">
+                        <Button size="sm" variant="outline" className="text-xs">
+                          <FileText size={12} className="mr-1" /> View
+                        </Button>
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="pending">Pending Approval</TabsTrigger>
@@ -583,10 +654,16 @@ export default function AdminDocumentsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {doc.approved && (
-                          <Button size="sm" variant="outline" onClick={() => openAccessDialog(doc)}>
-                            <Users size={14} className="mr-1" />
-                            Access
-                          </Button>
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => openHistory(doc)}>
+                              <History size={14} className="mr-1" />
+                              History
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => openAccessDialog(doc)}>
+                              <Users size={14} className="mr-1" />
+                              Access
+                            </Button>
+                          </>
                         )}
                         {!doc.approved && (
                           <Button size="sm" onClick={() => handleApprove(doc.id)} className="bg-primary hover:bg-primary/90">

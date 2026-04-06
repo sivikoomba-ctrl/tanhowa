@@ -10,6 +10,7 @@ const translations = {
   "nav.members": { en: "Members", ta: "உறுப்பினர்கள்" },
   "nav.officials": { en: "Officials", ta: "அதிகாரிகள்" },
   "nav.teams": { en: "Teams", ta: "குழுக்கள்" },
+  "nav.messages": { en: "Messages", ta: "செய்திகள்" },
   "nav.announcements": { en: "Announcements", ta: "அறிவிப்புகள்" },
   "nav.events": { en: "Events", ta: "நிகழ்வுகள்" },
   "nav.resolutions": { en: "e-Resolutions", ta: "மின் தீர்மானங்கள்" },
@@ -44,6 +45,8 @@ const translations = {
   "nav.audit_log": { en: "Audit Log", ta: "தணிக்கைப் பதிவு" },
   "nav.error_logs": { en: "Error Logs", ta: "பிழைப் பதிவுகள்" },
   "nav.settings": { en: "Settings", ta: "அமைப்புகள்" },
+  "nav.district_benchmark": { en: "District Benchmark", ta: "மாவட்ட ஒப்பீடு" },
+  "nav.engagement": { en: "Engagement", ta: "ஈடுபாடு" },
 
   // Common actions
   "common.logout": { en: "Logout", ta: "வெளியேறு" },
@@ -816,6 +819,10 @@ const translations = {
   "sr.pri_low": { en: "Low", ta: "குறைவு" },
   "sr.pri_medium": { en: "Medium", ta: "நடுத்தரம்" },
   "sr.pri_high": { en: "High", ta: "அதிகம்" },
+
+  // Navigation — New features
+  "nav.achievements": { en: "Achievements", ta: "சாதனைகள்" },
+  "nav.calendar": { en: "Calendar", ta: "நாட்காட்டி" },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

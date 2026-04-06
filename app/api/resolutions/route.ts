@@ -4,6 +4,7 @@ import { getSession, isAdmin, getDbRole, getOfficialType } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logAudit } from "@/lib/audit-log";
 import { translateContent, getTranslations } from "@/lib/translate-content";
+import { writeLimiter } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -108,6 +109,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Only Super Admin and State Officials can create resolutions" }, { status: 403 });
     }
 
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    }
+
     const body = await req.json();
     if (!body.title?.trim() || !body.description?.trim()) {
       return NextResponse.json({ error: "Title and description are required" }, { status: 400 });
@@ -160,6 +166,11 @@ export async function PUT(req: NextRequest) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const body = await req.json();

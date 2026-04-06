@@ -10,7 +10,7 @@ import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import {
   GraduationCap, Calendar, MapPin, Clock, Users, Video,
-  Building, UserCheck, UserX, Loader2, ExternalLink,
+  Building, UserCheck, UserX, Loader2, ExternalLink, Download,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
@@ -111,14 +111,21 @@ export default function TrainingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <GraduationCap size={20} className="text-primary" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <GraduationCap size={20} className="text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">{t("nav.trainings")}</h1>
+            <p className="text-sm text-muted-foreground">{t("training.browse_enroll")}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold">{t("nav.trainings")}</h1>
-          <p className="text-sm text-muted-foreground">{t("training.browse_enroll")}</p>
-        </div>
+        {trainings.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => window.open("/api/events/ical?type=trainings", "_blank")}>
+            <Download className="h-4 w-4 mr-1" /> Export Calendar
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

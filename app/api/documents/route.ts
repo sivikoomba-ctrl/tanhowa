@@ -16,8 +16,20 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url);
     const status = url.searchParams.get("status");
+    const versionsDocId = url.searchParams.get("versions");
 
     const supabase = getServiceClient();
+
+    // Return version history for a specific document
+    if (versionsDocId) {
+      const { data: versions } = await supabase
+        .from("document_versions")
+        .select("*, users(name)")
+        .eq("document_id", versionsDocId)
+        .order("version_num", { ascending: false });
+      return NextResponse.json({ versions: versions || [] });
+    }
+
     const dbRole = await getDbRole(session.userId);
 
     let query = supabase
@@ -176,10 +188,44 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const supabase = getServiceClient();
 
+    // If updating file_url or title/description, save current version first
+    if (body.file_url || body.title || body.description || body.change_summary) {
+      const { data: current } = await supabase
+        .from("documents")
+        .select("id, title, description, file_url")
+        .eq("id", body.id)
+        .single();
+
+      if (current && current.file_url) {
+        // Get the next version number
+        const { data: maxVersion } = await supabase
+          .from("document_versions")
+          .select("version_num")
+          .eq("document_id", body.id)
+          .order("version_num", { ascending: false })
+          .limit(1);
+
+        const nextVersion = (maxVersion && maxVersion.length > 0 ? maxVersion[0].version_num : 0) + 1;
+
+        await supabase.from("document_versions").insert({
+          document_id: body.id,
+          version_num: nextVersion,
+          file_url: current.file_url,
+          title: current.title,
+          description: current.description,
+          change_summary: body.change_summary || null,
+          changed_by: session.userId,
+        });
+      }
+    }
+
     // Build update payload
     const update: Record<string, unknown> = {};
     if (body.approved !== undefined) update.approved = body.approved;
     if (body.visibility !== undefined) update.visibility = body.visibility;
+    if (body.title !== undefined) update.title = body.title;
+    if (body.description !== undefined) update.description = body.description;
+    if (body.file_url !== undefined) update.file_url = body.file_url;
 
     if (Object.keys(update).length > 0) {
       const { error } = await supabase

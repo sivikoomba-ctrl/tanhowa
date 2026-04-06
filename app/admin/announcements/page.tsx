@@ -8,23 +8,27 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Eye, Pencil, Send } from "lucide-react";
+import { Plus, Trash2, Eye, Pencil, Send, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
 export default function AdminAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<
-    { id: string; title: string; content: string; published: boolean; created_at: string }[]
+    { id: string; title: string; content: string; published: boolean; scheduled_at: string | null; created_at: string }[]
   >([]);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [scheduleMode, setScheduleMode] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [readCounts, setReadCounts] = useState<Record<string, number>>({});
   const [editId, setEditId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editScheduleMode, setEditScheduleMode] = useState(false);
+  const [editScheduledAt, setEditScheduledAt] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
 
@@ -47,16 +51,26 @@ export default function AdminAnnouncementsPage() {
     e.preventDefault();
     setLoading(true);
 
+    const payload: Record<string, unknown> = { title, content };
+    if (scheduleMode && scheduledAt) {
+      payload.published = false;
+      payload.scheduled_at = new Date(scheduledAt).toISOString();
+    } else {
+      payload.published = true;
+    }
+
     const res = await fetch("/api/announcements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, content, published: true }),
+      body: JSON.stringify(payload),
     });
 
     if (res.ok) {
-      toast.success("Announcement created");
+      toast.success(scheduleMode && scheduledAt ? "Announcement scheduled" : "Announcement created");
       setTitle("");
       setContent("");
+      setScheduleMode(false);
+      setScheduledAt("");
       setDialogOpen(false);
       load();
     } else {
@@ -91,20 +105,30 @@ export default function AdminAnnouncementsPage() {
     setPublishingId(null);
   }
 
-  function openEdit(a: { id: string; title: string; content: string }) {
+  function openEdit(a: { id: string; title: string; content: string; scheduled_at?: string | null }) {
     setEditId(a.id);
     setEditTitle(a.title);
     setEditContent(a.content);
+    setEditScheduleMode(!!a.scheduled_at);
+    setEditScheduledAt(a.scheduled_at ? new Date(a.scheduled_at).toISOString().slice(0, 16) : "");
     setEditOpen(true);
   }
 
   async function handleEdit(e: React.FormEvent) {
     e.preventDefault();
     setEditLoading(true);
+    const editPayload: Record<string, unknown> = { id: editId, title: editTitle, content: editContent };
+    if (editScheduleMode && editScheduledAt) {
+      editPayload.scheduled_at = new Date(editScheduledAt).toISOString();
+      editPayload.published = false;
+    } else {
+      editPayload.scheduled_at = null;
+    }
+
     const res = await fetch("/api/announcements", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editId, title: editTitle, content: editContent }),
+      body: JSON.stringify(editPayload),
     });
     if (res.ok) {
       toast.success("Announcement updated");
@@ -143,8 +167,21 @@ export default function AdminAnnouncementsPage() {
                 <Label>Content</Label>
                 <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={4} required />
               </div>
+              <div>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant={!scheduleMode ? "default" : "outline"} className="flex-1" onClick={() => setScheduleMode(false)}>
+                    <Send size={14} className="mr-1" /> Publish Now
+                  </Button>
+                  <Button type="button" size="sm" variant={scheduleMode ? "default" : "outline"} className="flex-1" onClick={() => setScheduleMode(true)}>
+                    <Clock size={14} className="mr-1" /> Schedule
+                  </Button>
+                </div>
+                {scheduleMode && (
+                  <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="mt-2" required />
+                )}
+              </div>
               <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90">
-                {loading ? "Creating..." : "Publish Announcement"}
+                {loading ? "Creating..." : scheduleMode && scheduledAt ? "Schedule Announcement" : "Publish Announcement"}
               </Button>
             </form>
           </DialogContent>
@@ -159,7 +196,12 @@ export default function AdminAnnouncementsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold">{a.title}</h3>
-                    {!a.published && <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px]">Draft</Badge>}
+                    {!a.published && !a.scheduled_at && <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px]">Draft</Badge>}
+                    {a.scheduled_at && !a.published && (
+                      <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-[10px] gap-1">
+                        <Clock size={10} /> {new Date(a.scheduled_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{a.content}</p>
                   <div className="flex items-center gap-2 mt-2">
@@ -207,8 +249,21 @@ export default function AdminAnnouncementsPage() {
               <Label>Content</Label>
               <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={4} required />
             </div>
+            <div>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant={!editScheduleMode ? "default" : "outline"} className="flex-1" onClick={() => setEditScheduleMode(false)}>
+                  <Send size={14} className="mr-1" /> Publish Now
+                </Button>
+                <Button type="button" size="sm" variant={editScheduleMode ? "default" : "outline"} className="flex-1" onClick={() => setEditScheduleMode(true)}>
+                  <Clock size={14} className="mr-1" /> Schedule
+                </Button>
+              </div>
+              {editScheduleMode && (
+                <Input type="datetime-local" value={editScheduledAt} onChange={(e) => setEditScheduledAt(e.target.value)} className="mt-2" required />
+              )}
+            </div>
             <Button type="submit" disabled={editLoading} className="w-full bg-primary hover:bg-primary/90">
-              {editLoading ? "Saving..." : "Save Changes"}
+              {editLoading ? "Saving..." : editScheduleMode && editScheduledAt ? "Save & Schedule" : "Save Changes"}
             </Button>
           </form>
         </DialogContent>

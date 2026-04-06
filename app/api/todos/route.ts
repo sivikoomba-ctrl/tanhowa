@@ -5,6 +5,8 @@ import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { notifyTaskCommitted, notifyTaskStatusChanged } from "@/lib/telegram";
+import { validate, todoCreateSchema } from "@/lib/validation";
+import { writeLimiter } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -120,22 +122,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    }
+
     const body = await req.json();
 
-    if (!body.title) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
-    }
+    const v = validate(todoCreateSchema, body);
+    if (!v.success) return NextResponse.json({ error: v.error }, { status: 400 });
 
     const supabase = getServiceClient();
 
     // Generate event_id
     let eventId: string;
-    if (body.parent_id) {
+    if (v.data.parent_id) {
       // Get parent event_id and count existing siblings
       const { data: parent } = await supabase
         .from("todos")
         .select("event_id, parent_id")
-        .eq("id", body.parent_id)
+        .eq("id", v.data.parent_id)
         .single();
 
       if (!parent) {
@@ -190,16 +196,16 @@ export async function POST(req: NextRequest) {
     }
 
     const insertData: Record<string, unknown> = {
-      title: body.title,
-      description: body.description || "",
+      title: v.data.title,
+      description: v.data.description || "",
       submitted_by: session.userId,
-      due_date: body.due_date || null,
-      parent_id: body.parent_id || null,
+      due_date: v.data.due_date || null,
+      parent_id: v.data.parent_id || null,
       event_id: eventId,
     };
-    if (typeof body.urgent === "boolean") insertData.urgent = body.urgent;
-    if (typeof body.important === "boolean") insertData.important = body.important;
-    if (body.assigned_team_id) insertData.assigned_team_id = body.assigned_team_id;
+    if (typeof v.data.urgent === "boolean") insertData.urgent = v.data.urgent;
+    if (typeof v.data.important === "boolean") insertData.important = v.data.important;
+    if (v.data.assigned_team_id) insertData.assigned_team_id = v.data.assigned_team_id;
 
     const { data, error } = await supabase
       .from("todos")
@@ -208,11 +214,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      await logError({ type: "api", message: error.message, path: "/api/todos", method: "POST", status_code: 500, metadata: { event_id: eventId, parent_id: body.parent_id || null } });
+      await logError({ type: "api", message: error.message, path: "/api/todos", method: "POST", status_code: 500, metadata: { event_id: eventId, parent_id: v.data.parent_id || null } });
       return NextResponse.json({ error: `Failed to create task: ${error.message}` }, { status: 500 });
     }
 
-    logContribution(session.userId, "task_created", "Created task: " + body.title);
+    logContribution(session.userId, "task_created", "Created task: " + v.data.title);
     logAudit(session.userId, "task_created", "task", data.id);
 
     return NextResponse.json({ todo: data });
@@ -228,6 +234,11 @@ export async function PUT(req: NextRequest) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const body = await req.json();
@@ -579,6 +590,11 @@ export async function DELETE(req: NextRequest) {
     const session = await getSession();
     if (!session || !(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const url = new URL(req.url);

@@ -5,6 +5,8 @@ import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { sendVoucherStatusEmail } from "@/lib/mail";
+import { validate, voucherCreateSchema } from "@/lib/validation";
+import { writeLimiter } from "@/lib/rate-limit";
 
 const FINANCE_TEAM_ID = "1c09bb67-5df7-4d1a-9b08-e0860a350061";
 
@@ -73,24 +75,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Only officials can submit expense vouchers" }, { status: 403 });
     }
 
-    const body = await req.json();
-    if (!body.title || body.amount === undefined) {
-      return NextResponse.json({ error: "Title and amount are required" }, { status: 400 });
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
+
+    const body = await req.json();
+
+    const v = validate(voucherCreateSchema, body);
+    if (!v.success) return NextResponse.json({ error: v.error }, { status: 400 });
 
     const supabase = getServiceClient();
     const { data, error } = await supabase
       .from("expense_vouchers")
       .insert({
-        submitted_by: body.submitted_by || session.userId,
-        title: body.title,
-        amount: parseFloat(body.amount) || 0,
-        description: body.description || "",
-        invoice_number: body.invoice_number || "",
-        vendor_name: body.vendor_name || "",
-        expense_date: body.expense_date || null,
-        category: body.category || "",
-        receipt_url: body.receipt_url || null,
+        submitted_by: v.data.submitted_by || session.userId,
+        title: v.data.title,
+        amount: v.data.amount,
+        description: v.data.description || "",
+        invoice_number: v.data.invoice_number || "",
+        vendor_name: v.data.vendor_name || "",
+        expense_date: v.data.expense_date || null,
+        category: v.data.category || "",
+        receipt_url: v.data.receipt_url || null,
       })
       .select("*, submitter:submitted_by(id, name, email, official_type)")
       .single();
@@ -100,7 +107,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create voucher" }, { status: 500 });
     }
 
-    logContribution(session.userId, "expense_voucher_submitted", "Submitted expense voucher: " + body.title);
+    logContribution(session.userId, "expense_voucher_submitted", "Submitted expense voucher: " + v.data.title);
 
     return NextResponse.json({ voucher: data });
   } catch (error) {
@@ -115,6 +122,11 @@ export async function PUT(req: NextRequest) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const body = await req.json();
@@ -201,6 +213,11 @@ export async function DELETE(req: NextRequest) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const url = new URL(req.url);

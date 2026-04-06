@@ -4,6 +4,8 @@ import { getSession, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logAudit } from "@/lib/audit-log";
 import { translateContent, getTranslations } from "@/lib/translate-content";
+import { validate, pollCreateSchema } from "@/lib/validation";
+import { writeLimiter } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -72,15 +74,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { title, options, expires_at } = await req.json();
-    if (!title?.trim() || !options?.length || options.length < 2) {
-      return NextResponse.json({ error: "Title and at least 2 options required" }, { status: 400 });
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
+
+    const body = await req.json();
+
+    const v = validate(pollCreateSchema, body);
+    if (!v.success) return NextResponse.json({ error: v.error }, { status: 400 });
 
     const supabase = getServiceClient();
     const { data, error } = await supabase
       .from("polls")
-      .insert({ title: title.trim(), options, created_by: session.userId, expires_at: expires_at || null })
+      .insert({ title: v.data.title, options: v.data.options, created_by: session.userId, expires_at: v.data.expires_at || null })
       .select()
       .single();
 
@@ -99,6 +106,11 @@ export async function PUT(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    }
 
     const body = await req.json();
 
@@ -146,6 +158,11 @@ export async function DELETE(req: NextRequest) {
     const session = await getSession();
     if (!session || !(await isAdminOrOfficial(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const url = new URL(req.url);

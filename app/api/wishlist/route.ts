@@ -5,6 +5,8 @@ import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { translateContent, getTranslations } from "@/lib/translate-content";
+import { validate, wishlistCreateSchema } from "@/lib/validation";
+import { writeLimiter } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -87,21 +89,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const title = (body.title || "").trim();
-    const description = (body.description || "").trim();
-    if (!title || !description) {
-      return NextResponse.json({ error: "Title and description are required" }, { status: 400 });
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
+
+    const body = await req.json();
+
+    const v = validate(wishlistCreateSchema, body);
+    if (!v.success) return NextResponse.json({ error: v.error }, { status: 400 });
 
     const supabase = getServiceClient();
 
     const { data, error } = await supabase
       .from("wishlist_ideas")
       .insert({
-        title,
-        description,
-        category: (body.category || "").trim(),
+        title: v.data.title,
+        description: v.data.description,
+        category: v.data.category,
         submitted_by: session.userId,
       })
       .select()
@@ -112,9 +117,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to submit idea" }, { status: 500 });
     }
 
-    logContribution(session.userId, "idea_submitted", "Submitted idea: " + title);
+    logContribution(session.userId, "idea_submitted", "Submitted idea: " + v.data.title);
     logAudit(session.userId, "idea_submitted", "wishlist_idea", data.id);
-    translateContent("wishlist_ideas", data.id, { title, description });
+    translateContent("wishlist_ideas", data.id, { title: v.data.title, description: v.data.description });
 
     return NextResponse.json({ idea: data });
   } catch (error) {
@@ -129,6 +134,11 @@ export async function PUT(req: NextRequest) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const body = await req.json();
@@ -258,6 +268,11 @@ export async function DELETE(req: NextRequest) {
     const session = await getSession();
     if (!session || !(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
     }
 
     const url = new URL(req.url);

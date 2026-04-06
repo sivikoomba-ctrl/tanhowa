@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, MapPin, Plus, Clock, UserCheck, Users } from "lucide-react";
+import { Calendar, MapPin, Plus, Clock, UserCheck, Users, Download } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { useT, useLang } from "@/lib/i18n";
@@ -124,11 +124,18 @@ export default function EventsPage() {
             </p>
           )}
         </div>
-        {canCreate && (
-          <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90">
-            <Plus size={16} className="mr-1" />{t("events.new_event")}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {events.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => window.open("/api/events/ical?type=events", "_blank")}>
+              <Download className="h-4 w-4 mr-1" /> Export Calendar
+            </Button>
+          )}
+          {canCreate && (
+            <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90">
+              <Plus size={16} className="mr-1" />{t("events.new_event")}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
