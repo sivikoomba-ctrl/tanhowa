@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Flower2, Clock, AlertTriangle } from "lucide-react";
+import { Flower2, Clock, AlertTriangle, ClipboardList, UserCheck, LayoutDashboard, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { useT } from "@/lib/i18n";
 import type { TranslationKey } from "@/lib/i18n/translations";
@@ -136,6 +136,23 @@ export default function OnboardingPage() {
             <p className="text-sm text-muted-foreground mt-1">{t("onboard.fill_details")}</p>
           </div>
 
+          <div className="flex items-center justify-center gap-1 mb-5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary font-medium">
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span>{t("onboard.step_fill")}</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg">
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>{t("onboard.step_approval")}</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg">
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span>{t("onboard.step_access")}</span>
+            </div>
+          </div>
+
           {loginCount >= 3 && (
             <div className={`rounded-xl border px-4 py-3 mb-5 flex items-start gap-3 ${loginCount >= 5 ? "bg-red-50 border-red-300" : "bg-amber-50 border-amber-300"}`}>
               <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${loginCount >= 5 ? "text-red-600" : "text-amber-600"}`} />
@@ -212,6 +229,14 @@ export default function OnboardingPage() {
               <p className="text-xs text-muted-foreground text-center">
                 {t("onboard.add_later")}
               </p>
+
+              <button
+                type="button"
+                onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); router.push("/"); }}
+                className="w-full text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+              >
+                {t("onboard.sign_out")}
+              </button>
             </CardContent>
           </Card>
         </div>
