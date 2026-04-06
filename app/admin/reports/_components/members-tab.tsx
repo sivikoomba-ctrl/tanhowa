@@ -24,12 +24,13 @@ export function MembersTab() {
   useEffect(() => {
     fetch("/api/reports/members")
       .then((r) => r.json())
-      .then((d) => setData(d))
+      .then((d) => { if (d && !d.error) setData(d); })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
-  if (!data) return <p className="text-center text-muted-foreground py-8">Failed to load member analytics.</p>;
+  if (!data || !data.registrationTrend) return <p className="text-center text-muted-foreground py-8">Failed to load member analytics.</p>;
 
   const trendData = data.registrationTrend.map((m) => ({
     ...m,

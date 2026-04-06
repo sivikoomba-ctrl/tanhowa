@@ -41,7 +41,7 @@ export function OverviewTab() {
   }, []);
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
-  if (!data) return <p className="text-center text-muted-foreground py-8">Failed to load overview.</p>;
+  if (!data || !data.members) return <p className="text-center text-muted-foreground py-8">Failed to load overview.</p>;
 
   // Task donut data
   const taskDonutData = Object.entries(data.tasks.breakdown).map(([status, count]) => ({
