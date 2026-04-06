@@ -212,22 +212,18 @@ async function downloadIdCard(profile: Profile, photoUrl: string | null) {
   const nameLines = doc.splitTextToSize(displayName, maxNameWidth);
   doc.text(nameLines[0], infoX, 18.5);
 
-  // Designation (Govt / TANHOWA)
-  doc.setFontSize(6.5);
-  doc.setFont("helvetica", "normal");
+  // TANHOWA Designation (primary)
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
   doc.setTextColor(...darkGreen);
-  const designationText = (profile.occupation || "Designation") + (profile.posting_details.official_designation ? ` / ${profile.posting_details.official_designation}` : "");
-  doc.text(designationText, infoX, 23);
+  doc.text(profile.posting_details.official_designation || "Member", infoX, 23);
 
-  // District, Block
-  if (profile.posting_details.regular_district) {
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(6);
-    doc.text(
-      profile.posting_details.regular_district + (profile.posting_details.regular_block ? `, ${profile.posting_details.regular_block}` : ""),
-      infoX, 27
-    );
-  }
+  // Govt Designation + District
+  doc.setFontSize(5.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  const govtLine = [profile.occupation, profile.posting_details.regular_district].filter(Boolean).join(" - ");
+  if (govtLine) doc.text(govtLine, infoX, 27);
 
   // Phone
   if (profile.phone) {
@@ -556,12 +552,12 @@ export default function ProfilePage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm uppercase truncate">{displayName || "Member Name"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {designation || "Designation"}{profile.posting_details.official_designation ? ` / ${profile.posting_details.official_designation}` : ""}
+                  <p className="text-xs font-semibold text-[#2d6a4f]">
+                    {profile.posting_details.official_designation || "Member"}
                   </p>
-                  {profile.posting_details.regular_district && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{profile.posting_details.regular_district}{profile.posting_details.regular_block ? `, ${profile.posting_details.regular_block}` : ""}</p>
-                  )}
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {designation || "Designation"}{profile.posting_details.regular_district ? ` · ${profile.posting_details.regular_district}` : ""}
+                  </p>
                 </div>
               </div>
               <Separator className="my-2" />
