@@ -159,9 +159,9 @@ export default function EngagementPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-end gap-2 h-36 max-w-xl mx-auto">
+            <div className="flex items-end justify-center gap-3 h-36 max-w-xl mx-auto">
               {engagementTrend.map((t) => (
-                <div key={t.month} className="flex-1 flex flex-col items-center gap-1">
+                <div key={t.month} className="flex flex-col items-center gap-1" style={{ width: `${Math.min(100 / Math.max(engagementTrend.length, 4), 20)}%`, maxWidth: 80 }}>
                   <span className="text-xs font-medium">{t.activeUsers}</span>
                   <div className="w-full bg-muted rounded-t-md overflow-hidden" style={{ height: "100%" }}>
                     <div
