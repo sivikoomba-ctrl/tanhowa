@@ -8,23 +8,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, CloudSun, Droplets, Wind, Thermometer, Copy, Check, MapPin, Leaf } from "lucide-react";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
-import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
+import { DISTRICT_NAMES, getBlocks, getSHFsByDistrict, type SHFarm } from "@/lib/tn-districts";
 
 export function WeatherAdvisory() {
   const [district, setDistrict] = useState("");
   const [block, setBlock] = useState("");
   const [place, setPlace] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ weather: string; advisory: string; farms: string[] } | null>(null);
+  const [shf, setShf] = useState("");
+  const [result, setResult] = useState<{ weather: string; advisory: string; farms: SHFarm[] } | null>(null);
   const [copied, setCopied] = useState(false);
   const t = useT();
 
   const blocks = district ? getBlocks(district) : [];
-  const nearbyFarms = district ? TN_HORTICULTURE_FARMS.filter((f) => f.toLowerCase().includes(district.toLowerCase())) : [];
+  const districtSHFs = district ? getSHFsByDistrict(district) : [];
 
   function handleDistrictChange(d: string) {
     setDistrict(d);
     setBlock("");
+    setShf("");
     setResult(null);
   }
 
@@ -32,17 +34,23 @@ export function WeatherAdvisory() {
     if (!district) { toast.error("Select a district"); return; }
     setLoading(true);
     try {
+      const selectedSHF = districtSHFs.find(f => f.name === shf);
       const res = await fetch("/api/ai-tools/weather-advisory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ district, block: block || undefined, place: place.trim() || undefined }),
+        body: JSON.stringify({
+          district,
+          block: block || undefined,
+          place: place.trim() || undefined,
+          shf: selectedSHF ? { name: selectedSHF.name, lat: selectedSHF.lat, lng: selectedSHF.lng } : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || "Failed to get advisory");
         return;
       }
-      setResult({ ...data, farms: nearbyFarms });
+      setResult({ ...data, farms: districtSHFs });
     } catch {
       toast.error("Failed to get weather advisory");
     } finally {
@@ -89,13 +97,28 @@ export function WeatherAdvisory() {
               </Select>
             </div>
           </div>
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">Place of Interest (optional)</label>
-            <Input
-              value={place}
-              onChange={(e) => setPlace(e.target.value)}
-              placeholder="e.g., SHF Krishnagiri, Mango orchard area, Market yard..."
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">State Horticulture Farm</label>
+              <Select value={shf} onValueChange={setShf} disabled={districtSHFs.length === 0}>
+                <SelectTrigger>
+                  <SelectValue placeholder={districtSHFs.length > 0 ? "Choose SHF..." : district ? "No SHF in this district" : "Select district first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {districtSHFs.map((f) => (
+                    <SelectItem key={f.name} value={f.name}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Other Place (optional)</label>
+              <Input
+                value={place}
+                onChange={(e) => setPlace(e.target.value)}
+                placeholder="e.g., Mango orchard, Market yard..."
+              />
+            </div>
           </div>
           <Button onClick={handleGetAdvisory} disabled={loading || !district} className="w-full">
             {loading ? <><Loader2 size={16} className="animate-spin mr-2" />Getting advisory...</> : <><CloudSun size={16} className="mr-2" />Get Weather Advisory</>}
@@ -107,7 +130,7 @@ export function WeatherAdvisory() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">
-              Weather & Advisory for {block ? `${block}, ` : ""}{district}{place ? ` (${place})` : ""}
+              Weather & Advisory for {shf ? `${shf}, ` : ""}{block ? `${block}, ` : ""}{district}{place ? ` (${place})` : ""}
             </span>
             <Button variant="ghost" size="sm" onClick={handleCopy} className="text-xs h-7">
               {copied ? <><Check size={14} className="mr-1" />{t("ai.copied")}</> : <><Copy size={14} className="mr-1" />{t("common.copy")}</>}
@@ -145,8 +168,8 @@ export function WeatherAdvisory() {
                 </div>
                 <div className="space-y-1">
                   {result.farms.map((f) => (
-                    <div key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <MapPin size={12} className="text-green-500 shrink-0" />{f}
+                    <div key={f.name} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin size={12} className="text-green-500 shrink-0" />{f.name}
                     </div>
                   ))}
                 </div>

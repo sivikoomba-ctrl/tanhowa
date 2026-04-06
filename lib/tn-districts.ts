@@ -47,36 +47,51 @@ export function getBlocks(district: string): string[] {
   return TN_DISTRICTS[district] || [];
 }
 
-// Tamil Nadu State Horticulture Farms
-export const TN_HORTICULTURE_FARMS: string[] = [
-  "Govt. Horticulture Farm, Kodaikanal",
-  "Govt. Horticulture Farm, Ooty (Udhagamandalam)",
-  "Govt. Horticulture Farm, Coonoor",
-  "Govt. Horticulture Farm, Kotagiri",
-  "Govt. Horticulture Farm, Yercaud",
-  "Govt. Horticulture Farm, Manjolai",
-  "Govt. Horticulture Farm, Palani",
-  "Govt. Horticulture Farm, Oddanchatram",
-  "Govt. Horticulture Farm, Theni",
-  "Govt. Horticulture Farm, Coimbatore",
-  "Govt. Horticulture Farm, Dharapuram",
-  "Govt. Horticulture Farm, Udumalpet",
-  "Govt. Horticulture Farm, Salem",
-  "Govt. Horticulture Farm, Krishnagiri",
-  "Govt. Horticulture Farm, Hosur",
-  "Govt. Horticulture Farm, Dharmapuri",
-  "Govt. Horticulture Farm, Vellore",
-  "Govt. Horticulture Farm, Tiruvannamalai",
-  "Govt. Horticulture Farm, Thanjavur",
-  "Govt. Horticulture Farm, Madurai",
-  "Govt. Horticulture Farm, Dindigul",
-  "Govt. Horticulture Farm, Tirunelveli",
-  "Govt. Horticulture Farm, Thoothukudi",
-  "Govt. Horticulture Farm, Ramanathapuram",
-  "Govt. Horticulture Farm, Virudhunagar",
-  "Govt. Horticulture Farm, Cuddalore",
-  "Govt. Horticulture Farm, Villupuram",
-  "Govt. Horticulture Farm, Namakkal",
-  "Govt. Horticulture Farm, Erode",
-  "Govt. Horticulture Farm, Tiruppur",
+// Tamil Nadu State Horticulture Farms with coordinates and district mapping
+export interface SHFarm {
+  name: string;
+  district: string;
+  lat: number;
+  lng: number;
+}
+
+export const TN_HORTICULTURE_FARMS_DATA: SHFarm[] = [
+  { name: "SHF Kodaikanal", district: "Dindigul", lat: 10.2381, lng: 77.4892 },
+  { name: "SHF Ooty (Udhagamandalam)", district: "Nilgiris", lat: 11.4102, lng: 76.6950 },
+  { name: "SHF Coonoor", district: "Nilgiris", lat: 11.3530, lng: 76.7959 },
+  { name: "SHF Kotagiri", district: "Nilgiris", lat: 11.4225, lng: 76.8615 },
+  { name: "SHF Yercaud", district: "Salem", lat: 11.7753, lng: 78.2093 },
+  { name: "SHF Manjolai", district: "Tirunelveli", lat: 8.7880, lng: 77.3540 },
+  { name: "SHF Palani", district: "Dindigul", lat: 10.4520, lng: 77.5200 },
+  { name: "SHF Oddanchatram", district: "Dindigul", lat: 10.4900, lng: 77.7503 },
+  { name: "SHF Theni", district: "Theni", lat: 10.0104, lng: 77.4768 },
+  { name: "SHF Coimbatore", district: "Coimbatore", lat: 11.0168, lng: 76.9558 },
+  { name: "SHF Dharapuram", district: "Tiruppur", lat: 10.7360, lng: 77.5281 },
+  { name: "SHF Udumalpet", district: "Tiruppur", lat: 10.5870, lng: 77.2480 },
+  { name: "SHF Salem", district: "Salem", lat: 11.6643, lng: 78.1460 },
+  { name: "SHF Krishnagiri", district: "Krishnagiri", lat: 12.5186, lng: 78.2138 },
+  { name: "SHF Hosur", district: "Krishnagiri", lat: 12.7409, lng: 77.8253 },
+  { name: "SHF Dharmapuri", district: "Dharmapuri", lat: 12.1277, lng: 78.1570 },
+  { name: "SHF Vellore", district: "Vellore", lat: 12.9165, lng: 79.1325 },
+  { name: "SHF Tiruvannamalai", district: "Tiruvannamalai", lat: 12.2253, lng: 79.0747 },
+  { name: "SHF Thanjavur", district: "Thanjavur", lat: 10.7870, lng: 79.1378 },
+  { name: "SHF Madurai", district: "Madurai", lat: 9.9252, lng: 78.1198 },
+  { name: "SHF Dindigul", district: "Dindigul", lat: 10.3624, lng: 77.9695 },
+  { name: "SHF Tirunelveli", district: "Tirunelveli", lat: 8.7284, lng: 77.7050 },
+  { name: "SHF Thoothukudi", district: "Thoothukudi", lat: 8.7642, lng: 78.1348 },
+  { name: "SHF Ramanathapuram", district: "Ramanathapuram", lat: 9.3639, lng: 78.8395 },
+  { name: "SHF Virudhunagar", district: "Virudhunagar", lat: 9.5851, lng: 77.9529 },
+  { name: "SHF Cuddalore", district: "Cuddalore", lat: 11.7480, lng: 79.7714 },
+  { name: "SHF Villupuram", district: "Viluppuram", lat: 11.9401, lng: 79.4861 },
+  { name: "SHF Namakkal", district: "Namakkal", lat: 11.2189, lng: 78.1674 },
+  { name: "SHF Erode", district: "Erode", lat: 11.3410, lng: 77.7172 },
+  { name: "SHF Tiruppur", district: "Tiruppur", lat: 11.1085, lng: 77.3411 },
 ];
+
+// Legacy array for backward compatibility (profile page Farm Manager dropdown)
+export const TN_HORTICULTURE_FARMS: string[] = TN_HORTICULTURE_FARMS_DATA.map(f => `Govt. Horticulture Farm, ${f.name.replace("SHF ", "")}`);
+
+// Get SHFs for a specific district
+export function getSHFsByDistrict(district: string): SHFarm[] {
+  return TN_HORTICULTURE_FARMS_DATA.filter(f => f.district === district);
+}

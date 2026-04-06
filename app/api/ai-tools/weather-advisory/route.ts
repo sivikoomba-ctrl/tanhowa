@@ -63,15 +63,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many requests. Please wait a moment." }, { status: 429 });
     }
 
-    const { district, block, place } = await req.json();
+    const { district, block, place, shf } = await req.json();
     if (!district || typeof district !== "string") {
       return NextResponse.json({ error: "District is required" }, { status: 400 });
     }
 
-    const coords = DISTRICT_COORDS[district];
-    if (!coords) {
+    const districtCoords = DISTRICT_COORDS[district];
+    if (!districtCoords) {
       return NextResponse.json({ error: "Unknown district" }, { status: 400 });
     }
+
+    // Use SHF coordinates if selected, otherwise district center
+    const coords = shf?.lat && shf?.lng ? { lat: shf.lat, lng: shf.lng } : districtCoords;
 
     // Fetch weather from Open-Meteo (free, no API key needed)
     const weatherUrl = `${WEATHER_API}?latitude=${coords.lat}&longitude=${coords.lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=Asia/Kolkata&forecast_days=3`;
@@ -81,7 +84,7 @@ export async function POST(req: NextRequest) {
     const current = weatherData.current || {};
     const daily = weatherData.daily || {};
 
-    const locationLabel = `${district}${block ? `, ${block} block` : ""}${place ? ` (${place})` : ""}`;
+    const locationLabel = `${district}${block ? `, ${block} block` : ""}${shf?.name ? ` — ${shf.name}` : ""}${place ? ` (${place})` : ""}`;
     const weatherSummary = `Location: ${locationLabel}
 Current Temperature: ${current.temperature_2m || "N/A"}°C
 Humidity: ${current.relative_humidity_2m || "N/A"}%
@@ -105,7 +108,8 @@ ${weatherSummary}
 
 Today's date: ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}
 ${block ? `\nBlock: ${block} — provide block-specific advice considering local terrain and crops grown in this block.` : ""}
-${place ? `\nPlace of interest: ${place} — include specific advice relevant to this location (if it's a horticulture farm, include nursery/plantation advice).` : ""}
+${shf?.name ? `\nState Horticulture Farm: ${shf.name} — this is a government horticulture farm. Include nursery management, plantation advice, propagation tips, and farm-specific operations for the current weather.` : ""}
+${place ? `\nPlace of interest: ${place} — include specific advice relevant to this location.` : ""}
 
 Provide advice on:
 1. **Irrigation** — when and how much to water based on current conditions
@@ -114,6 +118,7 @@ Provide advice on:
 4. **Precautions** — weather warnings and protective measures
 5. **Seasonal Tips** — what to plant/prepare for in the coming days
 ${block ? "6. **Block-specific** — crops and horticulture activities specific to this block" : ""}
+${shf?.name ? "7. **Farm Operations** — nursery bed preparation, grafting/budding schedule, irrigation for seedlings, pest management in nursery and plantation" : ""}
 
 Keep it practical, specific to ${district}'s agro-climatic zone${block ? ` and ${block} block` : ""}, and useful for ADHs and HOs. Use bullet points. Keep it concise (under 400 words).`,
       },
