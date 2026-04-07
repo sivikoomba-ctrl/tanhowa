@@ -25,6 +25,7 @@ const translations = {
   "nav.ai_tools": { en: "AI Tools", ta: "AI கருவிகள்" },
   "nav.payment_status": { en: "Payment Status", ta: "கட்டண நிலை" },
   "nav.wishlist": { en: "Ideas Board", ta: "யோசனைகள்" },
+  "nav.letters": { en: "Letters & Forms", ta: "கடிதங்கள் & படிவங்கள்" },
   "nav.faq": { en: "FAQ", ta: "கேள்வி பதில்" },
   "nav.food_orders": { en: "Food Orders", ta: "உணவு ஆர்டர்" },
   "nav.feedback": { en: "Feedback", ta: "கருத்து" },
@@ -830,6 +831,16 @@ const translations = {
   // Navigation — New features
   "nav.achievements": { en: "Achievements", ta: "சாதனைகள்" },
   "nav.calendar": { en: "Calendar", ta: "நாட்காட்டி" },
+
+  // Letters & Forms
+  "letters.title": { en: "Letters & Forms", ta: "கடிதங்கள் & படிவங்கள்" },
+  "letters.subtitle": { en: "Generate official letters with your profile details auto-filled", ta: "உங்கள் சுயவிவரம் தானாக நிரப்பப்பட்ட அதிகாரப்பூர்வ கடிதங்களை உருவாக்கவும்" },
+  "letters.leave_application": { en: "Leave Application", ta: "விடுப்பு விண்ணப்பம்" },
+  "letters.leave_desc": { en: "CL, EL, Medical leave with auto-filled details", ta: "CL, EL, மருத்துவ விடுப்பு - விவரங்கள் தானாக நிரப்பப்படும்" },
+  "letters.ta_bill": { en: "TA Bill", ta: "பயண படி பில்" },
+  "letters.ta_desc": { en: "Travelling Allowance bill with journey details", ta: "பயண விவரங்களுடன் பயண படி பில்" },
+  "letters.tour_diary": { en: "Tour Diary", ta: "சுற்றுப்பயண நாட்குறிப்பு" },
+  "letters.tour_desc": { en: "Daily tour record with distance and purpose", ta: "தூரம் மற்றும் நோக்கத்துடன் தினசரி சுற்றுப்பயண பதிவு" },
 } as const;
 
 export type TranslationKey = keyof typeof translations;
