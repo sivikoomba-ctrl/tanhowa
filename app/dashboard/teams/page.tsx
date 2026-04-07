@@ -87,7 +87,7 @@ export default function TeamsPage() {
               <div className="flex items-start gap-1.5 mt-3 justify-center sm:justify-start">
                 <MapPin size={14} className="text-muted-foreground shrink-0 mt-0.5" />
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Cabin Nos.3 &amp; 4, Alison&apos;s Complex - II Floor,<br />
+                  Cabin Nos. 3 &amp; 4, Alison&apos;s Complex - II Floor,<br />
                   17/8, Sunkuraman Street,<br />
                   (Opp. Street to Tamil Nadu Bar Council),<br />
                   Chennai - 600 001.
