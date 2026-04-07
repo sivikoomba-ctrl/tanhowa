@@ -97,6 +97,8 @@ export default function MessagesPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const threadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const convPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const shouldScrollRef = useRef(false);
+  const inputFocusedRef = useRef(false);
 
   // Fetch current user ID
   useEffect(() => {
@@ -151,6 +153,7 @@ export default function MessagesPage() {
     setHasMore(false);
 
     const msgs = await fetchThread(user.id);
+    shouldScrollRef.current = true;
     setMessages(msgs);
     setHasMore(msgs.length === 50);
     setLoadingThread(false);
@@ -161,10 +164,11 @@ export default function MessagesPage() {
     );
   }, [fetchThread]);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom only when explicitly flagged (new message sent, thread opened)
   useEffect(() => {
-    if (messagesEndRef.current) {
+    if (shouldScrollRef.current && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      shouldScrollRef.current = false;
     }
   }, [messages]);
 
@@ -174,8 +178,16 @@ export default function MessagesPage() {
 
     if (selectedUser) {
       threadPollRef.current = setInterval(async () => {
+        // Skip poll when user is typing to prevent scroll jumps
+        if (inputFocusedRef.current) return;
         const msgs = await fetchThread(selectedUser.id);
         if (msgs.length > 0) {
+          // Auto-scroll only if already near bottom
+          const container = messagesContainerRef.current;
+          if (container) {
+            const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+            if (nearBottom) shouldScrollRef.current = true;
+          }
           setMessages(msgs);
           setHasMore(msgs.length === 50);
         }
@@ -219,6 +231,7 @@ export default function MessagesPage() {
         return;
       }
 
+      shouldScrollRef.current = true;
       setMessages((prev) => [...prev, data.message]);
       setNewMessage("");
 
@@ -540,6 +553,8 @@ export default function MessagesPage() {
             onChange={(e) => setNewMessage(e.target.value)}
             className="flex-1 rounded-xl min-h-[40px]"
             maxLength={5000}
+            onFocus={() => { inputFocusedRef.current = true; }}
+            onBlur={() => { inputFocusedRef.current = false; }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
