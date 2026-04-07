@@ -10,9 +10,214 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Vote, Plus, ThumbsUp, Check, X, Send, FileText } from "lucide-react";
+import { Vote, Plus, ThumbsUp, Check, X, Send, FileText, Download, Loader2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useT, useLang } from "@/lib/i18n";
+
+const BRAND_GREEN: [number, number, number] = [45, 106, 79];
+const PRESIDENT_SIGNATURE_URL = "https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/president-signature.png";
+
+async function downloadResolutionPdf(r: Resolution) {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+
+  // Fetch voter details
+  const votersRes = await fetch(`/api/resolutions?voters_for=${r.id}`);
+  const votersData = await votersRes.json();
+  const voters: { user: { name: string; occupation?: string; posting_details?: { regular_district?: string } }; created_at: string }[] = votersData.voters || [];
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  const contentW = pageW - margin * 2;
+  let y = 15;
+
+  // Header: TANHOWA letterhead
+  doc.setFillColor(...BRAND_GREEN);
+  doc.rect(0, 0, pageW, 28, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("TAMIL NADU HORTICULTURAL OFFICERS WELFARE ASSOCIATION", pageW / 2, 11, { align: "center" });
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text("(TANHOWA) | Registered Society | www.tanhowa.in", pageW / 2, 18, { align: "center" });
+  doc.text("Regd. Office: Chennai, Tamil Nadu, India", pageW / 2, 23, { align: "center" });
+
+  y = 36;
+
+  // Title: RESOLUTION
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("RESOLUTION", pageW / 2, y, { align: "center" });
+  y += 3;
+
+  // Underline
+  doc.setDrawColor(...BRAND_GREEN);
+  doc.setLineWidth(0.8);
+  doc.line(margin + 40, y, pageW - margin - 40, y);
+  y += 8;
+
+  // Status badge
+  const passed = r.status === "passed";
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...(passed ? [0, 128, 0] as [number, number, number] : [200, 0, 0] as [number, number, number]));
+  doc.text(passed ? "STATUS: PASSED" : "STATUS: FAILED", pageW / 2, y, { align: "center" });
+  y += 8;
+
+  // Resolution details table
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+
+  const details = [
+    ["Resolution Title", r.title],
+    ["Category", r.category || "General"],
+    ["Proposed By", r.submitter?.name || "—"],
+    ["Total Members", String(r.total_members)],
+    ["Votes Required (Quorum)", String(r.votes_required)],
+    ["Votes Received", String(r.vote_count)],
+    ["Voting Opened", r.voting_opened_at ? new Date(r.voting_opened_at).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }) : "—"],
+    ["Voting Closed", r.voting_closed_at ? new Date(r.voting_closed_at).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }) : "—"],
+    ["Result", passed ? "PASSED (Majority achieved)" : "FAILED (Majority not achieved)"],
+  ];
+
+  autoTable(doc, {
+    startY: y,
+    head: [],
+    body: details,
+    theme: "grid",
+    styles: { fontSize: 9, cellPadding: 3 },
+    columnStyles: {
+      0: { fontStyle: "bold", cellWidth: 50, fillColor: [245, 245, 245] },
+      1: { cellWidth: contentW - 50 },
+    },
+    margin: { left: margin, right: margin },
+  });
+
+  y = (doc as typeof doc & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+
+  // Description
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("RESOLUTION TEXT:", margin, y);
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const descLines = doc.splitTextToSize(r.description, contentW);
+  doc.text(descLines, margin, y);
+  y += descLines.length * 4.5 + 6;
+
+  // Voter list
+  if (voters.length > 0) {
+    // Check page space
+    if (y > 200) { doc.addPage(); y = 20; }
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("LIST OF MEMBERS WHO VOTED IN FAVOUR:", margin, y);
+    y += 5;
+
+    const voterRows = voters.map((v, i) => [
+      String(i + 1),
+      (v.user?.name || "—").toUpperCase(),
+      v.user?.occupation || "—",
+      v.user?.posting_details?.regular_district || "—",
+      new Date(v.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      head: [["S.No", "Member Name", "Designation", "District", "Voted On"]],
+      body: voterRows,
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: BRAND_GREEN, textColor: [255, 255, 255], fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: 12, halign: "center" },
+        1: { cellWidth: 50 },
+        4: { cellWidth: 25 },
+      },
+      margin: { left: margin, right: margin },
+    });
+
+    y = (doc as typeof doc & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+  }
+
+  // Check page space for signature
+  if (y > 230) { doc.addPage(); y = 20; }
+
+  // Declaration
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "italic");
+  const declaration = "This is to certify that the above resolution was duly proposed, seconded, and put to vote in accordance with the rules and bye-laws of the Tamil Nadu Horticultural Officers Welfare Association (TANHOWA). The voting was conducted in a fair and transparent manner through the official TANHOWA digital portal (www.tanhowa.in). Each vote was uniquely captured with the member's identity and timestamp.";
+  const declLines = doc.splitTextToSize(declaration, contentW);
+  doc.text(declLines, margin, y);
+  y += declLines.length * 4 + 10;
+
+  // Signature block
+  // Try to load president's signature image
+  try {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject();
+      img.src = PRESIDENT_SIGNATURE_URL;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    ctx?.drawImage(img, 0, 0);
+    const imgData = canvas.toDataURL("image/png");
+    doc.addImage(imgData, "PNG", pageW - margin - 50, y - 5, 40, 20);
+  } catch {
+    // No signature image — skip
+  }
+
+  y += 18;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("_______________________________", pageW - margin - 55, y);
+  y += 5;
+  doc.text("President", pageW - margin - 45, y);
+  y += 4;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text("Tamil Nadu Horticultural Officers", pageW - margin - 55, y);
+  y += 4;
+  doc.text("Welfare Association (TANHOWA)", pageW - margin - 55, y);
+  y += 6;
+
+  // Date
+  const now = new Date();
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Date: ${now.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}`, margin, y);
+  doc.text(`Time: ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}`, margin + 70, y);
+  y += 4;
+  doc.text("Place: Chennai, Tamil Nadu", margin, y);
+
+  // Footer on all pages
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFillColor(...BRAND_GREEN);
+    doc.rect(0, doc.internal.pageSize.getHeight() - 10, pageW, 10, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7);
+    doc.text("TANHOWA — Tamil Nadu Horticultural Officers Welfare Association | www.tanhowa.in", pageW / 2, doc.internal.pageSize.getHeight() - 4, { align: "center" });
+    doc.text(`Page ${i} of ${pageCount}`, pageW - margin, doc.internal.pageSize.getHeight() - 4, { align: "right" });
+  }
+
+  const safeName = r.title.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 30);
+  doc.save(`TANHOWA_Resolution_${safeName}.pdf`);
+}
 
 interface Resolution {
   id: string;
@@ -374,6 +579,18 @@ function VotingCard({ resolution: r, onVote, voting }: { resolution: Resolution;
 
 function ResultCard({ resolution: r }: { resolution: Resolution }) {
   const passed = r.status === "passed";
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      await downloadResolutionPdf(r);
+    } catch {
+      toast.error("Failed to generate PDF");
+    }
+    setDownloading(false);
+  }
+
   return (
     <Card className={`border-l-4 ${passed ? "border-l-green-500" : "border-l-red-400"}`}>
       <CardContent className="pt-4">
@@ -398,8 +615,14 @@ function ResultCard({ resolution: r }: { resolution: Resolution }) {
               {r.voting_closed_at && <span>Closed {formatDate(r.voting_closed_at)}</span>}
             </div>
           </div>
-          <div className={`text-3xl font-bold ${passed ? "text-green-600" : "text-red-500"}`}>
-            {passed ? "PASSED" : "FAILED"}
+          <div className="flex flex-col items-center gap-2 shrink-0">
+            <div className={`text-3xl font-bold ${passed ? "text-green-600" : "text-red-500"}`}>
+              {passed ? "PASSED" : "FAILED"}
+            </div>
+            <Button size="sm" variant="outline" onClick={handleDownload} disabled={downloading} className="gap-1.5 text-xs">
+              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {downloading ? "Generating..." : "Download PDF"}
+            </Button>
           </div>
         </div>
       </CardContent>

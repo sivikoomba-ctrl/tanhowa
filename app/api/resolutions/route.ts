@@ -17,6 +17,21 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const statusFilter = url.searchParams.get("status");
     const my = url.searchParams.get("my");
+    const votersFor = url.searchParams.get("voters_for");
+
+    // Return voter names for a specific passed/failed resolution
+    if (votersFor) {
+      const { data: res } = await supabase.from("resolutions").select("status").eq("id", votersFor).single();
+      if (!res || (res.status !== "passed" && res.status !== "failed")) {
+        return NextResponse.json({ error: "Resolution not found or voting not closed" }, { status: 400 });
+      }
+      const { data: voters } = await supabase
+        .from("resolution_votes")
+        .select("user_id, created_at, user:users!resolution_votes_user_id_fkey(name, email, occupation, posting_details)")
+        .eq("resolution_id", votersFor)
+        .order("created_at", { ascending: true });
+      return NextResponse.json({ voters: voters || [] });
+    }
 
     const role = await getDbRole(session.userId);
     const officialType = await getOfficialType(session.userId);
