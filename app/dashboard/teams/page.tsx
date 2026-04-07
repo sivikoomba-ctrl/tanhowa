@@ -75,13 +75,13 @@ export default function TeamsPage() {
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <Avatar
               className="w-28 h-28 ring-2 ring-primary/20 cursor-pointer shrink-0"
-              onClick={() => setViewPhoto({ url: "https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/legal-advisor-rajendiran.jpeg", name: "S. RAJENDIRAN" })}
+              onClick={() => setViewPhoto({ url: "https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/legal-advisor-rajendiran.jpeg", name: "THIRU. S. RAJENDIRAN" })}
             >
-              <AvatarImage src="https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/legal-advisor-rajendiran.jpeg" alt="S. Rajendiran" />
+              <AvatarImage src="https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/legal-advisor-rajendiran.jpeg" alt="Thiru. S. Rajendiran" />
               <AvatarFallback className="bg-primary/10 text-primary font-bold text-2xl">SR</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0 text-center sm:text-left">
-              <h3 className="font-bold text-base uppercase">S. Rajendiran</h3>
+              <h3 className="font-bold text-base uppercase">Thiru. S. Rajendiran</h3>
               <p className="text-sm text-muted-foreground mt-0.5">B.Com., B.L.</p>
               <Badge className="bg-primary/10 text-primary border-0 text-xs mt-1.5">Advocate — Legal Advisor, TANHOWA</Badge>
               <div className="flex items-start gap-1.5 mt-3 justify-center sm:justify-start">
