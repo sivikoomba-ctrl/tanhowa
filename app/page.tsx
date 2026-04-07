@@ -306,14 +306,18 @@ export default function LandingPage() {
             </Card>
 
             {/* PWA Install Banner */}
-            <div className="w-full max-w-sm mt-5 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3">
+            <div className="w-full max-w-sm mt-5 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3.5">
               <div className="flex items-start gap-3">
                 <Smartphone size={18} className="text-primary mt-0.5 shrink-0" />
-                <div>
+                <div className="space-y-1.5">
                   <p className="text-xs font-semibold text-primary">{t("login.install_app")}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                    {t("login.install_desc")}
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {t("login.install_intro")}
                   </p>
+                  <div className="text-[11px] text-muted-foreground leading-relaxed space-y-0.5">
+                    <p className="font-medium text-foreground/70">{t("login.install_android")}</p>
+                    <p className="font-medium text-foreground/70">{t("login.install_ios")}</p>
+                  </div>
                 </div>
               </div>
             </div>

@@ -233,8 +233,11 @@ const translations = {
   "login.send_verification": { en: "Send Verification Code", ta: "சரிபார்ப்புக் குறியீடு அனுப்பு" },
   "login.email_code_msg": { en: "We'll send a one-time verification code to your email", ta: "உங்கள் மின்னஞ்சலுக்கு ஒரு முறை சரிபார்ப்புக் குறியீடு அனுப்புவோம்" },
   "login.use_google_or_email": { en: "Use your Google, Facebook account or email to sign in", ta: "உள்நுழைய Google, Facebook கணக்கு அல்லது மின்னஞ்சலைப் பயன்படுத்தவும்" },
-  "login.install_app": { en: "Install TANHOWA App", ta: "TANHOWA ஆப் நிறுவு" },
+  "login.install_app": { en: "Install TANHOWA App on Your Phone", ta: "உங்கள் போனில் TANHOWA ஆப் நிறுவுங்கள்" },
   "login.install_desc": { en: "Open tanhowa.in in Chrome/Safari, tap the menu and select \"Add to Home Screen\" for the best experience.", ta: "tanhowa.in ஐ Chrome/Safari-ல் திறந்து, மெனுவிலிருந்து \"முகப்புத் திரையில் சேர்\" என்பதைத் தேர்ந்தெடுங்கள்." },
+  "login.install_intro": { en: "No app store needed. Add TANHOWA to your home screen in 2 steps:", ta: "ஆப் ஸ்டோர் தேவையில்லை. 2 படிகளில் TANHOWA-ஐ சேர்க்கவும்:" },
+  "login.install_android": { en: "Android: Chrome \u2192 \u22ee menu (top-right) \u2192 \"Add to Home screen\"", ta: "Android: Chrome \u2192 \u22ee மெனு (மேல் வலது) \u2192 \"முகப்புத் திரையில் சேர்\"" },
+  "login.install_ios": { en: "iPhone: Safari \u2192 Share button (bottom) \u2192 \"Add to Home Screen\"", ta: "iPhone: Safari \u2192 Share பொத்தான் (கீழே) \u2192 \"முகப்புத் திரையில் சேர்\"" },
   "login.our_domains": { en: "Our Domains", ta: "எங்கள் துறைகள்" },
 
   // Onboarding page
