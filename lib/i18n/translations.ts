@@ -135,6 +135,13 @@ const translations = {
   "profile.incomplete_title": { en: "Welcome back", ta: "மீண்டும் வருக" },
   "profile.incomplete_desc": { en: "We noticed your profile is missing some important details. Please update the following to help us serve you better:", ta: "உங்கள் சுயவிவரத்தில் சில முக்கிய விவரங்கள் விடுபட்டுள்ளன. சிறந்த சேவைக்காக கீழ்க்கண்டவற்றைப் புதுப்பிக்கவும்:" },
   "profile.update_my_profile": { en: "Update My Profile", ta: "என் சுயவிவரத்தைப் புதுப்பி" },
+  "profile.mandatory_title": { en: "Almost There!", ta: "கிட்டத்தட்ட முடிந்தது!" },
+  "profile.mandatory_greeting": { en: "Dear Member, thank you for being part of TANHOWA! To provide you with the best experience and keep our member directory accurate, we kindly request you to complete your profile.", ta: "அன்புள்ள உறுப்பினரே, TANHOWA-வில் இணைந்ததற்கு நன்றி! சிறந்த அனுபவத்தை வழங்கவும், உறுப்பினர் விவரங்களை துல்லியமாக பராமரிக்கவும், தயவுசெய்து உங்கள் சுயவிவரத்தை முழுமையாக நிரப்பவும்." },
+  "profile.mandatory_missing": { en: "Please fill in the following details:", ta: "பின்வரும் விவரங்களை நிரப்பவும்:" },
+  "profile.mandatory_remaining": { en: "field(s) remaining", ta: "புலங்கள் நிரப்பப்படவில்லை" },
+  "profile.mandatory_button": { en: "Complete My Profile", ta: "என் சுயவிவரத்தை நிரப்பு" },
+  "profile.mandatory_note": { en: "You will be able to access all portal features once your profile is complete.", ta: "உங்கள் சுயவிவரம் முழுமையடைந்தவுடன் அனைத்து வசதிகளையும் பயன்படுத்தலாம்." },
+  "profile.mandatory_banner": { en: "Please complete all mandatory fields below to access the portal", ta: "போர்ட்டலை அணுக கீழே உள்ள அனைத்து கட்டாய புலங்களையும் நிரப்பவும்" },
 
   // Auth
   "auth.continue_google": { en: "Continue with Google", ta: "Google மூலம் தொடரவும்" },

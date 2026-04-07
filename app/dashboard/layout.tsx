@@ -602,7 +602,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 mb-4 flex items-start gap-2">
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-amber-800">Complete all mandatory fields to access the portal</p>
+                <p className="text-sm font-semibold text-amber-800">{t("profile.mandatory_banner")}</p>
                 <p className="text-xs text-amber-700 mt-1">Missing: {missingFields.join(", ")}</p>
               </div>
             </div>
@@ -778,14 +778,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <DialogContent className="max-w-md [&>button:last-child]:hidden" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-amber-600" />
-              Complete Your Profile
+              <Flower2 className="w-5 h-5 text-primary" />
+              {t("profile.mandatory_title")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              You must complete all mandatory fields before accessing any section. Please update the following:
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {t("profile.mandatory_greeting")}
             </p>
+            <p className="text-sm font-medium">{t("profile.mandatory_missing")}</p>
             <div className="rounded-xl border bg-amber-50 p-3 space-y-1.5">
               {missingFields.map((field) => (
                 <div key={field} className="flex items-center gap-2 text-sm">
@@ -795,7 +796,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               ))}
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              {missingFields.length} field{missingFields.length !== 1 ? "s" : ""} remaining
+              {missingFields.length} {t("profile.mandatory_remaining")}
             </p>
             <Button
               className="w-full bg-primary hover:bg-primary/90"
@@ -803,8 +804,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 router.push("/dashboard/profile");
               }}
             >
-              Go to My Profile
+              {t("profile.mandatory_button")}
             </Button>
+            <p className="text-[11px] text-muted-foreground text-center">
+              {t("profile.mandatory_note")}
+            </p>
           </div>
         </DialogContent>
       </Dialog>
