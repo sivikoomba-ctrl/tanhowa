@@ -370,7 +370,6 @@ export default function AdminUsersPage() {
           <TabsTrigger value="approved">Approved</TabsTrigger>
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
-          {callerEmail === "tanhowa19791@gmail.com" && <TabsTrigger value="suspended">Suspended</TabsTrigger>}
         </TabsList>
 
         <TabsContent value={tab} className="mt-4 space-y-4">

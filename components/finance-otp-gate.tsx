@@ -26,11 +26,23 @@ export function FinanceOtpGate({ children }: { children: React.ReactNode }) {
       const ts = parseInt(stored, 10);
       if (Date.now() - ts < SESSION_DURATION) {
         setVerified(true);
+        setChecking(false);
+        return;
       } else {
         sessionStorage.removeItem(SESSION_KEY);
       }
     }
-    setChecking(false);
+    // Super admins and regular admins bypass OTP — only finance team members need it
+    fetch("/api/users/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.user?.role === "super_admin" || d.user?.role === "admin") {
+          sessionStorage.setItem(SESSION_KEY, Date.now().toString());
+          setVerified(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setChecking(false));
   }, []);
 
   async function handleSendOtp() {
