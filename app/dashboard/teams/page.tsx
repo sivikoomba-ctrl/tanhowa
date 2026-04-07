@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { UsersRound, X, Users, MapPin, Phone, Mail } from "lucide-react";
+import { UsersRound, X, Users, MapPin, Phone, Mail, Crown } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { useT } from "@/lib/i18n";
@@ -109,8 +109,8 @@ export default function TeamsPage() {
       {/* Team Members Grid */}
       {currentTeam && currentTeam.members.length > 0 ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {currentTeam.members.map((m) => (
-            <Card key={m.id} className="hover:shadow-md transition-all hover:border-primary/20 group">
+          {[...currentTeam.members].sort((a, b) => (a.team_role === "lead" ? -1 : b.team_role === "lead" ? 1 : 0)).map((m) => (
+            <Card key={m.id} className={`hover:shadow-md transition-all group ${m.team_role === "lead" ? "border-amber-300 hover:border-amber-400" : "hover:border-primary/20"}`}>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-start gap-3">
                   <Avatar
@@ -125,7 +125,12 @@ export default function TeamsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h3 className="font-semibold text-sm truncate uppercase">{m.name || "Unnamed"}</h3>
-                      {m.team_role && m.team_role !== "member" && (
+                      {m.team_role === "lead" && (
+                        <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px] px-1.5 py-0 gap-0.5">
+                          <Crown size={10} className="fill-amber-600" />Team Lead
+                        </Badge>
+                      )}
+                      {m.team_role && m.team_role !== "member" && m.team_role !== "lead" && (
                         <Badge className="bg-primary/10 text-primary border-0 text-[10px] px-1.5 py-0">{m.team_role}</Badge>
                       )}
                       {m.official_type === "state" && (

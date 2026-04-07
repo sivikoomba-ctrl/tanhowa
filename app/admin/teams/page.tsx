@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Pencil, Trash2, UsersRound, Search, X, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, UsersRound, Search, X, Check, Crown } from "lucide-react";
 import { toast } from "sonner";
 
 interface Member {
@@ -49,6 +49,7 @@ export default function AdminTeamsPage() {
   const [formDescription, setFormDescription] = useState("");
   const [formSortOrder, setFormSortOrder] = useState(0);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [memberRoles, setMemberRoles] = useState<Record<string, string>>({});
   const [memberSearch, setMemberSearch] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -77,6 +78,7 @@ export default function AdminTeamsPage() {
     setFormDescription("");
     setFormSortOrder(teams.length);
     setSelectedMemberIds([]);
+    setMemberRoles({});
     setMemberSearch("");
     setShowDialog(true);
   }
@@ -87,6 +89,9 @@ export default function AdminTeamsPage() {
     setFormDescription(team.description);
     setFormSortOrder(team.sort_order);
     setSelectedMemberIds(team.members.map((m) => m.id));
+    const roles: Record<string, string> = {};
+    team.members.forEach((m) => { if (m.team_role && m.team_role !== "member") roles[m.id] = m.team_role; });
+    setMemberRoles(roles);
     setMemberSearch("");
     setShowDialog(true);
   }
@@ -99,11 +104,13 @@ export default function AdminTeamsPage() {
 
     setSaving(true);
     try {
+      const members = selectedMemberIds.map((id) => ({ user_id: id, role: memberRoles[id] || "member" }));
       const payload = {
         name: formName.trim(),
         description: formDescription.trim(),
         sort_order: formSortOrder,
         member_ids: selectedMemberIds,
+        members_with_roles: members,
         ...(editingTeam ? { id: editingTeam.id } : {}),
       };
 
@@ -142,9 +149,22 @@ export default function AdminTeamsPage() {
   }
 
   function toggleMember(userId: string) {
-    setSelectedMemberIds((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
+    setSelectedMemberIds((prev) => {
+      if (prev.includes(userId)) {
+        setMemberRoles((r) => { const next = { ...r }; delete next[userId]; return next; });
+        return prev.filter((id) => id !== userId);
+      }
+      return [...prev, userId];
+    });
+  }
+
+  function toggleLead(userId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setMemberRoles((prev) => {
+      const next = { ...prev };
+      if (next[userId] === "lead") { delete next[userId]; } else { next[userId] = "lead"; }
+      return next;
+    });
   }
 
   const filteredMembers = useMemo(() => {
@@ -210,8 +230,8 @@ export default function AdminTeamsPage() {
               <CardContent>
                 {team.members.length > 0 ? (
                   <div className="flex flex-wrap gap-3">
-                    {team.members.map((m) => (
-                      <div key={m.id} className="flex items-center gap-2 bg-muted/50 rounded-xl px-3 py-1.5">
+                    {[...team.members].sort((a, b) => (a.team_role === "lead" ? -1 : b.team_role === "lead" ? 1 : 0)).map((m) => (
+                      <div key={m.id} className={`flex items-center gap-2 rounded-xl px-3 py-1.5 ${m.team_role === "lead" ? "bg-amber-50 border border-amber-200" : "bg-muted/50"}`}>
                         <Avatar className="w-7 h-7">
                           {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
                           <AvatarFallback className="bg-primary/10 text-primary text-xs">
@@ -219,7 +239,10 @@ export default function AdminTeamsPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
-                          <p className="text-xs font-medium truncate uppercase">{m.name}</p>
+                          <div className="flex items-center gap-1">
+                            <p className="text-xs font-medium truncate uppercase">{m.name}</p>
+                            {m.team_role === "lead" && <Crown size={12} className="text-amber-600 fill-amber-600 shrink-0" />}
+                          </div>
                           {m.occupation && <p className="text-[10px] text-muted-foreground truncate">{m.occupation}</p>}
                         </div>
                       </div>
@@ -297,9 +320,14 @@ export default function AdminTeamsPage() {
                   {selectedMemberIds.map((id) => {
                     const m = allMembers.find((mem) => mem.id === id);
                     if (!m) return null;
+                    const isLead = memberRoles[id] === "lead";
                     return (
-                      <div key={id} className="flex items-center gap-1.5 bg-primary/10 text-primary rounded-full px-2.5 py-1 text-xs font-medium">
+                      <div key={id} className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${isLead ? "bg-amber-100 text-amber-800" : "bg-primary/10 text-primary"}`}>
+                        <button onClick={(e) => toggleLead(id, e)} title={isLead ? "Remove Team Lead" : "Set as Team Lead"} className="hover:scale-110 transition-transform">
+                          <Crown size={12} className={isLead ? "text-amber-600 fill-amber-600" : "text-muted-foreground"} />
+                        </button>
                         {m.name}
+                        {isLead && <span className="text-[10px] font-semibold text-amber-600">Lead</span>}
                         <button onClick={() => toggleMember(id)} className="hover:text-destructive">
                           <X size={12} />
                         </button>

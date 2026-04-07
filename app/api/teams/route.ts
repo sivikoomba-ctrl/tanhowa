@@ -96,14 +96,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create team" }, { status: 500 });
     }
 
-    // Add members if provided
-    if (body.member_ids && body.member_ids.length > 0) {
+    // Add members if provided (with optional roles)
+    if (body.members_with_roles && body.members_with_roles.length > 0) {
+      const memberInserts = body.members_with_roles.map((m: { user_id: string; role?: string }) => ({
+        team_id: data.id,
+        user_id: m.user_id,
+        role: m.role || "member",
+        added_by: session.userId,
+      }));
+      await supabase.from("team_members").insert(memberInserts);
+    } else if (body.member_ids && body.member_ids.length > 0) {
       const memberInserts = body.member_ids.map((userId: string) => ({
         team_id: data.id,
         user_id: userId,
         added_by: session.userId,
       }));
-
       await supabase.from("team_members").insert(memberInserts);
     }
 
@@ -147,19 +154,26 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Failed to update team" }, { status: 500 });
     }
 
-    // Update members if provided (replace all members)
-    if (body.member_ids !== undefined) {
+    // Update members if provided (replace all members with roles)
+    if (body.member_ids !== undefined || body.members_with_roles !== undefined) {
       // Remove existing members
       await supabase.from("team_members").delete().eq("team_id", body.id);
 
-      // Add new members
-      if (body.member_ids.length > 0) {
+      // Add new members with roles
+      if (body.members_with_roles && body.members_with_roles.length > 0) {
+        const memberInserts = body.members_with_roles.map((m: { user_id: string; role?: string }) => ({
+          team_id: body.id,
+          user_id: m.user_id,
+          role: m.role || "member",
+          added_by: session.userId,
+        }));
+        await supabase.from("team_members").insert(memberInserts);
+      } else if (body.member_ids && body.member_ids.length > 0) {
         const memberInserts = body.member_ids.map((userId: string) => ({
           team_id: body.id,
           user_id: userId,
           added_by: session.userId,
         }));
-
         await supabase.from("team_members").insert(memberInserts);
       }
     }
