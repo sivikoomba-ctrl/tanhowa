@@ -1109,18 +1109,18 @@ export default function TodosPage() {
   // Main Task List View
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-2 justify-between">
         <h1 className="text-2xl font-bold">Task List</h1>
         <div className="flex items-center gap-2">
-          <Button onClick={() => { setShowCreate(true); setSubtaskParentId(null); }} className="gap-2">
-            <Plus size={16} />
-            Submit Task
+          <Button size="sm" onClick={() => { setShowCreate(true); setSubtaskParentId(null); }} className="gap-1.5">
+            <Plus size={14} />
+            <span className="hidden sm:inline">Submit</span> Task
           </Button>
-          <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")} className="gap-1.5">
-            <List size={14} /> List
+          <Button variant={viewMode === "list" ? "default" : "outline"} size="icon" onClick={() => setViewMode("list")} className="h-8 w-8" title="List view">
+            <List size={16} />
           </Button>
-          <Button variant={viewMode === "matrix" ? "default" : "outline"} size="sm" onClick={() => setViewMode("matrix")} className="gap-1.5">
-            <LayoutGrid size={14} /> Matrix
+          <Button variant={viewMode === "matrix" ? "default" : "outline"} size="icon" onClick={() => setViewMode("matrix")} className="h-8 w-8" title="Matrix view">
+            <LayoutGrid size={16} />
           </Button>
         </div>
       </div>
