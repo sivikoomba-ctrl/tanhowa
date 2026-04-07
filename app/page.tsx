@@ -95,6 +95,7 @@ export default function LandingPage() {
         fb_token_exchange_failed: "Facebook authentication failed. Please try again.",
         fb_userinfo_failed: "Could not retrieve your Facebook account info.",
         fb_no_email: "Your Facebook account does not have a verified email. Please use Google or Email login instead.",
+        govt_email_blocked: "Government/official email addresses are not allowed. Please use your personal email to register.",
       };
       setError(messages[oauthError] || "Authentication failed. Please try again.");
       // Clean the URL

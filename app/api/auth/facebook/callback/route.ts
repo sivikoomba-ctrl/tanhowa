@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { createSession, DEFAULT_ADMIN_EMAIL } from "@/lib/auth";
+import { createSession, DEFAULT_ADMIN_EMAIL, isBlockedEmail } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 interface FacebookTokenResponse {
@@ -82,6 +82,12 @@ export async function GET(req: NextRequest) {
     }
 
     const normalizedEmail = fbUser.email.toLowerCase();
+
+    // Block government/official email addresses
+    if (isBlockedEmail(normalizedEmail)) {
+      return NextResponse.redirect(new URL("/?error=govt_email_blocked", req.url));
+    }
+
     const photoUrl = fbUser.picture?.data?.is_silhouette ? "" : (fbUser.picture?.data?.url || "");
 
     const supabase = getServiceClient();

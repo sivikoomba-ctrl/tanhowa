@@ -9,6 +9,27 @@ export const DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in";
 export const SYSTEM_ADMIN_EMAIL = "tanhowa19791@gmail.com";
 export const SUPER_ADMIN_EMAILS = new Set([DEFAULT_ADMIN_EMAIL, SYSTEM_ADMIN_EMAIL]);
 
+// Blocked government email domains and patterns
+const BLOCKED_EMAIL_DOMAINS = ["tn.gov.in", "nic.in", "gov.in"];
+const BLOCKED_EMAIL_PREFIXES = [
+  "adh", "ddh", "jdh", "addh", "ho",       // designation-based
+  "dho", "ado", "jdo",                       // alternate designation prefixes
+];
+
+/** Returns true if the email is a government/official email that should be blocked */
+export function isBlockedEmail(email: string): boolean {
+  const lower = email.toLowerCase();
+  // Super admin emails are never blocked
+  if (SUPER_ADMIN_EMAILS.has(lower)) return false;
+  const domain = lower.split("@")[1] || "";
+  // Block entire government domains
+  if (BLOCKED_EMAIL_DOMAINS.some((d) => domain === d || domain.endsWith("." + d))) return true;
+  // Block designation-based prefixes on any domain
+  const localPart = lower.split("@")[0] || "";
+  if (BLOCKED_EMAIL_PREFIXES.some((p) => localPart === p || localPart.startsWith(p + ".") || localPart.startsWith(p + "_"))) return true;
+  return false;
+}
+
 export interface SessionPayload {
   userId: string;
   email: string;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { createSession, DEFAULT_ADMIN_EMAIL, SUPER_ADMIN_EMAILS } from "@/lib/auth";
+import { createSession, DEFAULT_ADMIN_EMAIL, SUPER_ADMIN_EMAILS, isBlockedEmail } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 interface GoogleTokenResponse {
@@ -71,6 +71,11 @@ export async function GET(req: NextRequest) {
 
     const googleUser: GoogleUserInfo = await userInfoRes.json();
     const normalizedEmail = googleUser.email.toLowerCase();
+
+    // Block government/official email addresses
+    if (isBlockedEmail(normalizedEmail)) {
+      return NextResponse.redirect(new URL("/?error=govt_email_blocked", req.url));
+    }
 
     const supabase = getServiceClient();
 

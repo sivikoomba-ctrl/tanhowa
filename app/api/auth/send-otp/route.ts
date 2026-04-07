@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { sendOTPEmail } from "@/lib/mail";
 import { logError } from "@/lib/error-logger";
+import { isBlockedEmail } from "@/lib/auth";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { getRequestIp } from "@/lib/request-ip";
 
@@ -19,6 +20,11 @@ export async function POST(req: NextRequest) {
 
     if (!email || !email.includes("@")) {
       return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
+    }
+
+    // Block government/official email addresses
+    if (isBlockedEmail(email)) {
+      return NextResponse.json({ error: "Government/official email addresses are not allowed. Please use your personal email." }, { status: 403 });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();

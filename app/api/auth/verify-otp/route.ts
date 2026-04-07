@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { createSession, DEFAULT_ADMIN_EMAIL, SUPER_ADMIN_EMAILS } from "@/lib/auth";
+import { createSession, DEFAULT_ADMIN_EMAIL, SUPER_ADMIN_EMAILS, isBlockedEmail } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { getRequestIp } from "@/lib/request-ip";
@@ -19,6 +19,11 @@ export async function POST(req: NextRequest) {
 
     if (!email || !code) {
       return NextResponse.json({ error: "Email and code are required" }, { status: 400 });
+    }
+
+    // Block government/official email addresses
+    if (isBlockedEmail(email)) {
+      return NextResponse.json({ error: "Government/official email addresses are not allowed. Please use your personal email." }, { status: 403 });
     }
 
     const supabase = getServiceClient();
