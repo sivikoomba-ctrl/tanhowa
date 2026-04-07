@@ -75,9 +75,9 @@ export default function TeamsPage() {
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <Avatar
               className="w-28 h-28 ring-2 ring-primary/20 cursor-pointer shrink-0"
-              onClick={() => setViewPhoto({ url: "/legal-advisor-photo.jpg", name: "S. RAJENDIRAN" })}
+              onClick={() => setViewPhoto({ url: "https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/legal-advisor-rajendiran.jpeg", name: "S. RAJENDIRAN" })}
             >
-              <AvatarImage src="/legal-advisor-photo.jpg" alt="S. Rajendiran" />
+              <AvatarImage src="https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/legal-advisor-rajendiran.jpeg" alt="S. Rajendiran" />
               <AvatarFallback className="bg-primary/10 text-primary font-bold text-2xl">SR</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0 text-center sm:text-left">
