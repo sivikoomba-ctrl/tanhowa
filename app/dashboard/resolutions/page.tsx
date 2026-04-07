@@ -305,7 +305,13 @@ function VotingCard({ resolution: r, onVote, voting }: { resolution: Resolution;
               <h3 className="text-lg font-semibold">{r.title}</h3>
               {r.category && <Badge variant="outline" className="text-xs">{r.category}</Badge>}
             </div>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-4">{r.description}</p>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{r.description}</p>
+            {r.submitter?.name && (
+              <p className="text-sm mt-1 mb-3">
+                <span className="text-muted-foreground">Proposed by: </span>
+                <span className="font-semibold">{r.submitter.name}</span>
+              </p>
+            )}
 
             {/* Vote Progress */}
             <div className="space-y-2">
@@ -324,7 +330,6 @@ function VotingCard({ resolution: r, onVote, voting }: { resolution: Resolution;
               <p className="text-xs text-muted-foreground">
                 Total members: {r.total_members} &middot; Majority required: {r.votes_required}
                 {r.voting_opened_at && <> &middot; Opened {formatDate(r.voting_opened_at)}</>}
-                {r.submitter?.name && <> &middot; by {r.submitter.name}</>}
               </p>
             </div>
           </div>
@@ -380,12 +385,17 @@ function ResultCard({ resolution: r }: { resolution: Resolution }) {
               {r.category && <Badge variant="outline" className="text-xs">{r.category}</Badge>}
             </div>
             <p className="text-sm text-muted-foreground whitespace-pre-wrap">{r.description}</p>
-            <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+            {r.submitter?.name && (
+              <p className="text-sm mt-2">
+                <span className="text-muted-foreground">Proposed by: </span>
+                <span className="font-semibold">{r.submitter.name}</span>
+              </p>
+            )}
+            <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
               <span className="font-medium">
                 {r.vote_count} / {r.votes_required} votes ({r.total_members} members)
               </span>
               {r.voting_closed_at && <span>Closed {formatDate(r.voting_closed_at)}</span>}
-              {r.submitter?.name && <span>by {r.submitter.name}</span>}
             </div>
           </div>
           <div className={`text-3xl font-bold ${passed ? "text-green-600" : "text-red-500"}`}>
