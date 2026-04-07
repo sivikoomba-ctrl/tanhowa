@@ -62,12 +62,18 @@ interface UserData {
   phone?: string;
   occupation?: string;
   official_type?: string | null;
+  photo_url?: string;
+  dob?: string;
+  address?: string;
+  office_address?: string;
   posting_details?: {
     regular_district?: string;
     regular_block?: string;
   };
   social_links?: {
     gender?: string;
+    qualification?: string;
+    date_of_joining?: string;
   };
 }
 
@@ -111,11 +117,17 @@ const navItems = [
 function getMissingFields(u: UserData): string[] {
   const missing: string[] = [];
   const nameParts = (u.name || "").trim().split(/\s+/).filter(Boolean);
-  if (nameParts.length < 2) missing.push("Last Name / Initial (update your First Name and Last Name in Profile)");
+  if (nameParts.length < 2) missing.push("Last Name / Initial");
   if (!u.phone?.trim()) missing.push("Phone Number");
   if (!u.occupation?.trim()) missing.push("Designation");
   if (!u.posting_details?.regular_district) missing.push("District");
   if (!u.posting_details?.regular_block) missing.push("Block");
+  if (!u.photo_url) missing.push("Profile Photo");
+  if (!u.dob) missing.push("Date of Birth");
+  if (!u.social_links?.gender) missing.push("Gender");
+  if (!u.social_links?.qualification) missing.push("Qualification");
+  if (!u.social_links?.date_of_joining) missing.push("Date of Joining");
+  if (!u.address?.trim() && !u.office_address?.trim()) missing.push("Address");
   return missing;
 }
 
@@ -181,11 +193,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }
           setUser(data.user);
           if (data.is_finance_team) setIsFinanceTeam(true);
-          // Check for missing mandatory fields
+          // Check for missing mandatory fields — block access until complete
           const missing = getMissingFields(data.user);
           if (missing.length > 0 && data.user.role !== "admin" && data.user.role !== "super_admin") {
             setMissingFields(missing);
             setShowIncomplete(true);
+          } else {
+            setShowIncomplete(false);
           }
         } else {
           router.push("/");
@@ -583,6 +597,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
           )}
+          {/* Mandatory profile completion banner on profile page */}
+          {showIncomplete && pathname === "/dashboard/profile" && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 mb-4 flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Complete all mandatory fields to access the portal</p>
+                <p className="text-xs text-amber-700 mt-1">Missing: {missingFields.join(", ")}</p>
+              </div>
+            </div>
+          )}
           <div className="relative z-10">{children}</div>
           <PushManager />
         </main>
@@ -749,18 +773,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </DialogContent>
       </Dialog>
 
-      {/* Incomplete Profile Dialog */}
-      <Dialog open={showIncomplete} onOpenChange={setShowIncomplete}>
-        <DialogContent className="max-w-md">
+      {/* Incomplete Profile Dialog — mandatory, non-dismissible */}
+      <Dialog open={showIncomplete && pathname !== "/dashboard/profile"} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md [&>button:last-child]:hidden" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Flower2 className="w-5 h-5 text-primary" />
-              {t("profile.incomplete_title")}, {user?.name?.split(" ")[0] || "Member"}!
+              <AlertCircle className="w-5 h-5 text-amber-600" />
+              Complete Your Profile
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              {t("profile.incomplete_desc")}
+              You must complete all mandatory fields before accessing any section. Please update the following:
             </p>
             <div className="rounded-xl border bg-amber-50 p-3 space-y-1.5">
               {missingFields.map((field) => (
@@ -770,21 +794,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground text-center">
+              {missingFields.length} field{missingFields.length !== 1 ? "s" : ""} remaining
+            </p>
             <Button
               className="w-full bg-primary hover:bg-primary/90"
               onClick={() => {
-                setShowIncomplete(false);
                 router.push("/dashboard/profile");
               }}
             >
-              {t("profile.update_my_profile")}
+              Go to My Profile
             </Button>
-            <button
-              className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => setShowIncomplete(false)}
-            >
-              {t("common.remind_later")}
-            </button>
           </div>
         </DialogContent>
       </Dialog>

@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { UsersRound, X, Users, MapPin, Phone, Mail, Crown } from "lucide-react";
+import { UsersRound, X, Users, MapPin, Phone, Mail, Crown, Scale } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { useT } from "@/lib/i18n";
@@ -64,11 +64,59 @@ export default function TeamsPage() {
     );
   }
 
+  const legalAdvisorCard = (
+    <div className="space-y-3 pt-2">
+      <h2 className="text-lg font-bold flex items-center gap-2">
+        <Scale size={20} className="text-primary" />
+        Legal Advisor
+      </h2>
+      <Card className="border-primary/20 hover:shadow-md transition-all">
+        <CardContent className="pt-5 pb-5">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+            <Avatar
+              className="w-28 h-28 ring-2 ring-primary/20 cursor-pointer shrink-0"
+              onClick={() => setViewPhoto({ url: "/legal-advisor-photo.jpg", name: "S. RAJENDIRAN" })}
+            >
+              <AvatarImage src="/legal-advisor-photo.jpg" alt="S. Rajendiran" />
+              <AvatarFallback className="bg-primary/10 text-primary font-bold text-2xl">SR</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0 text-center sm:text-left">
+              <h3 className="font-bold text-base uppercase">S. Rajendiran</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">B.Com., B.L.</p>
+              <Badge className="bg-primary/10 text-primary border-0 text-xs mt-1.5">Advocate — Legal Advisor, TANHOWA</Badge>
+              <div className="flex items-start gap-1.5 mt-3 justify-center sm:justify-start">
+                <MapPin size={14} className="text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Cabin Nos.3 &amp; 4, Alison&apos;s Complex - II Floor,<br />
+                  17/8, Sunkuraman Street,<br />
+                  (Opp. Street to Tamil Nadu Bar Council),<br />
+                  Chennai - 600 001.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 justify-center sm:justify-start">
+                <a href="tel:+918072833018" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <Phone size={12} /> 80728 33018
+                </a>
+                <a href="tel:+919442330710" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <Phone size={12} /> 94423 30710
+                </a>
+                <a href="mailto:seethallaw@hotmail.com" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <Mail size={12} /> seethallaw@hotmail.com
+                </a>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   if (teams.length === 0) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">{t("team.title")}</h1>
         <EmptyState icon={UsersRound} title={t("team.no_teams")} description={t("team.will_appear")} />
+        {legalAdvisorCard}
       </div>
     );
   }
@@ -168,6 +216,8 @@ export default function TeamsPage() {
       ) : (
         <EmptyState icon={Users} title={t("team.no_members")} description={t("team.members_appear")} />
       )}
+
+      {legalAdvisorCard}
 
       {/* Photo Viewer */}
       <Dialog open={!!viewPhoto} onOpenChange={() => setViewPhoto(null)}>

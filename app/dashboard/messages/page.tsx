@@ -123,9 +123,12 @@ export default function MessagesPage() {
     fetchConversations().then(() => setLoading(false));
   }, [fetchConversations]);
 
-  // Poll conversations every 15 seconds
+  // Poll conversations every 15 seconds — skip when input is focused (mobile keyboard)
   useEffect(() => {
-    convPollRef.current = setInterval(fetchConversations, 15000);
+    convPollRef.current = setInterval(() => {
+      if (inputFocusedRef.current) return;
+      fetchConversations();
+    }, 15000);
     return () => {
       if (convPollRef.current) clearInterval(convPollRef.current);
     };
@@ -182,13 +185,19 @@ export default function MessagesPage() {
         if (inputFocusedRef.current) return;
         const msgs = await fetchThread(selectedUser.id);
         if (msgs.length > 0) {
-          // Auto-scroll only if already near bottom
-          const container = messagesContainerRef.current;
-          if (container) {
-            const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-            if (nearBottom) shouldScrollRef.current = true;
-          }
-          setMessages(msgs);
+          // Only update state if messages actually changed (avoids unnecessary re-renders)
+          setMessages((prev) => {
+            if (prev.length === msgs.length && prev[prev.length - 1]?.id === msgs[msgs.length - 1]?.id) {
+              return prev; // No change — skip re-render
+            }
+            // Auto-scroll only if already near bottom
+            const container = messagesContainerRef.current;
+            if (container) {
+              const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+              if (nearBottom) shouldScrollRef.current = true;
+            }
+            return msgs;
+          });
           setHasMore(msgs.length === 50);
         }
       }, 10000);
