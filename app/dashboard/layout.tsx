@@ -94,7 +94,7 @@ const navItems = [
   { href: "/dashboard/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
   { href: "/dashboard/payment-status", labelKey: "nav.payment_status" as const, icon: IndianRupee },
   { href: "/dashboard/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt, officialOnly: true },
-  { href: "/dashboard/letters", labelKey: "nav.letters" as const, icon: FileSignature },
+  { href: "/dashboard/letters", labelKey: "nav.letters" as const, icon: FileSignature, superAdminOnly: true },
   { href: "/dashboard/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
   { href: "/dashboard/todos", labelKey: "nav.todos" as const, icon: ListTodo },
   { href: "/dashboard/activity", labelKey: "nav.my_activity" as const, icon: Activity },
