@@ -109,7 +109,6 @@ export default function AdminTeamsPage() {
         name: formName.trim(),
         description: formDescription.trim(),
         sort_order: formSortOrder,
-        member_ids: selectedMemberIds,
         members_with_roles: members,
         ...(editingTeam ? { id: editingTeam.id } : {}),
       };
@@ -149,13 +148,12 @@ export default function AdminTeamsPage() {
   }
 
   function toggleMember(userId: string) {
-    setSelectedMemberIds((prev) => {
-      if (prev.includes(userId)) {
-        setMemberRoles((r) => { const next = { ...r }; delete next[userId]; return next; });
-        return prev.filter((id) => id !== userId);
-      }
-      return [...prev, userId];
-    });
+    if (selectedMemberIds.includes(userId)) {
+      setMemberRoles((r) => { const next = { ...r }; delete next[userId]; return next; });
+      setSelectedMemberIds((prev) => prev.filter((id) => id !== userId));
+    } else {
+      setSelectedMemberIds((prev) => [...prev, userId]);
+    }
   }
 
   function toggleLead(userId: string, e: React.MouseEvent) {

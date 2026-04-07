@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { FileText, Download, Plane, Calculator, BookOpen, ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { useT } from "@/lib/i18n";
@@ -54,6 +53,12 @@ const LEAVE_TYPES = ["Casual Leave (CL)", "Earned Leave (EL)", "Medical Leave (M
 const TRAVEL_MODES = ["Bus", "Train", "Car", "Two Wheeler", "Auto", "Taxi", "Air", "Walk", "Other"];
 
 const BRAND_GREEN: [number, number, number] = [45, 106, 79];
+
+function calcDays(from: string, to: string): number {
+  if (!from || !to) return 0;
+  const diff = new Date(to).getTime() - new Date(from).getTime();
+  return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1);
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function LettersPage() {
@@ -145,16 +150,8 @@ function LeaveForm({ user }: { user: UserData | null }) {
     station_leave: "No",
     alternate_officer: "",
   });
-  const [previewOpen, setPreviewOpen] = useState(false);
-
   function update(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  function calcDays(from: string, to: string): number {
-    if (!from || !to) return 0;
-    const diff = new Date(to).getTime() - new Date(from).getTime();
-    return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1);
   }
 
   useEffect(() => {
