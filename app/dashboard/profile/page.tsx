@@ -661,31 +661,35 @@ export default function ProfilePage() {
                     <Label className="text-xs text-muted-foreground">{t("profile.whatsapp")}</Label>
                     <Input value={profile.social_links.whatsapp} onChange={(e) => setProfile({ ...profile, social_links: { ...profile.social_links, whatsapp: e.target.value.replace(/[^\d\+\-\s\(\)]/g, "") } })} placeholder={t("ph.whatsapp")} className="mt-1" />
                   </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">{t("form.dob")} *</Label>
-                    <DateDropdowns value={profile.dob} onChange={(v) => setProfile({ ...profile, dob: v })} minYear={1940} maxYear={new Date().getFullYear() - 18} className="mt-1" />
+                  <div className="col-span-2 grid grid-cols-[1fr_auto] gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">{t("form.dob")} *</Label>
+                      <DateDropdowns value={profile.dob} onChange={(v) => setProfile({ ...profile, dob: v })} minYear={1940} maxYear={new Date().getFullYear() - 18} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">{t("form.gender")} *</Label>
+                      <Select value={profile.gender || "none"} onValueChange={(val) => setProfile({ ...profile, gender: val === "none" ? "" : val })}>
+                        <SelectTrigger className="mt-1 w-[100px]"><SelectValue placeholder={t("opt.select")} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{t("opt.select")}</SelectItem>
+                          <SelectItem value="Male">{t("opt.male")}</SelectItem>
+                          <SelectItem value="Female">{t("opt.female")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">{t("form.gender")} *</Label>
-                    <Select value={profile.gender || "none"} onValueChange={(val) => setProfile({ ...profile, gender: val === "none" ? "" : val })}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder={t("opt.select")} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">{t("opt.select")}</SelectItem>
-                        <SelectItem value="Male">{t("opt.male")}</SelectItem>
-                        <SelectItem value="Female">{t("opt.female")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">{t("profile.date_of_joining")}</Label>
-                    <DateDropdowns value={profile.date_of_joining} onChange={(v) => setProfile({ ...profile, date_of_joining: v })} minYear={1970} maxYear={new Date().getFullYear()} className="mt-1" />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">{t("form.designation")} *</Label>
-                    <Select value={profile.occupation} onValueChange={(val) => setProfile({ ...profile, occupation: val, occupation_other: val !== "Others" ? "" : profile.occupation_other })}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder={t("ph.designation")} /></SelectTrigger>
-                      <SelectContent>{occupationOptions.map((opt) => <SelectItem key={opt.value} value={opt.value}>{t(opt.key)}</SelectItem>)}</SelectContent>
-                    </Select>
+                  <div className="col-span-2 grid grid-cols-[1fr_auto] gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">{t("profile.date_of_joining")}</Label>
+                      <DateDropdowns value={profile.date_of_joining} onChange={(v) => setProfile({ ...profile, date_of_joining: v })} minYear={1970} maxYear={new Date().getFullYear()} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">{t("form.designation")} *</Label>
+                      <Select value={profile.occupation} onValueChange={(val) => setProfile({ ...profile, occupation: val, occupation_other: val !== "Others" ? "" : profile.occupation_other })}>
+                        <SelectTrigger className="mt-1 w-[140px]"><SelectValue placeholder={t("ph.designation")} /></SelectTrigger>
+                        <SelectContent>{occupationOptions.map((opt) => <SelectItem key={opt.value} value={opt.value}>{t(opt.key)}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
                 <Separator />

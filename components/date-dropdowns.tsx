@@ -3,8 +3,8 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
 function getDaysInMonth(year: number, month: number): number {
@@ -57,9 +57,9 @@ export function DateDropdowns({
   }
 
   return (
-    <div className={`flex gap-2 ${className}`}>
+    <div className={`grid grid-cols-3 gap-2 ${className}`}>
       <Select value={day} onValueChange={(v) => update(year, month, v)} disabled={disabled}>
-        <SelectTrigger className="w-[80px]">
+        <SelectTrigger>
           <SelectValue placeholder="Day" />
         </SelectTrigger>
         <SelectContent className="max-h-[200px]">
@@ -70,7 +70,7 @@ export function DateDropdowns({
       </Select>
 
       <Select value={month} onValueChange={(v) => update(year, v, day)} disabled={disabled}>
-        <SelectTrigger className="w-[130px]">
+        <SelectTrigger>
           <SelectValue placeholder="Month" />
         </SelectTrigger>
         <SelectContent>
@@ -81,7 +81,7 @@ export function DateDropdowns({
       </Select>
 
       <Select value={year} onValueChange={(v) => update(v, month, day)} disabled={disabled}>
-        <SelectTrigger className="w-[100px]">
+        <SelectTrigger>
           <SelectValue placeholder="Year" />
         </SelectTrigger>
         <SelectContent className="max-h-[200px]">
