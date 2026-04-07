@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Receipt, Plus, Upload, Eye, Trash2, IndianRupee, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Receipt, Plus, Upload, Eye, Trash2, IndianRupee, CheckCircle2, Clock, XCircle, ScanLine, Loader2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 
@@ -49,6 +49,8 @@ export default function VouchersPage() {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const scanInputRef = useRef<HTMLInputElement>(null);
   const t = useT();
 
   useEffect(() => {
@@ -130,6 +132,64 @@ export default function VouchersPage() {
     }
   }
 
+  async function handleScanBill(file: File) {
+    setScanning(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/ai-tools/expense-ocr", { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Failed to scan bill");
+        return;
+      }
+      const data = await res.json();
+      if (data.vendor_name === "Not a receipt") {
+        toast.error("This image does not appear to be a receipt or invoice.");
+        return;
+      }
+      // Auto-fill form fields from OCR result
+      const updates: typeof form = { ...form };
+      if (data.vendor_name) {
+        updates.vendor_name = data.vendor_name;
+        if (!form.title) updates.title = `${data.vendor_name} expense`;
+      }
+      if (data.total_amount != null) updates.amount = String(data.total_amount);
+      if (data.invoice_number) updates.invoice_number = data.invoice_number;
+      if (data.category) {
+        const matched = expenseCategories.find((c) => c.toLowerCase().includes(data.category.toLowerCase()));
+        if (matched) updates.category = matched;
+      }
+      if (data.date) {
+        // Parse DD/MM/YYYY to YYYY-MM-DD
+        const parts = data.date.split("/");
+        if (parts.length === 3) {
+          updates.expense_date = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+        }
+      }
+      // Build description from line items
+      const descParts: string[] = [];
+      if (data.items?.length) {
+        descParts.push(data.items.map((item: { description: string; quantity?: number; amount?: number }) =>
+          `${item.description}${item.quantity ? ` x${item.quantity}` : ""}${item.amount != null ? ` - ₹${item.amount}` : ""}`
+        ).join("\n"));
+      }
+      if (data.tax != null) descParts.push(`Tax/GST: ₹${data.tax}`);
+      if (data.payment_method) descParts.push(`Payment: ${data.payment_method}`);
+      if (data.notes) descParts.push(data.notes);
+      if (descParts.length) updates.description = descParts.join("\n");
+
+      setForm(updates);
+      // Also set the scanned image as receipt
+      setReceiptFile(file);
+      toast.success("Bill scanned! Fields auto-filled.");
+    } catch {
+      toast.error("Failed to scan bill");
+    } finally {
+      setScanning(false);
+    }
+  }
+
   if (!isOfficial && !loading) {
     return (
       <div className="text-center py-12">
@@ -160,6 +220,18 @@ export default function VouchersPage() {
             <DialogHeader>
               <DialogTitle>{t("voucher.submit_voucher")}</DialogTitle>
             </DialogHeader>
+            {/* Scan Bill Button */}
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
+              <ScanLine className="w-5 h-5 text-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">Scan a bill to auto-fill</p>
+                <p className="text-xs text-muted-foreground">Upload a receipt/invoice image and AI will extract the details</p>
+              </div>
+              <Button type="button" size="sm" variant="outline" disabled={scanning} onClick={() => scanInputRef.current?.click()}>
+                {scanning ? <><Loader2 size={14} className="mr-1 animate-spin" /> Scanning...</> : <><ScanLine size={14} className="mr-1" /> Scan Bill</>}
+              </Button>
+              <input ref={scanInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleScanBill(f); e.target.value = ""; }} />
+            </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label>Expense Title *</Label>
