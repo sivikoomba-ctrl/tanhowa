@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { UsersRound, X, Users, MapPin, Phone, Mail, Crown, Scale } from "lucide-react";
+import { UsersRound, X, Users, MapPin, Phone, Mail, Crown, Scale, Star, Shield } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { useT } from "@/lib/i18n";
@@ -67,40 +67,64 @@ export default function TeamsPage() {
   const legalAdvisorCard = (
     <div className="space-y-3 pt-2">
       <h2 className="text-lg font-bold flex items-center gap-2">
-        <Scale size={20} className="text-primary" />
+        <Scale size={20} className="text-amber-600" />
         Legal Advisor
       </h2>
-      <Card className="border-primary/20 hover:shadow-md transition-all">
-        <CardContent className="pt-5 pb-5">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-            <Avatar
-              className="w-28 h-28 ring-2 ring-primary/20 cursor-pointer shrink-0"
-              onClick={() => setViewPhoto({ url: "https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/legal-advisor-rajendiran.jpeg", name: "THIRU. S. RAJENDIRAN" })}
-            >
-              <AvatarImage src="https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/legal-advisor-rajendiran.jpeg" alt="Thiru. S. Rajendiran" />
-              <AvatarFallback className="bg-primary/10 text-primary font-bold text-2xl">SR</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0 text-center sm:text-left">
-              <h3 className="font-bold text-base uppercase">Thiru. S. Rajendiran</h3>
-              <p className="text-sm text-muted-foreground mt-0.5">B.Com., B.L.</p>
-              <Badge className="bg-primary/10 text-primary border-0 text-xs mt-1.5">Advocate — Legal Advisor, TANHOWA</Badge>
-              <div className="flex items-start gap-1.5 mt-3 justify-center sm:justify-start">
-                <MapPin size={14} className="text-muted-foreground shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Cabin Nos. 3 &amp; 4, Alison&apos;s Complex - II Floor,<br />
-                  17/8, Sunkuraman Street,<br />
-                  (Opp. Street to Tamil Nadu Bar Council),<br />
-                  Chennai - 600 001.
-                </p>
+      <Card className="relative overflow-hidden border-amber-200 hover:shadow-lg transition-all bg-gradient-to-br from-amber-50/80 via-white to-amber-50/40">
+        {/* Premium accent stripe */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400" />
+        {/* Decorative corner */}
+        <div className="absolute top-3 right-3 flex items-center gap-1 opacity-60">
+          <Star size={10} className="text-amber-500 fill-amber-500" />
+          <Star size={10} className="text-amber-500 fill-amber-500" />
+          <Star size={10} className="text-amber-500 fill-amber-500" />
+        </div>
+        <CardContent className="pt-6 pb-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+            {/* Premium photo frame */}
+            <div className="relative shrink-0">
+              <div className="absolute -inset-1.5 rounded-full bg-gradient-to-br from-amber-300 via-amber-400 to-amber-300 opacity-60" />
+              <Avatar
+                className="w-32 h-32 relative ring-3 ring-white cursor-pointer shadow-md"
+                onClick={() => setViewPhoto({ url: "https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/legal-advisor-rajendiran.jpeg", name: "THIRU. S. RAJENDIRAN" })}
+              >
+                <AvatarImage src="https://ztracifmvkrjfoslkzpl.supabase.co/storage/v1/object/public/avatars/legal-advisor-rajendiran.jpeg" alt="Thiru. S. Rajendiran" />
+                <AvatarFallback className="bg-amber-100 text-amber-700 font-bold text-2xl">SR</AvatarFallback>
+              </Avatar>
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2">
+                <div className="bg-amber-500 text-white text-[9px] font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                  <Shield size={9} className="fill-white" />LEGAL ADVISOR
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 justify-center sm:justify-start">
-                <a href="tel:+918072833018" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+            </div>
+
+            <div className="flex-1 min-w-0 text-center sm:text-left mt-2 sm:mt-0">
+              <h3 className="font-bold text-lg uppercase tracking-wide text-amber-900">Thiru. S. Rajendiran</h3>
+              <p className="text-sm text-amber-700 font-medium mt-0.5">B.Com., B.L.</p>
+              <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-xs mt-2 gap-1">
+                <Scale size={11} />Advocate — Legal Advisor, TANHOWA
+              </Badge>
+
+              <div className="mt-4 p-3 rounded-xl bg-white/70 border border-amber-100">
+                <div className="flex items-start gap-2 justify-center sm:justify-start">
+                  <MapPin size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-900/70 leading-relaxed">
+                    Cabin Nos. 3 &amp; 4, Alison&apos;s Complex - II Floor,<br />
+                    17/8, Sunkuraman Street,<br />
+                    (Opp. Street to Tamil Nadu Bar Council),<br />
+                    Chennai - 600 001.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 justify-center sm:justify-start">
+                <a href="tel:+918072833018" className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 hover:text-amber-600 transition-colors bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
                   <Phone size={12} /> 80728 33018
                 </a>
-                <a href="tel:+919442330710" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                <a href="tel:+919442330710" className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 hover:text-amber-600 transition-colors bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
                   <Phone size={12} /> 94423 30710
                 </a>
-                <a href="mailto:seethallaw@hotmail.com" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                <a href="mailto:seethallaw@hotmail.com" className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 hover:text-amber-600 transition-colors bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
                   <Mail size={12} /> seethallaw@hotmail.com
                 </a>
               </div>
