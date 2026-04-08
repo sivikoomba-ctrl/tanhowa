@@ -402,6 +402,7 @@ Standalone expense claims not tied to tasks. Table: `expense_vouchers`.
 - Officials submit at `/dashboard/vouchers` (sidebar hidden for non-officials)
 - Admin reviews at `/admin/vouchers` — can also create on behalf of officials
 - API: `/api/vouchers` (GET/POST/PUT/DELETE) — POST requires `isAdminOrOfficial()`
+- **AI Bill Scan:** "Scan Bill" button on create dialog uploads receipt image to `/api/ai-tools/expense-ocr` (Gemini vision). Auto-fills vendor_name, amount, invoice_number, category, expense_date, description from extracted line items.
 
 ## e-Resolutions (Voting System)
 
@@ -413,6 +414,7 @@ Table: `resolutions` + `resolution_votes`. Members can propose resolutions that 
 - **Vote:** All approved members can vote/unvote while voting is open
 - **Quorum:** `votes_required = floor(total_members / 2) + 1` — recalculated when voting opens
 - **Close voting:** Admin closes voting → auto-determines passed/failed based on vote count vs required
+- **Resolution PDF:** Download button on passed/failed resolutions. Legal format with TANHOWA letterhead, resolution details table, full text, voter list (name, designation, district, vote date), legal certification, president's digital signature, date/time/place. API: `GET /api/resolutions?voters_for={id}` returns voter details.
 
 **Statuses:** `draft`, `submitted`, `approved`, `rejected`, `voting_open`, `passed`, `failed`
 
@@ -738,6 +740,29 @@ ADDH (1) → JDH (2) → DDH (3) → ADH (4) → HO (5) → Retd (6) → Others 
 `getDesignationRank()` function matches on `occupation` field substrings. Secondary sort by block name, tertiary by member name.
 
 **Designation options:** "Others" (with custom input) and all 5 retired designation variants have been removed from both onboarding and profile pages. Only active designations remain: HO, ADH, DDH, JDH, ADDH, System Admin.
+
+## Team Lead Role & Legal Advisor
+
+- **Team Lead:** `team_members.role` column supports "lead" designation. Admin teams page has Crown toggle per member. Leads shown first with amber highlight and Crown icon on both admin and member teams pages. API payload uses `members_with_roles: [{ user_id, role }]`.
+- **Legal Advisor:** Hardcoded card on `/dashboard/teams` (not from DB). Shows Thiru. S. Rajendiran (Advocate, B.Com., B.L.) with photo, address, phones, email. Photo at Supabase `avatars/legal-advisor-rajendiran.jpeg`. Appears below all team cards and also when no teams exist.
+
+## Letters & Forms (superAdminOnly)
+
+3 government letter templates at `/dashboard/letters` — restricted to `tanhowa19791@gmail.com`:
+- **Leave Application:** Leave type selector (7 types), date range with auto-calculated days, alternate officer
+- **TA Bill:** Dynamic journey rows with fare/DA/halting/conveyance columns, grand total in words (Indian numbering)
+- **Tour Diary:** Dynamic tour entries with distance, mode, purpose, certification
+
+All auto-fill name, designation, district, block from user profile. Generate branded PDFs with TANHOWA footer using jsPDF + jspdf-autotable.
+
+## Mandatory Profile Completion
+
+All approved members must complete 12 fields before accessing any dashboard section (admins/super_admins exempt):
+- Fields: First Name, Last Name, Phone, Designation, District, Block, Profile Photo, DOB, Gender, Qualification, Date of Joining, Address
+- Non-dismissible dialog blocks navigation (except `/dashboard/profile`)
+- Polite bilingual message (EN/TA) with `Flower2` icon
+- Warning banner on profile page shows missing fields
+- Logic: `getMissingFields()` in `app/dashboard/layout.tsx`
 
 ## Common Tasks
 
