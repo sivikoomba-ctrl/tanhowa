@@ -10,7 +10,7 @@ import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import {
   GraduationCap, Calendar, MapPin, Clock, Users, Video,
-  Building, UserCheck, UserX, Loader2, ExternalLink, Download,
+  Building, UserCheck, UserX, Loader2, ExternalLink, Download, Check, X,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
@@ -48,6 +48,8 @@ export default function TrainingsPage() {
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [trainerInvites, setTrainerInvites] = useState<{ id: string; training: { title: string; date: string }; inviter: { name: string } }[]>([]);
+  const [respondingInvite, setRespondingInvite] = useState(false);
   const searchParams = useSearchParams();
   const checkinDone = useRef(false);
 
@@ -82,6 +84,32 @@ export default function TrainingsPage() {
 
   useEffect(() => { load(); }, []);
 
+  // Fetch pending trainer invites
+  useEffect(() => {
+    fetch("/api/trainings/invite")
+      .then((r) => r.json())
+      .then((d) => { if (d.invites?.length > 0) setTrainerInvites(d.invites); })
+      .catch(() => {});
+  }, []);
+
+  async function respondToInvite(inviteId: string, action: "accept" | "decline") {
+    setRespondingInvite(true);
+    try {
+      const res = await fetch("/api/trainings/invite", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invite_id: inviteId, action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message);
+        setTrainerInvites((prev) => prev.filter((i) => i.id !== inviteId));
+        load();
+      } else toast.error(data.error);
+    } catch { toast.error("Failed to respond"); }
+    setRespondingInvite(false);
+  }
+
   async function handleEnroll(id: string) {
     setEnrolling(id);
     const res = await fetch("/api/trainings", {
@@ -111,6 +139,30 @@ export default function TrainingsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Trainer Invite Banners */}
+      {trainerInvites.map((inv) => (
+        <div key={inv.id} className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <GraduationCap size={20} className="text-primary shrink-0" />
+            <div>
+              <p className="text-sm font-semibold">You are invited as a Trainer for: {inv.training?.title}</p>
+              <p className="text-xs text-muted-foreground">
+                {inv.training?.date && new Date(inv.training.date).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}
+                {inv.inviter?.name && ` | Invited by ${inv.inviter.name}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 gap-1" disabled={respondingInvite} onClick={() => respondToInvite(inv.id, "decline")}>
+              <X size={14} />Decline
+            </Button>
+            <Button size="sm" className="bg-primary hover:bg-primary/90 gap-1" disabled={respondingInvite} onClick={() => respondToInvite(inv.id, "accept")}>
+              <Check size={14} />Accept
+            </Button>
+          </div>
+        </div>
+      ))}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">

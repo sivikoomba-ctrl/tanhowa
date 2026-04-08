@@ -147,6 +147,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [volunteerInvite, setVolunteerInvite] = useState<{ id: string; district: string; inviterName: string } | null>(null);
   const [volunteerResponding, setVolunteerResponding] = useState(false);
+  const [trainerInvites, setTrainerInvites] = useState<{ id: string; training: { title: string; date: string; location: string; mode: string }; inviter: { name: string } }[]>([]);
+  const [showTrainerInvite, setShowTrainerInvite] = useState(false);
+  const [trainerResponding, setTrainerResponding] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -218,6 +221,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     fetch("/api/messages?unread_count=true")
       .then((r) => r.json())
       .then((d) => { if (d.count !== undefined) setUnreadMessages(d.count); })
+      .catch(() => {});
+
+    // Fetch pending trainer invites
+    fetch("/api/trainings/invite")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.invites?.length > 0) {
+          setTrainerInvites(d.invites);
+          setShowTrainerInvite(true);
+        }
+      })
       .catch(() => {});
 
     // Location: silently update if enabled, or prompt if never asked
@@ -296,6 +310,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
     } catch { /* silent */ }
     setVolunteerResponding(false);
+  }
+
+  async function handleTrainerInviteResponse(inviteId: string, action: "accept" | "decline") {
+    setTrainerResponding(true);
+    try {
+      const res = await fetch("/api/trainings/invite", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invite_id: inviteId, action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const { toast } = await import("sonner");
+        toast.success(data.message);
+        setTrainerInvites((prev) => prev.filter((i) => i.id !== inviteId));
+        if (trainerInvites.length <= 1) setShowTrainerInvite(false);
+      }
+    } catch { /* silent */ }
+    setTrainerResponding(false);
   }
 
   async function handleTitleSelect(title: string) {
@@ -769,6 +802,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {t("volunteer.accept")}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Trainer Invite Dialog */}
+      <Dialog open={showTrainerInvite} onOpenChange={setShowTrainerInvite}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-primary" />
+              Trainer Invitation
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">You have been invited to be a trainer for the following session(s):</p>
+            {trainerInvites.map((inv) => (
+              <div key={inv.id} className="rounded-xl border p-3 space-y-2">
+                <p className="font-semibold text-sm">{inv.training?.title}</p>
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  {inv.training?.date && <p>Date: {new Date(inv.training.date).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>}
+                  {inv.training?.location && <p>Location: {inv.training.location}</p>}
+                  {inv.training?.mode && <p>Mode: {inv.training.mode.charAt(0).toUpperCase() + inv.training.mode.slice(1)}</p>}
+                  {inv.inviter?.name && <p>Invited by: {inv.inviter.name}</p>}
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={trainerResponding}
+                    onClick={() => handleTrainerInviteResponse(inv.id, "decline")}>Decline</Button>
+                  <Button size="sm" className="bg-primary hover:bg-primary/90" disabled={trainerResponding}
+                    onClick={() => handleTrainerInviteResponse(inv.id, "accept")}>Accept</Button>
+                </div>
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

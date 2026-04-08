@@ -798,6 +798,32 @@ export async function sendSuspensionEmail(to: string, memberName: string, reason
   `);
 }
 
+export async function sendTrainerInviteEmail(to: string, trainerName: string, trainingTitle: string, date: string, location: string, mode: string, message: string) {
+  return sendEmail(to, `TANHOWA — You're Invited as a Trainer: ${trainingTitle}`, `
+    <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+      <div style="background: #2d6a4f; padding: 16px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h2 style="color: #fff; margin: 0; font-size: 18px;">Trainer Invitation</h2>
+      </div>
+      <div style="padding: 24px; background: #fff; border: 1px solid #bbf7d0; border-radius: 0 0 8px 8px;">
+        <p style="color: #333; font-size: 15px;">Dear ${trainerName},</p>
+        <p style="color: #333; font-size: 14px;">You have been invited to be a <strong>Trainer</strong> for the following TANHOWA training session:</p>
+        <div style="background: #f0fdf4; border-left: 4px solid #2d6a4f; padding: 12px 16px; margin: 16px 0; border-radius: 0 8px 8px 0;">
+          <p style="margin: 0 0 6px; font-size: 15px; font-weight: 600; color: #2d6a4f;">${trainingTitle}</p>
+          <p style="margin: 2px 0; font-size: 13px; color: #555;">Date: ${date}</p>
+          <p style="margin: 2px 0; font-size: 13px; color: #555;">Location: ${location}</p>
+          <p style="margin: 2px 0; font-size: 13px; color: #555;">Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}</p>
+        </div>
+        ${message ? `<p style="color: #555; font-size: 13px; font-style: italic; margin: 12px 0;">Message: "${message}"</p>` : ""}
+        <p style="color: #333; font-size: 14px;">Please log in to the TANHOWA portal to accept or decline this invitation.</p>
+        <div style="text-align: center; margin: 20px 0;">
+          <a href="https://www.tanhowa.in/dashboard/trainings" style="background: #2d6a4f; color: #fff; padding: 10px 24px; text-decoration: none; border-radius: 8px; font-size: 14px;">View Invitation</a>
+        </div>
+        <p style="color: #999; font-size: 11px; margin-top: 16px;">TANHOWA — Tamil Nadu Horticultural Officers Welfare Association</p>
+      </div>
+    </div>
+  `);
+}
+
 export async function sendReinstatementEmail(to: string, memberName: string) {
   if (HOLD_MEMBER_EMAILS) return;
   return sendEmail(to, "TANHOWA — Membership Reinstated", `

@@ -11,9 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   GraduationCap, Plus, Trash2, Calendar, MapPin, Clock, Users,
   Video, Building, Pencil, UserCheck, Loader2, ExternalLink, QrCode,
+  Search, Send, Check, X, Mail,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { formatDate } from "@/lib/utils";
@@ -64,6 +66,13 @@ export default function AdminTrainingsPage() {
   const [saving, setSaving] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [qrTitle, setQrTitle] = useState("");
+  const [inviteMode, setInviteMode] = useState<"manual" | "member" | "external">("manual");
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberResults, setMemberResults] = useState<{ id: string; name: string; photo_url: string; occupation: string }[]>([]);
+  const [searchingMembers, setSearchingMembers] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState<{ name: string; status: string } | null>(null);
 
   function load() {
     setLoading(true);
@@ -146,6 +155,52 @@ export default function AdminTrainingsPage() {
     else toast.error("Failed to delete");
   }
 
+  // Member search for trainer invite
+  useEffect(() => {
+    if (inviteMode !== "member" || !memberSearch.trim() || memberSearch.trim().length < 2) {
+      setMemberResults([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      setSearchingMembers(true);
+      try {
+        const res = await fetch(`/api/users?search=${encodeURIComponent(memberSearch.trim())}&limit=8`);
+        const data = await res.json();
+        setMemberResults(data.users || []);
+      } catch { setMemberResults([]); }
+      setSearchingMembers(false);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [memberSearch, inviteMode]);
+
+  async function sendTrainerInvite(trainingId: string, userId?: string) {
+    setSendingInvite(true);
+    try {
+      const payload: Record<string, string> = { training_id: trainingId, message: inviteMessage };
+      if (userId) {
+        payload.user_id = userId;
+      } else {
+        payload.external_name = form.trainer_name;
+        payload.external_email = form.trainer_email;
+        payload.external_phone = form.trainer_phone;
+      }
+      const res = await fetch("/api/trainings/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Trainer invite sent!");
+        setInviteMessage("");
+        setMemberSearch("");
+      } else {
+        toast.error(data.error || "Failed to send invite");
+      }
+    } catch { toast.error("Failed to send invite"); }
+    setSendingInvite(false);
+  }
+
   const modeIcons: Record<string, typeof Video> = { online: Video, offline: Building, hybrid: ExternalLink };
 
   const formUI = (
@@ -178,31 +233,125 @@ export default function AdminTrainingsPage() {
         <Label>Description</Label>
         <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="mt-1" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>Trainer Name *</Label>
-          <Input value={form.trainer_name} onChange={(e) => setForm({ ...form, trainer_name: e.target.value })} required className="mt-1" />
+      {/* Trainer Section */}
+      <div className="space-y-2">
+        <Label>Trainer</Label>
+        <div className="flex gap-1">
+          {(["manual", "member", "external"] as const).map((m) => (
+            <button key={m} type="button" onClick={() => { setInviteMode(m); setMemberSearch(""); setMemberResults([]); }}
+              className={`px-3 py-1 text-xs rounded-lg transition-colors ${inviteMode === m ? "bg-primary text-white" : "bg-muted hover:bg-muted/80"}`}>
+              {m === "manual" ? "Manual" : m === "member" ? "Invite Member" : "Invite External"}
+            </button>
+          ))}
         </div>
-        <div>
-          <Label>Trainer Type</Label>
-          <Select value={form.trainer_type} onValueChange={(v) => setForm({ ...form, trainer_type: v })}>
-            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="member">Member</SelectItem>
-              <SelectItem value="external">External</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>Trainer Email</Label>
-          <Input type="email" value={form.trainer_email} onChange={(e) => setForm({ ...form, trainer_email: e.target.value })} className="mt-1" />
-        </div>
-        <div>
-          <Label>Trainer Phone</Label>
-          <Input value={form.trainer_phone} onChange={(e) => setForm({ ...form, trainer_phone: e.target.value })} className="mt-1" />
-        </div>
+
+        {inviteMode === "manual" && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Trainer Name *</Label>
+                <Input value={form.trainer_name} onChange={(e) => setForm({ ...form, trainer_name: e.target.value })} required className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Type</Label>
+                <Select value={form.trainer_type} onValueChange={(v) => setForm({ ...form, trainer_type: v })}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="external">External</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Email</Label>
+                <Input type="email" value={form.trainer_email} onChange={(e) => setForm({ ...form, trainer_email: e.target.value })} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Phone</Label>
+                <Input value={form.trainer_phone} onChange={(e) => setForm({ ...form, trainer_phone: e.target.value })} className="mt-1" />
+              </div>
+            </div>
+          </>
+        )}
+
+        {inviteMode === "member" && (
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="Search member by name..." value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} className="pl-9" />
+            </div>
+            {searchingMembers && <p className="text-xs text-muted-foreground">Searching...</p>}
+            {memberResults.length > 0 && (
+              <div className="border rounded-xl max-h-48 overflow-y-auto">
+                {memberResults.map((m) => (
+                  <button key={m.id} type="button" onClick={() => {
+                    setForm({ ...form, trainer_name: m.name, trainer_type: "member" });
+                    setMemberSearch("");
+                    setMemberResults([]);
+                    if (editTraining) {
+                      sendTrainerInvite(editTraining.id, m.id);
+                    } else {
+                      setInviteStatus({ name: m.name, status: "Will be invited after creating" });
+                      toast.info(`${m.name} will be invited after training is created`);
+                    }
+                  }} className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-muted/50">
+                    <Avatar className="w-8 h-8">
+                      {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs">{m.name?.charAt(0)?.toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{m.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{m.occupation}</p>
+                    </div>
+                    <Send size={14} className="text-primary shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {inviteStatus && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-green-50 border border-green-200">
+                <Check size={14} className="text-green-600" />
+                <span className="text-xs text-green-700">{inviteStatus.name}: {inviteStatus.status}</span>
+              </div>
+            )}
+            <div>
+              <Label className="text-xs">Invite Message (optional)</Label>
+              <Input value={inviteMessage} onChange={(e) => setInviteMessage(e.target.value)} placeholder="Personal message for the trainer..." className="mt-1" />
+            </div>
+          </div>
+        )}
+
+        {inviteMode === "external" && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Name *</Label>
+                <Input value={form.trainer_name} onChange={(e) => setForm({ ...form, trainer_name: e.target.value })} required className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Email *</Label>
+                <Input type="email" value={form.trainer_email} onChange={(e) => setForm({ ...form, trainer_email: e.target.value })} required className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Phone</Label>
+              <Input value={form.trainer_phone} onChange={(e) => setForm({ ...form, trainer_phone: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Invite Message (optional)</Label>
+              <Input value={inviteMessage} onChange={(e) => setInviteMessage(e.target.value)} placeholder="Personal message for the trainer..." className="mt-1" />
+            </div>
+            {editTraining && (
+              <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={sendingInvite || !form.trainer_email}
+                onClick={() => sendTrainerInvite(editTraining.id)}>
+                {sendingInvite ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                Send Email Invite
+              </Button>
+            )}
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
