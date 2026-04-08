@@ -1,15 +1,10 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
-];
-
-const MONTH_SHORT = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
 function getDaysInMonth(year: number, month: number): number {
@@ -24,7 +19,6 @@ interface DateDropdownsProps {
   maxYear?: number;
   className?: string;
   disabled?: boolean;
-  /** Show month as short name (Jan) vs long (January). Default: short on mobile, long on desktop */
   label?: string;
 }
 
@@ -36,33 +30,43 @@ export function DateDropdowns({
   className = "",
   disabled = false,
 }: DateDropdownsProps) {
-  const parts = value ? value.split("-") : [];
-  const year = parts[0] || "";
-  const month = parts[1] ? String(Number(parts[1])) : "";
-  const day = parts[2] ? String(Number(parts[2])) : "";
-
-  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => maxYear - i);
-  const daysCount = getDaysInMonth(Number(year) || 2000, Number(month) || 1);
-  const days = Array.from({ length: daysCount }, (_, i) => i + 1);
-
-  // Refs for auto-scroll to selected value
+  // Internal state preserves partial selections
+  const [selYear, setSelYear] = useState("");
+  const [selMonth, setSelMonth] = useState("");
+  const [selDay, setSelDay] = useState("");
   const yearRef = useRef<HTMLSelectElement>(null);
 
-  // On first open, scroll year to selected value
+  // Sync internal state from external value (on mount or when value changes externally)
   useEffect(() => {
-    if (yearRef.current && year) {
-      yearRef.current.value = year;
+    if (value) {
+      const parts = value.split("-");
+      setSelYear(parts[0] || "");
+      setSelMonth(parts[1] ? String(Number(parts[1])) : "");
+      setSelDay(parts[2] ? String(Number(parts[2])) : "");
+    } else if (!selYear && !selMonth && !selDay) {
+      // Only reset if we have no partial selections (external clear)
+      setSelYear("");
+      setSelMonth("");
+      setSelDay("");
     }
-  }, [year]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
-  function update(y: string, m: string, d: string) {
+  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => maxYear - i);
+  const daysCount = getDaysInMonth(Number(selYear) || 2000, Number(selMonth) || 1);
+  const days = Array.from({ length: daysCount }, (_, i) => i + 1);
+
+  function handleChange(y: string, m: string, d: string) {
+    setSelYear(y);
+    setSelMonth(m);
+    setSelDay(d);
+
     if (y && m && d) {
       const maxDay = getDaysInMonth(Number(y), Number(m));
       const clampedDay = Math.min(Number(d), maxDay);
       onChange(`${y}-${m.padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`);
-    } else {
-      onChange("");
     }
+    // Don't call onChange("") on partial — preserve what's selected
   }
 
   const selectBase =
@@ -81,10 +85,10 @@ export function DateDropdowns({
       {/* Day */}
       <div className="relative">
         <select
-          value={day}
-          onChange={(e) => update(year, month, e.target.value)}
+          value={selDay}
+          onChange={(e) => handleChange(selYear, selMonth, e.target.value)}
           disabled={disabled}
-          className={`${selectBase} ${day ? filledClass : ""}`}
+          className={`${selectBase} ${selDay ? filledClass : ""}`}
           aria-label="Day"
         >
           <option value="" disabled className="text-muted-foreground">
@@ -96,7 +100,7 @@ export function DateDropdowns({
             </option>
           ))}
         </select>
-        {!day && (
+        {!selDay && (
           <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-sm pointer-events-none ${emptyClass}`}>
             Day
           </span>
@@ -106,10 +110,10 @@ export function DateDropdowns({
       {/* Month */}
       <div className="relative">
         <select
-          value={month}
-          onChange={(e) => update(year, e.target.value, day)}
+          value={selMonth}
+          onChange={(e) => handleChange(selYear, e.target.value, selDay)}
           disabled={disabled}
-          className={`${selectBase} ${month ? filledClass : ""}`}
+          className={`${selectBase} ${selMonth ? filledClass : ""}`}
           aria-label="Month"
         >
           <option value="" disabled className="text-muted-foreground">
@@ -121,7 +125,7 @@ export function DateDropdowns({
             </option>
           ))}
         </select>
-        {!month && (
+        {!selMonth && (
           <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-sm pointer-events-none ${emptyClass}`}>
             Month
           </span>
@@ -132,10 +136,10 @@ export function DateDropdowns({
       <div className="relative">
         <select
           ref={yearRef}
-          value={year}
-          onChange={(e) => update(e.target.value, month, day)}
+          value={selYear}
+          onChange={(e) => handleChange(e.target.value, selMonth, selDay)}
           disabled={disabled}
-          className={`${selectBase} ${year ? filledClass : ""}`}
+          className={`${selectBase} ${selYear ? filledClass : ""}`}
           aria-label="Year"
         >
           <option value="" disabled className="text-muted-foreground">
@@ -147,7 +151,7 @@ export function DateDropdowns({
             </option>
           ))}
         </select>
-        {!year && (
+        {!selYear && (
           <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-sm pointer-events-none ${emptyClass}`}>
             Year
           </span>

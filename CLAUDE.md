@@ -23,6 +23,10 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 | Charts | recharts (via shadcn `chart` component) | 2.x |
 | Icons | lucide-react | 0.575.x |
 | Toasts | sonner | 2.0.x |
+| Validation | zod | 4.x |
+| Push | web-push (VAPID) | 3.6.x |
+| Spreadsheets | xlsx (SheetJS) | 0.18.x |
+| PDF (client) | jspdf + jspdf-autotable | 4.x / 5.x |
 
 ## Key Directories
 
@@ -46,7 +50,11 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 7. Approved user → redirect to `/dashboard`
 8. Admin users can access `/admin` (role check in admin layout)
 
-**Email OTP fallback:** Users without Google accounts can click "Continue with Email" on the landing page, which expands an email input → sends OTP via `/api/auth/send-otp` → verifies on `/verify` page via `/api/auth/verify-otp`.
+**Facebook OAuth:** Same flow as Google — `GET /api/auth/facebook` redirects to Facebook OAuth, callback at `/api/auth/facebook/callback`. Requires `FACEBOOK_APP_ID` and `FACEBOOK_REDIRECT_URI` env vars. Profile photos served from `*.fbcdn.net` (allowed in `next.config.ts`).
+
+**Email OTP fallback:** Users without Google/Facebook accounts can click "Continue with Email" on the landing page, which expands an email input → sends OTP via `/api/auth/send-otp` → verifies on `/verify` page via `/api/auth/verify-otp`.
+
+**Mobile SMS OTP:** Phone-based login via `/api/auth/send-mobile-otp` (rate limited: 5/15min) and `/api/auth/verify-mobile-otp`. Uses 2Factor.in SMS API (`lib/sms.ts`). Hidden/pending DLT registration.
 
 **Session payload:** `{ userId, email, role: "member"|"admin"|"super_admin", status: "pending"|"approved"|"rejected" }`
 
@@ -166,6 +174,10 @@ GOOGLE_CLIENT_SECRET=           # Google OAuth client secret
 GOOGLE_REDIRECT_URI=            # OAuth callback URL (e.g. https://tanhowa.in/api/auth/google/callback)
 DATABASE_URL=                   # Direct PostgreSQL connection string (used by lib/db.ts)
 TELEGRAM_BOT_TOKEN=             # Telegram Bot API token (for task notifications)
+FACEBOOK_APP_ID=                # Facebook OAuth app ID (from Meta Developer Console)
+FACEBOOK_REDIRECT_URI=          # Facebook OAuth callback URL (e.g. https://tanhowa.in/api/auth/facebook/callback)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=   # VAPID public key for Web Push notifications
+VAPID_PRIVATE_KEY=              # VAPID private key for Web Push notifications
 RAZORPAY_KEY_ID=                # Razorpay API key ID (online payments)
 RAZORPAY_KEY_SECRET=            # Razorpay API key secret
 ```
@@ -270,7 +282,7 @@ On profile save (`PUT /api/users/me`), `detectGender()` auto-detects gender from
 
 ## AI Tools (`/dashboard/ai-tools`)
 
-6 agriculture-focused AI utilities for field officers, accessible from the dashboard sidebar (Sparkles icon).
+7 agriculture-focused AI utilities for field officers, accessible from the dashboard sidebar (Sparkles icon).
 
 | Tool | Component | API Route | Gemini Mode | Rate Limit |
 |------|-----------|-----------|-------------|------------|
@@ -280,6 +292,7 @@ On profile save (`PUT /api/users/me`), `detectGender()` auto-detects gender from
 | OCR | `ocr-tool.tsx` | `/api/ai-tools/ocr` | Vision | 10/min |
 | Voice Notes | `voice-notes.tsx` | — (browser only) | — | — |
 | Weather Advisory | `weather-advisory.tsx` | `/api/ai-tools/weather-advisory` | Text | 10/min |
+| Doc Summarize | — | `/api/ai-tools/doc-summarize` | Text | — |
 
 - **Components:** `app/dashboard/ai-tools/_components/`
 - **Rate limiting:** Shared `createRateLimiter()` from `lib/rate-limit.ts` (in-memory, per-IP)
