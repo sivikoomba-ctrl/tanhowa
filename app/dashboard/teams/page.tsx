@@ -74,10 +74,10 @@ export default function TeamsPage() {
         {/* Premium accent stripe */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400" />
         {/* Decorative corner */}
-        <div className="absolute top-3 right-3 flex items-center gap-1 opacity-60">
-          <Star size={10} className="text-amber-500 fill-amber-500" />
-          <Star size={10} className="text-amber-500 fill-amber-500" />
-          <Star size={10} className="text-amber-500 fill-amber-500" />
+        <div className="absolute top-3 right-3 flex items-center gap-0.5 opacity-60">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <Star key={i} size={10} className="text-amber-500 fill-amber-500" />
+          ))}
         </div>
         <CardContent className="pt-6 pb-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
