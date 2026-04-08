@@ -262,7 +262,7 @@ On profile save (`PUT /api/users/me`), `detectGender()` auto-detects gender from
 
 ## AI Tools (`/dashboard/ai-tools`)
 
-5 agriculture-focused AI utilities for field officers, accessible from the dashboard sidebar (Sparkles icon).
+6 agriculture-focused AI utilities for field officers, accessible from the dashboard sidebar (Sparkles icon).
 
 | Tool | Component | API Route | Gemini Mode | Rate Limit |
 |------|-----------|-----------|-------------|------------|
@@ -292,6 +292,7 @@ On profile save (`PUT /api/users/me`), `detectGender()` auto-detects gender from
 - **`GET /api/subscriptions?me=true`** — forces user-scoped results even for admins. The member dashboard always appends `?me=true`; the admin panel omits it to receive all members' data.
 - **jsPDF does NOT support emoji/Unicode.** Only ASCII and standard latin characters work. Emoji renders as garbled text (e.g., "Ø<ß?"). Use plain text in all PDF generation (`jspdf` + `jspdf-autotable`).
 - **Error Logs:** Both UI sidebar and API (`/api/error-logs`) are restricted to `super_admin` only. Regular admins cannot access error logs.
+- **Two `logAudit` libraries exist** — use the correct one: `lib/audit.ts` takes 1 object arg `({ userId, action, targetType, targetId, details })`, while `lib/audit-log.ts` takes 5 positional args `(userId, action, targetType, targetId, details)`. Both write to the same `audit_logs` table.
 
 ## Reports & Analytics (`/admin/reports`)
 
@@ -595,11 +596,7 @@ Use this pattern whenever a child page modifies data that the layout displays.
 
 ## Audit Log
 
-Two audit libraries exist — use the correct one:
-- `lib/audit.ts` — `logAudit({ userId, action, targetType, targetId, details })` (1 object arg). Used by resolutions, polls, etc.
-- `lib/audit-log.ts` — `logAudit(userId, action, targetType, targetId, details)` (5 positional args). Used by task classification, newer features.
-
-Both fire-and-forget to the `audit_logs` table. Admin page at `/admin/audit-logs` with search, action filter, and target type filter. Color-coded icons per target type.
+Fire-and-forget to the `audit_logs` table. Admin page at `/admin/audit-logs` with search, action filter, and target type filter. Color-coded icons per target type.
 
 ## Razorpay Integration
 
