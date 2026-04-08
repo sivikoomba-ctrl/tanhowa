@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/empty-state";
 import {
   GraduationCap, Calendar, MapPin, Clock, Users, Video,
   Building, UserCheck, UserX, Loader2, ExternalLink, Download, Check, X,
+  FileText, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
@@ -43,6 +44,71 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 };
 
 const modeIcons: Record<string, typeof Video> = { online: Video, offline: Building, hybrid: ExternalLink };
+const LANG_LABELS: Record<string, string> = { en: "English", ta: "தமிழ்", kn: "ಕನ್ನಡ", te: "తెలుగు" };
+const LANG_COLORS: Record<string, string> = { en: "bg-blue-100 text-blue-700", ta: "bg-green-100 text-green-700", kn: "bg-purple-100 text-purple-700", te: "bg-orange-100 text-orange-700" };
+
+function MaterialsSection({ trainingId }: { trainingId: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [materials, setMaterials] = useState<{ id: string; title: string; file_name: string; file_type: string; file_size: number; language: string; signed_url: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [langFilter, setLangFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    setLoading(true);
+    fetch(`/api/trainings/materials?training_id=${trainingId}`)
+      .then((r) => r.json())
+      .then((d) => setMaterials(d.materials || []))
+      .catch(() => setMaterials([]))
+      .finally(() => setLoading(false));
+  }, [expanded, trainingId]);
+
+  const filtered = langFilter ? materials.filter((m) => m.language === langFilter) : materials;
+  const availableLangs = [...new Set(materials.map((m) => m.language))];
+
+  return (
+    <div className="mt-2">
+      <button onClick={() => setExpanded(!expanded)} className="text-xs text-primary hover:underline flex items-center gap-1">
+        <FileText size={12} />Materials ({expanded ? "hide" : "show"})
+        {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </button>
+      {expanded && (
+        <div className="mt-2 space-y-2">
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          ) : materials.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No materials available</p>
+          ) : (
+            <>
+              {availableLangs.length > 1 && (
+                <div className="flex gap-1 flex-wrap">
+                  <button onClick={() => setLangFilter(null)} className={`px-2 py-0.5 text-[10px] rounded-lg ${!langFilter ? "bg-primary text-white" : "bg-muted"}`}>All</button>
+                  {availableLangs.map((l) => (
+                    <button key={l} onClick={() => setLangFilter(l)} className={`px-2 py-0.5 text-[10px] rounded-lg ${langFilter === l ? "bg-primary text-white" : LANG_COLORS[l] || "bg-muted"}`}>
+                      {LANG_LABELS[l] || l}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {filtered.map((m) => (
+                <a key={m.id} href={m.signed_url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/30 transition-colors">
+                  <FileText size={14} className="text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium truncate block">{m.title}</span>
+                    <span className="text-[10px] text-muted-foreground">{m.file_name}</span>
+                  </div>
+                  <Badge variant="outline" className={`text-[10px] px-1 py-0 ${LANG_COLORS[m.language] || ""}`}>{LANG_LABELS[m.language] || m.language}</Badge>
+                  <Download size={12} className="text-primary shrink-0" />
+                </a>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function TrainingsPage() {
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -232,6 +298,7 @@ export default function TrainingsPage() {
                           <ExternalLink size={12} />{t("training.materials")}
                         </a>
                       )}
+                      <MaterialsSection trainingId={tr.id} />
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">

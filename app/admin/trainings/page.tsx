@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   GraduationCap, Plus, Trash2, Calendar, MapPin, Clock, Users,
   Video, Building, Pencil, UserCheck, Loader2, ExternalLink, QrCode,
-  Search, Send, Check, X, Mail,
+  Search, Send, Check, X, Mail, Upload, FileText, Globe, Lock, Eye,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { formatDate } from "@/lib/utils";
@@ -73,6 +73,15 @@ export default function AdminTrainingsPage() {
   const [inviteMessage, setInviteMessage] = useState("");
   const [sendingInvite, setSendingInvite] = useState(false);
   const [inviteStatus, setInviteStatus] = useState<{ name: string; status: string } | null>(null);
+  // Materials
+  const [materialsTraining, setMaterialsTraining] = useState<Training | null>(null);
+  const [materials, setMaterials] = useState<{ id: string; title: string; file_name: string; file_type: string; file_size: number; language: string; access: string; group_id: string | null; signed_url: string; created_at: string }[]>([]);
+  const [materialsLoading, setMaterialsLoading] = useState(false);
+  const [uploadingMaterial, setUploadingMaterial] = useState(false);
+  const [matTitle, setMatTitle] = useState("");
+  const [matLang, setMatLang] = useState("en");
+  const [matAccess, setMatAccess] = useState("enrolled");
+  const matFileRef = useRef<HTMLInputElement>(null);
 
   function load() {
     setLoading(true);
@@ -199,6 +208,58 @@ export default function AdminTrainingsPage() {
       }
     } catch { toast.error("Failed to send invite"); }
     setSendingInvite(false);
+  }
+
+  const LANG_LABELS: Record<string, string> = { en: "English", ta: "தமிழ்", kn: "ಕನ್ನಡ", te: "తెలుగు" };
+  const LANG_COLORS: Record<string, string> = { en: "bg-blue-100 text-blue-700", ta: "bg-green-100 text-green-700", kn: "bg-purple-100 text-purple-700", te: "bg-orange-100 text-orange-700" };
+
+  async function openMaterials(t: Training) {
+    setMaterialsTraining(t);
+    setMaterialsLoading(true);
+    try {
+      const res = await fetch(`/api/trainings/materials?training_id=${t.id}`);
+      const data = await res.json();
+      setMaterials(data.materials || []);
+    } catch { setMaterials([]); }
+    setMaterialsLoading(false);
+  }
+
+  async function uploadMaterial() {
+    const file = matFileRef.current?.files?.[0];
+    if (!file || !matTitle.trim() || !materialsTraining) return;
+    setUploadingMaterial(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("training_id", materialsTraining.id);
+      fd.append("title", matTitle.trim());
+      fd.append("language", matLang);
+      fd.append("access", matAccess);
+      const res = await fetch("/api/trainings/materials", { method: "POST", body: fd });
+      if (res.ok) {
+        toast.success("Material uploaded");
+        setMatTitle(""); setMatLang("en"); setMatAccess("enrolled");
+        if (matFileRef.current) matFileRef.current.value = "";
+        openMaterials(materialsTraining);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Upload failed");
+      }
+    } catch { toast.error("Upload failed"); }
+    setUploadingMaterial(false);
+  }
+
+  async function deleteMaterial(id: string) {
+    if (!confirm("Delete this material?")) return;
+    const res = await fetch(`/api/trainings/materials?id=${id}`, { method: "DELETE" });
+    if (res.ok && materialsTraining) { toast.success("Deleted"); openMaterials(materialsTraining); }
+    else toast.error("Failed to delete");
+  }
+
+  function formatSize(bytes: number) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   }
 
   const modeIcons: Record<string, typeof Video> = { online: Video, offline: Building, hybrid: ExternalLink };
@@ -476,6 +537,9 @@ export default function AdminTrainingsPage() {
                               <QrCode size={14} />
                             </Button>
                           )}
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Materials" onClick={() => openMaterials(t)}>
+                            <FileText size={14} />
+                          </Button>
                           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { openEdit(t); }}>
                             <Pencil size={14} />
                           </Button>
@@ -492,6 +556,99 @@ export default function AdminTrainingsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Materials Dialog */}
+      <Dialog open={!!materialsTraining} onOpenChange={(v) => { if (!v) setMaterialsTraining(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText size={18} className="text-primary" />
+              Materials: {materialsTraining?.title}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Upload Form */}
+          <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+            <p className="text-sm font-medium">Upload Material</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Title *</Label>
+                <Input value={matTitle} onChange={(e) => setMatTitle(e.target.value)} placeholder="e.g. Session Notes" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Language</Label>
+                <Select value={matLang} onValueChange={setMatLang}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="ta">Tamil (தமிழ்)</SelectItem>
+                    <SelectItem value="kn">Kannada (ಕನ್ನಡ)</SelectItem>
+                    <SelectItem value="te">Telugu (తెలుగు)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Access</Label>
+                <Select value={matAccess} onValueChange={setMatAccess}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Members</SelectItem>
+                    <SelectItem value="enrolled">Enrolled Only</SelectItem>
+                    <SelectItem value="selected">Selected Members</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">File *</Label>
+                <Input type="file" ref={matFileRef} className="mt-1" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.mp4,.webm,.txt" />
+              </div>
+            </div>
+            <Button size="sm" onClick={uploadMaterial} disabled={uploadingMaterial || !matTitle.trim()} className="gap-1.5">
+              {uploadingMaterial ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploadingMaterial ? "Uploading..." : "Upload"}
+            </Button>
+          </div>
+
+          {/* Materials List */}
+          {materialsLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+          ) : materials.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-6">No materials uploaded yet</p>
+          ) : (
+            <div className="space-y-2">
+              {materials.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl border hover:bg-muted/30 transition-colors">
+                  <FileText size={16} className="text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium truncate">{m.title}</p>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${LANG_COLORS[m.language] || ""}`}>
+                        {LANG_LABELS[m.language] || m.language}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        {m.access === "all" ? <><Globe size={8} className="mr-0.5" />All</> : m.access === "enrolled" ? <><Eye size={8} className="mr-0.5" />Enrolled</> : <><Lock size={8} className="mr-0.5" />Selected</>}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{m.file_name} · {formatSize(m.file_size)}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    {m.signed_url && (
+                      <a href={m.signed_url} target="_blank" rel="noopener noreferrer">
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0"><ExternalLink size={14} /></Button>
+                      </a>
+                    )}
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteMaterial(m.id)}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* QR Code Dialog */}
       <Dialog open={!!qrUrl} onOpenChange={(v) => { if (!v) { setQrUrl(null); setQrTitle(""); } }}>
