@@ -105,6 +105,36 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ byAction, monthlyTrend });
     }
 
+    // Feed mode: recent activity across all users (any member)
+    const feed = url.searchParams.get("feed");
+    if (feed === "true") {
+      const limit = Math.min(parseInt(url.searchParams.get("limit") || "10"), 50);
+      const { data, error } = await supabase
+        .from("contributions")
+        .select("id, action, description, created_at, users!contributions_user_id_fkey(name, photo_url)")
+        .not("action", "in", "(profile_updated,document_downloaded,used_ai_voice_notes)")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        await logError({ type: "api", message: error.message, path: "/api/contributions", method: "GET", status_code: 500 });
+        return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
+      }
+
+      const activities = (data || []).map((r) => {
+        const user = r.users as unknown as { name: string; photo_url: string | null } | null;
+        return {
+          id: r.id,
+          user_name: user?.name || "Member",
+          user_photo: user?.photo_url || null,
+          action: r.action,
+          description: r.description,
+          created_at: r.created_at,
+        };
+      });
+      return NextResponse.json({ activities });
+    }
+
     if (me !== "true") {
       if (!admin) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });

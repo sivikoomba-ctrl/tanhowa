@@ -8,7 +8,8 @@ import {
   Megaphone, Calendar, FileText, UserCheck,
   Wallet, ListTodo, Award, Lightbulb, IndianRupee,
   ArrowRight, Trophy, Cake, MessageCircle, User,
-  Flame, Sun, Moon, CloudSun,
+  Flame, Sun, Moon, CloudSun, BarChart3, Check,
+  Activity, Star,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -46,6 +47,15 @@ interface MySubscription {
   due_date: string;
 }
 
+interface ActivePoll {
+  id: string;
+  title: string;
+  options: string[];
+  voteCounts: Record<number, number>;
+  totalVotes: number;
+  myVote: number | null;
+}
+
 export default function DashboardHome() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -57,9 +67,12 @@ export default function DashboardHome() {
   const [birthdays, setBirthdays] = useState<{ name: string; isToday: boolean; daysUntil: number }[]>([]);
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
+  const [milestones, setMilestones] = useState<string[]>([]);
   const [profileComplete, setProfileComplete] = useState(100);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [activePoll, setActivePoll] = useState<ActivePoll | null>(null);
+  const [activityFeed, setActivityFeed] = useState<{ id: string; user_name: string; action: string; description: string; created_at: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const t = useT();
@@ -69,7 +82,7 @@ export default function DashboardHome() {
     setLoaded(false);
     setErrors({});
 
-    // Fetch user info + profile completeness
+    // Fetch user info + profile completeness + milestones
     fetch("/api/users/me").then((r) => r.json())
       .then((d) => {
         if (d.user?.name) setUserName(d.user.name);
@@ -80,6 +93,19 @@ export default function DashboardHome() {
         const sl = u?.social_links || {};
         const fields = [u?.name, u?.phone, u?.occupation, pd.regular_district, u?.photo_url, sl.gender, sl.date_of_birth, sl.qualification, u?.office_address, pd.regular_block];
         setProfileComplete(Math.round((fields.filter(Boolean).length / fields.length) * 100));
+        // Milestones
+        const ms: string[] = [];
+        if (u?.created_at) {
+          const joined = new Date(u.created_at);
+          const now = new Date();
+          const diffDays = Math.floor((now.getTime() - joined.getTime()) / 86400000);
+          if (diffDays <= 7) ms.push("Welcome aboard!");
+          const years = Math.floor(diffDays / 365);
+          if (years >= 1 && Math.abs(diffDays % 365) <= 3) ms.push(`${years} year${years > 1 ? "s" : ""} with TANHOWA!`);
+        }
+        if (u?.login_count >= 100) ms.push("100+ logins!");
+        else if (u?.login_count >= 50) ms.push("50+ logins!");
+        setMilestones(ms);
       })
       .catch(() => {});
 
@@ -146,6 +172,22 @@ export default function DashboardHome() {
     fetch("/api/contributions?period=month").then((r) => r.json())
       .then((d) => setTopContributors((d.leaderboard || []).slice(0, 5)))
       .catch(() => {});
+
+    // Fetch activity feed (recent portal activity)
+    fetch("/api/contributions?feed=true&limit=8").then((r) => r.json())
+      .then((d) => setActivityFeed(d.activities || []))
+      .catch(() => {});
+
+    // Fetch most recent active poll for Quick Poll widget
+    fetch("/api/polls").then((r) => r.json())
+      .then((d) => {
+        const polls = d.polls || [];
+        const active = polls.find((p: ActivePoll & { status: string; expires_at?: string }) =>
+          p.status === "active" && (!p.expires_at || new Date(p.expires_at) > new Date())
+        );
+        setActivePoll(active || null);
+      })
+      .catch(() => {});
   }
 
   useEffect(() => { loadData(); }, []);
@@ -157,6 +199,62 @@ export default function DashboardHome() {
     if (m === 0) return `${h}h`;
     return `${h}h ${m}m`;
   }
+
+  function handlePollVote(optionIndex: number) {
+    if (!activePoll) return;
+    const prev = activePoll;
+    // Optimistic update
+    const newCounts = { ...prev.voteCounts };
+    if (prev.myVote !== null) newCounts[prev.myVote] = (newCounts[prev.myVote] || 1) - 1;
+    newCounts[optionIndex] = (newCounts[optionIndex] || 0) + 1;
+    const newTotal = prev.totalVotes + (prev.myVote === null ? 1 : 0);
+    setActivePoll({ ...prev, myVote: optionIndex, voteCounts: newCounts, totalVotes: newTotal });
+
+    fetch("/api/polls", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ poll_id: prev.id, option_index: optionIndex }),
+    }).catch(() => setActivePoll(prev)); // Revert on error
+  }
+
+  function timeAgo(dateStr: string): string {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return days === 1 ? "yesterday" : `${days}d ago`;
+  }
+
+  const ACTION_LABELS: Record<string, string> = {
+    payment_proof_uploaded: "uploaded payment proof",
+    payment_verified: "verified a payment",
+    payment_rejected: "rejected a payment",
+    member_approved: "approved a member",
+    announcement_created: "posted an announcement",
+    event_created: "created an event",
+    document_uploaded: "uploaded a document",
+    suggestion_submitted: "submitted a suggestion",
+    grievance_submitted: "filed a grievance",
+    grievance_responded: "responded to a grievance",
+    task_created: "created a task",
+    task_committed: "committed to a task",
+    task_updated: "updated a task",
+    task_note_added: "added a task note",
+    task_report_added: "submitted a report",
+    voucher_submitted: "submitted a voucher",
+    voucher_approved: "approved a voucher",
+    expense_voucher_submitted: "submitted an expense",
+    used_ai_pest_id: "used Pest ID tool",
+    used_ai_crop_advice: "used Crop Adviser",
+    used_ai_translation: "used Translator",
+    used_ai_ocr: "used OCR tool",
+    idea_submitted: "submitted an idea",
+    idea_upvoted: "upvoted an idea",
+    poll_created: "created a poll",
+  };
 
   const isSuperAdmin = userRole === "super_admin";
   const pendingSubs = isSuperAdmin ? 0 : mySubscriptions.filter((s) => s.status === "pending" || s.status === "overdue").length;
@@ -175,6 +273,11 @@ export default function DashboardHome() {
               <Flame size={12} />{streak}-day streak
             </Badge>
           )}
+          {milestones.map((ms) => (
+            <Badge key={ms} variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 text-xs gap-1">
+              <Star size={12} className="fill-yellow-500" />{ms}
+            </Badge>
+          ))}
         </div>
         {pendingSubs > 0 && (
           <p className="text-sm text-amber-600 mt-0.5">
@@ -268,6 +371,41 @@ export default function DashboardHome() {
         </Card>
       )}
 
+      {/* Activity Feed */}
+      {activityFeed.length > 0 && (
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Activity size={14} className="text-green-600" /> {t("dash.activity_feed")}
+              </h3>
+              <Link href="/dashboard/contributions" className="text-xs text-primary hover:underline flex items-center gap-1">
+                {t("dash.view_all")} <ArrowRight size={12} />
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {activityFeed.map((a) => {
+                const firstName = a.user_name.split(" ").slice(0, 2).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(" ");
+                return (
+                  <div key={a.id} className="flex items-start gap-2.5 text-xs">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-primary font-semibold text-[10px]">{a.user_name.charAt(0)}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-foreground">
+                        <span className="font-medium">{firstName}</span>{" "}
+                        <span className="text-muted-foreground">{ACTION_LABELS[a.action] || a.action.replace(/_/g, " ")}</span>
+                      </p>
+                    </div>
+                    <span className="text-muted-foreground shrink-0 text-[10px]">{timeAgo(a.created_at)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Upcoming Birthdays */}
       {birthdays.length > 0 && (
         <Card>
@@ -283,6 +421,65 @@ export default function DashboardHome() {
                 </Badge>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quick Poll */}
+      {activePoll && (
+        <Card className="border-primary/20">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <BarChart3 size={14} className="text-primary" /> {t("dash.quick_poll")}
+              </h3>
+              <Link href="/dashboard/polls" className="text-xs text-primary hover:underline flex items-center gap-1">
+                {t("dash.all_polls")} <ArrowRight size={12} />
+              </Link>
+            </div>
+            <p className="font-medium text-sm mb-3">{activePoll.title}</p>
+            <div className="space-y-2">
+              {activePoll.options.map((option, i) => {
+                const votes = activePoll.voteCounts[i] || 0;
+                const pct = activePoll.totalVotes > 0 ? Math.round((votes / activePoll.totalVotes) * 100) : 0;
+                const isMyVote = activePoll.myVote === i;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handlePollVote(i)}
+                    className={`w-full text-left rounded-xl p-2.5 relative overflow-hidden transition-all border ${
+                      isMyVote
+                        ? "border-primary/40 bg-primary/5"
+                        : "border-transparent bg-muted/40 hover:bg-muted/60"
+                    }`}
+                  >
+                    {/* Progress bar background */}
+                    {activePoll.myVote !== null && (
+                      <div
+                        className={`absolute inset-y-0 left-0 transition-all duration-500 rounded-xl ${
+                          isMyVote ? "bg-primary/10" : "bg-muted/50"
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    )}
+                    <div className="relative flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isMyVote && <Check size={14} className="text-primary shrink-0" />}
+                        <span className="text-sm truncate">{option}</span>
+                      </div>
+                      {activePoll.myVote !== null && (
+                        <span className={`text-xs font-medium shrink-0 ml-2 ${isMyVote ? "text-primary" : "text-muted-foreground"}`}>
+                          {pct}%
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {activePoll.totalVotes > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">{activePoll.totalVotes} vote{activePoll.totalVotes !== 1 ? "s" : ""}</p>
+            )}
           </CardContent>
         </Card>
       )}

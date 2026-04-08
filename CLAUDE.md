@@ -128,6 +128,14 @@ export async function GET(req: NextRequest) {
 | `content_translations` | Cached auto-translations (EN↔TA) | source_table, source_id, field, lang, translated_text |
 | `wishlist_ideas` | Community idea submissions | title, description, category, status (open/reviewing/approved/in_progress/completed/rejected), upvote_count, submitted_by, approved_by, admin_remarks, linked_task_id |
 | `wishlist_upvotes` | Idea upvote tracking (unique per user+idea) | idea_id, user_id |
+| `trainings` | Training sessions | title, description, topic, trainer_name, trainer_type, date, duration_hours, location, mode, meeting_link, max_participants, status, materials_url |
+| `training_enrollments` | Member enrollment in trainings | training_id, user_id, status (enrolled/cancelled/attended), checked_in_at |
+| `trainer_invites` | Trainer invitations (member or external) | training_id, invited_user_id, external_name, external_email, external_phone, invited_by, status (pending/accepted/declined), responded_at |
+| `training_materials` | Uploaded training materials | training_id, title, description, file_url, file_name, file_type, file_size, language (en/ta/kn/te), group_id, access (all/enrolled/selected), sort_order, uploaded_by |
+| `training_material_access` | Per-member material access (for access='selected') | material_id, user_id |
+| `messages` | Direct member-to-member messages | sender_id, recipient_id, content, read_at |
+| `push_subscriptions` | Web Push notification subscriptions | user_id, endpoint, keys |
+| `analytics_events` | Engagement tracking events | event_type, page_path, element, device, screen, session_id, user_id |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -139,7 +147,7 @@ export async function GET(req: NextRequest) {
 
 ### Migrations beyond base schema
 
-The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`. See the Tables section above for current schema.
+The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`, `trainings`, `training_enrollments`, `trainer_invites`, `training_materials`, `training_material_access`, `messages`, `push_subscriptions`, `analytics_events`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions, `scheduled_at` on announcements/events) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`, `supabase/trainings_schema.sql`, `supabase/messages_schema.sql`, `supabase/content_scheduling_schema.sql`, `supabase/analytics_schema.sql`. See the Tables section above for current schema.
 
 ## Environment Variables
 
@@ -271,10 +279,12 @@ On profile save (`PUT /api/users/me`), `detectGender()` auto-detects gender from
 | EN↔TA Translator | `translator.tsx` | `/api/ai-tools/translate` | Text | 20/min |
 | OCR | `ocr-tool.tsx` | `/api/ai-tools/ocr` | Vision | 10/min |
 | Voice Notes | `voice-notes.tsx` | — (browser only) | — | — |
+| Weather Advisory | `weather-advisory.tsx` | `/api/ai-tools/weather-advisory` | Text | 10/min |
 
 - **Components:** `app/dashboard/ai-tools/_components/`
 - **Rate limiting:** Shared `createRateLimiter()` from `lib/rate-limit.ts` (in-memory, per-IP)
 - **Voice Notes** uses browser `SpeechRecognition` API (supports English `en-IN` and Tamil `ta-IN`), no backend needed
+- **Weather Advisory** uses Open-Meteo API with hardcoded coordinates for all 38 Tamil Nadu districts, Gemini generates crop-specific advisory from weather data
 - **Vision routes** accept FormData with image (10MB max), text routes accept JSON
 - All API routes: session check → rate limit → Gemini call → `logContribution()` → response
 - Contribution actions logged for all 5 tools
@@ -763,6 +773,124 @@ All approved members must complete 12 fields before accessing any dashboard sect
 - Polite bilingual message (EN/TA) with `Flower2` icon
 - Warning banner on profile page shows missing fields
 - Logic: `getMissingFields()` in `app/dashboard/layout.tsx`
+
+## Trainings System
+
+Full training management with enrollment, trainer invitations, and multi-language materials.
+
+### Core Trainings
+
+Tables: `trainings` + `training_enrollments`. Schema in `supabase/trainings_schema.sql`.
+
+- **Member page:** `/dashboard/trainings` — browse, enroll, cancel enrollment, QR check-in
+- **Admin page:** `/admin/trainings` — create, edit, manage status, delete, attendance
+- **API:** `/api/trainings` (GET/POST/PUT/DELETE), `/api/trainings/checkin` (POST)
+- **Modes:** online, offline, hybrid (with meeting link)
+- **Topics:** Horticulture, Pest Management, Organic Farming, Soil Health, Post-Harvest, Marketing, Technology, Legal, Administration, Other
+- **Statuses:** `upcoming`, `ongoing`, `completed`, `cancelled`
+- **Enrollment statuses:** `enrolled`, `cancelled`, `attended`
+- **QR Check-in:** URL param `?checkin={training_id}` auto-checks-in enrolled members
+- **iCal export:** "Export Calendar" button calls `/api/events/ical?type=trainings`
+
+### Trainer Invite System
+
+Table: `trainer_invites`. Admins can invite members or external trainers.
+
+- **API:** `/api/trainings/invite` (GET/POST/PUT)
+- **3 modes:** Manual entry (name/email), invite member (search by name), invite external (name + email + phone)
+- **Flow:** Invite sent → email notification → member sees banner on `/dashboard/trainings` → accept/decline
+- **On accept:** Auto-fills training's `trainer_name`, `trainer_type`, and contact from member profile
+- **Email:** `sendTrainerInviteEmail()` in `lib/mail.ts`
+
+### Training Materials (Multi-Language)
+
+Tables: `training_materials` + `training_material_access`. Storage bucket: `training-materials` (private).
+
+- **API:** `/api/trainings/materials` (GET/POST/PUT/DELETE)
+- **Languages:** English (en), Tamil (ta), Kannada (kn), Telugu (te)
+- **Access tiers:** `all` (any member), `enrolled` (enrolled members only), `selected` (specific members via junction table)
+- **Storage:** Private bucket, signed URLs with 5-min TTL. Path: `{training_id}/{language}/{timestamp}-{filename}`
+- **Upload:** FormData with file (50MB max), title, language, access level. Admin/official only.
+- **Member UI:** Expandable `MaterialsSection` per training card with language filter pills and download links
+- **Admin UI:** Materials dialog in training editor with upload form, language badges, access badges, delete
+
+## Direct Messages
+
+Table: `messages` (schema in `supabase/messages_schema.sql`). Member-to-member messaging with conversation threading.
+
+- **Member page:** `/dashboard/messages` — conversation list, message thread, send/receive
+- **API:** `/api/messages` (GET/POST)
+  - `GET ?conversations=true` — list all conversations with last message preview + unread count
+  - `GET ?with={userId}` — get message thread with specific user
+  - `GET ?unread_count=true` — total unread count (used by nav badge)
+  - `POST` — send message to recipient
+- **Polling:** Conversations refresh every 15s, active thread refreshes every 5s
+- **Mobile fix:** Poll skips when input is focused (`inputFocusedRef`) to prevent scroll jumps; thread poll uses change detection (compares last message ID) to avoid unnecessary re-renders
+
+## Content Scheduling
+
+Announcements and events can be scheduled for future publication.
+
+- **Schema:** `content_scheduling_schema.sql` adds `scheduled_at` TIMESTAMPTZ to announcements and events
+- **Admin UI:** Schedule mode toggle with datetime picker on announcement/event create forms
+- **Cron:** `/api/cron/publish-scheduled` auto-publishes content when `scheduled_at` has passed
+- **Draft mode:** Unpublished content stays hidden from members until scheduled time or manual publish
+
+## Account Suspension
+
+Admins can suspend approved members. Status flow: `pending` → `approved` → `suspended` (or `rejected`).
+
+- **Suspended users:** Redirected to `/suspended` page, blocked from all API routes except auth, `/api/users/me`, and `/api/subscriptions`
+- **Admin actions:** Suspend/unsuspend via `/admin/users` page
+- **Restricted to:** `tanhowa19791@gmail.com` (owner) only
+- **Notifications:** Email sent on suspension/unsuspension
+
+## Calendar & iCal Export
+
+Unified calendar view combining events and trainings with iCal export.
+
+- **Member page:** `/dashboard/calendar` — visual calendar with events and trainings
+- **API:** `/api/events/ical` — generates iCalendar (.ics) format for external calendar apps
+  - `?type=events` — events only
+  - `?type=trainings` — trainings only
+  - Default: both combined
+
+## Push Notifications
+
+Web Push API integration for real-time browser notifications.
+
+- **Table:** `push_subscriptions` (user_id, endpoint, keys)
+- **API:** `/api/push` (POST subscribe, DELETE unsubscribe)
+- **Service worker:** Handles push events and displays native notifications
+
+## District Benchmark
+
+District performance comparison dashboard for admins.
+
+- **Admin page:** `/admin/district-benchmark`
+- **API:** `/api/reports/district-benchmark`
+- **Metrics:** Payment rates, member activity, profile completion across districts
+
+## Engagement Analytics
+
+Detailed member engagement tracking restricted to owner (`tanhowa19791@gmail.com`).
+
+- **Admin page:** `/admin/engagement`
+- **Schema:** `analytics_schema.sql` with `analytics_events` table (event_type, page_path, device info, session_id)
+- **Metrics:** Feature adoption (unique users, total uses, time), inactive members, churn risk, monthly active user trends
+
+## Volunteer Invites
+
+Invite non-members to volunteer for events/tasks.
+
+- **API:** `/api/volunteer-invites` (GET/POST/PUT)
+
+## Service Requests
+
+Member service request submission system.
+
+- **Member page:** `/dashboard/service-requests`
+- **Admin page:** `/admin/service-requests`
 
 ## Common Tasks
 
