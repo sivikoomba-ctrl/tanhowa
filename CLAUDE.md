@@ -34,7 +34,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
 - `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`
-- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `razorpay.ts`, `rate-limit.ts`, `daily-greetings.ts`, `translate-content.ts`
+- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `razorpay.ts`, `rate-limit.ts`, `daily-greetings.ts`, `translate-content.ts`, `badges.ts`, `validation.ts`, `sms.ts`
 - `lib/i18n/` — Internationalization: `language-context.tsx` (React context + hooks), `translations.ts` (EN/TA dictionary), `index.ts` (barrel export)
 - `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
 - `supabase/schema.sql` — Base database DDL (additional migrations documented below)
@@ -144,6 +144,9 @@ export async function GET(req: NextRequest) {
 | `messages` | Direct member-to-member messages | sender_id, recipient_id, content, read_at |
 | `push_subscriptions` | Web Push notification subscriptions | user_id, endpoint, keys |
 | `analytics_events` | Engagement tracking events | event_type, page_path, element, device, screen, session_id, user_id |
+| `achievements` | Earned member badges | user_id, badge (badge ID string), earned_at |
+| `event_rsvps` | Event RSVP tracking | event_id, user_id, status (going/interested) |
+| `announcement_reads` | Tracks which members read announcements | announcement_id, user_id, read_at |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -155,7 +158,7 @@ export async function GET(req: NextRequest) {
 
 ### Migrations beyond base schema
 
-The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`, `trainings`, `training_enrollments`, `trainer_invites`, `training_materials`, `training_material_access`, `messages`, `push_subscriptions`, `analytics_events`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions, `scheduled_at` on announcements/events) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`, `supabase/trainings_schema.sql`, `supabase/messages_schema.sql`, `supabase/content_scheduling_schema.sql`, `supabase/analytics_schema.sql`. See the Tables section above for current schema.
+The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`, `trainings`, `training_enrollments`, `trainer_invites`, `training_materials`, `training_material_access`, `messages`, `push_subscriptions`, `analytics_events`, `achievements`, `event_rsvps`, `announcement_reads`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions, `scheduled_at` on announcements/events) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`, `supabase/trainings_schema.sql`, `supabase/messages_schema.sql`, `supabase/content_scheduling_schema.sql`, `supabase/analytics_schema.sql`. See the Tables section above for current schema.
 
 ## Environment Variables
 
@@ -180,6 +183,10 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY=   # VAPID public key for Web Push notifications
 VAPID_PRIVATE_KEY=              # VAPID private key for Web Push notifications
 RAZORPAY_KEY_ID=                # Razorpay API key ID (online payments)
 RAZORPAY_KEY_SECRET=            # Razorpay API key secret
+FACEBOOK_APP_SECRET=            # Facebook OAuth app secret (token exchange in callback)
+CRON_SECRET=                    # Bearer token for Vercel Cron job authorization
+TELEGRAM_WEBHOOK_SECRET=        # Secret token to verify incoming Telegram webhook updates
+TWOFACTOR_API_KEY=              # 2Factor.in API key for SMS OTP (lib/sms.ts)
 ```
 
 ## UI & Styling Conventions
@@ -891,6 +898,48 @@ Detailed member engagement tracking restricted to owner (`tanhowa19791@gmail.com
 - **Admin page:** `/admin/engagement`
 - **Schema:** `analytics_schema.sql` with `analytics_events` table (event_type, page_path, device info, session_id)
 - **Metrics:** Feature adoption (unique users, total uses, time), inactive members, churn risk, monthly active user trends
+
+## Achievements / Badges
+
+Automated badge system that awards badges based on member activity stats.
+
+- **Table:** `achievements` (user_id, badge, earned_at)
+- **Lib:** `lib/badges.ts` — 13 badge definitions, `checkAndAwardBadges()`, `BADGES` array
+- **API:** `/api/achievements` (GET) — `?me=true` for own badges, `?leaderboard=true` for admin leaderboard
+- **Member page:** `/dashboard/achievements` — personal badges display
+- **Admin page:** `/admin/achievements` — badge leaderboard
+- **Badges:** Century (100min), Half Century (50min), Dedicated (200min), All-Rounder (5+ action types), Task Master (10+ tasks), Task Starter (1st task), Payment Champion (all paid), Voice of Change (5+ grievances), Idea Factory (3+ ideas), Social Butterfly (5+ RSVPs), Loyal Member (6+ months), Pioneer (1+ year), Regular (50+ logins)
+
+## Event RSVP
+
+Members can RSVP to events (going/interested). Counts displayed on event cards.
+
+- **Table:** `event_rsvps` (event_id, user_id, status)
+- **API:** `/api/events/rsvp` (GET/POST) — GET returns counts + user's RSVPs, POST toggles RSVP
+
+## Global Search
+
+Cross-entity search across the portal (members, announcements, events, documents, tasks).
+
+- **API:** `/api/search?q=query` — rate limited 20/min, uses zod validation from `lib/validation.ts`
+- **Input validation:** `lib/validation.ts` — zod schemas for grievances, announcements, events, search, and more
+
+## Announcement Read Tracking
+
+Tracks which members have read announcements. Used by notification counts to show "new since last visit."
+
+- **Table:** `announcement_reads` (announcement_id, user_id, read_at)
+- **API:** `/api/announcements/read` (POST) — marks announcement as read for current user
+
+## Cron Jobs
+
+Vercel Cron-triggered endpoints. All require `Authorization: Bearer {CRON_SECRET}` header (except those using `site_settings` lock).
+
+| Route | Schedule | Purpose |
+|-------|----------|---------|
+| `/api/cron/daily-greetings` | Daily | Birthday + festival greetings (also triggered fire-and-forget from `/api/users/me`) |
+| `/api/cron/inactive-nudge` | Daily | Email + Telegram nudge to members inactive 30+ days |
+| `/api/cron/publish-scheduled` | Periodic | Auto-publishes scheduled announcements/events past their `scheduled_at` time |
 
 ## Volunteer Invites
 
