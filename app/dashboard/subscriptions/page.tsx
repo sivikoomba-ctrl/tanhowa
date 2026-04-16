@@ -91,6 +91,7 @@ export default function SubscriptionsPage() {
   const [duesProofUploading, setDuesProofUploading] = useState(false);
   const duesFileRef = useRef<HTMLInputElement>(null);
   const [duesProofPreview, setDuesProofPreview] = useState<string | null>(null);
+  const [detailsProofSignedUrl, setDetailsProofSignedUrl] = useState<string | null>(null);
 
   function downloadReceipt(sub: Subscription) {
     const doc = new jsPDF();
@@ -423,6 +424,10 @@ export default function SubscriptionsPage() {
         const sub = subscriptions.find((s) => s.id === uploadTargetId);
         if (sub) {
           setDetailsSub({ ...sub, payment_proof_url: data.payment_proof_url });
+          // Fetch signed URL for the just-uploaded proof
+          fetchSignedPaymentProofUrl(uploadTargetId, data.payment_proof_url)
+            .then((url) => setDetailsProofSignedUrl(url))
+            .catch(() => {});
           setDetailsForm({
             transaction_id: sub.transaction_id || "",
             payment_method: sub.payment_method || "UPI",
@@ -545,6 +550,12 @@ export default function SubscriptionsPage() {
 
   function openEditDetails(sub: Subscription) {
     setDetailsSub(sub);
+    setDetailsProofSignedUrl(null);
+    if (sub.payment_proof_url) {
+      fetchSignedPaymentProofUrl(sub.id, sub.payment_proof_url)
+        .then((url) => setDetailsProofSignedUrl(url))
+        .catch(() => {});
+    }
     const remarks = sub.remarks || "";
     const behalfMatch = remarks.match(/\|?\s*Paying on behalf of:\s*(.+)$/i);
     const cleanRemarks = behalfMatch ? remarks.replace(behalfMatch[0], "").trim() : remarks;
@@ -645,7 +656,16 @@ export default function SubscriptionsPage() {
                               <div className="flex items-center justify-center gap-1">
                                 {hasProof ? (
                                   <button
-                                    onClick={() => { if (subWithProof?.payment_proof_url) setDuesProofPreview(subWithProof.payment_proof_url); }}
+                                    onClick={async () => {
+                                      if (subWithProof?.payment_proof_url) {
+                                        try {
+                                          const url = await fetchSignedPaymentProofUrl(subWithProof.id, subWithProof.payment_proof_url);
+                                          setDuesProofPreview(url);
+                                        } catch {
+                                          toast.error("Failed to load proof");
+                                        }
+                                      }
+                                    }}
                                     className="text-[10px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded hover:bg-green-100 flex items-center gap-1"
                                   >
                                     <Eye size={10} /> View
@@ -1021,10 +1041,10 @@ export default function SubscriptionsPage() {
                 Fill in or update your payment details for <span className="font-medium text-foreground">{detailsSub.period}</span> (&#8377;{detailsSub.amount?.toLocaleString("en-IN")}).
                 Admin will verify based on these details and your uploaded proof.
               </p>
-              {detailsSub.payment_proof_url && (
+              {detailsSub.payment_proof_url && detailsProofSignedUrl && (
                 <div className="rounded-lg overflow-hidden border max-h-40">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={detailsSub.payment_proof_url} alt="Proof" className="w-full object-contain max-h-40" />
+                  <img src={detailsProofSignedUrl} alt="Proof" className="w-full object-contain max-h-40" />
                 </div>
               )}
               <form onSubmit={handleSaveDetails} className="space-y-4">

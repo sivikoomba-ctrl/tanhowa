@@ -33,8 +33,8 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/` — Next.js App Router: pages (`dashboard/`, `admin/`, `onboarding/`, `verify/`, `pending/`) and API routes (`api/`)
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
-- `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`
-- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `razorpay.ts`, `rate-limit.ts`, `daily-greetings.ts`, `translate-content.ts`, `badges.ts`, `validation.ts`, `sms.ts`
+- `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`, `date-dropdowns.tsx` (responsive Day/Month/Year native selects with mobile abbreviations), `photo-crop-dialog.tsx` (image cropping for profile photos), `global-search.tsx` (cross-entity search UI), `payment-proof-preview-dialog.tsx`, `analytics-tracker.tsx`, `push-manager.tsx`, `finance-otp-gate.tsx`, `settings-popover.tsx` (language + font size + theme controls)
+- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `query-engine.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `audit-log.ts`, `razorpay.ts`, `rate-limit.ts`, `daily-greetings.ts`, `translate-content.ts`, `badges.ts`, `validation.ts`, `sms.ts`, `document-urls.ts`, `export-xlsx.ts`, `push.ts`, `api-perf.ts`, `request-ip.ts`, `utils.ts`
 - `lib/i18n/` — Internationalization: `language-context.tsx` (React context + hooks), `translations.ts` (EN/TA dictionary), `index.ts` (barrel export)
 - `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
 - `supabase/schema.sql` — Base database DDL (additional migrations documented below)
@@ -308,6 +308,48 @@ On profile save (`PUT /api/users/me`), `detectGender()` auto-detects gender from
 - **Vision routes** accept FormData with image (10MB max), text routes accept JSON
 - All API routes: session check → rate limit → Gemini call → `logContribution()` → response
 - Contribution actions logged for all 5 tools
+
+## Chatbot / Query Engine
+
+AI-powered chatbot with live portal data access via Gemini function calling.
+
+**Architecture:**
+- `lib/gemini.ts` — `SYSTEM_PROMPT`, `QUERY_TOOLS` (13 FunctionDeclarationsTool definitions with SchemaType params), `getGemini()` singleton
+- `lib/query-engine.ts` — `executeQuery()` dispatcher that maps function names to Supabase queries, 13 data-retrieval functions
+- `app/api/chat/route.ts` — POST endpoint with function-calling loop (max 3 rounds), rate limited 20/min per IP
+- `components/chatbot-widget.tsx` — Floating chat UI with 9 quick-query buttons, role-gated access (super_admin, state officials, whitelisted emails)
+
+**13 Query Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `search_announcements` | Recent/search portal announcements |
+| `search_events` | Upcoming/search events |
+| `search_faqs` | FAQ knowledge base search |
+| `search_members` | Member directory search |
+| `search_documents` | Document library search |
+| `search_trainings` | Training sessions search |
+| `get_portal_stats` | Portal-wide statistics |
+| `get_my_subscriptions` | Current user's payment status |
+| `get_my_tasks` | Current user's assigned tasks |
+| `search_resolutions` | Resolution search/status |
+| `search_grievances` | Grievance/suggestion search |
+| `get_my_achievements` | Current user's badges |
+| `get_my_contributions` | Current user's activity log |
+
+**How it works:**
+1. User sends message → API builds chat history with system prompt
+2. Gemini decides which query tools to call (if any)
+3. `executeQuery()` runs Supabase queries, returns structured data
+4. Gemini receives query results, generates natural language response
+5. Loop repeats up to 3 rounds for multi-step queries
+
+**User context:** Each query receives `{ userId, email, role }` — personal data queries (`get_my_*`) are scoped to the current user.
+
+**Adding a new query function:**
+1. Add FunctionDeclaration in `lib/gemini.ts` (QUERY_TOOLS array)
+2. Add query implementation in `lib/query-engine.ts`
+3. Add case to `executeQuery()` dispatcher in `query-engine.ts`
 
 ## UI Labels
 
