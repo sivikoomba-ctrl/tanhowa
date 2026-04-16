@@ -43,8 +43,11 @@ export async function GET(req: NextRequest) {
       query = query.eq("parent_id", parentId);
     }
 
-    // Members see only their own submitted, assigned, or team-assigned tasks; admins see all
-    if (dbRole !== "admin") {
+    // ?me=true forces user-scoped results (used by member dashboard even for admins)
+    const meOnly = url.searchParams.get("me") === "true";
+
+    // Members always see only their own tasks; admins see all unless ?me=true
+    if (dbRole !== "admin" || meOnly) {
       // Get user's team IDs
       const { data: userTeams } = await supabase
         .from("team_members")

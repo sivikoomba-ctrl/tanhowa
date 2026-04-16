@@ -246,7 +246,7 @@ export default function TodosPage() {
 
   const fetchTodos = useCallback(async () => {
     try {
-      const res = await fetch("/api/todos");
+      const res = await fetch("/api/todos?me=true");
       const data = await res.json();
       setTodos(data.todos || []);
     } catch {
