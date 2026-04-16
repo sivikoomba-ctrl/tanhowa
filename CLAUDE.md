@@ -142,9 +142,11 @@ export async function GET(req: NextRequest) {
 | `training_materials` | Uploaded training materials | training_id, title, description, file_url, file_name, file_type, file_size, language (en/ta/kn/te), group_id, access (all/enrolled/selected), sort_order, uploaded_by |
 | `training_material_access` | Per-member material access (for access='selected') | material_id, user_id |
 | `messages` | Direct member-to-member messages | sender_id, recipient_id, content, read_at |
-| `chat_channels` | Group chat channels | name, description, is_default, is_archived, created_by |
-| `chat_channel_members` | Per-channel membership + state | channel_id, user_id, role (member/admin), is_muted, last_read_at, joined_at |
-| `chat_messages` | Group chat messages | channel_id, sender_id, content, file_url, file_name, file_type, reply_to_id, deleted_at |
+| `chat_channels` | Group chat channels | name, description, is_default, archived, created_by |
+| `chat_channel_members` | Per-channel membership + state | channel_id, user_id, role (member/admin), muted, last_read_at, joined_at |
+| `chat_messages` | Group chat messages | channel_id, sender_id, content, file_url, file_name, file_type, reply_to, deleted_at |
+| `chat_message_mentions` | @mentions parsed on message create | message_id, mentioned_user_id, read_at (UNIQUE message_id + mentioned_user_id) |
+| `chat_message_reactions` | Emoji reactions per message | message_id, user_id, emoji (UNIQUE message_id + user_id + emoji) |
 | `push_subscriptions` | Web Push notification subscriptions | user_id, endpoint, keys |
 | `analytics_events` | Engagement tracking events | event_type, page_path, element, device, screen, session_id, user_id |
 | `achievements` | Earned member badges | user_id, badge (badge ID string), earned_at |
@@ -161,7 +163,7 @@ export async function GET(req: NextRequest) {
 
 ### Migrations beyond base schema
 
-The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`, `trainings`, `training_enrollments`, `trainer_invites`, `training_materials`, `training_material_access`, `messages`, `push_subscriptions`, `analytics_events`, `achievements`, `event_rsvps`, `announcement_reads`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions, `scheduled_at` on announcements/events) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`, `supabase/trainings_schema.sql`, `supabase/messages_schema.sql`, `supabase/group_chat_schema.sql`, `supabase/content_scheduling_schema.sql`, `supabase/analytics_schema.sql`. See the Tables section above for current schema.
+The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`, `trainings`, `training_enrollments`, `trainer_invites`, `training_materials`, `training_material_access`, `messages`, `chat_channels`, `chat_channel_members`, `chat_messages`, `chat_message_mentions`, `chat_message_reactions`, `push_subscriptions`, `analytics_events`, `achievements`, `event_rsvps`, `announcement_reads`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions, `scheduled_at` on announcements/events) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`, `supabase/trainings_schema.sql`, `supabase/messages_schema.sql`, `supabase/group_chat_schema.sql`, `supabase/group_chat_stage2_schema.sql`, `supabase/content_scheduling_schema.sql`, `supabase/analytics_schema.sql`. See the Tables section above for current schema.
 
 ## Environment Variables
 
