@@ -470,7 +470,7 @@ export default function GroupChatPage() {
   // =========================================================================
   // Channel List Panel
   // =========================================================================
-  const ChannelList = () => (
+  const channelListJsx = (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 space-y-1">
@@ -567,7 +567,7 @@ export default function GroupChatPage() {
   // =========================================================================
   // Chat Thread Panel
   // =========================================================================
-  const ChatThread = () => (
+  const chatThreadJsx = (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b bg-card">
@@ -1005,11 +1005,11 @@ export default function GroupChatPage() {
       {/* Desktop: side-by-side */}
       <div className="hidden md:flex h-full">
         <div className="w-80 lg:w-96 border-r flex flex-col h-full">
-          <ChannelList />
+          {channelListJsx}
         </div>
         <div className="flex-1 flex flex-col h-full">
           {selectedChannel ? (
-            <ChatThread />
+            chatThreadJsx
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
               <MessageCircle className="w-12 h-12 text-muted-foreground/20 mb-3" />
@@ -1023,7 +1023,7 @@ export default function GroupChatPage() {
 
       {/* Mobile: full-width toggle */}
       <div className="md:hidden h-full">
-        {selectedChannel ? <ChatThread /> : <ChannelList />}
+        {selectedChannel ? chatThreadJsx : channelListJsx}
       </div>
     </Card>
   );
