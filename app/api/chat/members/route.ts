@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 
     const { data: members, error } = await supabase
       .from("chat_channel_members")
-      .select("id, user_id, role, muted, joined_at, user:user_id(id, name, photo_url, occupation, posting_details)")
+      .select("id, user_id, role, muted, joined_at, last_read_at, user:user_id(id, name, photo_url, occupation, posting_details)")
       .eq("channel_id", channelId)
       .order("joined_at", { ascending: true });
 
@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
       role: m.role,
       muted: m.muted,
       joined_at: m.joined_at,
+      last_read_at: m.last_read_at ?? null,
       user: m.user || null,
     }));
 

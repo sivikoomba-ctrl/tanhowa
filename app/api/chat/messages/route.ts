@@ -5,6 +5,7 @@ import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { writeLimiter, uploadLimiter } from "@/lib/rate-limit";
 import { sendPushToUser } from "@/lib/push";
+import { broadcastToChannel } from "@/lib/chat-broadcast";
 
 const ALLOWED_FILE_TYPES = new Set([
   "image/jpeg",
@@ -132,6 +133,41 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Batch-fetch reactions for all messages in this page
+    type ReactionAggregate = {
+      emoji: string;
+      count: number;
+      users: Array<{ id: string; name: string }>;
+    };
+    const reactionsMap: Record<string, ReactionAggregate[]> = {};
+    const messageIds = items.map((m: { id: string }) => m.id);
+    if (messageIds.length > 0) {
+      const { data: reactionRows } = await supabase
+        .from("chat_message_reactions")
+        .select("message_id, emoji, user_id, user:user_id(id, name)")
+        .in("message_id", messageIds);
+
+      for (const row of reactionRows || []) {
+        const r = row as unknown as {
+          message_id: string;
+          emoji: string;
+          user_id: string;
+          user: { id: string; name: string } | null;
+        };
+        const list = reactionsMap[r.message_id] || (reactionsMap[r.message_id] = []);
+        let agg = list.find((x) => x.emoji === r.emoji);
+        if (!agg) {
+          agg = { emoji: r.emoji, count: 0, users: [] };
+          list.push(agg);
+        }
+        agg.count += 1;
+        agg.users.push({
+          id: r.user?.id || r.user_id,
+          name: r.user?.name || "Unknown",
+        });
+      }
+    }
+
     // Generate signed URLs for file messages
     const enriched = await Promise.all(
       items.map(async (m: Record<string, unknown>) => {
@@ -156,6 +192,7 @@ export async function GET(req: NextRequest) {
           reply_snippet: m.reply_to ? replyMap.get(m.reply_to as string) || null : null,
           created_at: m.created_at,
           sender: m.sender || null,
+          reactions: reactionsMap[m.id as string] || [],
         };
       })
     );
@@ -350,7 +387,30 @@ export async function POST(req: NextRequest) {
       .eq("user_id", userId)
       .then(() => {});
 
-    // Push notifications to other channel members who are not muted (fire-and-forget)
+    // Realtime broadcast so other clients see it without waiting on poll
+    (async () => {
+      const { data: senderUser } = await supabase
+        .from("users")
+        .select("id, name, photo_url")
+        .eq("id", userId)
+        .single();
+
+      let signedFileUrl: string | null = null;
+      if (fileUrl) {
+        const { data: signed } = await supabase.storage
+          .from("chat-files")
+          .createSignedUrl(fileUrl, 3600);
+        signedFileUrl = signed?.signedUrl || null;
+      }
+
+      void broadcastToChannel(channelId, "new_message", {
+        ...message,
+        file_url: signedFileUrl,
+        sender: senderUser,
+      });
+    })();
+
+    // Push notifications + @mentions processing (fire-and-forget)
     (async () => {
       try {
         const { data: senderUser } = await supabase
@@ -365,6 +425,74 @@ export async function POST(req: NextRequest) {
           .eq("id", channelId)
           .single();
 
+        const senderName = senderUser?.name || "Someone";
+        const channelName = channelInfo?.name || "a channel";
+        const preview = content
+          ? content.substring(0, 80)
+          : `Sent a file: ${fileName || "attachment"}`;
+
+        // Parse @mentions from content — match "@Name" tokens (1-5 words, letters/spaces).
+        // We intentionally match greedily up to 4 spaces so "@Rajesh Kumar" works.
+        const mentionedUserIds = new Set<string>();
+        if (content) {
+          const mentionRegex = /@([A-Za-z][A-Za-z. ]{0,59})/g;
+          const rawNames = new Set<string>();
+          let m: RegExpExecArray | null;
+          while ((m = mentionRegex.exec(content)) !== null) {
+            // Trim trailing whitespace/punctuation; keep full phrase and progressively
+            // shorter prefixes so we can match either the full name or just first name.
+            const phrase = m[1].trim().replace(/[.,!?;:]+$/, "");
+            if (phrase.length >= 2) rawNames.add(phrase);
+            const firstTok = phrase.split(/\s+/)[0];
+            if (firstTok && firstTok.length >= 2) rawNames.add(firstTok);
+          }
+
+          if (rawNames.size > 0) {
+            // Only consider users who are members of this channel.
+            const { data: memberRows } = await supabase
+              .from("chat_channel_members")
+              .select("user_id")
+              .eq("channel_id", channelId);
+            const memberIds = (memberRows || []).map((r) => r.user_id as string);
+
+            if (memberIds.length > 0) {
+              for (const name of rawNames) {
+                const { data: matched } = await supabase
+                  .from("users")
+                  .select("id, name")
+                  .in("id", memberIds)
+                  .ilike("name", `%${name}%`)
+                  .limit(5);
+                for (const u of matched || []) {
+                  if (u.id !== userId) {
+                    mentionedUserIds.add(u.id as string);
+                  }
+                }
+              }
+            }
+          }
+
+          if (mentionedUserIds.size > 0 && message?.id) {
+            const rows = Array.from(mentionedUserIds).map((uid) => ({
+              message_id: message.id,
+              mentioned_user_id: uid,
+            }));
+            await supabase
+              .from("chat_message_mentions")
+              .upsert(rows, { onConflict: "message_id,mentioned_user_id" });
+
+            // Send push to mentioned users with a more prominent mention prefix
+            for (const uid of mentionedUserIds) {
+              sendPushToUser(uid, {
+                title: `@${senderName} mentioned you in #${channelName}`,
+                body: preview,
+                url: `/dashboard/group-chat?channel=${channelId}`,
+              });
+            }
+          }
+        }
+
+        // Regular push to non-muted members, skipping those already notified via mention.
         const { data: members } = await supabase
           .from("chat_channel_members")
           .select("user_id")
@@ -373,22 +501,17 @@ export async function POST(req: NextRequest) {
           .neq("user_id", userId);
 
         if (members && members.length > 0) {
-          const senderName = senderUser?.name || "Someone";
-          const channelName = channelInfo?.name || "a channel";
-          const preview = content
-            ? content.substring(0, 80)
-            : `Sent a file: ${fileName || "attachment"}`;
-
           for (const m of members) {
+            if (mentionedUserIds.has(m.user_id)) continue;
             sendPushToUser(m.user_id, {
               title: `${senderName} in #${channelName}`,
               body: preview,
-              url: `/chat?channel=${channelId}`,
+              url: `/dashboard/group-chat?channel=${channelId}`,
             });
           }
         }
       } catch {
-        // Silent fail for push notifications
+        // Silent fail for push notifications / mentions
       }
     })();
 
@@ -485,6 +608,8 @@ export async function DELETE(req: NextRequest) {
       });
       return NextResponse.json({ error: "Failed to delete message" }, { status: 500 });
     }
+
+    void broadcastToChannel(msg.channel_id, "message_deleted", { messageId });
 
     return NextResponse.json({ message: "Message deleted" });
   } catch (error) {

@@ -142,6 +142,9 @@ export async function GET(req: NextRequest) {
 | `training_materials` | Uploaded training materials | training_id, title, description, file_url, file_name, file_type, file_size, language (en/ta/kn/te), group_id, access (all/enrolled/selected), sort_order, uploaded_by |
 | `training_material_access` | Per-member material access (for access='selected') | material_id, user_id |
 | `messages` | Direct member-to-member messages | sender_id, recipient_id, content, read_at |
+| `chat_channels` | Group chat channels | name, description, is_default, is_archived, created_by |
+| `chat_channel_members` | Per-channel membership + state | channel_id, user_id, role (member/admin), is_muted, last_read_at, joined_at |
+| `chat_messages` | Group chat messages | channel_id, sender_id, content, file_url, file_name, file_type, reply_to_id, deleted_at |
 | `push_subscriptions` | Web Push notification subscriptions | user_id, endpoint, keys |
 | `analytics_events` | Engagement tracking events | event_type, page_path, element, device, screen, session_id, user_id |
 | `achievements` | Earned member badges | user_id, badge (badge ID string), earned_at |
@@ -158,7 +161,7 @@ export async function GET(req: NextRequest) {
 
 ### Migrations beyond base schema
 
-The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`, `trainings`, `training_enrollments`, `trainer_invites`, `training_materials`, `training_material_access`, `messages`, `push_subscriptions`, `analytics_events`, `achievements`, `event_rsvps`, `announcement_reads`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions, `scheduled_at` on announcements/events) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`, `supabase/trainings_schema.sql`, `supabase/messages_schema.sql`, `supabase/content_scheduling_schema.sql`, `supabase/analytics_schema.sql`. See the Tables section above for current schema.
+The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`, `trainings`, `training_enrollments`, `trainer_invites`, `training_materials`, `training_material_access`, `messages`, `push_subscriptions`, `analytics_events`, `achievements`, `event_rsvps`, `announcement_reads`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions, `scheduled_at` on announcements/events) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`, `supabase/trainings_schema.sql`, `supabase/messages_schema.sql`, `supabase/group_chat_schema.sql`, `supabase/content_scheduling_schema.sql`, `supabase/analytics_schema.sql`. See the Tables section above for current schema.
 
 ## Environment Variables
 
@@ -888,6 +891,32 @@ Table: `messages` (schema in `supabase/messages_schema.sql`). Member-to-member m
   - `POST` — send message to recipient
 - **Polling:** Conversations refresh every 15s, active thread refreshes every 5s
 - **Mobile fix:** Poll skips when input is focused (`inputFocusedRef`) to prevent scroll jumps; thread poll uses change detection (compares last message ID) to avoid unnecessary re-renders
+
+## Group Chat
+
+Channel-based group chat where all members can interact and share files. Tables: `chat_channels`, `chat_channel_members`, `chat_messages` (schema: `supabase/group_chat_schema.sql`).
+
+- **Member page:** `/dashboard/group-chat` — split-pane: 320px channel list (desktop) + message thread. Full-width toggle on mobile.
+- **Admin page:** `/admin/group-chat` — channel CRUD (create/edit/archive/delete), member management (add/remove/toggle admin), message moderation.
+- **APIs:**
+  - `/api/chat/channels` — GET (user's channels with unread counts + last message preview), POST (admin create), PUT (update), DELETE (super_admin only)
+  - `/api/chat/messages` — GET (cursor pagination via `?before=`, signed file URLs 1hr TTL, reply snippets, fire-and-forget `last_read_at` update), POST (text via JSON, files via FormData 10MB max), DELETE (soft-delete via `deleted_at`). Accepts both `?channel_id=` and `?channel=`.
+  - `/api/chat/members` — GET (list with user info + `last_read_at` per member for read-receipt UI), PUT (actions: join/leave/mute/unmute/add/remove)
+  - `/api/chat/unread` — GET (aggregate unread across non-muted channels, used by nav badge)
+  - `/api/chat/typing` — POST `{ channel_id }` — broadcasts ephemeral `typing` event (`{ userId, userName, channelId }`) via `broadcastToChannel`. No DB write. Uses `writeLimiter`.
+  - `/api/chat/read` — POST `{ channel_id }` — sets `chat_channel_members.last_read_at = now()` and broadcasts `read` event (`{ userId, userName, channelId, lastReadAt }`). Called on channel open + `window.focus` (not per message — the messages GET still does its own fire-and-forget `last_read_at` update).
+  - `/api/chat/reactions` — emoji reactions. GET `?message_ids=id1,id2` returns `{ reactions: { [messageId]: [{ emoji, count, users: [{id,name}] }] } }`. POST `{ message_id, emoji }` adds (idempotent upsert on `(message_id,user_id,emoji)`), broadcasts `reaction_added`. DELETE `?message_id=...&emoji=...` removes the caller's reaction, broadcasts `reaction_removed`. Membership verified via message's `channel_id`; default channels allow non-members. Rate-limited via `writeLimiter`.
+- **Reactions schema:** `chat_message_reactions (id, message_id, user_id, emoji TEXT<=16, created_at)` with `UNIQUE(message_id, user_id, emoji)` — one of each emoji per user per message. Schema in `supabase/group_chat_stage2_schema.sql`.
+- **Reactions UI:** Hover on a message bubble reveals a `SmilePlus` button (alongside Reply/Delete). Clicking opens a quick-pick popover with 8 emojis (`👍 ❤️ 😂 🎉 🙏 🔥 👀 ✅`). Reaction chips render below each bubble showing `[emoji count]`; clicking a chip toggles the current user's reaction (add if absent, remove if present). The caller's own chips are highlighted (`bg-primary/15 border-primary/40`). Hover tooltip lists reactor names. Messages GET endpoint batch-embeds aggregated reactions per message. Realtime `reaction_added`/`reaction_removed` broadcasts update local state; self-echoes are skipped because the UI already applied an optimistic update.
+- **Typing indicator UI:** Ref-backed map (`typingUsers: { userId: { name, timestamp } }`) pruned every 1s with 5s TTL. Textarea onChange POSTs `/api/chat/typing` at most once every 3s (throttled via `lastTypingEmitRef`). Text renders as "X is typing…", "X and Y are typing…", or "Several people are typing…" below the message thread. Entries for user X are cleared immediately when a `new_message` broadcast arrives from X. Typing state resets on channel switch.
+- **Read receipts UI:** For own messages only — latest own message shows full `Read by X, Y, Z` (up to 3 names, then "+N more"); older own messages collapse to a small "•" with a hover tooltip listing readers. Readers computed by comparing each channel member's `last_read_at` to the message's `created_at`. Refreshed in realtime via the `read` broadcast handler updating `members[].last_read_at`.
+- **Files:** Private Supabase Storage bucket `chat-files`. Path: `{channel_id}/{timestamp}-{filename}`. Signed URLs generated on GET.
+- **Polling:** Messages 30s (fallback; Realtime handles the hot path), channels 15s. **Skips when input is focused** to avoid interrupting typing.
+- **Realtime (Stage 2):** Supabase Broadcast via `lib/chat-broadcast.ts` — server sends, anon client subscribes to `chat:${channelId}` topic. Events: `new_message`, `message_deleted`, `reaction_added`, `reaction_removed`, `typing`, `read`. DB RLS not required — broadcast events live on the Realtime server, not in Postgres. Self-echo dedup via `knownMessageIdsRef` (messages) and `payload.userId === myIdRef.current` (others).
+- **Critical UI rule:** Never define inline component functions inside the page (`const Foo = () => (...)`) — React remounts on every re-render and destroys textarea focus. Use JSX variable assignments (`const fooJsx = (...)`) and reference with `{fooJsx}`. See `feedback_no_inline_components.md`.
+- **Textarea:** Multiline auto-resize — `e.target.style.height = "auto"` then `Math.min(e.target.scrollHeight, 120) + "px"` on every onChange. Same pattern applied to `/dashboard/messages`.
+- **Supabase FK joins:** Use explicit hints (`sender:sender_id(name)`) instead of `users(name)` to avoid array/ambiguous type inference. Cast with `as unknown as { name: string }` when enriching.
+- **Contributions:** `group_message_sent` (1 min), `chat_file_shared` (2 min).
 
 ## Content Scheduling
 

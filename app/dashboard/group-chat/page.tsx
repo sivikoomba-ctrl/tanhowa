@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ import {
   Trash2,
   Reply,
   Loader2,
+  SmilePlus,
 } from "lucide-react";
 import { toast } from "sonner";
 // import { useT } from "@/lib/i18n"; // Uncomment when translation keys are added
@@ -46,6 +48,17 @@ interface Channel {
   unread_count: number;
 }
 
+interface ReactionUser {
+  id: string;
+  name: string;
+}
+
+interface ReactionAggregate {
+  emoji: string;
+  count: number;
+  users: ReactionUser[];
+}
+
 interface ChatMessage {
   id: string;
   channel_id: string;
@@ -62,7 +75,11 @@ interface ChatMessage {
   reply_sender: string | null;
   deleted: boolean;
   created_at: string;
+  reactions?: ReactionAggregate[];
 }
+
+// Quick-pick emojis for the reaction popover
+const QUICK_EMOJIS = ["\u{1F44D}", "\u2764\uFE0F", "\u{1F602}", "\u{1F389}", "\u{1F64F}", "\u{1F525}", "\u{1F440}", "\u2705"];
 
 interface ChannelMember {
   id: string;
@@ -71,6 +88,13 @@ interface ChannelMember {
   occupation: string | null;
   role: string;
   is_channel_admin: boolean;
+  last_read_at?: string | null;
+  user_id?: string;
+}
+
+interface TypingUser {
+  name: string;
+  timestamp: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +161,58 @@ function isImageType(fileType: string | null): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Realtime client (singleton, anon key — broadcast channels only)
+// ---------------------------------------------------------------------------
+
+let realtimeClient: ReturnType<typeof createClient> | null = null;
+function getRealtimeClient() {
+  if (realtimeClient) return realtimeClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  realtimeClient = createClient(url, key, {
+    realtime: { params: { eventsPerSecond: 10 } },
+  });
+  return realtimeClient;
+}
+
+// ---------------------------------------------------------------------------
+// Mention renderer — splits content into text + styled @mention spans
+// ---------------------------------------------------------------------------
+
+function renderWithMentions(content: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const regex = /@([A-Za-z][A-Za-z. ]{0,59})/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let idx = 0;
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(content.slice(lastIndex, match.index));
+    }
+    // Trim trailing spaces from the captured name so only the real name is styled.
+    const raw = match[1];
+    const trimmed = raw.replace(/\s+$/, "");
+    parts.push(
+      <span
+        key={`m-${idx++}`}
+        className="text-primary font-medium bg-primary/10 rounded px-1 py-[1px]"
+      >
+        @{trimmed}
+      </span>
+    );
+    // Append any trailing whitespace we removed so the original spacing is preserved.
+    const trailing = raw.slice(trimmed.length);
+    if (trailing) parts.push(trailing);
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex));
+  }
+  return parts.length > 0 ? parts : content;
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -163,14 +239,35 @@ export default function GroupChatPage() {
   // Reply
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
 
+  // Mention typeahead
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionAnchor, setMentionAnchor] = useState<number>(-1);
+  const [mentionIndex, setMentionIndex] = useState(0);
+
+  // Reactions: per-message map + open picker state
+  const [reactionsByMessage, setReactionsByMessage] = useState<
+    Record<string, ReactionAggregate[]>
+  >({});
+  const [pickerOpenFor, setPickerOpenFor] = useState<string | null>(null);
+  const myIdRef = useRef<string | null>(null);
+  const myNameRef = useRef<string>("You");
+
+  // Typing indicators: { userId: { name, timestamp } }
+  const [typingUsers, setTypingUsers] = useState<Record<string, TypingUser>>({});
+  const typingUsersRef = useRef<Record<string, TypingUser>>({});
+  const lastTypingEmitRef = useRef<number>(0);
+
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const threadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const channelPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const shouldScrollRef = useRef(false);
   const inputFocusedRef = useRef(false);
   const lastMessageIdRef = useRef<string | null>(null);
+  const knownMessageIdsRef = useRef<Set<string>>(new Set());
 
   // -------------------------------------------------------------------------
   // Fetch current user
@@ -179,7 +276,11 @@ export default function GroupChatPage() {
     fetch("/api/users/me")
       .then((r) => r.json())
       .then((d) => {
-        if (d.user?.id) setMyId(d.user.id);
+        if (d.user?.id) {
+          setMyId(d.user.id);
+          myIdRef.current = d.user.id;
+        }
+        if (d.user?.name) myNameRef.current = d.user.name;
       })
       .catch(() => {});
   }, []);
@@ -213,16 +314,106 @@ export default function GroupChatPage() {
   }, [fetchChannels]);
 
   // -------------------------------------------------------------------------
+  // Prune stale typing entries (> 5s old) every second
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = Date.now();
+      const current = typingUsersRef.current;
+      let dirty = false;
+      const next: Record<string, TypingUser> = {};
+      for (const [uid, entry] of Object.entries(current)) {
+        if (now - entry.timestamp < 5000) {
+          next[uid] = entry;
+        } else {
+          dirty = true;
+        }
+      }
+      if (dirty) {
+        typingUsersRef.current = next;
+        setTypingUsers(next);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Mark current channel as read (POST /api/chat/read)
+  // -------------------------------------------------------------------------
+  const markChannelRead = useCallback((channelId: string) => {
+    fetch("/api/chat/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel_id: channelId }),
+    }).catch(() => {});
+  }, []);
+
+  // Mark read whenever a channel is selected/switched
+  useEffect(() => {
+    if (selectedChannel) markChannelRead(selectedChannel.id);
+  }, [selectedChannel, markChannelRead]);
+
+  // Mark read when window regains focus
+  useEffect(() => {
+    const onFocus = () => {
+      if (selectedChannel) markChannelRead(selectedChannel.id);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [selectedChannel, markChannelRead]);
+
+  // -------------------------------------------------------------------------
+  // Throttled typing emitter — POST /api/chat/typing at most once every 3s
+  // -------------------------------------------------------------------------
+  const emitTyping = useCallback(() => {
+    if (!selectedChannel) return;
+    const now = Date.now();
+    if (now - lastTypingEmitRef.current < 3000) return;
+    lastTypingEmitRef.current = now;
+    fetch("/api/chat/typing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel_id: selectedChannel.id }),
+    }).catch(() => {});
+  }, [selectedChannel]);
+
+  // -------------------------------------------------------------------------
   // Fetch messages
   // -------------------------------------------------------------------------
   const fetchMessages = useCallback(
-    async (channelId: string, before?: string) => {
+    async (channelId: string, before?: string): Promise<ChatMessage[]> => {
       try {
         let url = `/api/chat/messages?channel=${channelId}&limit=50`;
         if (before) url += `&before=${encodeURIComponent(before)}`;
         const res = await fetch(url);
         const data = await res.json();
-        return data.messages || [];
+        const raw = (data.messages || []) as Array<Record<string, unknown>>;
+        return raw.map((m) => {
+          const snippet = m.reply_snippet as
+            | { content: string | null; sender_name: string }
+            | null;
+          const sender = m.sender as
+            | { id: string; name: string; photo_url: string | null }
+            | null;
+          return {
+            id: m.id as string,
+            channel_id: m.channel_id as string,
+            sender_id: m.sender_id as string,
+            sender_name: sender?.name || "Unknown",
+            sender_photo: sender?.photo_url || null,
+            content: (m.content as string | null) || null,
+            file_url: (m.file_url as string | null) || null,
+            file_name: (m.file_name as string | null) || null,
+            file_type: (m.file_type as string | null) || null,
+            file_size: (m.file_size as number | null) || null,
+            reply_to: (m.reply_to as string | null) || null,
+            reply_snippet: snippet?.content || null,
+            reply_sender: snippet?.sender_name || null,
+            deleted: Boolean(m.deleted_at),
+            created_at: m.created_at as string,
+            reactions: (m.reactions as ReactionAggregate[]) || [],
+          };
+        });
       } catch {
         toast.error("Failed to load messages");
         return [];
@@ -242,6 +433,9 @@ export default function GroupChatPage() {
       setHasMore(false);
       setReplyTo(null);
       setSelectedFile(null);
+      // Reset typing state when switching channels
+      typingUsersRef.current = {};
+      setTypingUsers({});
 
       const msgs: ChatMessage[] = await fetchMessages(channel.id);
       shouldScrollRef.current = true;
@@ -250,6 +444,14 @@ export default function GroupChatPage() {
       setLoadingThread(false);
       lastMessageIdRef.current =
         msgs.length > 0 ? msgs[msgs.length - 1].id : null;
+      knownMessageIdsRef.current = new Set(msgs.map((m) => m.id));
+
+      // Seed reactions map from fetched messages
+      const initial: Record<string, ReactionAggregate[]> = {};
+      for (const m of msgs) {
+        if (m.reactions && m.reactions.length > 0) initial[m.id] = m.reactions;
+      }
+      setReactionsByMessage(initial);
 
       // Clear unread
       setChannels((prev) =>
@@ -257,6 +459,24 @@ export default function GroupChatPage() {
           c.id === channel.id ? { ...c, unread_count: 0 } : c
         )
       );
+
+      // Eager-load members for mention typeahead (silent)
+      fetch(`/api/chat/members?channel=${channel.id}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.members) setMembers(d.members);
+        })
+        .catch(() => {});
+
+      // Mark any mentions in this channel's messages as read (fire-and-forget)
+      const msgIds = msgs.map((m) => m.id);
+      if (msgIds.length > 0) {
+        fetch("/api/chat/mentions", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageIds: msgIds }),
+        }).catch(() => {});
+      }
     },
     [fetchMessages]
   );
@@ -272,7 +492,7 @@ export default function GroupChatPage() {
   }, [messages]);
 
   // -------------------------------------------------------------------------
-  // Poll messages every 5s
+  // Poll messages every 30s (Realtime handles the hot path — this is a fallback)
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (threadPollRef.current) clearInterval(threadPollRef.current);
@@ -295,16 +515,257 @@ export default function GroupChatPage() {
               if (nearBottom) shouldScrollRef.current = true;
             }
             setMessages(msgs);
+            knownMessageIdsRef.current = new Set(msgs.map((m) => m.id));
             setHasMore(msgs.length === 50);
+            // Refresh reactions map
+            const nextReactions: Record<string, ReactionAggregate[]> = {};
+            for (const m of msgs) {
+              if (m.reactions && m.reactions.length > 0) nextReactions[m.id] = m.reactions;
+            }
+            setReactionsByMessage(nextReactions);
           }
         }
-      }, 5000);
+      }, 30000);
     }
 
     return () => {
       if (threadPollRef.current) clearInterval(threadPollRef.current);
     };
   }, [selectedChannel, fetchMessages]);
+
+  // -------------------------------------------------------------------------
+  // Realtime broadcast subscription (primary delivery)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    // Tear down any previous channel
+    if (realtimeChannelRef.current) {
+      const client = getRealtimeClient();
+      client?.removeChannel(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
+    }
+
+    if (!selectedChannel) return;
+
+    const client = getRealtimeClient();
+    if (!client) return;
+
+    const topic = `chat:${selectedChannel.id}`;
+    const ch = client.channel(topic, {
+      config: { broadcast: { self: false } },
+    });
+
+    ch.on("broadcast", { event: "new_message" }, (evt: { payload: unknown }) => {
+      const payload = evt.payload as {
+        id: string;
+        channel_id: string;
+        sender_id: string;
+        content: string | null;
+        file_url: string | null;
+        file_name: string | null;
+        file_type: string | null;
+        file_size: number | null;
+        reply_to: string | null;
+        created_at: string;
+        sender?: { id: string; name: string; photo_url: string | null } | null;
+      } | null;
+      if (!payload || !payload.id) return;
+
+      // Dedupe — skip if we already have this message (e.g., sender's own optimistic append)
+      if (knownMessageIdsRef.current.has(payload.id)) return;
+
+      const mapped: ChatMessage = {
+        id: payload.id,
+        channel_id: payload.channel_id,
+        sender_id: payload.sender_id,
+        sender_name: payload.sender?.name || "Unknown",
+        sender_photo: payload.sender?.photo_url || null,
+        content: payload.content,
+        file_url: payload.file_url,
+        file_name: payload.file_name,
+        file_type: payload.file_type,
+        file_size: payload.file_size,
+        reply_to: payload.reply_to,
+        reply_snippet: null,
+        reply_sender: null,
+        deleted: false,
+        created_at: payload.created_at,
+      };
+
+      const container = messagesContainerRef.current;
+      if (container) {
+        const nearBottom =
+          container.scrollHeight -
+            container.scrollTop -
+            container.clientHeight <
+          120;
+        if (nearBottom) shouldScrollRef.current = true;
+      }
+
+      knownMessageIdsRef.current.add(payload.id);
+      lastMessageIdRef.current = payload.id;
+      setMessages((prev) => [...prev, mapped]);
+
+      // Clear the sender from typing state (they just sent something)
+      if (payload.sender_id && typingUsersRef.current[payload.sender_id]) {
+        const next = { ...typingUsersRef.current };
+        delete next[payload.sender_id];
+        typingUsersRef.current = next;
+        setTypingUsers(next);
+      }
+
+      // Update channel preview
+      setChannels((prev) =>
+        prev.map((c) =>
+          c.id === payload.channel_id
+            ? {
+                ...c,
+                last_message: payload.content || payload.file_name || "",
+                last_message_sender: payload.sender?.name || null,
+                last_message_time: payload.created_at,
+              }
+            : c
+        )
+      );
+    });
+
+    ch.on(
+      "broadcast",
+      { event: "message_deleted" },
+      (evt: { payload: unknown }) => {
+        const payload = evt.payload as { messageId?: string } | null;
+        const id = payload?.messageId;
+        if (!id) return;
+        setMessages((prev) =>
+          prev.map((m) => (m.id === id ? { ...m, deleted: true } : m))
+        );
+      }
+    );
+
+    ch.on(
+      "broadcast",
+      { event: "reaction_added" },
+      (evt: { payload: unknown }) => {
+        const payload = evt.payload as {
+          messageId?: string;
+          emoji?: string;
+          userId?: string;
+          userName?: string;
+        } | null;
+        if (!payload?.messageId || !payload.emoji || !payload.userId) return;
+        // Skip echoes of our own optimistic add
+        if (payload.userId === myIdRef.current) return;
+        setReactionsByMessage((prev) => {
+          const current = prev[payload.messageId!] || [];
+          const existing = current.find((r) => r.emoji === payload.emoji);
+          if (existing) {
+            if (existing.users.some((u) => u.id === payload.userId)) return prev;
+            const updated = current.map((r) =>
+              r.emoji === payload.emoji
+                ? {
+                    ...r,
+                    count: r.count + 1,
+                    users: [
+                      ...r.users,
+                      { id: payload.userId!, name: payload.userName || "Someone" },
+                    ],
+                  }
+                : r
+            );
+            return { ...prev, [payload.messageId!]: updated };
+          }
+          return {
+            ...prev,
+            [payload.messageId!]: [
+              ...current,
+              {
+                emoji: payload.emoji!,
+                count: 1,
+                users: [{ id: payload.userId!, name: payload.userName || "Someone" }],
+              },
+            ],
+          };
+        });
+      }
+    );
+    ch.on(
+      "broadcast",
+      { event: "reaction_removed" },
+      (evt: { payload: unknown }) => {
+        const payload = evt.payload as {
+          messageId?: string;
+          emoji?: string;
+          userId?: string;
+        } | null;
+        if (!payload?.messageId || !payload.emoji || !payload.userId) return;
+        // Skip echoes of our own optimistic remove
+        if (payload.userId === myIdRef.current) return;
+        setReactionsByMessage((prev) => {
+          const current = prev[payload.messageId!] || [];
+          const next = current
+            .map((r) =>
+              r.emoji === payload.emoji
+                ? {
+                    ...r,
+                    count: Math.max(0, r.count - 1),
+                    users: r.users.filter((u) => u.id !== payload.userId),
+                  }
+                : r
+            )
+            .filter((r) => r.count > 0);
+          return { ...prev, [payload.messageId!]: next };
+        });
+      }
+    );
+    ch.on("broadcast", { event: "read" }, (evt: { payload: unknown }) => {
+      const payload = evt.payload as {
+        userId?: string;
+        userName?: string;
+        channelId?: string;
+        lastReadAt?: string;
+      } | null;
+      if (!payload?.userId || !payload.lastReadAt) return;
+      // Ignore our own echoes
+      if (payload.userId === myIdRef.current) return;
+      // Update the member's last_read_at so own-message receipts refresh live
+      setMembers((prev) =>
+        prev.map((m) =>
+          (m.user_id || m.id) === payload.userId
+            ? { ...m, last_read_at: payload.lastReadAt ?? null }
+            : m
+        )
+      );
+    });
+
+    ch.on("broadcast", { event: "typing" }, (evt: { payload: unknown }) => {
+      const payload = evt.payload as {
+        userId?: string;
+        userName?: string;
+        channelId?: string;
+      } | null;
+      if (!payload?.userId || !payload.userName) return;
+      // Ignore our own echoes
+      if (payload.userId === myIdRef.current) return;
+      const next = {
+        ...typingUsersRef.current,
+        [payload.userId]: {
+          name: payload.userName,
+          timestamp: Date.now(),
+        },
+      };
+      typingUsersRef.current = next;
+      setTypingUsers(next);
+    });
+
+    ch.subscribe();
+    realtimeChannelRef.current = ch;
+
+    return () => {
+      if (realtimeChannelRef.current) {
+        client.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
+    };
+  }, [selectedChannel]);
 
   // -------------------------------------------------------------------------
   // Load older messages
@@ -337,10 +798,10 @@ export default function GroupChatPage() {
 
       if (selectedFile) {
         const formData = new FormData();
-        formData.append("channelId", selectedChannel.id);
+        formData.append("channel_id", selectedChannel.id);
         formData.append("file", selectedFile);
         if (newMessage.trim()) formData.append("content", newMessage.trim());
-        if (replyTo) formData.append("replyTo", replyTo.id);
+        if (replyTo) formData.append("reply_to", replyTo.id);
 
         res = await fetch("/api/chat/messages", {
           method: "POST",
@@ -351,9 +812,9 @@ export default function GroupChatPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            channelId: selectedChannel.id,
+            channel_id: selectedChannel.id,
             content: newMessage.trim(),
-            replyTo: replyTo?.id || undefined,
+            reply_to: replyTo?.id || undefined,
           }),
         });
       }
@@ -366,10 +827,32 @@ export default function GroupChatPage() {
 
       shouldScrollRef.current = true;
       if (data.message) {
-        setMessages((prev) => [...prev, data.message]);
-        lastMessageIdRef.current = data.message.id;
+        const raw = data.message as Record<string, unknown>;
+        const mapped: ChatMessage = {
+          id: raw.id as string,
+          channel_id: raw.channel_id as string,
+          sender_id: raw.sender_id as string,
+          sender_name: myNameRef.current || "You",
+          sender_photo: null,
+          content: (raw.content as string | null) || null,
+          file_url: (raw.file_url as string | null) || null,
+          file_name: (raw.file_name as string | null) || null,
+          file_type: (raw.file_type as string | null) || null,
+          file_size: (raw.file_size as number | null) || null,
+          reply_to: (raw.reply_to as string | null) || null,
+          reply_snippet: replyTo?.content ? replyTo.content.substring(0, 100) : null,
+          reply_sender: replyTo ? "You" : null,
+          deleted: false,
+          created_at: raw.created_at as string,
+          reactions: [],
+        };
+        setMessages((prev) => [...prev, mapped]);
+        lastMessageIdRef.current = mapped.id;
+        knownMessageIdsRef.current.add(mapped.id);
       }
       setNewMessage("");
+      setMentionQuery(null);
+      setMentionAnchor(-1);
       setSelectedFile(null);
       setReplyTo(null);
 
@@ -403,10 +886,8 @@ export default function GroupChatPage() {
   // -------------------------------------------------------------------------
   const deleteMessage = async (messageId: string) => {
     try {
-      const res = await fetch("/api/chat/messages", {
+      const res = await fetch(`/api/chat/messages?id=${encodeURIComponent(messageId)}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -420,6 +901,118 @@ export default function GroupChatPage() {
       toast.error("Failed to delete message");
     }
   };
+
+  // -------------------------------------------------------------------------
+  // Reactions — add / remove with optimistic updates
+  // -------------------------------------------------------------------------
+  const addReaction = useCallback(async (messageId: string, emoji: string) => {
+    const uid = myIdRef.current;
+    if (!uid) return;
+    const uname = myNameRef.current || "You";
+    setReactionsByMessage((prev) => {
+      const current = prev[messageId] || [];
+      const existing = current.find((r) => r.emoji === emoji);
+      if (existing) {
+        if (existing.users.some((u) => u.id === uid)) return prev;
+        const updated = current.map((r) =>
+          r.emoji === emoji
+            ? { ...r, count: r.count + 1, users: [...r.users, { id: uid, name: uname }] }
+            : r
+        );
+        return { ...prev, [messageId]: updated };
+      }
+      return {
+        ...prev,
+        [messageId]: [...current, { emoji, count: 1, users: [{ id: uid, name: uname }] }],
+      };
+    });
+    try {
+      const res = await fetch("/api/chat/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: messageId, emoji }),
+      });
+      if (!res.ok) {
+        setReactionsByMessage((prev) => {
+          const current = prev[messageId] || [];
+          const next = current
+            .map((r) =>
+              r.emoji === emoji
+                ? { ...r, count: Math.max(0, r.count - 1), users: r.users.filter((u) => u.id !== uid) }
+                : r
+            )
+            .filter((r) => r.count > 0);
+          return { ...prev, [messageId]: next };
+        });
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Failed to react");
+      }
+    } catch {
+      toast.error("Failed to react");
+    }
+  }, []);
+
+  const removeReaction = useCallback(async (messageId: string, emoji: string) => {
+    const uid = myIdRef.current;
+    if (!uid) return;
+    let rollback: ReactionAggregate[] | null = null;
+    setReactionsByMessage((prev) => {
+      const current = prev[messageId] || [];
+      rollback = current.map((r) => ({ ...r, users: [...r.users] }));
+      const next = current
+        .map((r) =>
+          r.emoji === emoji
+            ? { ...r, count: Math.max(0, r.count - 1), users: r.users.filter((u) => u.id !== uid) }
+            : r
+        )
+        .filter((r) => r.count > 0);
+      return { ...prev, [messageId]: next };
+    });
+    try {
+      const res = await fetch(
+        `/api/chat/reactions?message_id=${encodeURIComponent(messageId)}&emoji=${encodeURIComponent(emoji)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        if (rollback) setReactionsByMessage((prev) => ({ ...prev, [messageId]: rollback! }));
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Failed to remove reaction");
+      }
+    } catch {
+      if (rollback) setReactionsByMessage((prev) => ({ ...prev, [messageId]: rollback! }));
+      toast.error("Failed to remove reaction");
+    }
+  }, []);
+
+  const toggleReaction = useCallback(
+    (messageId: string, emoji: string) => {
+      const uid = myIdRef.current;
+      if (!uid) return;
+      const current = reactionsByMessage[messageId] || [];
+      const existing = current.find((r) => r.emoji === emoji);
+      if (existing && existing.users.some((u) => u.id === uid)) {
+        removeReaction(messageId, emoji);
+      } else {
+        addReaction(messageId, emoji);
+      }
+    },
+    [reactionsByMessage, addReaction, removeReaction]
+  );
+
+  // Close picker on outside click / escape
+  useEffect(() => {
+    if (!pickerOpenFor) return;
+    const close = () => setPickerOpenFor(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("click", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [pickerOpenFor]);
 
   // -------------------------------------------------------------------------
   // Fetch members
@@ -453,6 +1046,83 @@ export default function GroupChatPage() {
   };
 
   // -------------------------------------------------------------------------
+  // @mention typeahead — filter members by current query
+  // -------------------------------------------------------------------------
+  const mentionMatches = useMemo(() => {
+    if (mentionQuery === null) return [];
+    const q = mentionQuery.trim().toLowerCase();
+    const pool = members.filter((m) => m.id !== myId);
+    if (!q) return pool.slice(0, 6);
+    return pool
+      .filter((m) => m.name.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [mentionQuery, members, myId]);
+
+  // Reset highlighted index whenever the match list changes
+  useEffect(() => {
+    setMentionIndex(0);
+  }, [mentionQuery, mentionMatches.length]);
+
+  // Detect @... context at the caret position inside the textarea
+  const updateMentionState = useCallback((value: string, caret: number) => {
+    // Walk backwards from the caret looking for a "@" that starts a word.
+    let i = caret - 1;
+    let atIndex = -1;
+    while (i >= 0) {
+      const ch = value[i];
+      if (ch === "@") {
+        // Must be at start of string or preceded by whitespace
+        if (i === 0 || /\s/.test(value[i - 1])) {
+          atIndex = i;
+        }
+        break;
+      }
+      if (ch === "\n" || ch === "\r") break;
+      // Allow letters, spaces, dots, and common name chars; break on other punctuation
+      if (!/[A-Za-z. ]/.test(ch)) break;
+      i--;
+    }
+    if (atIndex === -1) {
+      setMentionQuery(null);
+      setMentionAnchor(-1);
+      return;
+    }
+    const query = value.slice(atIndex + 1, caret);
+    // If the tail has an excessive run of spaces (likely user ended mention), close.
+    if (/ {3,}/.test(query)) {
+      setMentionQuery(null);
+      setMentionAnchor(-1);
+      return;
+    }
+    setMentionQuery(query);
+    setMentionAnchor(atIndex);
+  }, []);
+
+  const insertMention = useCallback(
+    (name: string) => {
+      if (mentionAnchor < 0 || !textareaRef.current) return;
+      const el = textareaRef.current;
+      const caret = el.selectionStart ?? newMessage.length;
+      const before = newMessage.slice(0, mentionAnchor);
+      const after = newMessage.slice(caret);
+      const insertion = `@${name} `;
+      const next = before + insertion + after;
+      setNewMessage(next);
+      setMentionQuery(null);
+      setMentionAnchor(-1);
+      // Restore focus + caret position after React updates DOM
+      requestAnimationFrame(() => {
+        const newCaret = (before + insertion).length;
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(newCaret, newCaret);
+        }
+      });
+    },
+    [mentionAnchor, newMessage]
+  );
+
+  // -------------------------------------------------------------------------
   // Group messages by date
   // -------------------------------------------------------------------------
   const groupedMessages: { date: string; messages: ChatMessage[] }[] = [];
@@ -466,6 +1136,81 @@ export default function GroupChatPage() {
       groupedMessages[groupedMessages.length - 1].messages.push(msg);
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Read receipts — per own-message, compute readers from members state
+  // -------------------------------------------------------------------------
+  const myOwnMessages = messages.filter((m) => m.sender_id === myId && !m.deleted);
+  const latestOwnMessageId =
+    myOwnMessages.length > 0 ? myOwnMessages[myOwnMessages.length - 1].id : null;
+
+  // Pre-compute readers keyed by message id (only for own messages)
+  const readersByMessageId = new Map<string, { id: string; name: string }[]>();
+  for (const own of myOwnMessages) {
+    const createdMs = new Date(own.created_at).getTime();
+    const readers: { id: string; name: string }[] = [];
+    for (const m of members) {
+      const uid = m.user_id || m.id;
+      if (!uid || uid === myId) continue;
+      if (!m.last_read_at) continue;
+      const readMs = new Date(m.last_read_at).getTime();
+      if (readMs >= createdMs) {
+        readers.push({ id: uid, name: m.name || "Member" });
+      }
+    }
+    readersByMessageId.set(own.id, readers);
+  }
+
+  function renderReadReceipts(msgId: string): React.ReactNode {
+    const readers = readersByMessageId.get(msgId);
+    if (!readers || readers.length === 0) return null;
+    const isLatest = msgId === latestOwnMessageId;
+    if (!isLatest) {
+      const tooltip =
+        readers.length > 6
+          ? `Read by ${readers.slice(0, 6).map((r) => r.name).join(", ")} +${readers.length - 6} more`
+          : `Read by ${readers.map((r) => r.name).join(", ")}`;
+      return (
+        <p
+          className="text-[10px] mt-0.5 text-right text-primary/60"
+          title={tooltip}
+        >
+          •
+        </p>
+      );
+    }
+    let label: string;
+    if (readers.length > 3) {
+      const first = readers.slice(0, 3).map((r) => r.name).join(", ");
+      label = `Read by ${first} +${readers.length - 3} more`;
+    } else {
+      label = `Read by ${readers.map((r) => r.name).join(", ")}`;
+    }
+    return (
+      <p className="text-[10px] mt-0.5 text-right text-primary/60">{label}</p>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Typing indicator text
+  // -------------------------------------------------------------------------
+  const typingNames = Object.values(typingUsers).map((t) => t.name);
+  let typingText: string | null = null;
+  if (typingNames.length === 1) typingText = `${typingNames[0]} is typing…`;
+  else if (typingNames.length === 2)
+    typingText = `${typingNames[0]} and ${typingNames[1]} are typing…`;
+  else if (typingNames.length >= 3) typingText = "Several people are typing…";
+
+  const typingJsx = typingText ? (
+    <div className="px-4 py-1.5 text-[11px] text-muted-foreground italic flex items-center gap-2 border-t bg-muted/20">
+      <span className="inline-flex gap-0.5">
+        <span className="w-1 h-1 rounded-full bg-muted-foreground/60 animate-pulse" />
+        <span className="w-1 h-1 rounded-full bg-muted-foreground/60 animate-pulse [animation-delay:150ms]" />
+        <span className="w-1 h-1 rounded-full bg-muted-foreground/60 animate-pulse [animation-delay:300ms]" />
+      </span>
+      <span>{typingText}</span>
+    </div>
+  ) : null;
 
   // =========================================================================
   // Channel List Panel
@@ -830,7 +1575,7 @@ export default function GroupChatPage() {
                           {/* Text content */}
                           {msg.content && (
                             <p className="text-sm whitespace-pre-wrap break-words">
-                              {msg.content}
+                              {renderWithMentions(msg.content)}
                             </p>
                           )}
 
@@ -846,12 +1591,58 @@ export default function GroupChatPage() {
                           </p>
                         </div>
 
-                        {/* Actions (hover) */}
+                        {/* Read receipts (own messages only) */}
+                        {isMine && renderReadReceipts(msg.id)}
+
+                        {/* Actions (hover on desktop, always visible if picker open) */}
                         <div
                           className={`absolute top-5 ${
-                            isMine ? "-left-16" : "-right-16"
-                          } hidden group-hover:flex items-center gap-0.5`}
+                            isMine ? "-left-20" : "-right-20"
+                          } ${
+                            pickerOpenFor === msg.id ? "flex" : "hidden group-hover:flex"
+                          } items-center gap-0.5 z-10`}
                         >
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPickerOpenFor(
+                                  pickerOpenFor === msg.id ? null : msg.id
+                                );
+                              }}
+                              onTouchStart={(e) => {
+                                // Long-press fallback for mobile: open picker on touch
+                                e.stopPropagation();
+                              }}
+                              className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                              title="Add reaction"
+                            >
+                              <SmilePlus className="w-3.5 h-3.5" />
+                            </button>
+                            {pickerOpenFor === msg.id && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className={`absolute top-full mt-1 ${
+                                  isMine ? "right-0" : "left-0"
+                                } z-20 flex items-center gap-0.5 p-1.5 rounded-xl border bg-popover shadow-md`}
+                              >
+                                {QUICK_EMOJIS.map((em) => (
+                                  <button
+                                    key={em}
+                                    type="button"
+                                    onClick={() => {
+                                      addReaction(msg.id, em);
+                                      setPickerOpenFor(null);
+                                    }}
+                                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-muted/70 text-base"
+                                    title={`React with ${em}`}
+                                  >
+                                    {em}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                           <button
                             onClick={() => setReplyTo(msg)}
                             className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
@@ -869,6 +1660,38 @@ export default function GroupChatPage() {
                             </button>
                           )}
                         </div>
+
+                        {/* Reaction chips */}
+                        {(reactionsByMessage[msg.id] || []).length > 0 && (
+                          <div
+                            className={`mt-1 flex flex-wrap gap-1 ${
+                              isMine ? "justify-end" : "justify-start"
+                            }`}
+                          >
+                            {(reactionsByMessage[msg.id] || []).map((r) => {
+                              const mine = !!myId && r.users.some((u) => u.id === myId);
+                              const tooltip = r.users
+                                .map((u) => (u.id === myId ? "You" : u.name))
+                                .join(", ");
+                              return (
+                                <button
+                                  key={r.emoji}
+                                  type="button"
+                                  onClick={() => toggleReaction(msg.id, r.emoji)}
+                                  title={tooltip}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] border transition-colors ${
+                                    mine
+                                      ? "bg-primary/15 border-primary/40 text-foreground"
+                                      : "bg-muted/60 border-transparent hover:bg-muted"
+                                  }`}
+                                >
+                                  <span className="text-sm leading-none">{r.emoji}</span>
+                                  <span className="font-medium">{r.count}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -879,6 +1702,9 @@ export default function GroupChatPage() {
           </>
         )}
       </div>
+
+      {/* Typing indicator */}
+      {typingJsx}
 
       {/* Reply bar */}
       {replyTo && (
@@ -955,31 +1781,122 @@ export default function GroupChatPage() {
           >
             <Paperclip className="w-4 h-4" />
           </Button>
-          <textarea
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={(e) => {
-              setNewMessage(e.target.value);
-              // Auto-resize
-              e.target.style.height = "auto";
-              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
-            }}
-            className="flex-1 rounded-xl min-h-[40px] max-h-[120px] px-3 py-2 text-sm border border-input bg-background shadow-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            maxLength={5000}
-            rows={1}
-            onFocus={() => {
-              inputFocusedRef.current = true;
-            }}
-            onBlur={() => {
-              inputFocusedRef.current = false;
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-              }
-            }}
-          />
+          <div className="relative flex-1">
+            {/* Mention typeahead dropdown */}
+            {mentionQuery !== null && mentionMatches.length > 0 && (
+              <div className="absolute bottom-full left-0 right-0 mb-1 max-h-56 overflow-y-auto rounded-xl border bg-popover shadow-md z-20">
+                {mentionMatches.map((m, i) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onMouseDown={(e) => {
+                      // Use mousedown so focus stays on textarea
+                      e.preventDefault();
+                      insertMention(m.name);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/70 ${
+                      i === mentionIndex ? "bg-muted/60" : ""
+                    }`}
+                  >
+                    <Avatar className="w-6 h-6 shrink-0">
+                      {m.photo_url && (
+                        <AvatarImage src={m.photo_url} alt={m.name} />
+                      )}
+                      <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
+                        {getInitials(m.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{m.name}</p>
+                      {m.occupation && (
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {m.occupation}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            <textarea
+              ref={textareaRef}
+              placeholder="Type a message... use @ to mention"
+              value={newMessage}
+              onChange={(e) => {
+                const v = e.target.value;
+                setNewMessage(v);
+                // Auto-resize
+                e.target.style.height = "auto";
+                e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                // Mention detection
+                const caret = e.target.selectionStart ?? v.length;
+                updateMentionState(v, caret);
+                // Throttled typing broadcast (only if user actually typed content)
+                if (v.trim().length > 0) emitTyping();
+              }}
+              onClick={(e) => {
+                const el = e.currentTarget;
+                updateMentionState(el.value, el.selectionStart ?? el.value.length);
+              }}
+              onKeyUp={(e) => {
+                if (
+                  e.key === "ArrowLeft" ||
+                  e.key === "ArrowRight" ||
+                  e.key === "Home" ||
+                  e.key === "End"
+                ) {
+                  const el = e.currentTarget;
+                  updateMentionState(el.value, el.selectionStart ?? el.value.length);
+                }
+              }}
+              className="w-full rounded-xl min-h-[40px] max-h-[120px] px-3 py-2 text-sm border border-input bg-background shadow-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              maxLength={5000}
+              rows={1}
+              onFocus={() => {
+                inputFocusedRef.current = true;
+              }}
+              onBlur={() => {
+                inputFocusedRef.current = false;
+                // Let click/mousedown on dropdown items fire before closing
+                setTimeout(() => setMentionQuery(null), 150);
+              }}
+              onKeyDown={(e) => {
+                const typeaheadOpen =
+                  mentionQuery !== null && mentionMatches.length > 0;
+                if (typeaheadOpen) {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setMentionIndex((i) => (i + 1) % mentionMatches.length);
+                    return;
+                  }
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setMentionIndex(
+                      (i) =>
+                        (i - 1 + mentionMatches.length) % mentionMatches.length
+                    );
+                    return;
+                  }
+                  if (e.key === "Enter" || e.key === "Tab") {
+                    e.preventDefault();
+                    const pick = mentionMatches[mentionIndex];
+                    if (pick) insertMention(pick.name);
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setMentionQuery(null);
+                    setMentionAnchor(-1);
+                    return;
+                  }
+                }
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
+            />
+          </div>
           <Button
             type="submit"
             size="icon"
