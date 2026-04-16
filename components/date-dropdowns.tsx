@@ -2,9 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 
-const MONTHS = [
+const MONTHS_FULL = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
+];
+
+const MONTHS_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
 function getDaysInMonth(year: number, month: number): number {
@@ -34,7 +39,17 @@ export function DateDropdowns({
   const [selYear, setSelYear] = useState("");
   const [selMonth, setSelMonth] = useState("");
   const [selDay, setSelDay] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
   const yearRef = useRef<HTMLSelectElement>(null);
+
+  // Detect mobile screen for abbreviated month names
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 640px)");
+    setIsMobile(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
 
   // Sync internal state from external value (on mount or when value changes externally)
   useEffect(() => {
@@ -69,19 +84,21 @@ export function DateDropdowns({
     // Don't call onChange("") on partial — preserve what's selected
   }
 
+  const months = isMobile ? MONTHS_SHORT : MONTHS_FULL;
+
   const selectBase =
-    "h-10 w-full rounded-xl border border-input bg-background px-2 text-sm shadow-xs " +
+    "h-10 w-full rounded-xl border border-input bg-background px-1.5 sm:px-2 text-xs sm:text-sm shadow-xs " +
     "focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary " +
     "disabled:cursor-not-allowed disabled:opacity-50 " +
-    "appearance-none bg-no-repeat bg-[length:16px] bg-[right_8px_center] " +
+    "appearance-none bg-no-repeat bg-[length:14px] sm:bg-[length:16px] bg-[right_4px_center] sm:bg-[right_8px_center] " +
     "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")] " +
-    "pr-7 truncate";
+    "pr-5 sm:pr-7 truncate";
 
   const filledClass = "border-primary/30 bg-primary/[0.03]";
   const emptyClass = "text-muted-foreground";
 
   return (
-    <div className={`grid grid-cols-3 gap-2 ${className}`}>
+    <div className={`grid grid-cols-3 gap-1.5 sm:gap-2 ${className}`}>
       {/* Day */}
       <div className="relative">
         <select
@@ -101,7 +118,7 @@ export function DateDropdowns({
           ))}
         </select>
         {!selDay && (
-          <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-sm pointer-events-none ${emptyClass}`}>
+          <span className={`absolute left-1.5 sm:left-2 top-1/2 -translate-y-1/2 text-xs sm:text-sm pointer-events-none ${emptyClass}`}>
             Day
           </span>
         )}
@@ -119,14 +136,14 @@ export function DateDropdowns({
           <option value="" disabled className="text-muted-foreground">
             Month
           </option>
-          {MONTHS.map((name, i) => (
+          {months.map((name, i) => (
             <option key={i} value={String(i + 1)}>
               {name}
             </option>
           ))}
         </select>
         {!selMonth && (
-          <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-sm pointer-events-none ${emptyClass}`}>
+          <span className={`absolute left-1.5 sm:left-2 top-1/2 -translate-y-1/2 text-xs sm:text-sm pointer-events-none ${emptyClass}`}>
             Month
           </span>
         )}
@@ -152,7 +169,7 @@ export function DateDropdowns({
           ))}
         </select>
         {!selYear && (
-          <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-sm pointer-events-none ${emptyClass}`}>
+          <span className={`absolute left-1.5 sm:left-2 top-1/2 -translate-y-1/2 text-xs sm:text-sm pointer-events-none ${emptyClass}`}>
             Year
           </span>
         )}
