@@ -11,6 +11,7 @@ const translations = {
   "nav.officials": { en: "Officials", ta: "அதிகாரிகள்" },
   "nav.teams": { en: "Teams", ta: "குழுக்கள்" },
   "nav.messages": { en: "Messages", ta: "செய்திகள்" },
+  "nav.group_chat": { en: "Group Chat", ta: "குழு உரையாடல்" },
   "nav.announcements": { en: "Announcements", ta: "அறிவிப்புகள்" },
   "nav.events": { en: "Events", ta: "நிகழ்வுகள்" },
   "nav.resolutions": { en: "e-Resolutions", ta: "மின் தீர்மானங்கள்" },
@@ -48,6 +49,16 @@ const translations = {
   "nav.settings": { en: "Settings", ta: "அமைப்புகள்" },
   "nav.district_benchmark": { en: "District Benchmark", ta: "மாவட்ட ஒப்பீடு" },
   "nav.engagement": { en: "Engagement", ta: "ஈடுபாடு" },
+
+  // Group Chat
+  "chat.channels": { en: "Channels", ta: "சேனல்கள்" },
+  "chat.send_message": { en: "Type a message...", ta: "செய்தியைத் தட்டச்சு செய்க..." },
+  "chat.attach_file": { en: "Attach file", ta: "கோப்பு இணைக்க" },
+  "chat.message_deleted": { en: "This message was deleted", ta: "இந்த செய்தி நீக்கப்பட்டது" },
+  "chat.no_channels": { en: "No group chats yet", ta: "இன்னும் குழு உரையாடல்கள் இல்லை" },
+  "chat.load_older": { en: "Load older messages", ta: "பழைய செய்திகளை ஏற்றவும்" },
+  "chat.members": { en: "Members", ta: "உறுப்பினர்கள்" },
+  "chat.new_channel": { en: "New Channel", ta: "புதிய சேனல்" },
 
   // Common actions
   "common.logout": { en: "Logout", ta: "வெளியேறு" },

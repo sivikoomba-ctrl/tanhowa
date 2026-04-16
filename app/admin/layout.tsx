@@ -43,6 +43,7 @@ import {
   GraduationCap,
   Activity,
   TrendingUp,
+  MessagesSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +58,7 @@ const adminNavItems = [
   { href: "/admin/users", labelKey: "nav.member_approval" as const, icon: Users },
   { href: "/admin/officials", labelKey: "nav.officials" as const, icon: Crown },
   { href: "/admin/teams", labelKey: "nav.teams" as const, icon: UsersRound },
+  { href: "/admin/group-chat", labelKey: "nav.group_chat" as const, icon: MessagesSquare },
   { href: "/admin/announcements", labelKey: "nav.announcements" as const, icon: Megaphone },
   { href: "/admin/events", labelKey: "nav.events" as const, icon: Calendar },
   { href: "/admin/documents", labelKey: "nav.documents" as const, icon: FileText },

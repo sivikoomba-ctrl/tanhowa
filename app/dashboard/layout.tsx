@@ -42,6 +42,7 @@ import {
   GraduationCap,
   Activity,
   MessageSquarePlus,
+  MessagesSquare,
   Trophy,
   CalendarDays,
 } from "lucide-react";
@@ -91,6 +92,7 @@ const navItems = [
   { href: "/dashboard/officials", labelKey: "nav.officials" as const, icon: Crown },
   { href: "/dashboard/teams", labelKey: "nav.teams" as const, icon: UsersRound },
   { href: "/dashboard/messages", labelKey: "nav.messages" as const, icon: MessageSquarePlus },
+  { href: "/dashboard/group-chat", labelKey: "nav.group_chat" as const, icon: MessagesSquare },
   { href: "/dashboard/announcements", labelKey: "nav.announcements" as const, icon: Megaphone },
   { href: "/dashboard/events", labelKey: "nav.events" as const, icon: Calendar },
   { href: "/dashboard/calendar", labelKey: "nav.calendar" as const, icon: CalendarDays },
