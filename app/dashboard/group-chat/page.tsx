@@ -101,7 +101,8 @@ interface TypingUser {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getInitials(name: string): string {
+function getInitials(name: string | null | undefined): string {
+  if (!name) return "?";
   return name
     .split(" ")
     .filter(Boolean)
@@ -109,6 +110,28 @@ function getInitials(name: string): string {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+}
+
+// Flattens the API's `{ id, user_id, role, ..., user: { name, photo_url, ... } }`
+// shape into the `ChannelMember` shape the UI renders against.
+function flattenMember(raw: Record<string, unknown>): ChannelMember {
+  const user = (raw.user as {
+    id?: string;
+    name?: string;
+    photo_url?: string | null;
+    occupation?: string | null;
+  } | null) || null;
+  const userId = (raw.user_id as string) || user?.id || "";
+  return {
+    id: userId || (raw.id as string),
+    name: user?.name || "Member",
+    photo_url: user?.photo_url || null,
+    occupation: user?.occupation || null,
+    role: (raw.role as string) || "member",
+    is_channel_admin: (raw.role as string) === "admin",
+    last_read_at: (raw.last_read_at as string | null) ?? null,
+    user_id: userId,
+  };
 }
 
 function timeAgo(dateStr: string): string {
@@ -464,7 +487,9 @@ export default function GroupChatPage() {
       fetch(`/api/chat/members?channel=${channel.id}`)
         .then((r) => r.json())
         .then((d) => {
-          if (d.members) setMembers(d.members);
+          if (Array.isArray(d.members)) {
+            setMembers(d.members.map(flattenMember));
+          }
         })
         .catch(() => {});
 
@@ -1022,7 +1047,9 @@ export default function GroupChatPage() {
     try {
       const res = await fetch(`/api/chat/members?channel=${channelId}`);
       const data = await res.json();
-      if (data.members) setMembers(data.members);
+      if (Array.isArray(data.members)) {
+        setMembers(data.members.map(flattenMember));
+      }
     } catch {
       toast.error("Failed to load members");
     } finally {
