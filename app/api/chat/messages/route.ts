@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     }
 
     const url = new URL(req.url);
-    const channelId = url.searchParams.get("channel_id");
+    const channelId = url.searchParams.get("channel_id") || url.searchParams.get("channel");
     if (!channelId) {
       return NextResponse.json({ error: "channel_id is required" }, { status: 400 });
     }
