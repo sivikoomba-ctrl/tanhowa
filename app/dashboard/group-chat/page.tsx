@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -956,12 +955,18 @@ export default function GroupChatPage() {
           >
             <Paperclip className="w-4 h-4" />
           </Button>
-          <Input
+          <textarea
             placeholder="Type a message..."
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1 rounded-xl min-h-[40px]"
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              // Auto-resize
+              e.target.style.height = "auto";
+              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+            }}
+            className="flex-1 rounded-xl min-h-[40px] max-h-[120px] px-3 py-2 text-sm border border-input bg-background shadow-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             maxLength={5000}
+            rows={1}
             onFocus={() => {
               inputFocusedRef.current = true;
             }}
