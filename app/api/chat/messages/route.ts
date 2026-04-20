@@ -6,6 +6,11 @@ import { logContribution } from "@/lib/contributions";
 import { writeLimiter, uploadLimiter } from "@/lib/rate-limit";
 import { sendPushToUser } from "@/lib/push";
 import { broadcastToChannel } from "@/lib/chat-broadcast";
+import {
+  hasEditedAt,
+  markEditedAtMissing,
+  isMissingSchema,
+} from "@/lib/chat-schema";
 
 const ALLOWED_FILE_TYPES = new Set([
   "image/jpeg",
@@ -84,29 +89,48 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Build query
-    let query = supabase
-      .from("chat_messages")
-      .select("id, channel_id, sender_id, content, file_url, file_name, file_type, file_size, reply_to, deleted_at, edited_at, created_at, sender:sender_id(id, name, photo_url)")
-      .eq("channel_id", channelId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    // Build query — `edited_at` is Stage-4; fall back to the base column list
+    // on the first PostgREST undefined-column error so pre-migration deploys
+    // don't blank the entire thread. Two literal strings (rather than a
+    // concat) so Supabase's PostgREST type parser still infers the row shape.
+    const SELECT_WITH_EDITED_AT =
+      "id, channel_id, sender_id, content, file_url, file_name, file_type, file_size, reply_to, deleted_at, edited_at, created_at, sender:sender_id(id, name, photo_url)";
+    const SELECT_BASE =
+      "id, channel_id, sender_id, content, file_url, file_name, file_type, file_size, reply_to, deleted_at, created_at, sender:sender_id(id, name, photo_url)";
 
-    if (before) {
-      query = query.lt("created_at", before);
+    const runQuery = async (includeEditedAt: boolean) => {
+      const base = supabase
+        .from("chat_messages")
+        .select(includeEditedAt ? SELECT_WITH_EDITED_AT : SELECT_BASE)
+        .eq("channel_id", channelId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      let q2 = base;
+      if (before) q2 = q2.lt("created_at", before);
+      if (q) {
+        // Escape LIKE wildcards so a searcher can't widen their query with %/_.
+        const escaped = q
+          .replace(/\\/g, "\\\\")
+          .replace(/%/g, "\\%")
+          .replace(/_/g, "\\_");
+        q2 = q2.ilike("content", `%${escaped}%`);
+      }
+      return await q2;
+    };
+
+    type MessageRow = Record<string, unknown>;
+    type QueryResult = { data: MessageRow[] | null; error: { code?: string; message: string } | null };
+    let result: QueryResult = (await runQuery(hasEditedAt())) as unknown as QueryResult;
+
+    if (result.error && isMissingSchema(result.error) && hasEditedAt()) {
+      // Stage 4 migration pending — degrade and retry without edited_at.
+      markEditedAtMissing();
+      result = (await runQuery(false)) as unknown as QueryResult;
     }
 
-    if (q) {
-      // Escape LIKE wildcards so a searcher can't widen their own query with %/_.
-      const escaped = q
-        .replace(/\\/g, "\\\\")
-        .replace(/%/g, "\\%")
-        .replace(/_/g, "\\_");
-      query = query.ilike("content", `%${escaped}%`);
-    }
-
-    const { data: messages, error } = await query;
+    const messages = result.data;
+    const error = result.error;
 
     if (error) {
       await logError({
@@ -124,8 +148,8 @@ export async function GET(req: NextRequest) {
 
     // Resolve reply_to snippets
     const replyIds = items
-      .filter((m: { reply_to: string | null }) => m.reply_to)
-      .map((m: { reply_to: string }) => m.reply_to);
+      .filter((m) => (m as { reply_to?: string | null }).reply_to)
+      .map((m) => (m as { reply_to: string }).reply_to);
 
     const replyMap = new Map<string, { content: string | null; sender_name: string }>();
     if (replyIds.length > 0) {
@@ -151,7 +175,7 @@ export async function GET(req: NextRequest) {
       users: Array<{ id: string; name: string }>;
     };
     const reactionsMap: Record<string, ReactionAggregate[]> = {};
-    const messageIds = items.map((m: { id: string }) => m.id);
+    const messageIds = items.map((m) => (m as { id: string }).id);
     if (messageIds.length > 0) {
       const { data: reactionRows } = await supabase
         .from("chat_message_reactions")
@@ -730,6 +754,15 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    if (!hasEditedAt()) {
+      // Stage 4 migration hasn't been applied; tell the client cleanly rather
+      // than 500-ing on the missing column.
+      return NextResponse.json(
+        { error: "Message editing is not available yet" },
+        { status: 503 }
+      );
+    }
+
     const editedAt = new Date().toISOString();
     const { error: updateError } = await supabase
       .from("chat_messages")
@@ -737,6 +770,13 @@ export async function PATCH(req: NextRequest) {
       .eq("id", messageId);
 
     if (updateError) {
+      if (isMissingSchema(updateError)) {
+        markEditedAtMissing();
+        return NextResponse.json(
+          { error: "Message editing is not available yet" },
+          { status: 503 }
+        );
+      }
       await logError({
         type: "api",
         message: updateError.message,

@@ -4,6 +4,17 @@ import { getSession, isAdmin, type SessionPayload } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { writeLimiter } from "@/lib/rate-limit";
 import { broadcastToChannel } from "@/lib/chat-broadcast";
+import {
+  hasPinnedMessageId,
+  markPinnedMessageIdMissing,
+  isMissingSchema,
+} from "@/lib/chat-schema";
+
+const UNAVAILABLE_RESPONSE = () =>
+  NextResponse.json(
+    { error: "Pinned messages are not available yet" },
+    { status: 503 }
+  );
 
 /**
  * Authorization: pin/unpin is allowed for site admins or the channel's own
@@ -67,12 +78,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    if (!hasPinnedMessageId()) {
+      return UNAVAILABLE_RESPONSE();
+    }
+
     const { error } = await supabase
       .from("chat_channels")
       .update({ pinned_message_id: messageId, updated_at: new Date().toISOString() })
       .eq("id", message.channel_id);
 
     if (error) {
+      if (isMissingSchema(error)) {
+        markPinnedMessageIdMissing();
+        return UNAVAILABLE_RESPONSE();
+      }
       await logError({
         type: "api",
         message: error.message,
@@ -133,12 +152,20 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    if (!hasPinnedMessageId()) {
+      return UNAVAILABLE_RESPONSE();
+    }
+
     const { error } = await supabase
       .from("chat_channels")
       .update({ pinned_message_id: null, updated_at: new Date().toISOString() })
       .eq("id", channelId);
 
     if (error) {
+      if (isMissingSchema(error)) {
+        markPinnedMessageIdMissing();
+        return UNAVAILABLE_RESPONSE();
+      }
       await logError({
         type: "api",
         message: error.message,
@@ -206,11 +233,22 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const { data: channel } = await supabase
+    if (!hasPinnedMessageId()) {
+      // Silently return null so the UI banner just doesn't render — avoids a
+      // visible error on channel open when the migration is pending.
+      return NextResponse.json({ pinned: null });
+    }
+
+    const { data: channel, error: channelErr } = await supabase
       .from("chat_channels")
       .select("pinned_message_id")
       .eq("id", channelId)
       .single();
+
+    if (channelErr && isMissingSchema(channelErr)) {
+      markPinnedMessageIdMissing();
+      return NextResponse.json({ pinned: null });
+    }
 
     const pinnedId = channel?.pinned_message_id as string | null | undefined;
     if (!pinnedId) {
