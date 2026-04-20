@@ -17,7 +17,7 @@ export async function GET() {
     const supabase = getServiceClient();
     const userId = session.userId;
 
-    // Get all channel memberships with last_read_at
+    // Get all non-muted channel memberships with last_read_at
     const { data: memberships } = await supabase
       .from("chat_channel_members")
       .select("channel_id, last_read_at")
@@ -28,26 +28,40 @@ export async function GET() {
       return NextResponse.json({ unread: 0 });
     }
 
-    // Count unread messages per channel in parallel
-    const counts = await Promise.all(
-      memberships.map(async (m: { channel_id: string; last_read_at: string | null }) => {
-        let query = supabase
-          .from("chat_messages")
-          .select("id", { count: "exact", head: true })
-          .eq("channel_id", m.channel_id)
-          .is("deleted_at", null)
-          .neq("sender_id", userId);
-
-        if (m.last_read_at) {
-          query = query.gt("created_at", m.last_read_at);
-        }
-
-        const { count } = await query;
-        return count || 0;
-      })
+    const channelIds = memberships.map(
+      (m: { channel_id: string }) => m.channel_id
+    );
+    const lastReadByChannel = new Map<string, string | null>(
+      memberships.map(
+        (m: { channel_id: string; last_read_at: string | null }) =>
+          [m.channel_id, m.last_read_at] as const
+      )
     );
 
-    const total = counts.reduce((sum, c) => sum + c, 0);
+    // Pull ids+metadata for candidate unread messages in a single query, then
+    // filter per channel's last_read_at on the server. Avoids N count queries.
+    // Cap at 2000 rows — plenty for a badge, and bounded memory.
+    const { data: recentMsgs } = await supabase
+      .from("chat_messages")
+      .select("channel_id, created_at, sender_id")
+      .in("channel_id", channelIds)
+      .is("deleted_at", null)
+      .neq("sender_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(2000);
+
+    let total = 0;
+    for (const row of recentMsgs || []) {
+      const r = row as {
+        channel_id: string;
+        created_at: string;
+        sender_id: string;
+      };
+      const cutoff = lastReadByChannel.get(r.channel_id);
+      if (!cutoff || r.created_at > cutoff) {
+        total += 1;
+      }
+    }
 
     return NextResponse.json({ unread: total });
   } catch (error) {

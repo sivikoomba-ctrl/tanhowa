@@ -197,13 +197,29 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    // Fire-and-forget: update last_read_at
-    supabase
-      .from("chat_channel_members")
-      .update({ last_read_at: new Date().toISOString() })
-      .eq("channel_id", channelId)
-      .eq("user_id", userId)
-      .then(() => {});
+    // Fire-and-forget: advance last_read_at only when the caller is a member AND
+    // the newest visible message is actually newer than their current cursor.
+    // Avoids a write on every 30s poll when the thread is idle.
+    if (membership && items.length > 0) {
+      const newestCreatedAt = items[items.length - 1].created_at as string;
+      (async () => {
+        const { data: current } = await supabase
+          .from("chat_channel_members")
+          .select("last_read_at")
+          .eq("channel_id", channelId)
+          .eq("user_id", userId)
+          .single();
+        const cursor = (current as { last_read_at: string | null } | null)
+          ?.last_read_at;
+        if (!cursor || newestCreatedAt > cursor) {
+          await supabase
+            .from("chat_channel_members")
+            .update({ last_read_at: new Date().toISOString() })
+            .eq("channel_id", channelId)
+            .eq("user_id", userId);
+        }
+      })().catch(() => {});
+    }
 
     const hasMore = items.length === limit;
 
@@ -456,17 +472,23 @@ export async function POST(req: NextRequest) {
             const memberIds = (memberRows || []).map((r) => r.user_id as string);
 
             if (memberIds.length > 0) {
-              for (const name of rawNames) {
-                const { data: matched } = await supabase
-                  .from("users")
-                  .select("id, name")
-                  .in("id", memberIds)
-                  .ilike("name", `%${name}%`)
-                  .limit(5);
-                for (const u of matched || []) {
-                  if (u.id !== userId) {
-                    mentionedUserIds.add(u.id as string);
-                  }
+              // Escape LIKE wildcards so a user typing "@%" or "@_" can't broaden the
+              // match to every member in the channel (which would flood push pings).
+              const escapeLike = (s: string) =>
+                s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+              // Batch all names into a single ILIKE-OR query instead of N round trips.
+              const orClause = Array.from(rawNames)
+                .map((n) => `name.ilike.%${escapeLike(n)}%`)
+                .join(",");
+              const { data: matched } = await supabase
+                .from("users")
+                .select("id, name")
+                .in("id", memberIds)
+                .or(orClause)
+                .limit(50);
+              for (const u of matched || []) {
+                if (u.id !== userId) {
+                  mentionedUserIds.add(u.id as string);
                 }
               }
             }
@@ -559,7 +581,7 @@ export async function DELETE(req: NextRequest) {
     // Fetch the message to check ownership
     const { data: msg } = await supabase
       .from("chat_messages")
-      .select("sender_id, channel_id")
+      .select("sender_id, channel_id, file_url")
       .eq("id", messageId)
       .single();
 
@@ -607,6 +629,18 @@ export async function DELETE(req: NextRequest) {
         status_code: 500,
       });
       return NextResponse.json({ error: "Failed to delete message" }, { status: 500 });
+    }
+
+    // Also remove the uploaded file from storage so prior signed URLs (1hr TTL)
+    // can't be used to keep viewing a deleted attachment.
+    if (msg.file_url) {
+      (async () => {
+        try {
+          await supabase.storage.from("chat-files").remove([msg.file_url as string]);
+        } catch {
+          // Silent — soft-delete already succeeded; stray file is cleaned up on next pass.
+        }
+      })();
     }
 
     void broadcastToChannel(msg.channel_id, "message_deleted", { messageId });

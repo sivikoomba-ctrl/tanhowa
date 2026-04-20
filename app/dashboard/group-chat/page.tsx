@@ -1796,7 +1796,7 @@ export default function GroupChatPage() {
             type="file"
             className="hidden"
             onChange={handleFileSelect}
-            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+            accept="image/jpeg,image/png,image/webp,image/gif,.pdf,.doc,.docx,.xls,.xlsx"
           />
           <Button
             type="button"
@@ -1877,7 +1877,7 @@ export default function GroupChatPage() {
                 }
               }}
               className="w-full rounded-xl min-h-[40px] max-h-[120px] px-3 py-2 text-sm border border-input bg-background shadow-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              maxLength={5000}
+              maxLength={4000}
               rows={1}
               onFocus={() => {
                 inputFocusedRef.current = true;

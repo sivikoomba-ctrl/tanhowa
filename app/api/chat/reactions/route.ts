@@ -244,6 +244,10 @@ export async function DELETE(req: NextRequest) {
  * GET /api/chat/reactions?message_ids=id1,id2,...
  * Batch-fetches reactions for multiple messages, aggregated per emoji with users list.
  * Returns: { reactions: { [messageId]: ReactionAggregate[] } }
+ *
+ * Reactions include reactor identities, so each requested message is access-checked
+ * against the caller's channel membership (or the channel's is_default flag).
+ * Messages the caller can't access are silently dropped from the response.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -276,11 +280,60 @@ export async function GET(req: NextRequest) {
     }
 
     const supabase = getServiceClient();
+    const userId = session.userId;
+
+    // Resolve each message's channel and filter to those the caller can access.
+    const { data: msgRows } = await supabase
+      .from("chat_messages")
+      .select("id, channel_id")
+      .in("id", messageIds);
+
+    const channelByMessage = new Map<string, string>();
+    const channelIds = new Set<string>();
+    for (const row of msgRows || []) {
+      const r = row as { id: string; channel_id: string };
+      channelByMessage.set(r.id, r.channel_id);
+      channelIds.add(r.channel_id);
+    }
+
+    if (channelIds.size === 0) {
+      return NextResponse.json({ reactions: {} });
+    }
+
+    // Channels the caller is a member of
+    const { data: memberRows } = await supabase
+      .from("chat_channel_members")
+      .select("channel_id")
+      .eq("user_id", userId)
+      .in("channel_id", Array.from(channelIds));
+    const memberChannelIds = new Set(
+      (memberRows || []).map((m: { channel_id: string }) => m.channel_id)
+    );
+
+    // Default channels (open to all)
+    const { data: defaultRows } = await supabase
+      .from("chat_channels")
+      .select("id")
+      .eq("is_default", true)
+      .in("id", Array.from(channelIds));
+    const defaultChannelIds = new Set(
+      (defaultRows || []).map((c: { id: string }) => c.id)
+    );
+
+    const accessibleMessageIds = messageIds.filter((mid) => {
+      const cid = channelByMessage.get(mid);
+      if (!cid) return false;
+      return memberChannelIds.has(cid) || defaultChannelIds.has(cid);
+    });
+
+    if (accessibleMessageIds.length === 0) {
+      return NextResponse.json({ reactions: {} });
+    }
 
     const { data: rows, error } = await supabase
       .from("chat_message_reactions")
       .select("message_id, emoji, user_id, user:user_id(id, name)")
-      .in("message_id", messageIds);
+      .in("message_id", accessibleMessageIds);
 
     if (error) {
       await logError({
