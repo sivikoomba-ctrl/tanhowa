@@ -628,8 +628,8 @@ export default function ProfilePage() {
                   <Label className="text-xs text-muted-foreground">{t("form.email")}</Label>
                   <Input value={profile.email} disabled className="bg-muted/50 mt-1" />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
+                <div className="grid grid-cols-[96px_1fr] sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="col-span-1">
                     <Label className="text-xs text-muted-foreground">{t("onboard.title")} *</Label>
                     <Select value={profile.title || "none"} onValueChange={(val) => setProfile({ ...profile, title: val === "none" ? "" : val })}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder={t("opt.none")} /></SelectTrigger>
@@ -642,11 +642,11 @@ export default function ProfilePage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+                  <div className="col-span-1">
                     <Label className="text-xs text-muted-foreground">{t("onboard.first_name")} *</Label>
                     <Input value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder={t("ph.first_name")} required className="uppercase mt-1" />
                   </div>
-                  <div>
+                  <div className="col-span-2 sm:col-span-1">
                     <Label className="text-xs text-muted-foreground">{t("onboard.last_name")} *</Label>
                     <Input value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder={t("ph.last_name")} required className="uppercase mt-1" />
                   </div>

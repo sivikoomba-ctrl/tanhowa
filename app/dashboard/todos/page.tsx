@@ -611,7 +611,7 @@ export default function TodosPage() {
                       <HandMetal size={14} /> Commit to Task
                     </h4>
                     <p className="text-xs text-muted-foreground">Once you commit, this task will be locked to you. Provide your estimates below.</p>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Estimated Time</Label>
                         <Input placeholder="e.g. 2 days, 4 hours" value={commitEstTime} onChange={(e) => setCommitEstTime(e.target.value)} />
@@ -749,11 +749,11 @@ export default function TodosPage() {
                         <div className="flex items-start gap-2">
                           <StIcon size={16} className={st.status === "completed" ? "text-green-600 mt-0.5" : "text-amber-500 mt-0.5"} />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20">
+                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                              <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20 shrink-0">
                                 {st.event_id}
                               </Badge>
-                              <h4 className="text-sm font-medium truncate">{st.title}</h4>
+                              <h4 className="text-sm font-medium truncate min-w-0 flex-1">{st.title}</h4>
                               <Badge variant="outline" className={`text-[10px] shrink-0 ${stSc.color}`}>{stSc.label}</Badge>
                             </div>
                             {st.description && (
@@ -978,7 +978,7 @@ export default function TodosPage() {
                   <Card className="border-primary/30">
                     <CardContent className="pt-4 space-y-3">
                       <h4 className="text-sm font-semibold flex items-center gap-2"><Hourglass size={14} /> Log Time</h4>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Hours</Label>
                           <Input type="number" min="0" placeholder="0" value={timeLogHours} onChange={(e) => setTimeLogHours(e.target.value)} />
@@ -987,7 +987,7 @@ export default function TodosPage() {
                           <Label className="text-xs">Minutes</Label>
                           <Input type="number" min="0" max="59" placeholder="0" value={timeLogMinutes} onChange={(e) => setTimeLogMinutes(e.target.value)} />
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 col-span-2 sm:col-span-1">
                           <Label className="text-xs">What did you work on?</Label>
                           <Input placeholder="Brief description" value={timeLogDesc} onChange={(e) => setTimeLogDesc(e.target.value)} />
                         </div>

@@ -844,7 +844,7 @@ export default function SubscriptionsPage() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <MetricCard label={t("subs.paid")} value={paid} icon={CheckCircle2} borderColor="border-l-green-500" iconColor="text-green-500/40" />
         <MetricCard label={t("subs.due")} value={pending} icon={Clock} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
         <MetricCard label={t("subs.total_paid")} value={`₹${totalPaid.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-primary" iconColor="text-primary/40" />
@@ -876,11 +876,11 @@ export default function SubscriptionsPage() {
               <Card key={sub.id}>
                 <CardContent className="pt-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                         <Icon className={`w-5 h-5 ${sub.status === "paid" ? "text-green-600" : sub.status === "overdue" || sub.status === "rejected" ? "text-red-600" : sub.status === "hold" ? "text-orange-600" : "text-amber-600"}`} />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold">{sub.period}</h3>
                           <Badge variant="outline" className={config.color}>
@@ -909,10 +909,10 @@ export default function SubscriptionsPage() {
                           )}
                         </div>
                         {sub.transaction_id && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Transaction ID: {sub.transaction_id}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 break-all">Transaction ID: {sub.transaction_id}</p>
                         )}
                         {sub.payment_method && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Payment Method: {sub.payment_method}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 break-words">Payment Method: {sub.payment_method}</p>
                         )}
                         {sub.paid_at && sub.status === "paid" && (
                           <p className="text-xs text-green-600 mt-0.5">

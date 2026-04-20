@@ -324,11 +324,11 @@ export default function MembersPage() {
                   {isExpanded && (
                     <div className="mt-4 pt-4 border-t space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
                           <Mail size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <p className="text-xs text-muted-foreground">{t("form.email")}</p>
-                            <a href={`mailto:${m.email}`} className="font-medium text-primary hover:underline">{m.email}</a>
+                            <a href={`mailto:${m.email}`} className="font-medium text-primary hover:underline break-all">{m.email}</a>
                           </div>
                         </div>
                         <div className="flex items-start gap-2">
