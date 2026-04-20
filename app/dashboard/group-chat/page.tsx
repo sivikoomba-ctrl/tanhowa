@@ -1567,6 +1567,7 @@ export default function GroupChatPage() {
           size="icon"
           className="md:hidden shrink-0"
           onClick={() => setSelectedChannel(null)}
+          aria-label="Back to channel list"
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -1597,6 +1598,8 @@ export default function GroupChatPage() {
               });
             }}
             title="Search in channel"
+            aria-label="Search in channel"
+            aria-expanded={searchOpen}
           >
             <Search className="w-5 h-5" />
           </Button>
@@ -1609,6 +1612,7 @@ export default function GroupChatPage() {
                 size="icon"
                 className="shrink-0"
                 onClick={() => fetchMembers(selectedChannel.id)}
+                aria-label={`View channel members (${selectedChannel.member_count})`}
               >
                 <Users className="w-5 h-5" />
               </Button>
@@ -1706,6 +1710,7 @@ export default function GroupChatPage() {
               className="w-6 h-6 shrink-0 text-amber-700 hover:text-amber-900"
               onClick={() => unpinMessage(selectedChannel.id)}
               title="Unpin"
+              aria-label="Unpin message"
             >
               <PinOff className="w-3.5 h-3.5" />
             </Button>
@@ -1757,6 +1762,7 @@ export default function GroupChatPage() {
               setSearchQuery("");
               setSearchResults(null);
             }}
+            aria-label="Close search"
           >
             <X className="w-3.5 h-3.5" />
           </Button>
@@ -2051,6 +2057,9 @@ export default function GroupChatPage() {
                               }}
                               className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
                               title="Add reaction"
+                              aria-label="Add reaction to message"
+                              aria-haspopup="menu"
+                              aria-expanded={pickerOpenFor === msg.id}
                             >
                               <SmilePlus className="w-3.5 h-3.5" />
                             </button>
@@ -2082,6 +2091,7 @@ export default function GroupChatPage() {
                             onClick={() => setReplyTo(msg)}
                             className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
                             title="Reply"
+                            aria-label={`Reply to ${msg.sender_name}'s message`}
                           >
                             <Reply className="w-3.5 h-3.5" />
                           </button>
@@ -2090,6 +2100,7 @@ export default function GroupChatPage() {
                               onClick={() => pinMessage(msg.id)}
                               className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-amber-600 transition-colors"
                               title="Pin"
+                              aria-label="Pin message to channel"
                             >
                               <Pin className="w-3.5 h-3.5" />
                             </button>
@@ -2099,6 +2110,7 @@ export default function GroupChatPage() {
                               onClick={() => startEdit(msg)}
                               className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
                               title="Edit"
+                              aria-label="Edit your message"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
@@ -2108,6 +2120,7 @@ export default function GroupChatPage() {
                               onClick={() => deleteMessage(msg.id)}
                               className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                               title="Delete"
+                              aria-label="Delete your message"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -2176,6 +2189,7 @@ export default function GroupChatPage() {
             size="icon"
             className="w-6 h-6 shrink-0"
             onClick={() => setReplyTo(null)}
+            aria-label="Cancel reply"
           >
             <X className="w-3.5 h-3.5" />
           </Button>
@@ -2201,6 +2215,7 @@ export default function GroupChatPage() {
             size="icon"
             className="w-6 h-6 shrink-0"
             onClick={() => setSelectedFile(null)}
+            aria-label="Remove attached file"
           >
             <X className="w-3.5 h-3.5" />
           </Button>
@@ -2231,6 +2246,7 @@ export default function GroupChatPage() {
             className="shrink-0 h-10 w-10"
             onClick={() => fileInputRef.current?.click()}
             disabled={sending}
+            aria-label="Attach a file"
           >
             <Paperclip className="w-4 h-4" />
           </Button>
@@ -2355,11 +2371,12 @@ export default function GroupChatPage() {
             size="icon"
             className="shrink-0 rounded-xl h-10 w-10"
             disabled={(!newMessage.trim() && !selectedFile) || sending}
+            aria-label={sending ? "Sending message" : "Send message"}
           >
             {sending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4" aria-hidden="true" />
             )}
           </Button>
         </form>

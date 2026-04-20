@@ -252,10 +252,25 @@ export default function MembersPage() {
             return (
               <Card key={m.id} className="hover:shadow-md transition-all hover:border-primary/20">
                 <CardContent className="pt-4 pb-4">
-                  {/* Header row — always visible */}
+                  {/* Header row — always visible. Keyboard-accessible via
+                      role="button"+tabIndex so Tab lands on it and Enter/Space
+                      toggles. Kept as a div (not <button>) because the inner
+                      layout contains a mailto/tel anchor and the avatar which
+                      have their own click handlers — nested interactive
+                      elements inside a real <button> are invalid HTML. */}
                   <div
-                    className="flex items-start gap-3 cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    aria-label={`Toggle details for ${m.name || "member"}`}
+                    className="flex items-start gap-3 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     onClick={() => setExpandedId(isExpanded ? null : m.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setExpandedId(isExpanded ? null : m.id);
+                      }
+                    }}
                   >
                     <div className="relative shrink-0">
                       <Avatar

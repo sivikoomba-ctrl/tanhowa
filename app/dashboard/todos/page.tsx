@@ -744,7 +744,20 @@ export default function TodosPage() {
                   const stSc = statusConfig[st.status] || statusConfig.pending;
                   const StIcon = stSc.icon;
                   return (
-                    <Card key={st.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => openTaskDetail(st)}>
+                    <Card
+                      key={st.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open sub-task ${st.event_id}: ${st.title}`}
+                      className="hover:shadow-md transition-shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      onClick={() => openTaskDetail(st)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openTaskDetail(st);
+                        }
+                      }}
+                    >
                       <CardContent className="pt-3 pb-3">
                         <div className="flex items-start gap-2">
                           <StIcon size={16} className={st.status === "completed" ? "text-green-600 mt-0.5" : "text-amber-500 mt-0.5"} />
@@ -812,8 +825,8 @@ export default function TodosPage() {
                           {new Date(note.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteNote(note.id)}>
-                        <Trash2 size={12} />
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteNote(note.id)} aria-label="Delete note">
+                        <Trash2 size={12} aria-hidden="true" />
                       </Button>
                     </div>
                     <p className="text-sm whitespace-pre-wrap">{note.content}</p>
@@ -872,8 +885,8 @@ export default function TodosPage() {
                         <Badge variant="outline" className="text-[10px]">{att.file_type.toUpperCase()}</Badge>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteAttachment(att.id)}>
-                      <Trash2 size={12} />
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteAttachment(att.id)} aria-label="Delete attachment">
+                      <Trash2 size={12} aria-hidden="true" />
                     </Button>
                   </div>
                 ))}
@@ -1052,6 +1065,7 @@ export default function TodosPage() {
                             size="sm"
                             variant="ghost"
                             className="text-destructive h-7 w-7 p-0"
+                            aria-label="Delete time entry"
                             onClick={async () => {
                               const res = await fetch(`/api/todos/time-entries?id=${entry.id}`, { method: "DELETE" });
                               if (res.ok) {
@@ -1062,7 +1076,7 @@ export default function TodosPage() {
                               }
                             }}
                           >
-                            <Trash2 size={12} />
+                            <Trash2 size={12} aria-hidden="true" />
                           </Button>
                         </div>
                       </CardContent>
@@ -1167,7 +1181,20 @@ export default function TodosPage() {
             const sc = statusConfig[todo.status] || statusConfig.pending;
             const StatusIcon = sc.icon;
             return (
-              <Card key={todo.id} className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 ${(todo.urgent || todo.important) ? getQuadrantBorder(todo.urgent, todo.important) : todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400"}`} onClick={() => openTaskDetail(todo)}>
+              <Card
+                key={todo.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open task ${todo.event_id}: ${todo.title}`}
+                className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${(todo.urgent || todo.important) ? getQuadrantBorder(todo.urgent, todo.important) : todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400"}`}
+                onClick={() => openTaskDetail(todo)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openTaskDetail(todo);
+                  }
+                }}
+              >
                 <CardContent className="pt-4">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5">
@@ -1319,8 +1346,17 @@ export default function TodosPage() {
                         return (
                           <div
                             key={todo.id}
-                            className="rounded-lg border bg-background p-3 cursor-pointer hover:shadow-sm transition-shadow"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Open task ${todo.event_id}: ${todo.title}`}
+                            className="rounded-lg border bg-background p-3 cursor-pointer hover:shadow-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             onClick={() => openTaskDetail(todo)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                openTaskDetail(todo);
+                              }
+                            }}
                           >
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20 shrink-0">

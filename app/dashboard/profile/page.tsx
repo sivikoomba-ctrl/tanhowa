@@ -843,8 +843,8 @@ export default function ProfilePage() {
                     <div key={i} className="rounded-xl border bg-muted/20 p-4 space-y-3 relative">
                       <div className="flex justify-between items-center">
                         <Badge variant="outline" className="text-xs font-medium">#{i + 1}</Badge>
-                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => setProfile({ ...profile, experience: profile.experience.filter((_, j) => j !== i) })}>
-                          <X size={14} />
+                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => setProfile({ ...profile, experience: profile.experience.filter((_, j) => j !== i) })} aria-label={`Remove experience entry ${i + 1}`}>
+                          <X size={14} aria-hidden="true" />
                         </Button>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
