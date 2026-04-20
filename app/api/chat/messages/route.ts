@@ -58,6 +58,8 @@ export async function GET(req: NextRequest) {
 
     const before = url.searchParams.get("before"); // ISO timestamp cursor
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
+    const rawQ = (url.searchParams.get("q") || "").trim();
+    const q = rawQ.slice(0, 200); // bound query length
 
     const supabase = getServiceClient();
     const userId = session.userId;
@@ -85,7 +87,7 @@ export async function GET(req: NextRequest) {
     // Build query
     let query = supabase
       .from("chat_messages")
-      .select("id, channel_id, sender_id, content, file_url, file_name, file_type, file_size, reply_to, deleted_at, created_at, sender:sender_id(id, name, photo_url)")
+      .select("id, channel_id, sender_id, content, file_url, file_name, file_type, file_size, reply_to, deleted_at, edited_at, created_at, sender:sender_id(id, name, photo_url)")
       .eq("channel_id", channelId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -93,6 +95,15 @@ export async function GET(req: NextRequest) {
 
     if (before) {
       query = query.lt("created_at", before);
+    }
+
+    if (q) {
+      // Escape LIKE wildcards so a searcher can't widen their own query with %/_.
+      const escaped = q
+        .replace(/\\/g, "\\\\")
+        .replace(/%/g, "\\%")
+        .replace(/_/g, "\\_");
+      query = query.ilike("content", `%${escaped}%`);
     }
 
     const { data: messages, error } = await query;
@@ -191,6 +202,7 @@ export async function GET(req: NextRequest) {
           reply_to: m.reply_to,
           reply_snippet: m.reply_to ? replyMap.get(m.reply_to as string) || null : null,
           created_at: m.created_at,
+          edited_at: m.edited_at || null,
           sender: m.sender || null,
           reactions: reactionsMap[m.id as string] || [],
         };
@@ -657,5 +669,101 @@ export async function DELETE(req: NextRequest) {
       status_code: 500,
     });
     return NextResponse.json({ error: "Failed to delete message" }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/chat/messages
+ * Body: { id, content }
+ * Edit a text message's content. Only the sender can edit. File messages
+ * cannot be edited (their original attachment is immutable). Stamps
+ * edited_at and broadcasts `message_edited` so peers update in place.
+ */
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const messageId: string | undefined = body.id;
+    const rawContent: string | undefined = body.content;
+
+    if (!messageId) {
+      return NextResponse.json({ error: "Message ID is required" }, { status: 400 });
+    }
+    const content = (rawContent || "").trim();
+    if (!content) {
+      return NextResponse.json({ error: "Content cannot be empty" }, { status: 400 });
+    }
+    if (content.length > 4000) {
+      return NextResponse.json({ error: "Message too long (max 4000 chars)" }, { status: 400 });
+    }
+
+    const supabase = getServiceClient();
+
+    const { data: existing } = await supabase
+      .from("chat_messages")
+      .select("sender_id, channel_id, deleted_at, file_url")
+      .eq("id", messageId)
+      .single();
+
+    if (!existing) {
+      return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    }
+    if (existing.deleted_at) {
+      return NextResponse.json({ error: "Cannot edit a deleted message" }, { status: 400 });
+    }
+    if (existing.sender_id !== session.userId) {
+      return NextResponse.json({ error: "Only the sender can edit" }, { status: 403 });
+    }
+    if (existing.file_url) {
+      return NextResponse.json(
+        { error: "File messages cannot be edited" },
+        { status: 400 }
+      );
+    }
+
+    const editedAt = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from("chat_messages")
+      .update({ content, edited_at: editedAt })
+      .eq("id", messageId);
+
+    if (updateError) {
+      await logError({
+        type: "api",
+        message: updateError.message,
+        path: "/api/chat/messages",
+        method: "PATCH",
+        status_code: 500,
+      });
+      return NextResponse.json({ error: "Failed to edit message" }, { status: 500 });
+    }
+
+    void broadcastToChannel(existing.channel_id, "message_edited", {
+      messageId,
+      content,
+      editedAt,
+    });
+
+    return NextResponse.json({ message: { id: messageId, content, edited_at: editedAt } });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await logError({
+      type: "api",
+      message: msg,
+      stack: error instanceof Error ? error.stack : "",
+      path: "/api/chat/messages",
+      method: "PATCH",
+      status_code: 500,
+    });
+    return NextResponse.json({ error: "Failed to edit message" }, { status: 500 });
   }
 }

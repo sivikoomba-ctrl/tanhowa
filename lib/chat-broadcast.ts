@@ -10,6 +10,8 @@
  * Events:
  *  - new_message     — new message or file
  *  - message_deleted — soft-delete
+ *  - message_edited  — { messageId, content, editedAt }
+ *  - message_pinned  — { messageId | null } (null = unpinned)
  *  - reaction_added  — { messageId, emoji, userId, userName }
  *  - reaction_removed— { messageId, emoji, userId }
  *  - typing          — { userId, userName } (ephemeral, no DB)
@@ -21,6 +23,8 @@
 type BroadcastEvent =
   | "new_message"
   | "message_deleted"
+  | "message_edited"
+  | "message_pinned"
   | "reaction_added"
   | "reaction_removed"
   | "typing"
