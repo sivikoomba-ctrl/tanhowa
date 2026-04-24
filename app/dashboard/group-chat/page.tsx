@@ -2172,53 +2172,66 @@ export default function GroupChatPage() {
       {/* Typing indicator */}
       {typingJsx}
 
-      {/* Reply bar */}
-      {replyTo && (
-        <div className="px-3 pt-2 border-t bg-muted/30 flex items-center gap-2">
-          <Reply className="w-4 h-4 text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-medium text-primary">
-              {replyTo.sender_id === myId ? "You" : replyTo.sender_name}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {replyTo.content || replyTo.file_name || "Attachment"}
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-6 h-6 shrink-0"
-            onClick={() => setReplyTo(null)}
-            aria-label="Cancel reply"
-          >
-            <X className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      )}
-
-      {/* File preview bar */}
-      {selectedFile && (
-        <div className="px-3 pt-2 border-t bg-muted/30 flex items-center gap-2">
-          {isImageType(selectedFile.type) ? (
-            <ImageIcon className="w-4 h-4 text-primary shrink-0" />
-          ) : (
-            <FileText className="w-4 h-4 text-primary shrink-0" />
+      {/* Input-context bar — reply context and file preview used to render
+          as two separate full-width strips stacked above the input, each
+          with its own `border-t bg-muted/30`. When both were active you
+          got a visible seam between them. Merged into one container with
+          a single top border + background so it reads as a single
+          "context attached to what I'm typing" block. Inner divider
+          only appears when both rows are present. */}
+      {(replyTo || selectedFile) && (
+        <div className="border-t bg-muted/30">
+          {replyTo && (
+            <div className="px-3 py-2 flex items-center gap-2">
+              <Reply className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-medium text-primary">
+                  Replying to {replyTo.sender_id === myId ? "you" : replyTo.sender_name}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {replyTo.content || replyTo.file_name || "Attachment"}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 shrink-0"
+                onClick={() => setReplyTo(null)}
+                aria-label="Cancel reply"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           )}
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium truncate">{selectedFile.name}</p>
-            <p className="text-[10px] text-muted-foreground">
-              {formatFileSize(selectedFile.size)}
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-6 h-6 shrink-0"
-            onClick={() => setSelectedFile(null)}
-            aria-label="Remove attached file"
-          >
-            <X className="w-3.5 h-3.5" />
-          </Button>
+          {replyTo && selectedFile && (
+            // Visually separate the reply and attachment without
+            // duplicating the outer border / background.
+            <div className="border-t border-muted-foreground/10 mx-3" aria-hidden="true" />
+          )}
+          {selectedFile && (
+            <div className="px-3 py-2 flex items-center gap-2">
+              {isImageType(selectedFile.type) ? (
+                <ImageIcon className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+              ) : (
+                <FileText className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{selectedFile.name}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {formatFileSize(selectedFile.size)}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 shrink-0"
+                onClick={() => setSelectedFile(null)}
+                aria-label="Remove attached file"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
