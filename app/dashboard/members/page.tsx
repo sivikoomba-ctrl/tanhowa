@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
+import { SectionTabs, SectionTabsContent, type SectionTabItem } from "@/components/section-tabs";
 import { useT } from "@/lib/i18n";
 import { formatDate } from "@/lib/utils";
 
@@ -122,6 +123,9 @@ export default function MembersPage() {
   const [viewPhoto, setViewPhoto] = useState<{ url: string; name: string } | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Per-expanded-card tab, keyed by member id. Scoped to the expanded
+  // card only — we reset on collapse via setExpandedTab({}) elsewhere.
+  const [expandedTab, setExpandedTab] = useState<Record<string, string>>({});
   const tickerRef = useRef<HTMLDivElement>(null);
   const t = useT();
 
@@ -360,116 +364,174 @@ export default function MembersPage() {
                     </div>
                   </div>
 
-                  {/* Expanded details */}
-                  {isExpanded && (
-                    <div className="mt-4 pt-4 border-t space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                        <div className="flex items-start gap-2 min-w-0">
-                          <Mail size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs text-muted-foreground">{t("form.email")}</p>
-                            <a href={`mailto:${m.email}`} className="font-medium text-primary hover:underline break-all">{m.email}</a>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Phone size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                          <div>
-                            <p className="text-xs text-muted-foreground">{t("form.phone")}</p>
-                            <p className="font-medium">{m.phone || "—"}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Briefcase size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                          <div>
-                            <p className="text-xs text-muted-foreground">{t("form.designation")}</p>
-                            <p className="font-medium">{m.occupation || "—"}</p>
-                          </div>
-                        </div>
-                        {m.dob && (
-                          <div className="flex items-start gap-2">
-                            <Calendar size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">{t("form.dob")}</p>
-                              <p className="font-medium">{formatDate(m.dob)}</p>
-                            </div>
-                          </div>
-                        )}
-                        {m.office_address && (
-                          <div className="flex items-start gap-2">
-                            <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">{t("form.office_address")}</p>
-                              <p className="font-medium">{m.office_address}</p>
-                            </div>
-                          </div>
-                        )}
-                        {m.address && (
-                          <div className="flex items-start gap-2">
-                            <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">{t("form.address")}</p>
-                              <p className="font-medium">{m.address}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                  {/* Expanded details — grouped into Contact / Posting /
+                      Personal tabs via <SectionTabs>. Previously the same
+                      information rendered as a 3-column grid + three
+                      sub-sections stacked vertically (Posting, Social,
+                      Joined line), which on mobile became a very long
+                      scroll even for members with sparse profiles.
+                      Tabs that would have no data (Posting / Personal) are
+                      omitted from the array so we never surface an empty
+                      tab. Social links move into Personal because they're
+                      sparse and would make their own tab mostly empty. */}
+                  {isExpanded && (() => {
+                    const currentTab = expandedTab[m.id] || "contact";
+                    const hasPostingData = hasPosting(m.posting_details);
+                    const hasPersonalData = !!(
+                      m.dob ||
+                      m.created_at ||
+                      m.social_links?.instagram ||
+                      m.social_links?.twitter ||
+                      m.social_links?.linkedin
+                    );
+                    const tabs: SectionTabItem[] = [
+                      { value: "contact", label: "Contact", icon: Mail },
+                    ];
+                    if (hasPostingData) {
+                      tabs.push({ value: "posting", label: "Posting", icon: MapPin });
+                    }
+                    if (hasPersonalData) {
+                      tabs.push({ value: "personal", label: "Personal", icon: Calendar });
+                    }
+                    // If the active tab was hidden (e.g. a member without
+                    // posting data), fall back to Contact so nothing
+                    // renders blank.
+                    const safeTab = tabs.some((x) => x.value === currentTab) ? currentTab : "contact";
 
-                      {/* Posting Details */}
-                      {hasPosting(m.posting_details) && (
-                        <div>
-                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("profile.posting_details")}</h4>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm bg-muted/50 rounded-lg p-3">
-                            {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (
-                              <div>
-                                <p className="text-xs font-semibold text-primary">{t("form.district")}</p>
-                                {m.posting_details.regular_district && <p>{m.posting_details.regular_district}</p>}
-                                {m.posting_details.regular_block && <p>{t("form.block")}: {m.posting_details.regular_block}</p>}
+                    return (
+                      <div
+                        className="mt-4 pt-4 border-t"
+                        // Clicks inside the tablist shouldn't bubble up to
+                        // the header's collapse handler (even though the
+                        // header handler is on a sibling, the keyboard
+                        // Enter/Space handler would otherwise re-toggle).
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <SectionTabs
+                          value={safeTab}
+                          onValueChange={(v) => setExpandedTab((prev) => ({ ...prev, [m.id]: v }))}
+                          aria-label="Member profile sections"
+                          tabs={tabs}
+                        >
+                          <SectionTabsContent value="contact" className="mt-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                              <div className="flex items-start gap-2 min-w-0">
+                                <Mail size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs text-muted-foreground">{t("form.email")}</p>
+                                  <a href={`mailto:${m.email}`} className="font-medium text-primary hover:underline break-all">{m.email}</a>
+                                </div>
                               </div>
-                            )}
-                            {(m.posting_details?.special_duty_district || m.posting_details?.special_duty_block || m.posting_details?.special_duty_place) && (
-                              <div>
-                                <p className="text-xs font-semibold text-accent">Special Duty</p>
-                                {m.posting_details.special_duty_district && <p>{m.posting_details.special_duty_district}</p>}
-                                {m.posting_details.special_duty_block && <p>{m.posting_details.special_duty_block}</p>}
-                                {m.posting_details.special_duty_place && <p>{m.posting_details.special_duty_place}</p>}
+                              <div className="flex items-start gap-2">
+                                <Phone size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                <div>
+                                  <p className="text-xs text-muted-foreground">{t("form.phone")}</p>
+                                  <p className="font-medium">{m.phone || "—"}</p>
+                                </div>
                               </div>
-                            )}
-                            {(m.posting_details?.deputed_district || m.posting_details?.deputed_block) && (
-                              <div>
-                                <p className="text-xs font-semibold text-secondary">Deputed</p>
-                                {m.posting_details.deputed_district && <p>{m.posting_details.deputed_district}</p>}
-                                {m.posting_details.deputed_block && <p>{m.posting_details.deputed_block}</p>}
+                              <div className="flex items-start gap-2">
+                                <Briefcase size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                <div>
+                                  <p className="text-xs text-muted-foreground">{t("form.designation")}</p>
+                                  <p className="font-medium">{m.occupation || "—"}</p>
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                              {m.office_address && (
+                                <div className="flex items-start gap-2">
+                                  <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">{t("form.office_address")}</p>
+                                    <p className="font-medium">{m.office_address}</p>
+                                  </div>
+                                </div>
+                              )}
+                              {m.address && (
+                                <div className="flex items-start gap-2">
+                                  <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">{t("form.address")}</p>
+                                    <p className="font-medium">{m.address}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </SectionTabsContent>
 
-                      {/* Social Links */}
-                      {(m.social_links?.instagram || m.social_links?.twitter || m.social_links?.linkedin) && (
-                        <div>
-                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("profile.social_links")}</h4>
-                          <div className="flex flex-wrap gap-2 text-sm">
-                            {m.social_links.instagram && <Badge variant="outline">Instagram: {m.social_links.instagram}</Badge>}
-                            {m.social_links.twitter && <Badge variant="outline">Twitter: {m.social_links.twitter}</Badge>}
-                            {m.social_links.linkedin && <Badge variant="outline">LinkedIn: {m.social_links.linkedin}</Badge>}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Joined date */}
-                      {m.created_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Joined: {formatDate(m.created_at)}
-                          {m.last_active_at && (
-                            <span className={`ml-3 ${activity.color}`}>
-                              Active: {activity.label}
-                            </span>
+                          {hasPostingData && (
+                            <SectionTabsContent value="posting" className="mt-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm bg-muted/50 rounded-lg p-3">
+                                {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-primary">{t("form.district")}</p>
+                                    {m.posting_details.regular_district && <p>{m.posting_details.regular_district}</p>}
+                                    {m.posting_details.regular_block && <p>{t("form.block")}: {m.posting_details.regular_block}</p>}
+                                  </div>
+                                )}
+                                {(m.posting_details?.special_duty_district || m.posting_details?.special_duty_block || m.posting_details?.special_duty_place) && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-accent">Special Duty</p>
+                                    {m.posting_details.special_duty_district && <p>{m.posting_details.special_duty_district}</p>}
+                                    {m.posting_details.special_duty_block && <p>{m.posting_details.special_duty_block}</p>}
+                                    {m.posting_details.special_duty_place && <p>{m.posting_details.special_duty_place}</p>}
+                                  </div>
+                                )}
+                                {(m.posting_details?.deputed_district || m.posting_details?.deputed_block) && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-secondary">Deputed</p>
+                                    {m.posting_details.deputed_district && <p>{m.posting_details.deputed_district}</p>}
+                                    {m.posting_details.deputed_block && <p>{m.posting_details.deputed_block}</p>}
+                                  </div>
+                                )}
+                              </div>
+                            </SectionTabsContent>
                           )}
-                        </p>
-                      )}
-                    </div>
-                  )}
+
+                          {hasPersonalData && (
+                            <SectionTabsContent value="personal" className="mt-3 space-y-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                {m.dob && (
+                                  <div className="flex items-start gap-2">
+                                    <Calendar size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">{t("form.dob")}</p>
+                                      <p className="font-medium">{formatDate(m.dob)}</p>
+                                    </div>
+                                  </div>
+                                )}
+                                {m.created_at && (
+                                  <div className="flex items-start gap-2">
+                                    <Calendar size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">Joined</p>
+                                      <p className="font-medium">
+                                        {formatDate(m.created_at)}
+                                        {m.last_active_at && (
+                                          <span className={`ml-2 text-xs ${activity.color}`}>
+                                            · Active: {activity.label}
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {(m.social_links?.instagram || m.social_links?.twitter || m.social_links?.linkedin) && (
+                                <div>
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1.5">{t("profile.social_links")}</p>
+                                  <div className="flex flex-wrap gap-2 text-sm">
+                                    {m.social_links.instagram && <Badge variant="outline">Instagram: {m.social_links.instagram}</Badge>}
+                                    {m.social_links.twitter && <Badge variant="outline">Twitter: {m.social_links.twitter}</Badge>}
+                                    {m.social_links.linkedin && <Badge variant="outline">LinkedIn: {m.social_links.linkedin}</Badge>}
+                                  </div>
+                                </div>
+                              )}
+                            </SectionTabsContent>
+                          )}
+                        </SectionTabs>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
