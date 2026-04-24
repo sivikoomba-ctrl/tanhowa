@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SectionTabs } from "@/components/section-tabs";
 import {
   Plus,
   Clock,
@@ -683,32 +684,22 @@ export default function TodosPage() {
           </CardContent>
         </Card>
 
-        {/* Detail Tabs */}
-        <div className="flex flex-wrap gap-2 border-b pb-2">
-          {([
-            { key: "subtasks", label: "Sub-Tasks", icon: GitBranch, count: subtasks.length },
-            { key: "notes", label: "Notes & Reports", icon: MessageSquare, count: notes.length },
-            { key: "files", label: "Deliverables", icon: Paperclip, count: attachments.length },
-            { key: "vouchers", label: "Vouchers/Bills", icon: Receipt, count: vouchers.length },
-            { key: "timelog", label: "Time Log", icon: Hourglass, count: timeEntries.length },
-          ] as const).map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setDetailTab(tab.key)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                detailTab === tab.key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              <tab.icon size={14} />
-              {tab.label}
-              {tab.count > 0 && (
-                <span className="text-xs opacity-70">({tab.count})</span>
-              )}
-            </button>
-          ))}
-        </div>
+        {/* Detail Tabs — unified <SectionTabs> pattern (see
+            components/section-tabs.tsx). Horizontally scrolls on mobile
+            instead of wrapping to 2-3 lines; count pill is consistent
+            with the rest of the site. */}
+        <SectionTabs
+          aria-label="Task detail sections"
+          value={detailTab}
+          onValueChange={(v) => setDetailTab(v as typeof detailTab)}
+          tabs={[
+            { value: "subtasks", label: "Sub-Tasks", icon: GitBranch, count: subtasks.length },
+            { value: "notes", label: "Notes & Reports", icon: MessageSquare, count: notes.length },
+            { value: "files", label: "Deliverables", icon: Paperclip, count: attachments.length },
+            { value: "vouchers", label: "Vouchers/Bills", icon: Receipt, count: vouchers.length },
+            { value: "timelog", label: "Time Log", icon: Hourglass, count: timeEntries.length },
+          ]}
+        />
 
         {loadingDetail ? (
           <div className="flex justify-center py-8">
@@ -1185,7 +1176,21 @@ export default function TodosPage() {
                 key={todo.id}
                 role="button"
                 tabIndex={0}
-                aria-label={`Open task ${todo.event_id}: ${todo.title}`}
+                aria-label={`Open task ${todo.event_id}: ${todo.title}${
+                  todo.urgent || todo.important
+                    ? ` (${getQuadrantLabel(todo.urgent, todo.important)})`
+                    : ""
+                }`}
+                // Quadrant (Do First / Schedule / Delegate / Eliminate) is
+                // already encoded in the left-border color below — we drop
+                // the redundant colored Badge on the right and surface the
+                // quadrant name via title + aria-label instead. Same signal,
+                // half the visual weight.
+                title={
+                  todo.urgent || todo.important
+                    ? getQuadrantLabel(todo.urgent, todo.important)
+                    : undefined
+                }
                 className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${(todo.urgent || todo.important) ? getQuadrantBorder(todo.urgent, todo.important) : todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400"}`}
                 onClick={() => openTaskDetail(todo)}
                 onKeyDown={(e) => {
@@ -1202,18 +1207,13 @@ export default function TodosPage() {
                     </div>
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20 shrink-0">
                             {todo.event_id}
                           </Badge>
-                          <h3 className="font-semibold text-sm">{todo.title}</h3>
+                          <h3 className="font-semibold text-sm truncate">{todo.title}</h3>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {(todo.urgent || todo.important) && (
-                            <Badge variant="outline" className={`text-xs ${getQuadrantColor(todo.urgent, todo.important)}`}>
-                              {getQuadrantLabel(todo.urgent, todo.important)}
-                            </Badge>
-                          )}
                           <Badge variant="outline" className={`text-xs ${sc.color}`}>
                             {sc.label}
                           </Badge>
