@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -261,20 +261,17 @@ export default function SpecialTasksPage() {
         </Dialog>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList>
-          <TabsTrigger value="internal" className="gap-1.5">
-            <Lock size={14} />Internal ({stats.internal})
-          </TabsTrigger>
-          <TabsTrigger value="assigned" className="gap-1.5">
-            <UserCheck size={14} />Assigned ({stats.assigned})
-          </TabsTrigger>
-          <TabsTrigger value="checklist" className="gap-1.5">
-            <CheckSquare size={14} />Checklist ({stats.checklist})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={tab} className="mt-4">
+      <SectionTabs
+        value={tab}
+        onValueChange={(v) => setTab(v as typeof tab)}
+        aria-label="Special tasks sections"
+        tabs={[
+          { value: "internal", label: "Internal", icon: Lock, count: stats.internal },
+          { value: "assigned", label: "Assigned", icon: UserCheck, count: stats.assigned },
+          { value: "checklist", label: "Checklist", icon: CheckSquare, count: stats.checklist },
+        ]}
+      >
+        <SectionTabsContent value={tab} className="mt-4">
           {filtered.length === 0 ? (
             <Card>
               <CardContent className="pt-8 pb-8 text-center">
@@ -381,8 +378,8 @@ export default function SpecialTasksPage() {
               })}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
 
       {/* Edit Dialog */}
       <Dialog open={!!editTask} onOpenChange={(v) => !v && setEditTask(null)}>

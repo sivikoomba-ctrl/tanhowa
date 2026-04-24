@@ -24,23 +24,72 @@ export async function GET(req: NextRequest) {
     const hasFullAccess = admin || isStateOfficial || isDistrictOfficial;
 
     const url = new URL(req.url);
-    const year = url.searchParams.get("year") || "2025-26";
+    const rawYear = url.searchParams.get("year") || "2025-26";
+
+    // Validate the financial-year string up front. Malformed input (e.g.
+    // "abc-def") previously produced "NaN-04-01T..." timestamps that
+    // Postgres rejected, turning into opaque 500s.
+    if (!/^\d{4}-\d{2}$/.test(rawYear)) {
+      return NextResponse.json(
+        { error: "Invalid year format — expected YYYY-YY (e.g. 2025-26)" },
+        { status: 400 }
+      );
+    }
+    const year = rawYear;
 
     // Financial year: April 1 to March 31
-    const [startYear] = year.split("-").map(Number);
+    const startYear = parseInt(year.slice(0, 4), 10);
+    if (!Number.isFinite(startYear) || startYear < 1900 || startYear > 2200) {
+      return NextResponse.json(
+        { error: "Year out of supported range" },
+        { status: 400 }
+      );
+    }
     const fyStart = `${startYear}-04-01T00:00:00.000Z`;
     const fyEnd = `${startYear + 1}-03-31T23:59:59.999Z`;
 
     const supabase = getServiceClient();
 
+    // For DS/DJS (district-only) callers, pre-resolve the member ids for
+    // their district so the subscriptions query filters in SQL instead of
+    // pulling the entire FY into memory just to drop 95% of rows.
+    let districtUserIds: string[] | null = null;
+    if (isDistrictOfficial && !admin && !isStateOfficial) {
+      const { data: districtUsers } = await supabase
+        .from("users")
+        .select("id")
+        .filter("posting_details->>regular_district", "eq", officialInfo.district!);
+      districtUserIds = (districtUsers || []).map(
+        (u: { id: string }) => u.id
+      );
+      if (districtUserIds.length === 0) {
+        // No members in this district → short-circuit with empty ledger.
+        return NextResponse.json({
+          year,
+          abstract: false,
+          ledger: [],
+          totalCredits: 0,
+          totalSubscriptions: 0,
+          totalBankEntries: 0,
+          byPeriod: [],
+          byDistrict: [],
+          byMonth: [],
+        });
+      }
+    }
+
     // Fetch all paid subscriptions in this financial year
-    const { data: subs, error } = await supabase
+    let subsQuery = supabase
       .from("subscriptions")
       .select("id, user_id, period, amount, paid_at, approved_at, payment_method, transaction_id, remarks, payment_group_id, users!subscriptions_user_id_fkey(name, phone, posting_details)")
       .eq("status", "paid")
       .gte("paid_at", fyStart)
       .lte("paid_at", fyEnd)
       .order("paid_at", { ascending: true });
+    if (districtUserIds) {
+      subsQuery = subsQuery.in("user_id", districtUserIds);
+    }
+    const { data: subs, error } = await subsQuery;
 
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/finance", method: "GET", status_code: 500 });

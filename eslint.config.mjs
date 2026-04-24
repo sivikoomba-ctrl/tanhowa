@@ -10,6 +10,12 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  // Keep ESLint off of generated output. `.next/` is Next's build artifact;
+  // `next-env.d.ts` is regenerated every build and uses a triple-slash
+  // reference that trips @typescript-eslint/triple-slash-reference.
+  {
+    ignores: [".next/**", "next-env.d.ts"],
+  },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
 

@@ -55,13 +55,55 @@ vi.mock("@/lib/error-logger", () => ({
 vi.mock("@/lib/supabase", () => ({
   getServiceClient: vi.fn(() => ({
     from: vi.fn((table: string) => {
+      if (table === "users") {
+        // District-official path pre-fetches member ids in the district.
+        return {
+          select: vi.fn(() => ({
+            filter: vi.fn(async () => ({
+              data: [{ id: "member-salem" }],
+              error: null,
+            })),
+          })),
+        };
+      }
       if (table !== "subscriptions") throw new Error(`Unexpected table ${table}`);
+      // Subscriptions chain — `order` is the terminal for admin/state, `in`
+      // is the terminal for the district path since we push the filter
+      // down to SQL via `.in("user_id", districtUserIds)`.
+      const subsChain: {
+        order: ReturnType<typeof vi.fn>;
+        in: ReturnType<typeof vi.fn>;
+      } = {
+        order: vi.fn(() => subsChain),
+        in: vi.fn(async () => {
+          // The only test that hits .in() is the district-officials case;
+          // return only the Salem row so filtering-in-SQL is honored.
+          return {
+            data: paidSubscriptions.filter((s) => s.user_id === "member-salem"),
+            error: null,
+          };
+        }),
+      };
+      // Make `order` also awaitable for the admin/state path.
+      (subsChain.order as unknown as { then?: unknown }).then = undefined;
       return {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
             gte: vi.fn(() => ({
               lte: vi.fn(() => ({
-                order: vi.fn(async () => ({ data: paidSubscriptions, error: null })),
+                order: vi.fn(() => ({
+                  then: (resolve: (v: unknown) => unknown) =>
+                    Promise.resolve({
+                      data: paidSubscriptions,
+                      error: null,
+                    }).then(resolve),
+                  in: vi.fn(async () => ({
+                    data: paidSubscriptions.filter(
+                      (s) => s.user_id === "member-salem"
+                    ),
+                    error: null,
+                  })),
+                })),
               })),
             })),
           })),

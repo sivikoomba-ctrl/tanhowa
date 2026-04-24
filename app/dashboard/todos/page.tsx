@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SectionTabs } from "@/components/section-tabs";
 import {
   Plus,
   Clock,
@@ -611,7 +612,7 @@ export default function TodosPage() {
                       <HandMetal size={14} /> Commit to Task
                     </h4>
                     <p className="text-xs text-muted-foreground">Once you commit, this task will be locked to you. Provide your estimates below.</p>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Estimated Time</Label>
                         <Input placeholder="e.g. 2 days, 4 hours" value={commitEstTime} onChange={(e) => setCommitEstTime(e.target.value)} />
@@ -683,32 +684,22 @@ export default function TodosPage() {
           </CardContent>
         </Card>
 
-        {/* Detail Tabs */}
-        <div className="flex flex-wrap gap-2 border-b pb-2">
-          {([
-            { key: "subtasks", label: "Sub-Tasks", icon: GitBranch, count: subtasks.length },
-            { key: "notes", label: "Notes & Reports", icon: MessageSquare, count: notes.length },
-            { key: "files", label: "Deliverables", icon: Paperclip, count: attachments.length },
-            { key: "vouchers", label: "Vouchers/Bills", icon: Receipt, count: vouchers.length },
-            { key: "timelog", label: "Time Log", icon: Hourglass, count: timeEntries.length },
-          ] as const).map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setDetailTab(tab.key)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                detailTab === tab.key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              <tab.icon size={14} />
-              {tab.label}
-              {tab.count > 0 && (
-                <span className="text-xs opacity-70">({tab.count})</span>
-              )}
-            </button>
-          ))}
-        </div>
+        {/* Detail Tabs — unified <SectionTabs> pattern (see
+            components/section-tabs.tsx). Horizontally scrolls on mobile
+            instead of wrapping to 2-3 lines; count pill is consistent
+            with the rest of the site. */}
+        <SectionTabs
+          aria-label="Task detail sections"
+          value={detailTab}
+          onValueChange={(v) => setDetailTab(v as typeof detailTab)}
+          tabs={[
+            { value: "subtasks", label: "Sub-Tasks", icon: GitBranch, count: subtasks.length },
+            { value: "notes", label: "Notes & Reports", icon: MessageSquare, count: notes.length },
+            { value: "files", label: "Deliverables", icon: Paperclip, count: attachments.length },
+            { value: "vouchers", label: "Vouchers/Bills", icon: Receipt, count: vouchers.length },
+            { value: "timelog", label: "Time Log", icon: Hourglass, count: timeEntries.length },
+          ]}
+        />
 
         {loadingDetail ? (
           <div className="flex justify-center py-8">
@@ -744,16 +735,29 @@ export default function TodosPage() {
                   const stSc = statusConfig[st.status] || statusConfig.pending;
                   const StIcon = stSc.icon;
                   return (
-                    <Card key={st.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => openTaskDetail(st)}>
+                    <Card
+                      key={st.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open sub-task ${st.event_id}: ${st.title}`}
+                      className="hover:shadow-md transition-shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      onClick={() => openTaskDetail(st)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openTaskDetail(st);
+                        }
+                      }}
+                    >
                       <CardContent className="pt-3 pb-3">
                         <div className="flex items-start gap-2">
                           <StIcon size={16} className={st.status === "completed" ? "text-green-600 mt-0.5" : "text-amber-500 mt-0.5"} />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20">
+                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                              <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20 shrink-0">
                                 {st.event_id}
                               </Badge>
-                              <h4 className="text-sm font-medium truncate">{st.title}</h4>
+                              <h4 className="text-sm font-medium truncate min-w-0 flex-1">{st.title}</h4>
                               <Badge variant="outline" className={`text-[10px] shrink-0 ${stSc.color}`}>{stSc.label}</Badge>
                             </div>
                             {st.description && (
@@ -812,8 +816,8 @@ export default function TodosPage() {
                           {new Date(note.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteNote(note.id)}>
-                        <Trash2 size={12} />
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteNote(note.id)} aria-label="Delete note">
+                        <Trash2 size={12} aria-hidden="true" />
                       </Button>
                     </div>
                     <p className="text-sm whitespace-pre-wrap">{note.content}</p>
@@ -872,8 +876,8 @@ export default function TodosPage() {
                         <Badge variant="outline" className="text-[10px]">{att.file_type.toUpperCase()}</Badge>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteAttachment(att.id)}>
-                      <Trash2 size={12} />
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteAttachment(att.id)} aria-label="Delete attachment">
+                      <Trash2 size={12} aria-hidden="true" />
                     </Button>
                   </div>
                 ))}
@@ -978,7 +982,7 @@ export default function TodosPage() {
                   <Card className="border-primary/30">
                     <CardContent className="pt-4 space-y-3">
                       <h4 className="text-sm font-semibold flex items-center gap-2"><Hourglass size={14} /> Log Time</h4>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Hours</Label>
                           <Input type="number" min="0" placeholder="0" value={timeLogHours} onChange={(e) => setTimeLogHours(e.target.value)} />
@@ -987,7 +991,7 @@ export default function TodosPage() {
                           <Label className="text-xs">Minutes</Label>
                           <Input type="number" min="0" max="59" placeholder="0" value={timeLogMinutes} onChange={(e) => setTimeLogMinutes(e.target.value)} />
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 col-span-2 sm:col-span-1">
                           <Label className="text-xs">What did you work on?</Label>
                           <Input placeholder="Brief description" value={timeLogDesc} onChange={(e) => setTimeLogDesc(e.target.value)} />
                         </div>
@@ -1052,6 +1056,7 @@ export default function TodosPage() {
                             size="sm"
                             variant="ghost"
                             className="text-destructive h-7 w-7 p-0"
+                            aria-label="Delete time entry"
                             onClick={async () => {
                               const res = await fetch(`/api/todos/time-entries?id=${entry.id}`, { method: "DELETE" });
                               if (res.ok) {
@@ -1062,7 +1067,7 @@ export default function TodosPage() {
                               }
                             }}
                           >
-                            <Trash2 size={12} />
+                            <Trash2 size={12} aria-hidden="true" />
                           </Button>
                         </div>
                       </CardContent>
@@ -1167,7 +1172,34 @@ export default function TodosPage() {
             const sc = statusConfig[todo.status] || statusConfig.pending;
             const StatusIcon = sc.icon;
             return (
-              <Card key={todo.id} className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 ${(todo.urgent || todo.important) ? getQuadrantBorder(todo.urgent, todo.important) : todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400"}`} onClick={() => openTaskDetail(todo)}>
+              <Card
+                key={todo.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open task ${todo.event_id}: ${todo.title}${
+                  todo.urgent || todo.important
+                    ? ` (${getQuadrantLabel(todo.urgent, todo.important)})`
+                    : ""
+                }`}
+                // Quadrant (Do First / Schedule / Delegate / Eliminate) is
+                // already encoded in the left-border color below — we drop
+                // the redundant colored Badge on the right and surface the
+                // quadrant name via title + aria-label instead. Same signal,
+                // half the visual weight.
+                title={
+                  todo.urgent || todo.important
+                    ? getQuadrantLabel(todo.urgent, todo.important)
+                    : undefined
+                }
+                className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${(todo.urgent || todo.important) ? getQuadrantBorder(todo.urgent, todo.important) : todo.status === "completed" ? "border-l-green-500" : todo.status === "in_progress" ? "border-l-blue-500" : todo.status === "approved" ? "border-l-primary" : todo.status === "rejected" ? "border-l-red-400" : "border-l-amber-400"}`}
+                onClick={() => openTaskDetail(todo)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openTaskDetail(todo);
+                  }
+                }}
+              >
                 <CardContent className="pt-4">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5">
@@ -1175,18 +1207,13 @@ export default function TodosPage() {
                     </div>
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20 shrink-0">
                             {todo.event_id}
                           </Badge>
-                          <h3 className="font-semibold text-sm">{todo.title}</h3>
+                          <h3 className="font-semibold text-sm truncate">{todo.title}</h3>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {(todo.urgent || todo.important) && (
-                            <Badge variant="outline" className={`text-xs ${getQuadrantColor(todo.urgent, todo.important)}`}>
-                              {getQuadrantLabel(todo.urgent, todo.important)}
-                            </Badge>
-                          )}
                           <Badge variant="outline" className={`text-xs ${sc.color}`}>
                             {sc.label}
                           </Badge>
@@ -1319,8 +1346,17 @@ export default function TodosPage() {
                         return (
                           <div
                             key={todo.id}
-                            className="rounded-lg border bg-background p-3 cursor-pointer hover:shadow-sm transition-shadow"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Open task ${todo.event_id}: ${todo.title}`}
+                            className="rounded-lg border bg-background p-3 cursor-pointer hover:shadow-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             onClick={() => openTaskDetail(todo)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                openTaskDetail(todo);
+                              }
+                            }}
                           >
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20 shrink-0">

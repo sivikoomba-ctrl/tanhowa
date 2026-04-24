@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { toast } from "sonner";
 import { Crown, Building2, Phone, Mail, MapPin, Briefcase } from "lucide-react";
 import { useT } from "@/lib/i18n";
@@ -78,19 +78,16 @@ export default function OfficialsPage() {
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="state" className="gap-1.5">
-            <Crown size={14} />
-            {t("official.state_officials")} ({stateOfficials.length})
-          </TabsTrigger>
-          <TabsTrigger value="district" className="gap-1.5">
-            <Building2 size={14} />
-            {t("official.district_officials")} ({districtOfficials.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="state" className="mt-4">
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        aria-label="Officials directory sections"
+        tabs={[
+          { value: "state", label: t("official.state_officials"), icon: Crown, count: stateOfficials.length },
+          { value: "district", label: t("official.district_officials"), icon: Building2, count: districtOfficials.length },
+        ]}
+      >
+        <SectionTabsContent value="state" className="mt-4">
           {stateOfficials.length === 0 ? (
             <p className="text-muted-foreground text-center py-12">{t("official.no_state")}</p>
           ) : (
@@ -100,9 +97,9 @@ export default function OfficialsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
+        </SectionTabsContent>
 
-        <TabsContent value="district" className="mt-4">
+        <SectionTabsContent value="district" className="mt-4">
           {districtOfficials.length === 0 ? (
             <p className="text-muted-foreground text-center py-12">{t("official.no_district")}</p>
           ) : (
@@ -123,8 +120,8 @@ export default function OfficialsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
 
       {/* Photo Zoom */}
       {zoomPhoto && (

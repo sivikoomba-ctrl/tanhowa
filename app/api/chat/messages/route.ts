@@ -6,6 +6,11 @@ import { logContribution } from "@/lib/contributions";
 import { writeLimiter, uploadLimiter } from "@/lib/rate-limit";
 import { sendPushToUser } from "@/lib/push";
 import { broadcastToChannel } from "@/lib/chat-broadcast";
+import {
+  hasEditedAt,
+  markEditedAtMissing,
+  isMissingSchema,
+} from "@/lib/chat-schema";
 
 const ALLOWED_FILE_TYPES = new Set([
   "image/jpeg",
@@ -58,6 +63,8 @@ export async function GET(req: NextRequest) {
 
     const before = url.searchParams.get("before"); // ISO timestamp cursor
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
+    const rawQ = (url.searchParams.get("q") || "").trim();
+    const q = rawQ.slice(0, 200); // bound query length
 
     const supabase = getServiceClient();
     const userId = session.userId;
@@ -82,20 +89,48 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Build query
-    let query = supabase
-      .from("chat_messages")
-      .select("id, channel_id, sender_id, content, file_url, file_name, file_type, file_size, reply_to, deleted_at, created_at, sender:sender_id(id, name, photo_url)")
-      .eq("channel_id", channelId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    // Build query — `edited_at` is Stage-4; fall back to the base column list
+    // on the first PostgREST undefined-column error so pre-migration deploys
+    // don't blank the entire thread. Two literal strings (rather than a
+    // concat) so Supabase's PostgREST type parser still infers the row shape.
+    const SELECT_WITH_EDITED_AT =
+      "id, channel_id, sender_id, content, file_url, file_name, file_type, file_size, reply_to, deleted_at, edited_at, created_at, sender:sender_id(id, name, photo_url)";
+    const SELECT_BASE =
+      "id, channel_id, sender_id, content, file_url, file_name, file_type, file_size, reply_to, deleted_at, created_at, sender:sender_id(id, name, photo_url)";
 
-    if (before) {
-      query = query.lt("created_at", before);
+    const runQuery = async (includeEditedAt: boolean) => {
+      const base = supabase
+        .from("chat_messages")
+        .select(includeEditedAt ? SELECT_WITH_EDITED_AT : SELECT_BASE)
+        .eq("channel_id", channelId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      let q2 = base;
+      if (before) q2 = q2.lt("created_at", before);
+      if (q) {
+        // Escape LIKE wildcards so a searcher can't widen their query with %/_.
+        const escaped = q
+          .replace(/\\/g, "\\\\")
+          .replace(/%/g, "\\%")
+          .replace(/_/g, "\\_");
+        q2 = q2.ilike("content", `%${escaped}%`);
+      }
+      return await q2;
+    };
+
+    type MessageRow = Record<string, unknown>;
+    type QueryResult = { data: MessageRow[] | null; error: { code?: string; message: string } | null };
+    let result: QueryResult = (await runQuery(hasEditedAt())) as unknown as QueryResult;
+
+    if (result.error && isMissingSchema(result.error) && hasEditedAt()) {
+      // Stage 4 migration pending — degrade and retry without edited_at.
+      markEditedAtMissing();
+      result = (await runQuery(false)) as unknown as QueryResult;
     }
 
-    const { data: messages, error } = await query;
+    const messages = result.data;
+    const error = result.error;
 
     if (error) {
       await logError({
@@ -113,8 +148,8 @@ export async function GET(req: NextRequest) {
 
     // Resolve reply_to snippets
     const replyIds = items
-      .filter((m: { reply_to: string | null }) => m.reply_to)
-      .map((m: { reply_to: string }) => m.reply_to);
+      .filter((m) => (m as { reply_to?: string | null }).reply_to)
+      .map((m) => (m as { reply_to: string }).reply_to);
 
     const replyMap = new Map<string, { content: string | null; sender_name: string }>();
     if (replyIds.length > 0) {
@@ -140,7 +175,7 @@ export async function GET(req: NextRequest) {
       users: Array<{ id: string; name: string }>;
     };
     const reactionsMap: Record<string, ReactionAggregate[]> = {};
-    const messageIds = items.map((m: { id: string }) => m.id);
+    const messageIds = items.map((m) => (m as { id: string }).id);
     if (messageIds.length > 0) {
       const { data: reactionRows } = await supabase
         .from("chat_message_reactions")
@@ -191,19 +226,36 @@ export async function GET(req: NextRequest) {
           reply_to: m.reply_to,
           reply_snippet: m.reply_to ? replyMap.get(m.reply_to as string) || null : null,
           created_at: m.created_at,
+          edited_at: m.edited_at || null,
           sender: m.sender || null,
           reactions: reactionsMap[m.id as string] || [],
         };
       })
     );
 
-    // Fire-and-forget: update last_read_at
-    supabase
-      .from("chat_channel_members")
-      .update({ last_read_at: new Date().toISOString() })
-      .eq("channel_id", channelId)
-      .eq("user_id", userId)
-      .then(() => {});
+    // Fire-and-forget: advance last_read_at only when the caller is a member AND
+    // the newest visible message is actually newer than their current cursor.
+    // Avoids a write on every 30s poll when the thread is idle.
+    if (membership && items.length > 0) {
+      const newestCreatedAt = items[items.length - 1].created_at as string;
+      (async () => {
+        const { data: current } = await supabase
+          .from("chat_channel_members")
+          .select("last_read_at")
+          .eq("channel_id", channelId)
+          .eq("user_id", userId)
+          .single();
+        const cursor = (current as { last_read_at: string | null } | null)
+          ?.last_read_at;
+        if (!cursor || newestCreatedAt > cursor) {
+          await supabase
+            .from("chat_channel_members")
+            .update({ last_read_at: new Date().toISOString() })
+            .eq("channel_id", channelId)
+            .eq("user_id", userId);
+        }
+      })().catch(() => {});
+    }
 
     const hasMore = items.length === limit;
 
@@ -456,17 +508,23 @@ export async function POST(req: NextRequest) {
             const memberIds = (memberRows || []).map((r) => r.user_id as string);
 
             if (memberIds.length > 0) {
-              for (const name of rawNames) {
-                const { data: matched } = await supabase
-                  .from("users")
-                  .select("id, name")
-                  .in("id", memberIds)
-                  .ilike("name", `%${name}%`)
-                  .limit(5);
-                for (const u of matched || []) {
-                  if (u.id !== userId) {
-                    mentionedUserIds.add(u.id as string);
-                  }
+              // Escape LIKE wildcards so a user typing "@%" or "@_" can't broaden the
+              // match to every member in the channel (which would flood push pings).
+              const escapeLike = (s: string) =>
+                s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+              // Batch all names into a single ILIKE-OR query instead of N round trips.
+              const orClause = Array.from(rawNames)
+                .map((n) => `name.ilike.%${escapeLike(n)}%`)
+                .join(",");
+              const { data: matched } = await supabase
+                .from("users")
+                .select("id, name")
+                .in("id", memberIds)
+                .or(orClause)
+                .limit(50);
+              for (const u of matched || []) {
+                if (u.id !== userId) {
+                  mentionedUserIds.add(u.id as string);
                 }
               }
             }
@@ -559,7 +617,7 @@ export async function DELETE(req: NextRequest) {
     // Fetch the message to check ownership
     const { data: msg } = await supabase
       .from("chat_messages")
-      .select("sender_id, channel_id")
+      .select("sender_id, channel_id, file_url")
       .eq("id", messageId)
       .single();
 
@@ -609,6 +667,18 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Failed to delete message" }, { status: 500 });
     }
 
+    // Also remove the uploaded file from storage so prior signed URLs (1hr TTL)
+    // can't be used to keep viewing a deleted attachment.
+    if (msg.file_url) {
+      (async () => {
+        try {
+          await supabase.storage.from("chat-files").remove([msg.file_url as string]);
+        } catch {
+          // Silent — soft-delete already succeeded; stray file is cleaned up on next pass.
+        }
+      })();
+    }
+
     void broadcastToChannel(msg.channel_id, "message_deleted", { messageId });
 
     return NextResponse.json({ message: "Message deleted" });
@@ -623,5 +693,117 @@ export async function DELETE(req: NextRequest) {
       status_code: 500,
     });
     return NextResponse.json({ error: "Failed to delete message" }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/chat/messages
+ * Body: { id, content }
+ * Edit a text message's content. Only the sender can edit. File messages
+ * cannot be edited (their original attachment is immutable). Stamps
+ * edited_at and broadcasts `message_edited` so peers update in place.
+ */
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!writeLimiter.check(ip)) {
+      return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const messageId: string | undefined = body.id;
+    const rawContent: string | undefined = body.content;
+
+    if (!messageId) {
+      return NextResponse.json({ error: "Message ID is required" }, { status: 400 });
+    }
+    const content = (rawContent || "").trim();
+    if (!content) {
+      return NextResponse.json({ error: "Content cannot be empty" }, { status: 400 });
+    }
+    if (content.length > 4000) {
+      return NextResponse.json({ error: "Message too long (max 4000 chars)" }, { status: 400 });
+    }
+
+    const supabase = getServiceClient();
+
+    const { data: existing } = await supabase
+      .from("chat_messages")
+      .select("sender_id, channel_id, deleted_at, file_url")
+      .eq("id", messageId)
+      .single();
+
+    if (!existing) {
+      return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    }
+    if (existing.deleted_at) {
+      return NextResponse.json({ error: "Cannot edit a deleted message" }, { status: 400 });
+    }
+    if (existing.sender_id !== session.userId) {
+      return NextResponse.json({ error: "Only the sender can edit" }, { status: 403 });
+    }
+    if (existing.file_url) {
+      return NextResponse.json(
+        { error: "File messages cannot be edited" },
+        { status: 400 }
+      );
+    }
+
+    if (!hasEditedAt()) {
+      // Stage 4 migration hasn't been applied; tell the client cleanly rather
+      // than 500-ing on the missing column.
+      return NextResponse.json(
+        { error: "Message editing is not available yet" },
+        { status: 503 }
+      );
+    }
+
+    const editedAt = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from("chat_messages")
+      .update({ content, edited_at: editedAt })
+      .eq("id", messageId);
+
+    if (updateError) {
+      if (isMissingSchema(updateError)) {
+        markEditedAtMissing();
+        return NextResponse.json(
+          { error: "Message editing is not available yet" },
+          { status: 503 }
+        );
+      }
+      await logError({
+        type: "api",
+        message: updateError.message,
+        path: "/api/chat/messages",
+        method: "PATCH",
+        status_code: 500,
+      });
+      return NextResponse.json({ error: "Failed to edit message" }, { status: 500 });
+    }
+
+    void broadcastToChannel(existing.channel_id, "message_edited", {
+      messageId,
+      content,
+      editedAt,
+    });
+
+    return NextResponse.json({ message: { id: messageId, content, edited_at: editedAt } });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await logError({
+      type: "api",
+      message: msg,
+      stack: error instanceof Error ? error.stack : "",
+      path: "/api/chat/messages",
+      method: "PATCH",
+      status_code: 500,
+    });
+    return NextResponse.json({ error: "Failed to edit message" }, { status: 500 });
   }
 }

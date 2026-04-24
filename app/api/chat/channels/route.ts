@@ -60,67 +60,101 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ channels: [] });
     }
 
-    // For each channel: get member count, last message, and unread count
-    const enriched = await Promise.all(
-      channels.map(async (ch: Record<string, unknown>) => {
-        const channelId = ch.id as string;
-        const membership = memberMap.get(channelId);
+    const visibleChannelIds = channels.map((c: { id: string }) => c.id);
 
-        // Member count
-        const { count: memberCount } = await supabase
-          .from("chat_channel_members")
-          .select("id", { count: "exact", head: true })
-          .eq("channel_id", channelId);
+    // Batch: member counts for all channels in one query (no per-channel round trip).
+    const memberCountByChannel = new Map<string, number>();
+    {
+      const { data: allMembers } = await supabase
+        .from("chat_channel_members")
+        .select("channel_id")
+        .in("channel_id", visibleChannelIds);
+      for (const row of allMembers || []) {
+        const cid = (row as { channel_id: string }).channel_id;
+        memberCountByChannel.set(cid, (memberCountByChannel.get(cid) || 0) + 1);
+      }
+    }
 
-        // Last message with sender name
-        const { data: lastMsgArr } = await supabase
-          .from("chat_messages")
-          .select("id, content, file_name, created_at, sender_id, sender:sender_id(name)")
-          .eq("channel_id", channelId)
-          .is("deleted_at", null)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        const lastMsg = lastMsgArr?.[0] || null;
-
-        // Unread count
-        let unreadCount = 0;
-        if (membership?.last_read_at) {
-          const { count } = await supabase
-            .from("chat_messages")
-            .select("id", { count: "exact", head: true })
-            .eq("channel_id", channelId)
-            .is("deleted_at", null)
-            .gt("created_at", membership.last_read_at);
-          unreadCount = count || 0;
-        } else if (membership) {
-          // Member but never read - all messages are unread
-          const { count } = await supabase
-            .from("chat_messages")
-            .select("id", { count: "exact", head: true })
-            .eq("channel_id", channelId)
-            .is("deleted_at", null);
-          unreadCount = count || 0;
-        }
-
-        return {
-          ...ch,
-          member_count: memberCount || 0,
-          unread_count: unreadCount,
-          muted: membership?.muted ?? false,
-          is_member: !!membership,
-          last_message: lastMsg
-            ? {
-                id: lastMsg.id,
-                content: lastMsg.content,
-                file_name: lastMsg.file_name,
-                created_at: lastMsg.created_at,
-                sender_name: (lastMsg.sender as unknown as { name: string } | null)?.name || "Unknown",
-              }
-            : null,
+    // Batch: last (non-deleted) message per channel. Pull a bounded recent window
+    // and keep the newest per channel. Avoids N "limit 1" queries.
+    const lastMsgByChannel = new Map<
+      string,
+      {
+        id: string;
+        content: string | null;
+        file_name: string | null;
+        created_at: string;
+        sender_name: string;
+      }
+    >();
+    {
+      const { data: recentMsgs } = await supabase
+        .from("chat_messages")
+        .select("id, channel_id, content, file_name, created_at, sender:sender_id(name)")
+        .in("channel_id", visibleChannelIds)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      for (const row of recentMsgs || []) {
+        const r = row as unknown as {
+          id: string;
+          channel_id: string;
+          content: string | null;
+          file_name: string | null;
+          created_at: string;
+          sender: { name: string } | null;
         };
-      })
+        if (lastMsgByChannel.has(r.channel_id)) continue;
+        lastMsgByChannel.set(r.channel_id, {
+          id: r.id,
+          content: r.content,
+          file_name: r.file_name,
+          created_at: r.created_at,
+          sender_name: r.sender?.name || "Unknown",
+        });
+      }
+    }
+
+    // Batch: unread counts — pull a bounded recent window across all member
+    // channels and filter per membership.last_read_at on the server.
+    const unreadByChannel = new Map<string, number>();
+    const memberOnlyChannelIds = visibleChannelIds.filter((cid: string) =>
+      memberMap.has(cid)
     );
+    if (memberOnlyChannelIds.length > 0) {
+      const { data: unreadRows } = await supabase
+        .from("chat_messages")
+        .select("channel_id, created_at")
+        .in("channel_id", memberOnlyChannelIds)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(2000);
+      for (const row of unreadRows || []) {
+        const r = row as { channel_id: string; created_at: string };
+        const m = memberMap.get(r.channel_id);
+        if (!m) continue;
+        if (!m.last_read_at || r.created_at > m.last_read_at) {
+          unreadByChannel.set(
+            r.channel_id,
+            (unreadByChannel.get(r.channel_id) || 0) + 1
+          );
+        }
+      }
+    }
+
+    const enriched = channels.map((ch: Record<string, unknown>) => {
+      const channelId = ch.id as string;
+      const membership = memberMap.get(channelId);
+      const lastMsg = lastMsgByChannel.get(channelId) || null;
+      return {
+        ...ch,
+        member_count: memberCountByChannel.get(channelId) || 0,
+        unread_count: unreadByChannel.get(channelId) || 0,
+        muted: membership?.muted ?? false,
+        is_member: !!membership,
+        last_message: lastMsg,
+      };
+    });
 
     // Sort by last message desc (channels with no messages go to end)
     enriched.sort((a, b) => {

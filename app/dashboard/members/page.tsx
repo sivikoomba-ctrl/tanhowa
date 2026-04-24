@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase, ChevronDown, ChevronUp, Calendar, Crown, Building2 } from "lucide-react";
+import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
+import { SectionTabs, SectionTabsContent, type SectionTabItem } from "@/components/section-tabs";
 import { useT } from "@/lib/i18n";
 import { formatDate } from "@/lib/utils";
 
@@ -63,6 +64,40 @@ function getActivityStatus(lastActive: string | null | undefined): { label: stri
   return { label: `${Math.floor(days)}d ago`, color: "text-muted-foreground", dot: "bg-gray-300" };
 }
 
+/**
+ * Collapse a member's role + official_type (up to 4 competing signals)
+ * into a single visual: an avatar ring color and one small text label.
+ * Mirrors the "one status per row" principle applied to todos — the 4
+ * colored Badges we used to stack next to the name encoded the same
+ * thing more loudly.
+ *
+ * Priority: site role (super_admin > admin) wins over official_type
+ * because admins always outrank officials in the permission hierarchy.
+ */
+function getRoleTheme(m: Member): {
+  ring: string;
+  label: string | null;
+  labelClass: string;
+} {
+  if (m.role === "super_admin")
+    return { ring: "ring-amber-500", label: "State-Admin", labelClass: "text-amber-700" };
+  if (m.role === "admin")
+    return { ring: "ring-accent", label: "Admin", labelClass: "text-accent" };
+  if (m.official_type === "state")
+    return { ring: "ring-purple-500", label: "State Official", labelClass: "text-purple-700" };
+  if (m.official_type === "district")
+    return {
+      ring: "ring-blue-500",
+      // The district designation (DS / DJS / Farm Manager etc.) is already
+      // surfaced on the occupation line below — keep this label terse.
+      label: "District Official",
+      labelClass: "text-blue-700",
+    };
+  if (m.official_type === "volunteer")
+    return { ring: "ring-emerald-500", label: "Volunteer", labelClass: "text-emerald-700" };
+  return { ring: "ring-transparent", label: null, labelClass: "" };
+}
+
 function getDesignationRank(occupation: string): number {
   const o = (occupation || "").toLowerCase();
   if (o.includes("additional director")) return 1;  // ADDH
@@ -88,6 +123,9 @@ export default function MembersPage() {
   const [viewPhoto, setViewPhoto] = useState<{ url: string; name: string } | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Per-expanded-card tab, keyed by member id. Scoped to the expanded
+  // card only — we reset on collapse via setExpandedTab({}) elsewhere.
+  const [expandedTab, setExpandedTab] = useState<Record<string, string>>({});
   const tickerRef = useRef<HTMLDivElement>(null);
   const t = useT();
 
@@ -249,17 +287,36 @@ export default function MembersPage() {
           {filtered.map((m) => {
             const isExpanded = expandedId === m.id;
             const activity = getActivityStatus(m.last_active_at);
+            const theme = getRoleTheme(m);
             return (
               <Card key={m.id} className="hover:shadow-md transition-all hover:border-primary/20">
                 <CardContent className="pt-4 pb-4">
-                  {/* Header row — always visible */}
+                  {/* Header row — always visible. Keyboard-accessible via
+                      role="button"+tabIndex so Tab lands on it and Enter/Space
+                      toggles. Kept as a div (not <button>) because the inner
+                      layout contains a mailto/tel anchor and the avatar which
+                      have their own click handlers — nested interactive
+                      elements inside a real <button> are invalid HTML. */}
                   <div
-                    className="flex items-start gap-3 cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    aria-label={`Toggle details for ${m.name || "member"}`}
+                    className="flex items-start gap-3 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     onClick={() => setExpandedId(isExpanded ? null : m.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setExpandedId(isExpanded ? null : m.id);
+                      }
+                    }}
                   >
                     <div className="relative shrink-0">
+                      {/* Ring color encodes the member's role (see
+                          getRoleTheme) — replaces the 4 colored Badges
+                          that used to stack next to the name. */}
                       <Avatar
-                        className="w-12 h-12 ring-2 ring-transparent hover:ring-primary/20 transition-all"
+                        className={`w-12 h-12 ring-2 ${theme.ring} transition-all`}
                         onClick={(e) => { if (m.photo_url) { e.stopPropagation(); setViewPhoto({ url: m.photo_url, name: m.name }); } }}
                       >
                         {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
@@ -271,27 +328,14 @@ export default function MembersPage() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-baseline gap-2 min-w-0">
                         <h3 className="font-semibold text-sm truncate uppercase">{m.name || "Unnamed"}</h3>
-                        {(m.role === "admin" || m.role === "super_admin") && (
-                          <Badge className={`text-[10px] px-1.5 py-0 ${m.role === "super_admin" ? "bg-amber-600 hover:bg-amber-600 text-white" : "bg-accent/15 text-accent border-accent/30"}`}>
-                            {m.role === "super_admin" ? "State-Admin" : "Admin"}
-                          </Badge>
-                        )}
-                        {m.official_type === "state" && (
-                          <Badge className="bg-purple-600 hover:bg-purple-600 text-white text-[10px] px-1.5 py-0">
-                            <Crown size={9} className="mr-0.5" />State
-                          </Badge>
-                        )}
-                        {m.official_type === "district" && (
-                          <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] px-1.5 py-0">
-                            <Building2 size={9} className="mr-0.5" />{m.posting_details?.official_designation || "District"}
-                          </Badge>
-                        )}
-                        {m.official_type === "volunteer" && (
-                          <Badge className="bg-green-600 hover:bg-green-600 text-white text-[10px] px-1.5 py-0">
-                            <Users size={9} className="mr-0.5" />Volunteer
-                          </Badge>
+                        {theme.label && (
+                          <span
+                            className={`text-[10px] font-semibold uppercase tracking-wide shrink-0 ${theme.labelClass}`}
+                          >
+                            {theme.label}
+                          </span>
                         )}
                       </div>
                       {m.occupation && (
@@ -320,116 +364,174 @@ export default function MembersPage() {
                     </div>
                   </div>
 
-                  {/* Expanded details */}
-                  {isExpanded && (
-                    <div className="mt-4 pt-4 border-t space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                        <div className="flex items-start gap-2">
-                          <Mail size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                          <div>
-                            <p className="text-xs text-muted-foreground">{t("form.email")}</p>
-                            <a href={`mailto:${m.email}`} className="font-medium text-primary hover:underline">{m.email}</a>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Phone size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                          <div>
-                            <p className="text-xs text-muted-foreground">{t("form.phone")}</p>
-                            <p className="font-medium">{m.phone || "—"}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Briefcase size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                          <div>
-                            <p className="text-xs text-muted-foreground">{t("form.designation")}</p>
-                            <p className="font-medium">{m.occupation || "—"}</p>
-                          </div>
-                        </div>
-                        {m.dob && (
-                          <div className="flex items-start gap-2">
-                            <Calendar size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">{t("form.dob")}</p>
-                              <p className="font-medium">{formatDate(m.dob)}</p>
-                            </div>
-                          </div>
-                        )}
-                        {m.office_address && (
-                          <div className="flex items-start gap-2">
-                            <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">{t("form.office_address")}</p>
-                              <p className="font-medium">{m.office_address}</p>
-                            </div>
-                          </div>
-                        )}
-                        {m.address && (
-                          <div className="flex items-start gap-2">
-                            <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">{t("form.address")}</p>
-                              <p className="font-medium">{m.address}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                  {/* Expanded details — grouped into Contact / Posting /
+                      Personal tabs via <SectionTabs>. Previously the same
+                      information rendered as a 3-column grid + three
+                      sub-sections stacked vertically (Posting, Social,
+                      Joined line), which on mobile became a very long
+                      scroll even for members with sparse profiles.
+                      Tabs that would have no data (Posting / Personal) are
+                      omitted from the array so we never surface an empty
+                      tab. Social links move into Personal because they're
+                      sparse and would make their own tab mostly empty. */}
+                  {isExpanded && (() => {
+                    const currentTab = expandedTab[m.id] || "contact";
+                    const hasPostingData = hasPosting(m.posting_details);
+                    const hasPersonalData = !!(
+                      m.dob ||
+                      m.created_at ||
+                      m.social_links?.instagram ||
+                      m.social_links?.twitter ||
+                      m.social_links?.linkedin
+                    );
+                    const tabs: SectionTabItem[] = [
+                      { value: "contact", label: "Contact", icon: Mail },
+                    ];
+                    if (hasPostingData) {
+                      tabs.push({ value: "posting", label: "Posting", icon: MapPin });
+                    }
+                    if (hasPersonalData) {
+                      tabs.push({ value: "personal", label: "Personal", icon: Calendar });
+                    }
+                    // If the active tab was hidden (e.g. a member without
+                    // posting data), fall back to Contact so nothing
+                    // renders blank.
+                    const safeTab = tabs.some((x) => x.value === currentTab) ? currentTab : "contact";
 
-                      {/* Posting Details */}
-                      {hasPosting(m.posting_details) && (
-                        <div>
-                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("profile.posting_details")}</h4>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm bg-muted/50 rounded-lg p-3">
-                            {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (
-                              <div>
-                                <p className="text-xs font-semibold text-primary">{t("form.district")}</p>
-                                {m.posting_details.regular_district && <p>{m.posting_details.regular_district}</p>}
-                                {m.posting_details.regular_block && <p>{t("form.block")}: {m.posting_details.regular_block}</p>}
+                    return (
+                      <div
+                        className="mt-4 pt-4 border-t"
+                        // Clicks inside the tablist shouldn't bubble up to
+                        // the header's collapse handler (even though the
+                        // header handler is on a sibling, the keyboard
+                        // Enter/Space handler would otherwise re-toggle).
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <SectionTabs
+                          value={safeTab}
+                          onValueChange={(v) => setExpandedTab((prev) => ({ ...prev, [m.id]: v }))}
+                          aria-label="Member profile sections"
+                          tabs={tabs}
+                        >
+                          <SectionTabsContent value="contact" className="mt-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                              <div className="flex items-start gap-2 min-w-0">
+                                <Mail size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs text-muted-foreground">{t("form.email")}</p>
+                                  <a href={`mailto:${m.email}`} className="font-medium text-primary hover:underline break-all">{m.email}</a>
+                                </div>
                               </div>
-                            )}
-                            {(m.posting_details?.special_duty_district || m.posting_details?.special_duty_block || m.posting_details?.special_duty_place) && (
-                              <div>
-                                <p className="text-xs font-semibold text-accent">Special Duty</p>
-                                {m.posting_details.special_duty_district && <p>{m.posting_details.special_duty_district}</p>}
-                                {m.posting_details.special_duty_block && <p>{m.posting_details.special_duty_block}</p>}
-                                {m.posting_details.special_duty_place && <p>{m.posting_details.special_duty_place}</p>}
+                              <div className="flex items-start gap-2">
+                                <Phone size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                <div>
+                                  <p className="text-xs text-muted-foreground">{t("form.phone")}</p>
+                                  <p className="font-medium">{m.phone || "—"}</p>
+                                </div>
                               </div>
-                            )}
-                            {(m.posting_details?.deputed_district || m.posting_details?.deputed_block) && (
-                              <div>
-                                <p className="text-xs font-semibold text-secondary">Deputed</p>
-                                {m.posting_details.deputed_district && <p>{m.posting_details.deputed_district}</p>}
-                                {m.posting_details.deputed_block && <p>{m.posting_details.deputed_block}</p>}
+                              <div className="flex items-start gap-2">
+                                <Briefcase size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                <div>
+                                  <p className="text-xs text-muted-foreground">{t("form.designation")}</p>
+                                  <p className="font-medium">{m.occupation || "—"}</p>
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                              {m.office_address && (
+                                <div className="flex items-start gap-2">
+                                  <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">{t("form.office_address")}</p>
+                                    <p className="font-medium">{m.office_address}</p>
+                                  </div>
+                                </div>
+                              )}
+                              {m.address && (
+                                <div className="flex items-start gap-2">
+                                  <MapPin size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">{t("form.address")}</p>
+                                    <p className="font-medium">{m.address}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </SectionTabsContent>
 
-                      {/* Social Links */}
-                      {(m.social_links?.instagram || m.social_links?.twitter || m.social_links?.linkedin) && (
-                        <div>
-                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("profile.social_links")}</h4>
-                          <div className="flex flex-wrap gap-2 text-sm">
-                            {m.social_links.instagram && <Badge variant="outline">Instagram: {m.social_links.instagram}</Badge>}
-                            {m.social_links.twitter && <Badge variant="outline">Twitter: {m.social_links.twitter}</Badge>}
-                            {m.social_links.linkedin && <Badge variant="outline">LinkedIn: {m.social_links.linkedin}</Badge>}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Joined date */}
-                      {m.created_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Joined: {formatDate(m.created_at)}
-                          {m.last_active_at && (
-                            <span className={`ml-3 ${activity.color}`}>
-                              Active: {activity.label}
-                            </span>
+                          {hasPostingData && (
+                            <SectionTabsContent value="posting" className="mt-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm bg-muted/50 rounded-lg p-3">
+                                {(m.posting_details?.regular_district || m.posting_details?.regular_block) && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-primary">{t("form.district")}</p>
+                                    {m.posting_details.regular_district && <p>{m.posting_details.regular_district}</p>}
+                                    {m.posting_details.regular_block && <p>{t("form.block")}: {m.posting_details.regular_block}</p>}
+                                  </div>
+                                )}
+                                {(m.posting_details?.special_duty_district || m.posting_details?.special_duty_block || m.posting_details?.special_duty_place) && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-accent">Special Duty</p>
+                                    {m.posting_details.special_duty_district && <p>{m.posting_details.special_duty_district}</p>}
+                                    {m.posting_details.special_duty_block && <p>{m.posting_details.special_duty_block}</p>}
+                                    {m.posting_details.special_duty_place && <p>{m.posting_details.special_duty_place}</p>}
+                                  </div>
+                                )}
+                                {(m.posting_details?.deputed_district || m.posting_details?.deputed_block) && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-secondary">Deputed</p>
+                                    {m.posting_details.deputed_district && <p>{m.posting_details.deputed_district}</p>}
+                                    {m.posting_details.deputed_block && <p>{m.posting_details.deputed_block}</p>}
+                                  </div>
+                                )}
+                              </div>
+                            </SectionTabsContent>
                           )}
-                        </p>
-                      )}
-                    </div>
-                  )}
+
+                          {hasPersonalData && (
+                            <SectionTabsContent value="personal" className="mt-3 space-y-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                {m.dob && (
+                                  <div className="flex items-start gap-2">
+                                    <Calendar size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">{t("form.dob")}</p>
+                                      <p className="font-medium">{formatDate(m.dob)}</p>
+                                    </div>
+                                  </div>
+                                )}
+                                {m.created_at && (
+                                  <div className="flex items-start gap-2">
+                                    <Calendar size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">Joined</p>
+                                      <p className="font-medium">
+                                        {formatDate(m.created_at)}
+                                        {m.last_active_at && (
+                                          <span className={`ml-2 text-xs ${activity.color}`}>
+                                            · Active: {activity.label}
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {(m.social_links?.instagram || m.social_links?.twitter || m.social_links?.linkedin) && (
+                                <div>
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1.5">{t("profile.social_links")}</p>
+                                  <div className="flex flex-wrap gap-2 text-sm">
+                                    {m.social_links.instagram && <Badge variant="outline">Instagram: {m.social_links.instagram}</Badge>}
+                                    {m.social_links.twitter && <Badge variant="outline">Twitter: {m.social_links.twitter}</Badge>}
+                                    {m.social_links.linkedin && <Badge variant="outline">LinkedIn: {m.social_links.linkedin}</Badge>}
+                                  </div>
+                                </div>
+                              )}
+                            </SectionTabsContent>
+                          )}
+                        </SectionTabs>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );

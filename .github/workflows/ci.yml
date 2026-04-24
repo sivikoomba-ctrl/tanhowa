@@ -1,0 +1,226 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, master]
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main, master]
+
+# Prevent duplicate runs when a PR is pushed to — the PR event and the push
+# event would otherwise both fire. This cancels the older run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --------------------------------------------------------------------------
+  # The main gate: lint, test, build. This is what blocks merges.
+  # --------------------------------------------------------------------------
+  build:
+    name: lint + test + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        # vitest.config.ts injects JWT_SECRET; mocks cover Supabase/Gemini/mail,
+        # so no real secrets are needed at CI time.
+        run: npm test
+
+      - name: Build
+        # NEXT_TELEMETRY_DISABLED keeps the build quiet; env placeholders stop
+        # `new URL(process.env.NEXT_PUBLIC_SUPABASE_URL)` from throwing during
+        # static analysis of middleware/API routes.
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_SUPABASE_URL: "https://ci-placeholder.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-anon-key"
+          SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder-service-key"
+          JWT_SECRET: "ci-placeholder-jwt-secret-minimum-32-characters-long"
+        run: npm run build | tee build-output.txt
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: build-output.txt
+          retention-days: 7
+
+      # ----------------------------------------------------------------------
+      # Bundle-size ceiling — fails the build if Next's "First Load JS shared
+      # by all" bundle crosses the threshold. Acts as a tripwire for
+      # accidentally pulling a heavy dependency into the shared chunks.
+      # ----------------------------------------------------------------------
+      - name: Bundle size ceiling
+        run: |
+          set -euo pipefail
+          # Next prints e.g.:
+          #   + First Load JS shared by all                102 kB
+          # Extract the kB number.
+          size_kb=$(grep -m1 "First Load JS shared by all" build-output.txt \
+            | grep -oE '[0-9]+(\.[0-9]+)?\s*kB' \
+            | grep -oE '[0-9]+(\.[0-9]+)?' \
+            | head -1 || echo "")
+          if [ -z "$size_kb" ]; then
+            echo "::warning::Could not find 'First Load JS shared by all' in build output — skipping size check."
+            exit 0
+          fi
+          # Ceiling: current is ~102 kB. Allow ~20% headroom before failing.
+          ceiling_kb=125
+          echo "Shared First Load JS: ${size_kb} kB (ceiling ${ceiling_kb} kB)"
+          awk -v s="$size_kb" -v c="$ceiling_kb" 'BEGIN { exit (s+0 > c+0) ? 1 : 0 }' || {
+            echo "::error::Shared First Load JS (${size_kb} kB) exceeds ceiling (${ceiling_kb} kB). Investigate recent deps or dynamic-import a large module."
+            exit 1
+          }
+
+  # --------------------------------------------------------------------------
+  # Playwright E2E — runs against `next start` with mocked backend at the
+  # browser network layer (see e2e/fixtures.ts). Depends on `build` so we
+  # don't waste CI minutes booting browsers when lint/test/build already
+  # failed. Failures upload traces + the HTML report for debugging.
+  #
+  # The webServer config in playwright.config.ts does its own `npm run
+  # build && npm run start`, so we don't hand off .next from the build
+  # job — simpler and the extra ~40s is cheap vs. the artifact plumbing.
+  # --------------------------------------------------------------------------
+  e2e:
+    name: E2E (Playwright)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      # Playwright browser binaries are ~100 MB and slow to download. Cache
+      # keyed on the @playwright/test version from package-lock so the cache
+      # invalidates the moment Playwright is bumped.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps only
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run Playwright
+        env:
+          CI: "1"
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results
+          retention-days: 7
+
+  # --------------------------------------------------------------------------
+  # PR-only gates. These don't run on push to main (by then it's too late),
+  # and they're split out so a flaky title check can't block build itself.
+  # --------------------------------------------------------------------------
+  pr-gates:
+    name: PR gates (title + schema drift)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ----------------------------------------------------------------------
+      # PR title format — permissive conventional commits. Allows:
+      #   feat: ...       fix(chat): ...       docs: ...       chore(ci)!: ...
+      # Exists to keep the merged-commit log scannable, not to be pedantic.
+      # ----------------------------------------------------------------------
+      - name: PR title format
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          echo "Checking PR title: $TITLE"
+          # Accept: <type>(<optional-scope>)!?: <description>
+          # Also accept the project's historical style "Group chat Stage 4: ..."
+          # (any capitalized prose followed by a colon) — pragmatic, we don't
+          # want to retro-rename past PRs.
+          regex='^((feat|fix|docs|chore|refactor|test|perf|ci|build|style|revert)(\([a-z0-9_.-]+\))?!?: .+|[A-Z][^:]{2,}: .+)$'
+          if ! echo "$TITLE" | grep -qE "$regex"; then
+            echo "::error::PR title should start with a conventional prefix (feat/fix/docs/chore/refactor/test/perf/ci/build/style/revert) or a capitalized area label, followed by ': '. Got: '$TITLE'"
+            exit 1
+          fi
+
+      # ----------------------------------------------------------------------
+      # Schema drift — any NEW supabase/*_schema.sql file added in this PR
+      # must be referenced in CLAUDE.md, so the "migrations beyond base
+      # schema" paragraph stays in sync with what's actually shipped. We
+      # only check files added in this PR — pre-existing undocumented files
+      # are out of scope here.
+      # ----------------------------------------------------------------------
+      - name: Schema-drift check
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # List newly-added .sql files under supabase/ in this PR.
+          added=$(git diff --name-only --diff-filter=A "$BASE_SHA" "$HEAD_SHA" -- 'supabase/*.sql' || true)
+          if [ -z "$added" ]; then
+            echo "No new SQL migrations in this PR."
+            exit 0
+          fi
+          echo "New SQL files in this PR:"
+          echo "$added"
+          missing=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            if ! grep -qF "$f" CLAUDE.md; then
+              missing="${missing}${f}"$'\n'
+            fi
+          done <<< "$added"
+          if [ -n "$missing" ]; then
+            echo "::error::The following new SQL migration files are not referenced in CLAUDE.md. Add them to the 'Migrations beyond base schema' list so deploy-time application steps stay discoverable:"
+            echo "$missing"
+            exit 1
+          fi
+          echo "All new migrations are documented in CLAUDE.md."

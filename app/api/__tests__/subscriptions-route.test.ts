@@ -26,11 +26,25 @@ const subscriptionRows = [
 ];
 
 function makeSupabaseMock() {
-  const query = {
+  // The admin/official path chains `.order().range()` — so `order` must return
+  // the chain (not a Promise) and `range` is the awaitable terminal.
+  // The `eq` calls (for period/status filters) also stay on the chain.
+  const query: {
+    eq: ReturnType<typeof vi.fn>;
+    order: ReturnType<typeof vi.fn>;
+    range: ReturnType<typeof vi.fn>;
+  } = {
     eq: vi.fn(() => query),
-    order: vi.fn(async () => ({ data: subscriptionRows, error: null })),
+    order: vi.fn(() => query),
+    range: vi.fn(async () => ({
+      data: subscriptionRows,
+      count: subscriptionRows.length,
+      error: null,
+    })),
   };
 
+  // The member path terminates on `.order()` (no `.range()`), so it's fine to
+  // keep `order` awaitable here.
   const ownSubscriptionQuery = {
     eq: vi.fn(() => ownSubscriptionQuery),
     order: vi.fn(async () => ({ data: [subscriptionRows[0]], error: null })),

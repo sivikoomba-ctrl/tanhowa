@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
@@ -237,15 +237,18 @@ export default function AdminFoodOrdersPage() {
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="orders" className="gap-1"><Package className="h-4 w-4" /> Orders {pendingCount > 0 && <Badge variant="destructive" className="ml-1 text-xs">{pendingCount}</Badge>}</TabsTrigger>
-          <TabsTrigger value="menu" className="gap-1"><UtensilsCrossed className="h-4 w-4" /> Menu Items</TabsTrigger>
-          <TabsTrigger value="vendors" className="gap-1"><Store className="h-4 w-4" /> Vendors</TabsTrigger>
-        </TabsList>
-
+      <SectionTabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        aria-label="Food orders admin sections"
+        tabs={[
+          { value: "orders", label: "Orders", icon: Package, count: pendingCount },
+          { value: "menu", label: "Menu Items", icon: UtensilsCrossed },
+          { value: "vendors", label: "Vendors", icon: Store },
+        ]}
+      >
         {/* ORDERS TAB */}
-        <TabsContent value="orders" className="mt-4 space-y-4">
+        <SectionTabsContent value="orders" className="mt-4 space-y-4">
           <div className="flex gap-2 flex-wrap">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-40"><SelectValue placeholder="Filter status" /></SelectTrigger>
@@ -327,10 +330,10 @@ export default function AdminFoodOrdersPage() {
               })}
             </div>
           )}
-        </TabsContent>
+        </SectionTabsContent>
 
         {/* MENU ITEMS TAB */}
-        <TabsContent value="menu" className="mt-4 space-y-4">
+        <SectionTabsContent value="menu" className="mt-4 space-y-4">
           <Button onClick={() => { setEditItem(null); setItemForm({ vendor_id: "", name: "", description: "", price: "", category: "General", image_url: "" }); setShowItemDialog(true); }} className="gap-1">
             <Plus className="h-4 w-4" /> Add Menu Item
           </Button>
@@ -371,10 +374,10 @@ export default function AdminFoodOrdersPage() {
               })}
             </div>
           )}
-        </TabsContent>
+        </SectionTabsContent>
 
         {/* VENDORS TAB */}
-        <TabsContent value="vendors" className="mt-4 space-y-4">
+        <SectionTabsContent value="vendors" className="mt-4 space-y-4">
           <Button onClick={() => { setEditVendor(null); setVendorForm({ name: "", description: "", phone: "" }); setShowVendorDialog(true); }} className="gap-1">
             <Plus className="h-4 w-4" /> Add Vendor
           </Button>
@@ -410,8 +413,8 @@ export default function AdminFoodOrdersPage() {
               ))}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
 
       {/* VENDOR DIALOG */}
       <Dialog open={showVendorDialog} onOpenChange={setShowVendorDialog}>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -481,16 +481,19 @@ export default function AdminTrainingsPage() {
         </DialogContent>
       </Dialog>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-          <TabsTrigger value="ongoing">Ongoing</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-          <TabsTrigger value="all">All</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={tab} className="mt-4">
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        aria-label="Training status filter"
+        tabs={[
+          { value: "upcoming", label: "Upcoming" },
+          { value: "ongoing", label: "Ongoing" },
+          { value: "completed", label: "Completed" },
+          { value: "cancelled", label: "Cancelled" },
+          { value: "all", label: "All" },
+        ]}
+      >
+        <SectionTabsContent value={tab} className="mt-4">
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : trainings.length === 0 ? (
@@ -554,8 +557,8 @@ export default function AdminTrainingsPage() {
               })}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
 
       {/* Materials Dialog */}
       <Dialog open={!!materialsTraining} onOpenChange={(v) => { if (!v) setMaterialsTraining(null); }}>

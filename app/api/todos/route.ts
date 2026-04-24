@@ -19,6 +19,11 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const status = url.searchParams.get("status");
     const dbRole = await getDbRole(session.userId);
+    // Treat both admin and super_admin as admin-level — matches isAdmin()
+    // semantics in lib/auth.ts. Previously this route only checked
+    // `dbRole === "admin"`, silently downgrading super_admin (State-Admin /
+    // owner) to a regular member throughout the todos system.
+    const isAdminRole = dbRole === "admin" || dbRole === "super_admin";
 
     const parentId = url.searchParams.get("parent_id");
 
@@ -47,7 +52,7 @@ export async function GET(req: NextRequest) {
     const meOnly = url.searchParams.get("me") === "true";
 
     // Members always see only their own tasks; admins see all unless ?me=true
-    if (dbRole !== "admin" || meOnly) {
+    if (!isAdminRole || meOnly) {
       // Get user's team IDs
       const { data: userTeams } = await supabase
         .from("team_members")
@@ -252,6 +257,10 @@ export async function PUT(req: NextRequest) {
 
     const supabase = getServiceClient();
     const dbRole = await getDbRole(session.userId);
+    // Matches lib/auth.ts isAdmin() semantics — super_admin must get admin
+    // privileges here too. Without this, the State-Admin / owner account
+    // falls through to the member-restricted branches.
+    const isAdminRole = dbRole === "admin" || dbRole === "super_admin";
 
     // Handle commit action: member commits to a task
     if (body.action === "commit") {
@@ -383,7 +392,7 @@ export async function PUT(req: NextRequest) {
 
     // Handle release commitment (admin only)
     if (body.action === "release_commitment") {
-      if (dbRole !== "admin") {
+      if (!isAdminRole) {
         return NextResponse.json({ error: "Only admins can release commitments" }, { status: 403 });
       }
       const { error: releaseError } = await supabase.from("todos").update({
@@ -403,8 +412,15 @@ export async function PUT(req: NextRequest) {
 
     // Handle bulk status update (admin only)
     if (body.action === "bulk_status" && body.ids && Array.isArray(body.ids)) {
-      if (dbRole !== "admin") {
+      if (!isAdminRole) {
         return NextResponse.json({ error: "Only admins can bulk update" }, { status: 403 });
+      }
+      // Cap bulk size to avoid a single request locking thousands of rows.
+      if (body.ids.length === 0 || body.ids.length > 500) {
+        return NextResponse.json(
+          { error: "Bulk update requires between 1 and 500 ids" },
+          { status: 400 }
+        );
       }
       const bulkUpdates: Record<string, unknown> = {
         status: body.status,
@@ -426,8 +442,13 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: "Bulk updated", count: body.ids.length });
     }
 
-    // Handle clone action
+    // Handle clone action (admin only — mirrors CLAUDE.md: "Admin can clone a
+    // task"). Without this check any authenticated member could duplicate
+    // any task, including subtasks that they shouldn't have visibility into.
     if (body.action === "clone") {
+      if (!isAdminRole) {
+        return NextResponse.json({ error: "Only admins can clone tasks" }, { status: 403 });
+      }
       const { data: original } = await supabase
         .from("todos")
         .select("*")
@@ -498,7 +519,7 @@ export async function PUT(req: NextRequest) {
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-    if (dbRole === "admin") {
+    if (isAdminRole) {
       // Admin can update all fields
       if (body.title !== undefined) updates.title = body.title;
       if (body.description !== undefined) updates.description = body.description;
@@ -531,7 +552,7 @@ export async function PUT(req: NextRequest) {
     let query = supabase.from("todos").update(updates).eq("id", body.id);
 
     // Non-admins can only edit their own tasks
-    if (dbRole !== "admin") {
+    if (!isAdminRole) {
       query = query.eq("submitted_by", session.userId).eq("status", "pending");
     }
 
@@ -548,7 +569,7 @@ export async function PUT(req: NextRequest) {
     logAudit(session.userId, "task_" + (body.status || "updated"), "task", body.id);
 
     // Fire-and-forget: notify on status change
-    if (body.status && dbRole === "admin") {
+    if (body.status && isAdminRole) {
       (async () => {
         try {
           const { data: taskFull } = await supabase

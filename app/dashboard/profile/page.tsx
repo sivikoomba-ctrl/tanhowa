@@ -628,8 +628,8 @@ export default function ProfilePage() {
                   <Label className="text-xs text-muted-foreground">{t("form.email")}</Label>
                   <Input value={profile.email} disabled className="bg-muted/50 mt-1" />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
+                <div className="grid grid-cols-[96px_1fr] sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="col-span-1">
                     <Label className="text-xs text-muted-foreground">{t("onboard.title")} *</Label>
                     <Select value={profile.title || "none"} onValueChange={(val) => setProfile({ ...profile, title: val === "none" ? "" : val })}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder={t("opt.none")} /></SelectTrigger>
@@ -642,11 +642,11 @@ export default function ProfilePage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+                  <div className="col-span-1">
                     <Label className="text-xs text-muted-foreground">{t("onboard.first_name")} *</Label>
                     <Input value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder={t("ph.first_name")} required className="uppercase mt-1" />
                   </div>
-                  <div>
+                  <div className="col-span-2 sm:col-span-1">
                     <Label className="text-xs text-muted-foreground">{t("onboard.last_name")} *</Label>
                     <Input value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value.replace(/[^A-Za-z\s.]/g, "").toUpperCase() })} placeholder={t("ph.last_name")} required className="uppercase mt-1" />
                   </div>
@@ -843,8 +843,8 @@ export default function ProfilePage() {
                     <div key={i} className="rounded-xl border bg-muted/20 p-4 space-y-3 relative">
                       <div className="flex justify-between items-center">
                         <Badge variant="outline" className="text-xs font-medium">#{i + 1}</Badge>
-                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => setProfile({ ...profile, experience: profile.experience.filter((_, j) => j !== i) })}>
-                          <X size={14} />
+                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => setProfile({ ...profile, experience: profile.experience.filter((_, j) => j !== i) })} aria-label={`Remove experience entry ${i + 1}`}>
+                          <X size={14} aria-hidden="true" />
                         </Button>
                       </div>
                       <div className="grid grid-cols-2 gap-3">

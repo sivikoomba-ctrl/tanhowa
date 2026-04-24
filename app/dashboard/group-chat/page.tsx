@@ -28,6 +28,11 @@ import {
   Reply,
   Loader2,
   SmilePlus,
+  Pencil,
+  Pin,
+  PinOff,
+  Search,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 // import { useT } from "@/lib/i18n"; // Uncomment when translation keys are added
@@ -75,7 +80,17 @@ interface ChatMessage {
   reply_sender: string | null;
   deleted: boolean;
   created_at: string;
+  edited_at?: string | null;
   reactions?: ReactionAggregate[];
+}
+
+interface PinnedMessage {
+  id: string;
+  content: string | null;
+  file_name: string | null;
+  file_type: string | null;
+  created_at: string;
+  sender_name: string;
 }
 
 // Quick-pick emojis for the reaction popover
@@ -280,6 +295,23 @@ export default function GroupChatPage() {
   const typingUsersRef = useRef<Record<string, TypingUser>>({});
   const lastTypingEmitRef = useRef<number>(0);
 
+  // Edit state — when non-null, we're editing that message's content in-bubble.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState<string>("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Channel admin + site admin — drives pin/unpin button visibility.
+  const [canModerate, setCanModerate] = useState(false);
+
+  // Pinned message banner
+  const [pinnedMessage, setPinnedMessage] = useState<PinnedMessage | null>(null);
+
+  // In-channel search
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ChatMessage[] | null>(null);
+  const [searching, setSearching] = useState(false);
+
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -404,10 +436,14 @@ export default function GroupChatPage() {
   // Fetch messages
   // -------------------------------------------------------------------------
   const fetchMessages = useCallback(
-    async (channelId: string, before?: string): Promise<ChatMessage[]> => {
+    async (
+      channelId: string,
+      opts?: { before?: string; q?: string }
+    ): Promise<ChatMessage[]> => {
       try {
         let url = `/api/chat/messages?channel=${channelId}&limit=50`;
-        if (before) url += `&before=${encodeURIComponent(before)}`;
+        if (opts?.before) url += `&before=${encodeURIComponent(opts.before)}`;
+        if (opts?.q) url += `&q=${encodeURIComponent(opts.q)}`;
         const res = await fetch(url);
         const data = await res.json();
         const raw = (data.messages || []) as Array<Record<string, unknown>>;
@@ -434,6 +470,7 @@ export default function GroupChatPage() {
             reply_sender: snippet?.sender_name || null,
             deleted: Boolean(m.deleted_at),
             created_at: m.created_at as string,
+            edited_at: (m.edited_at as string | null) || null,
             reactions: (m.reactions as ReactionAggregate[]) || [],
           };
         });
@@ -483,15 +520,36 @@ export default function GroupChatPage() {
         )
       );
 
-      // Eager-load members for mention typeahead (silent)
+      // Eager-load members for mention typeahead, and derive moderation role
+      // (channel-admin badge or site admin) for pin/unpin controls.
       fetch(`/api/chat/members?channel=${channel.id}`)
         .then((r) => r.json())
         .then((d) => {
           if (Array.isArray(d.members)) {
-            setMembers(d.members.map(flattenMember));
+            const mapped = d.members.map(flattenMember);
+            setMembers(mapped);
+            const mine = mapped.find(
+              (m: ChannelMember) => (m.user_id || m.id) === myIdRef.current
+            );
+            setCanModerate(
+              mine?.is_channel_admin === true ||
+                mine?.role === "admin" ||
+                mine?.role === "super_admin"
+            );
           }
         })
         .catch(() => {});
+
+      // Fetch pinned message banner for this channel
+      fetch(`/api/chat/pin?channel=${channel.id}`)
+        .then((r) => r.json())
+        .then((d) => setPinnedMessage(d.pinned || null))
+        .catch(() => setPinnedMessage(null));
+
+      // Reset search state on channel switch
+      setSearchOpen(false);
+      setSearchQuery("");
+      setSearchResults(null);
 
       // Mark any mentions in this channel's messages as read (fire-and-forget)
       const msgIds = msgs.map((m) => m.id);
@@ -668,6 +726,50 @@ export default function GroupChatPage() {
 
     ch.on(
       "broadcast",
+      { event: "message_edited" },
+      (evt: { payload: unknown }) => {
+        const payload = evt.payload as {
+          messageId?: string;
+          content?: string;
+          editedAt?: string;
+        } | null;
+        if (!payload?.messageId) return;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === payload.messageId
+              ? {
+                  ...m,
+                  content: payload.content ?? m.content,
+                  edited_at: payload.editedAt ?? m.edited_at ?? null,
+                }
+              : m
+          )
+        );
+      }
+    );
+
+    ch.on(
+      "broadcast",
+      { event: "message_pinned" },
+      (evt: { payload: unknown }) => {
+        const payload = evt.payload as { messageId?: string | null } | null;
+        if (!payload) return;
+        if (!payload.messageId) {
+          setPinnedMessage(null);
+          return;
+        }
+        // Re-fetch the pin — payload only has the id, we need sender name.
+        fetch(
+          `/api/chat/pin?channel=${encodeURIComponent(selectedChannel.id)}`
+        )
+          .then((r) => r.json())
+          .then((d) => setPinnedMessage(d.pinned || null))
+          .catch(() => {});
+      }
+    );
+
+    ch.on(
+      "broadcast",
       { event: "reaction_added" },
       (evt: { payload: unknown }) => {
         const payload = evt.payload as {
@@ -800,7 +902,7 @@ export default function GroupChatPage() {
     const oldest = messages[0].created_at;
     const olderMsgs: ChatMessage[] = await fetchMessages(
       selectedChannel.id,
-      oldest
+      { before: oldest }
     );
     if (olderMsgs.length > 0) {
       setMessages((prev) => [...olderMsgs, ...prev]);
@@ -926,6 +1028,123 @@ export default function GroupChatPage() {
       toast.error("Failed to delete message");
     }
   };
+
+  // -------------------------------------------------------------------------
+  // Edit message — inline draft, save via PATCH /api/chat/messages
+  // -------------------------------------------------------------------------
+  const startEdit = useCallback((msg: ChatMessage) => {
+    if (msg.file_url) {
+      toast.error("File messages can't be edited");
+      return;
+    }
+    setEditingId(msg.id);
+    setEditingDraft(msg.content || "");
+  }, []);
+
+  const cancelEdit = useCallback(() => {
+    setEditingId(null);
+    setEditingDraft("");
+    setSavingEdit(false);
+  }, []);
+
+  const saveEdit = useCallback(async () => {
+    if (!editingId) return;
+    const trimmed = editingDraft.trim();
+    if (!trimmed) {
+      toast.error("Message can't be empty");
+      return;
+    }
+    // Find current content; no-op if unchanged
+    const current = messages.find((m) => m.id === editingId);
+    if (current && current.content === trimmed) {
+      cancelEdit();
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const res = await fetch("/api/chat/messages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingId, content: trimmed }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Failed to edit message");
+        return;
+      }
+      const editedAt =
+        (data.message?.edited_at as string | undefined) ||
+        new Date().toISOString();
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === editingId ? { ...m, content: trimmed, edited_at: editedAt } : m
+        )
+      );
+      cancelEdit();
+    } catch {
+      toast.error("Failed to edit message");
+    } finally {
+      setSavingEdit(false);
+    }
+  }, [editingId, editingDraft, messages, cancelEdit]);
+
+  // -------------------------------------------------------------------------
+  // Pin / unpin a message (admins + channel admins only)
+  // -------------------------------------------------------------------------
+  const pinMessage = useCallback(async (messageId: string) => {
+    try {
+      const res = await fetch("/api/chat/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: messageId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Failed to pin message");
+        return;
+      }
+      toast.success("Message pinned");
+    } catch {
+      toast.error("Failed to pin message");
+    }
+  }, []);
+
+  const unpinMessage = useCallback(async (channelId: string) => {
+    try {
+      const res = await fetch(
+        `/api/chat/pin?channel_id=${encodeURIComponent(channelId)}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Failed to unpin message");
+        return;
+      }
+      setPinnedMessage(null);
+      toast.success("Unpinned");
+    } catch {
+      toast.error("Failed to unpin message");
+    }
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // In-channel search — re-uses /api/chat/messages?q=
+  // -------------------------------------------------------------------------
+  const runSearch = useCallback(async () => {
+    if (!selectedChannel) return;
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults(null);
+      return;
+    }
+    setSearching(true);
+    try {
+      const results = await fetchMessages(selectedChannel.id, { q });
+      setSearchResults(results);
+    } finally {
+      setSearching(false);
+    }
+  }, [selectedChannel, searchQuery, fetchMessages]);
 
   // -------------------------------------------------------------------------
   // Reactions — add / remove with optimistic updates
@@ -1348,6 +1567,7 @@ export default function GroupChatPage() {
           size="icon"
           className="md:hidden shrink-0"
           onClick={() => setSelectedChannel(null)}
+          aria-label="Back to channel list"
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -1363,6 +1583,28 @@ export default function GroupChatPage() {
           </p>
         </div>
         {selectedChannel && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+            onClick={() => {
+              setSearchOpen((o) => {
+                const next = !o;
+                if (!next) {
+                  setSearchQuery("");
+                  setSearchResults(null);
+                }
+                return next;
+              });
+            }}
+            title="Search in channel"
+            aria-label="Search in channel"
+            aria-expanded={searchOpen}
+          >
+            <Search className="w-5 h-5" />
+          </Button>
+        )}
+        {selectedChannel && (
           <Sheet>
             <SheetTrigger asChild>
               <Button
@@ -1370,6 +1612,7 @@ export default function GroupChatPage() {
                 size="icon"
                 className="shrink-0"
                 onClick={() => fetchMembers(selectedChannel.id)}
+                aria-label={`View channel members (${selectedChannel.member_count})`}
               >
                 <Users className="w-5 h-5" />
               </Button>
@@ -1446,10 +1689,125 @@ export default function GroupChatPage() {
         )}
       </div>
 
+      {/* Pinned message banner */}
+      {pinnedMessage && !searchOpen && (
+        <div className="flex items-start gap-2 px-3 py-2 border-b bg-amber-50 text-amber-900">
+          <Pin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-amber-700">
+              Pinned • {pinnedMessage.sender_name}
+            </p>
+            <p className="text-xs line-clamp-2 break-words">
+              {pinnedMessage.content ||
+                pinnedMessage.file_name ||
+                "Attachment"}
+            </p>
+          </div>
+          {canModerate && selectedChannel && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-6 h-6 shrink-0 text-amber-700 hover:text-amber-900"
+              onClick={() => unpinMessage(selectedChannel.id)}
+              title="Unpin"
+              aria-label="Unpin message"
+            >
+              <PinOff className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Search bar */}
+      {searchOpen && (
+        <div className="px-3 py-2 border-b bg-muted/20 flex items-center gap-2">
+          <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                runSearch();
+              } else if (e.key === "Escape") {
+                setSearchOpen(false);
+                setSearchQuery("");
+                setSearchResults(null);
+              }
+            }}
+            placeholder="Search in this channel…"
+            className="flex-1 min-w-0 text-sm bg-transparent outline-none"
+            autoFocus
+            maxLength={200}
+          />
+          <Button
+            size="sm"
+            className="h-7"
+            onClick={runSearch}
+            disabled={!searchQuery.trim() || searching}
+          >
+            {searching ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              "Search"
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-7 h-7 shrink-0"
+            onClick={() => {
+              setSearchOpen(false);
+              setSearchQuery("");
+              setSearchResults(null);
+            }}
+            aria-label="Close search"
+          >
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* Search results panel (shown only when search has run) */}
+      {searchOpen && searchResults !== null && (
+        <div className="flex-1 overflow-y-auto bg-muted/10">
+          {searchResults.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Search className="w-8 h-8 text-muted-foreground/30 mb-2" />
+              <p className="text-sm text-muted-foreground">
+                No messages match “{searchQuery}”
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {searchResults.map((m) => (
+                <div key={m.id} className="px-4 py-3 hover:bg-muted/40">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[11px] font-medium text-primary">
+                      {m.sender_name}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {formatTime(m.created_at)} ·{" "}
+                      {formatDateSeparator(m.created_at)}
+                    </p>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap break-words">
+                    {m.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Messages area */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-1"
+        className={`flex-1 overflow-y-auto p-4 space-y-1 ${
+          searchOpen && searchResults !== null ? "hidden" : ""
+        }`}
       >
         {loadingThread ? (
           <div className="flex items-center justify-center py-12">
@@ -1599,14 +1957,62 @@ export default function GroupChatPage() {
                             </div>
                           )}
 
-                          {/* Text content */}
-                          {msg.content && (
-                            <p className="text-sm whitespace-pre-wrap break-words">
-                              {renderWithMentions(msg.content)}
-                            </p>
+                          {/* Text content — inline edit when active */}
+                          {editingId === msg.id ? (
+                            <div className="space-y-1">
+                              <textarea
+                                value={editingDraft}
+                                onChange={(e) => setEditingDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    saveEdit();
+                                  } else if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    cancelEdit();
+                                  }
+                                }}
+                                className="w-full min-w-[200px] text-sm rounded-md border border-input bg-background px-2 py-1 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                                rows={Math.min(
+                                  4,
+                                  Math.max(1, editingDraft.split("\n").length)
+                                )}
+                                maxLength={4000}
+                                autoFocus
+                              />
+                              <div className="flex gap-1 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={cancelEdit}
+                                  disabled={savingEdit}
+                                  className="text-[10px] px-2 py-0.5 rounded hover:bg-muted/60"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={saveEdit}
+                                  disabled={savingEdit || !editingDraft.trim()}
+                                  className="text-[10px] px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 inline-flex items-center gap-1"
+                                >
+                                  {savingEdit ? (
+                                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                  ) : (
+                                    <Check className="w-2.5 h-2.5" />
+                                  )}
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            msg.content && (
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                {renderWithMentions(msg.content)}
+                              </p>
+                            )
                           )}
 
-                          {/* Timestamp */}
+                          {/* Timestamp + edited marker */}
                           <p
                             className={`text-[10px] mt-1 text-right ${
                               isMine
@@ -1615,6 +2021,14 @@ export default function GroupChatPage() {
                             }`}
                           >
                             {formatTime(msg.created_at)}
+                            {msg.edited_at && (
+                              <span
+                                className="ml-1 italic"
+                                title={`Edited ${formatTime(msg.edited_at)}`}
+                              >
+                                (edited)
+                              </span>
+                            )}
                           </p>
                         </div>
 
@@ -1643,6 +2057,9 @@ export default function GroupChatPage() {
                               }}
                               className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
                               title="Add reaction"
+                              aria-label="Add reaction to message"
+                              aria-haspopup="menu"
+                              aria-expanded={pickerOpenFor === msg.id}
                             >
                               <SmilePlus className="w-3.5 h-3.5" />
                             </button>
@@ -1674,14 +2091,36 @@ export default function GroupChatPage() {
                             onClick={() => setReplyTo(msg)}
                             className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
                             title="Reply"
+                            aria-label={`Reply to ${msg.sender_name}'s message`}
                           >
                             <Reply className="w-3.5 h-3.5" />
                           </button>
+                          {canModerate && (
+                            <button
+                              onClick={() => pinMessage(msg.id)}
+                              className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-amber-600 transition-colors"
+                              title="Pin"
+                              aria-label="Pin message to channel"
+                            >
+                              <Pin className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {isMine && !msg.file_url && (
+                            <button
+                              onClick={() => startEdit(msg)}
+                              className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                              title="Edit"
+                              aria-label="Edit your message"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           {isMine && (
                             <button
                               onClick={() => deleteMessage(msg.id)}
                               className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                               title="Delete"
+                              aria-label="Delete your message"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1733,51 +2172,66 @@ export default function GroupChatPage() {
       {/* Typing indicator */}
       {typingJsx}
 
-      {/* Reply bar */}
-      {replyTo && (
-        <div className="px-3 pt-2 border-t bg-muted/30 flex items-center gap-2">
-          <Reply className="w-4 h-4 text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-medium text-primary">
-              {replyTo.sender_id === myId ? "You" : replyTo.sender_name}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {replyTo.content || replyTo.file_name || "Attachment"}
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-6 h-6 shrink-0"
-            onClick={() => setReplyTo(null)}
-          >
-            <X className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      )}
-
-      {/* File preview bar */}
-      {selectedFile && (
-        <div className="px-3 pt-2 border-t bg-muted/30 flex items-center gap-2">
-          {isImageType(selectedFile.type) ? (
-            <ImageIcon className="w-4 h-4 text-primary shrink-0" />
-          ) : (
-            <FileText className="w-4 h-4 text-primary shrink-0" />
+      {/* Input-context bar — reply context and file preview used to render
+          as two separate full-width strips stacked above the input, each
+          with its own `border-t bg-muted/30`. When both were active you
+          got a visible seam between them. Merged into one container with
+          a single top border + background so it reads as a single
+          "context attached to what I'm typing" block. Inner divider
+          only appears when both rows are present. */}
+      {(replyTo || selectedFile) && (
+        <div className="border-t bg-muted/30">
+          {replyTo && (
+            <div className="px-3 py-2 flex items-center gap-2">
+              <Reply className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-medium text-primary">
+                  Replying to {replyTo.sender_id === myId ? "you" : replyTo.sender_name}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {replyTo.content || replyTo.file_name || "Attachment"}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 shrink-0"
+                onClick={() => setReplyTo(null)}
+                aria-label="Cancel reply"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           )}
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium truncate">{selectedFile.name}</p>
-            <p className="text-[10px] text-muted-foreground">
-              {formatFileSize(selectedFile.size)}
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-6 h-6 shrink-0"
-            onClick={() => setSelectedFile(null)}
-          >
-            <X className="w-3.5 h-3.5" />
-          </Button>
+          {replyTo && selectedFile && (
+            // Visually separate the reply and attachment without
+            // duplicating the outer border / background.
+            <div className="border-t border-muted-foreground/10 mx-3" aria-hidden="true" />
+          )}
+          {selectedFile && (
+            <div className="px-3 py-2 flex items-center gap-2">
+              {isImageType(selectedFile.type) ? (
+                <ImageIcon className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+              ) : (
+                <FileText className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{selectedFile.name}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {formatFileSize(selectedFile.size)}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 shrink-0"
+                onClick={() => setSelectedFile(null)}
+                aria-label="Remove attached file"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1796,7 +2250,7 @@ export default function GroupChatPage() {
             type="file"
             className="hidden"
             onChange={handleFileSelect}
-            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+            accept="image/jpeg,image/png,image/webp,image/gif,.pdf,.doc,.docx,.xls,.xlsx"
           />
           <Button
             type="button"
@@ -1805,6 +2259,7 @@ export default function GroupChatPage() {
             className="shrink-0 h-10 w-10"
             onClick={() => fileInputRef.current?.click()}
             disabled={sending}
+            aria-label="Attach a file"
           >
             <Paperclip className="w-4 h-4" />
           </Button>
@@ -1877,7 +2332,7 @@ export default function GroupChatPage() {
                 }
               }}
               className="w-full rounded-xl min-h-[40px] max-h-[120px] px-3 py-2 text-sm border border-input bg-background shadow-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              maxLength={5000}
+              maxLength={4000}
               rows={1}
               onFocus={() => {
                 inputFocusedRef.current = true;
@@ -1929,11 +2384,12 @@ export default function GroupChatPage() {
             size="icon"
             className="shrink-0 rounded-xl h-10 w-10"
             disabled={(!newMessage.trim() && !selectedFile) || sending}
+            aria-label={sending ? "Sending message" : "Send message"}
           >
             {sending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4" aria-hidden="true" />
             )}
           </Button>
         </form>

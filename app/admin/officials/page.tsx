@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent, type SectionTabItem } from "@/components/section-tabs";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -183,25 +183,28 @@ export default function AdminOfficialsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Officials Management</h1>
 
-      <Tabs value={isDistrictOfficial && !isSuperOrState ? "volunteer" : tab} onValueChange={setTab}>
-        <TabsList>
-          {(!isDistrictOfficial || isSuperOrState) && (
-            <>
-              <TabsTrigger value="state" className="gap-1.5">
-                <Crown size={14} />State Officials ({stateOfficials.length})
-              </TabsTrigger>
-              <TabsTrigger value="district" className="gap-1.5">
-                <Building2 size={14} />District Officials ({districtOfficials.length})
-              </TabsTrigger>
-            </>
-          )}
-          <TabsTrigger value="volunteer" className="gap-1.5">
-            <Users size={14} />Volunteers ({volunteerOfficials.length})
-          </TabsTrigger>
-        </TabsList>
+      <SectionTabs
+        value={isDistrictOfficial && !isSuperOrState ? "volunteer" : tab}
+        onValueChange={setTab}
+        aria-label="Officials management sections"
+        // District-officials who aren't state/super only see Volunteers —
+        // state/district tabs conditionally included in the array instead
+        // of being wrapped in a fragment inside TabsList.
+        tabs={((): SectionTabItem[] => {
+          const arr: SectionTabItem[] = [];
+          if (!isDistrictOfficial || isSuperOrState) {
+            arr.push(
+              { value: "state", label: "State Officials", icon: Crown, count: stateOfficials.length },
+              { value: "district", label: "District Officials", icon: Building2, count: districtOfficials.length }
+            );
+          }
+          arr.push({ value: "volunteer", label: "Volunteers", icon: Users, count: volunteerOfficials.length });
+          return arr;
+        })()}
+      >
 
         {/* State Officials */}
-        <TabsContent value="state" className="mt-4 space-y-4">
+        <SectionTabsContent value="state" className="mt-4 space-y-4">
           <Button onClick={() => openAddDialog("state")} className="bg-purple-600 hover:bg-purple-700">
             <Plus size={16} className="mr-1" />Add State Official
           </Button>
@@ -214,10 +217,10 @@ export default function AdminOfficialsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
+        </SectionTabsContent>
 
         {/* District Officials */}
-        <TabsContent value="district" className="mt-4 space-y-4">
+        <SectionTabsContent value="district" className="mt-4 space-y-4">
           <Button onClick={() => openAddDialog("district")} className="bg-blue-600 hover:bg-blue-700">
             <Plus size={16} className="mr-1" />Add District Official
           </Button>
@@ -241,10 +244,10 @@ export default function AdminOfficialsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
+        </SectionTabsContent>
 
         {/* Volunteer Admins */}
-        <TabsContent value="volunteer" className="mt-4 space-y-4">
+        <SectionTabsContent value="volunteer" className="mt-4 space-y-4">
           <Button onClick={() => openAddDialog("volunteer")} className="bg-green-600 hover:bg-green-700">
             <Plus size={16} className="mr-1" />Invite Volunteer Admin
             {isDistrictOfficial && !isSuperOrState && callerDistrict && <span className="ml-1 text-xs opacity-80">({callerDistrict})</span>}
@@ -269,8 +272,8 @@ export default function AdminOfficialsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
 
       {/* Add Official Dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>

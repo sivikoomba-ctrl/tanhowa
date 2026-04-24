@@ -844,7 +844,7 @@ export default function SubscriptionsPage() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <MetricCard label={t("subs.paid")} value={paid} icon={CheckCircle2} borderColor="border-l-green-500" iconColor="text-green-500/40" />
         <MetricCard label={t("subs.due")} value={pending} icon={Clock} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
         <MetricCard label={t("subs.total_paid")} value={`₹${totalPaid.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-primary" iconColor="text-primary/40" />
@@ -876,60 +876,91 @@ export default function SubscriptionsPage() {
               <Card key={sub.id}>
                 <CardContent className="pt-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                         <Icon className={`w-5 h-5 ${sub.status === "paid" ? "text-green-600" : sub.status === "overdue" || sub.status === "rejected" ? "text-red-600" : sub.status === "hold" ? "text-orange-600" : "text-amber-600"}`} />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
+                        {/* Row 1 — identity: period + amount (+ conditional
+                            voluntary / extra-paid badges). Single line, no
+                            status noise competing for attention. */}
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold">{sub.period}</h3>
-                          <Badge variant="outline" className={config.color}>
-                            {config.label}
-                          </Badge>
+                          <span className="text-sm font-medium">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
                           {sub.period.toLowerCase().startsWith("volunteer") && (
                             <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">
                               {t("subs.voluntary")}
                             </Badge>
                           )}
-                          {hasProof && sub.status !== "paid" && (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-[10px]">
-                              {t("subs.proof_uploaded")}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-sm font-medium">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
                           {sub.paid_amount && sub.paid_amount > (sub.amount || 0) && (
                             <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
                               +&#8377;{(sub.paid_amount - (sub.amount || 0)).toLocaleString("en-IN")} extra
                             </Badge>
                           )}
-                          {sub.due_date && (
-                            <span className="text-xs text-muted-foreground">Due: {formatDate(sub.due_date)}</span>
+                        </div>
+                        {/* Row 2 — status signal + date. One primary status
+                            badge, then the date axis relevant to that state
+                            (due date when unpaid, paid-on when paid), and a
+                            small "proof uploaded" hint when applicable. */}
+                        <div className="flex items-center gap-2 flex-wrap mt-1">
+                          <Badge variant="outline" className={config.color}>
+                            {config.label}
+                          </Badge>
+                          {sub.paid_at && sub.status === "paid" ? (
+                            <span className="text-xs text-green-600">
+                              Paid on {formatDateTime(sub.paid_at)}
+                            </span>
+                          ) : sub.due_date ? (
+                            <span className="text-xs text-muted-foreground">
+                              Due: {formatDate(sub.due_date)}
+                            </span>
+                          ) : null}
+                          {hasProof && sub.status !== "paid" && (
+                            <span className="text-[10px] text-blue-700 inline-flex items-center gap-1">
+                              <ImageIcon size={10} />
+                              {t("subs.proof_uploaded")}
+                            </span>
                           )}
                         </div>
-                        {sub.transaction_id && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Transaction ID: {sub.transaction_id}</p>
-                        )}
-                        {sub.payment_method && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Payment Method: {sub.payment_method}</p>
-                        )}
-                        {sub.paid_at && sub.status === "paid" && (
-                          <p className="text-xs text-green-600 mt-0.5">
-                            Paid on {formatDateTime(sub.paid_at)}
-                          </p>
-                        )}
-                        {hasProof && (
-                          <button
-                            onClick={() => viewProof(sub)}
-                            className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                        {/* Collapsed "Details" — transaction ID, payment
+                            method, and remarks were previously always
+                            visible, adding up to 4 extra lines per card
+                            even when the member didn't need them.
+                            Wrapped in a native <details> so the platform
+                            handles keyboard + screen-reader interaction
+                            without extra state. */}
+                        {(sub.transaction_id || sub.payment_method || sub.remarks) && (
+                          <details
+                            className="mt-1.5 group"
+                            onClick={(e) => {
+                              // <details> swallows the click on <summary>
+                              // toggle; stop the surrounding Card handlers
+                              // (if any are added later) from firing.
+                              e.stopPropagation();
+                            }}
                           >
-                            <ImageIcon size={12} />
-                            {t("subs.view_payment_proof")}
-                          </button>
-                        )}
-                        {sub.remarks && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Note: {sub.remarks}</p>
+                            <summary className="text-[11px] text-muted-foreground cursor-pointer list-none select-none inline-flex items-center gap-1 hover:text-foreground">
+                              <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
+                              Details
+                            </summary>
+                            <div className="mt-1 space-y-0.5 pl-4 border-l border-muted">
+                              {sub.transaction_id && (
+                                <p className="text-xs text-muted-foreground break-all">
+                                  Transaction ID: {sub.transaction_id}
+                                </p>
+                              )}
+                              {sub.payment_method && (
+                                <p className="text-xs text-muted-foreground break-words">
+                                  Payment Method: {sub.payment_method}
+                                </p>
+                              )}
+                              {sub.remarks && (
+                                <p className="text-xs text-muted-foreground">
+                                  Note: {sub.remarks}
+                                </p>
+                              )}
+                            </div>
+                          </details>
                         )}
                       </div>
                     </div>

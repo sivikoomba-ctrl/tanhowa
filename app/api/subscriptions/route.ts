@@ -5,6 +5,27 @@ import { validate, subscriptionUpdateSchema } from "@/lib/validation";
 
 // Emails excluded from subscription dues (test/system accounts)
 const SUBSCRIPTION_EXEMPT_EMAILS = [DEFAULT_ADMIN_EMAIL, "tanhowa19791@gmail.com"];
+
+// Upper bound on any subscription amount — catches bad inputs silently
+// becoming absurd values without requiring a schema change. 10 lakh rupees
+// is already far beyond anything TANHOWA dues would ever be.
+const MAX_SUBSCRIPTION_AMOUNT = 1_000_000;
+
+/**
+ * Parse a user-supplied amount into a finite non-negative number, or
+ * return null when the input is missing / non-numeric / out of range.
+ * Callers decide whether null means "reject the request" or "fall back
+ * to a known default". Previously these sites used
+ * `parseFloat(body.amount) || 0`, which silently rewrote NaN, negatives,
+ * and free-form strings to zero.
+ */
+function parseAmount(input: unknown): number | null {
+  if (input === null || input === undefined || input === "") return null;
+  const n = typeof input === "number" ? input : Number(input);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0 || n > MAX_SUBSCRIPTION_AMOUNT) return null;
+  return n;
+}
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
@@ -68,9 +89,13 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Build query — fetch subscriptions and stats in parallel
-      const limit = Math.min(parseInt(url.searchParams.get("limit") || "500"), 1000);
-      const offset = parseInt(url.searchParams.get("offset") || "0");
+      // Build query — fetch subscriptions and stats in parallel.
+      // Clamp to sane ranges; unbounded/negative offset previously produced
+      // `range(NaN, NaN-1)` and a Postgres error.
+      const rawLimit = parseInt(url.searchParams.get("limit") || "500");
+      const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 500, 1), 1000);
+      const rawOffset = parseInt(url.searchParams.get("offset") || "0");
+      const offset = Math.max(Number.isFinite(rawOffset) ? rawOffset : 0, 0);
 
       let query = supabase
         .from("subscriptions")
@@ -192,10 +217,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "All members already have subscriptions for this period" }, { status: 400 });
       }
 
+      const bulkAmount = parseAmount(body.amount);
+      if (bulkAmount === null) {
+        return NextResponse.json(
+          { error: "amount must be a number between 0 and 1,000,000" },
+          { status: 400 }
+        );
+      }
       const rows = newUsers.map((u: { id: string }) => ({
         user_id: u.id,
         period: body.period,
-        amount: parseFloat(body.amount) || 0,
+        amount: bulkAmount,
         due_date: body.due_date || null,
         status: "pending",
       }));
@@ -233,10 +265,17 @@ export async function POST(req: NextRequest) {
       }
 
       const isPaid = body.status === "paid";
+      const pastAmount = parseAmount(body.amount);
+      if (pastAmount === null) {
+        return NextResponse.json(
+          { error: "amount must be a number between 0 and 1,000,000" },
+          { status: 400 }
+        );
+      }
       const rows = newUserIds.map((uid: string) => ({
         user_id: uid,
         period: body.period,
-        amount: parseFloat(body.amount) || 0,
+        amount: pastAmount,
         due_date: body.due_date || null,
         status: isPaid ? "paid" : "pending",
         paid_at: isPaid ? (body.paid_at || new Date().toISOString()) : null,
@@ -303,12 +342,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "A subscription already exists for this member and period" }, { status: 400 });
       }
 
+      const singleAmount = parseAmount(body.amount);
+      if (singleAmount === null) {
+        return NextResponse.json(
+          { error: "amount must be a number between 0 and 1,000,000" },
+          { status: 400 }
+        );
+      }
       const { data, error } = await supabase
         .from("subscriptions")
         .insert({
           user_id: body.user_id,
           period: body.period,
-          amount: body.amount || 0,
+          amount: singleAmount,
           due_date: body.due_date || null,
           status: "pending",
         })
@@ -380,7 +426,14 @@ export async function PUT(req: NextRequest) {
           .eq("id", body.id)
           .single();
         if (fullSub?.period?.toLowerCase().startsWith("volunteer")) {
-          memberUpdates.amount = parseFloat(body.amount) || 0;
+          const memberAmount = parseAmount(body.amount);
+          if (memberAmount === null) {
+            return NextResponse.json(
+              { error: "amount must be a number between 0 and 1,000,000" },
+              { status: 400 }
+            );
+          }
+          memberUpdates.amount = memberAmount;
         }
       }
 

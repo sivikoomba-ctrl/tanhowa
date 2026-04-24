@@ -22,7 +22,8 @@ const mockRange = vi.fn(async () => ({
   count: 1,
 }));
 const mockOr = vi.fn(() => ({ range: mockRange }));
-const mockNeq = vi.fn(() => ({ or: mockOr, range: mockRange }));
+// `mockNeq` self-references so `.neq("email", ...).neq("email", ...)` chains cleanly.
+const mockNeq = vi.fn(() => ({ neq: mockNeq, or: mockOr, range: mockRange }));
 const mockEq = vi.fn(() => ({ neq: mockNeq, or: mockOr, range: mockRange }));
 const mockOrder = vi.fn(() => ({ eq: mockEq, neq: mockNeq, or: mockOr, range: mockRange }));
 const mockSelect = vi.fn(() => ({ order: mockOrder }));
