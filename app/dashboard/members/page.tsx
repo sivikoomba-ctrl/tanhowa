@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase, ChevronDown, ChevronUp, Calendar, Crown, Building2 } from "lucide-react";
+import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { useT } from "@/lib/i18n";
@@ -61,6 +61,40 @@ function getActivityStatus(lastActive: string | null | undefined): { label: stri
   if (hours < 24) return { label: `${Math.floor(hours)}h ago`, color: "text-amber-600", dot: "bg-amber-400" };
   const days = diff / 86400000;
   return { label: `${Math.floor(days)}d ago`, color: "text-muted-foreground", dot: "bg-gray-300" };
+}
+
+/**
+ * Collapse a member's role + official_type (up to 4 competing signals)
+ * into a single visual: an avatar ring color and one small text label.
+ * Mirrors the "one status per row" principle applied to todos — the 4
+ * colored Badges we used to stack next to the name encoded the same
+ * thing more loudly.
+ *
+ * Priority: site role (super_admin > admin) wins over official_type
+ * because admins always outrank officials in the permission hierarchy.
+ */
+function getRoleTheme(m: Member): {
+  ring: string;
+  label: string | null;
+  labelClass: string;
+} {
+  if (m.role === "super_admin")
+    return { ring: "ring-amber-500", label: "State-Admin", labelClass: "text-amber-700" };
+  if (m.role === "admin")
+    return { ring: "ring-accent", label: "Admin", labelClass: "text-accent" };
+  if (m.official_type === "state")
+    return { ring: "ring-purple-500", label: "State Official", labelClass: "text-purple-700" };
+  if (m.official_type === "district")
+    return {
+      ring: "ring-blue-500",
+      // The district designation (DS / DJS / Farm Manager etc.) is already
+      // surfaced on the occupation line below — keep this label terse.
+      label: "District Official",
+      labelClass: "text-blue-700",
+    };
+  if (m.official_type === "volunteer")
+    return { ring: "ring-emerald-500", label: "Volunteer", labelClass: "text-emerald-700" };
+  return { ring: "ring-transparent", label: null, labelClass: "" };
 }
 
 function getDesignationRank(occupation: string): number {
@@ -249,6 +283,7 @@ export default function MembersPage() {
           {filtered.map((m) => {
             const isExpanded = expandedId === m.id;
             const activity = getActivityStatus(m.last_active_at);
+            const theme = getRoleTheme(m);
             return (
               <Card key={m.id} className="hover:shadow-md transition-all hover:border-primary/20">
                 <CardContent className="pt-4 pb-4">
@@ -273,8 +308,11 @@ export default function MembersPage() {
                     }}
                   >
                     <div className="relative shrink-0">
+                      {/* Ring color encodes the member's role (see
+                          getRoleTheme) — replaces the 4 colored Badges
+                          that used to stack next to the name. */}
                       <Avatar
-                        className="w-12 h-12 ring-2 ring-transparent hover:ring-primary/20 transition-all"
+                        className={`w-12 h-12 ring-2 ${theme.ring} transition-all`}
                         onClick={(e) => { if (m.photo_url) { e.stopPropagation(); setViewPhoto({ url: m.photo_url, name: m.name }); } }}
                       >
                         {m.photo_url && <AvatarImage src={m.photo_url} alt={m.name} />}
@@ -286,27 +324,14 @@ export default function MembersPage() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-baseline gap-2 min-w-0">
                         <h3 className="font-semibold text-sm truncate uppercase">{m.name || "Unnamed"}</h3>
-                        {(m.role === "admin" || m.role === "super_admin") && (
-                          <Badge className={`text-[10px] px-1.5 py-0 ${m.role === "super_admin" ? "bg-amber-600 hover:bg-amber-600 text-white" : "bg-accent/15 text-accent border-accent/30"}`}>
-                            {m.role === "super_admin" ? "State-Admin" : "Admin"}
-                          </Badge>
-                        )}
-                        {m.official_type === "state" && (
-                          <Badge className="bg-purple-600 hover:bg-purple-600 text-white text-[10px] px-1.5 py-0">
-                            <Crown size={9} className="mr-0.5" />State
-                          </Badge>
-                        )}
-                        {m.official_type === "district" && (
-                          <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] px-1.5 py-0">
-                            <Building2 size={9} className="mr-0.5" />{m.posting_details?.official_designation || "District"}
-                          </Badge>
-                        )}
-                        {m.official_type === "volunteer" && (
-                          <Badge className="bg-green-600 hover:bg-green-600 text-white text-[10px] px-1.5 py-0">
-                            <Users size={9} className="mr-0.5" />Volunteer
-                          </Badge>
+                        {theme.label && (
+                          <span
+                            className={`text-[10px] font-semibold uppercase tracking-wide shrink-0 ${theme.labelClass}`}
+                          >
+                            {theme.label}
+                          </span>
                         )}
                       </div>
                       {m.occupation && (
