@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Eye, Pencil, Send, Clock } from "lucide-react";
+import { Plus, Trash2, Eye, Pencil, Send, Clock, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ export default function AdminAnnouncementsPage() {
   const [content, setContent] = useState("");
   const [scheduleMode, setScheduleMode] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
+  const [sendEmail, setSendEmail] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [readCounts, setReadCounts] = useState<Record<string, number>>({});
@@ -29,6 +31,7 @@ export default function AdminAnnouncementsPage() {
   const [editContent, setEditContent] = useState("");
   const [editScheduleMode, setEditScheduleMode] = useState(false);
   const [editScheduledAt, setEditScheduledAt] = useState("");
+  const [editSendEmail, setEditSendEmail] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
 
@@ -51,7 +54,7 @@ export default function AdminAnnouncementsPage() {
     e.preventDefault();
     setLoading(true);
 
-    const payload: Record<string, unknown> = { title, content };
+    const payload: Record<string, unknown> = { title, content, send_email: sendEmail };
     if (scheduleMode && scheduledAt) {
       payload.published = false;
       payload.scheduled_at = new Date(scheduledAt).toISOString();
@@ -71,6 +74,7 @@ export default function AdminAnnouncementsPage() {
       setContent("");
       setScheduleMode(false);
       setScheduledAt("");
+      setSendEmail(true);
       setDialogOpen(false);
       load();
     } else {
@@ -111,13 +115,14 @@ export default function AdminAnnouncementsPage() {
     setEditContent(a.content);
     setEditScheduleMode(!!a.scheduled_at);
     setEditScheduledAt(a.scheduled_at ? new Date(a.scheduled_at).toISOString().slice(0, 16) : "");
+    setEditSendEmail(true);
     setEditOpen(true);
   }
 
   async function handleEdit(e: React.FormEvent) {
     e.preventDefault();
     setEditLoading(true);
-    const editPayload: Record<string, unknown> = { id: editId, title: editTitle, content: editContent };
+    const editPayload: Record<string, unknown> = { id: editId, title: editTitle, content: editContent, send_email: editSendEmail };
     if (editScheduleMode && editScheduledAt) {
       editPayload.scheduled_at = new Date(editScheduledAt).toISOString();
       editPayload.published = false;
@@ -180,6 +185,12 @@ export default function AdminAnnouncementsPage() {
                   <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="mt-2" required />
                 )}
               </div>
+              <label className="flex items-center gap-2 cursor-pointer rounded-md border border-input p-2.5 hover:bg-accent/40">
+                <Checkbox checked={sendEmail} onCheckedChange={(v) => setSendEmail(v === true)} />
+                <Mail size={14} className="text-muted-foreground" />
+                <span className="text-sm">Email all members</span>
+                <span className="ml-auto text-xs text-muted-foreground">{sendEmail ? "on" : "off"}</span>
+              </label>
               <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90">
                 {loading ? "Creating..." : scheduleMode && scheduledAt ? "Schedule Announcement" : "Publish Announcement"}
               </Button>
@@ -262,6 +273,12 @@ export default function AdminAnnouncementsPage() {
                 <Input type="datetime-local" value={editScheduledAt} onChange={(e) => setEditScheduledAt(e.target.value)} className="mt-2" required />
               )}
             </div>
+            <label className="flex items-center gap-2 cursor-pointer rounded-md border border-input p-2.5 hover:bg-accent/40">
+              <Checkbox checked={editSendEmail} onCheckedChange={(v) => setEditSendEmail(v === true)} />
+              <Mail size={14} className="text-muted-foreground" />
+              <span className="text-sm">Email all members on re-publish</span>
+              <span className="ml-auto text-xs text-muted-foreground">{editSendEmail ? "on" : "off"}</span>
+            </label>
             <Button type="submit" disabled={editLoading} className="w-full bg-primary hover:bg-primary/90">
               {editLoading ? "Saving..." : editScheduleMode && editScheduledAt ? "Save & Schedule" : "Save Changes"}
             </Button>

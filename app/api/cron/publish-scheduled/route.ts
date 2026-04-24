@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
+import { notifyNewAnnouncement } from "@/lib/mail";
 
 export async function GET() {
   try {
@@ -9,7 +10,7 @@ export async function GET() {
     // Publish scheduled announcements
     const { data: announcements } = await supabase
       .from("announcements")
-      .select("id, title")
+      .select("id, title, content")
       .eq("published", false)
       .not("scheduled_at", "is", null)
       .lte("scheduled_at", now);
@@ -17,6 +18,7 @@ export async function GET() {
     let publishedCount = 0;
     for (const a of announcements || []) {
       await supabase.from("announcements").update({ published: true, scheduled_at: null }).eq("id", a.id);
+      notifyNewAnnouncement(a.title, a.content);
       publishedCount++;
     }
 

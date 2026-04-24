@@ -27,6 +27,7 @@ export const announcementCreateSchema = z.object({
   content: nonEmptyString.max(50000),
   published: z.boolean().optional(),
   scheduled_at: z.string().optional().nullable(),
+  send_email: z.boolean().optional(),
 });
 
 // Events

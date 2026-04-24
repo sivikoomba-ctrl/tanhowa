@@ -100,9 +100,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create announcement" }, { status: 500 });
     }
 
-    // Notify all members about the new announcement (fire-and-forget) — skip if scheduled for future
+    // Notify all members about the new announcement (fire-and-forget) — skip if scheduled for future or send_email=false
     const isScheduledFuture = data.scheduled_at && new Date(data.scheduled_at) > new Date();
-    if (data.published && !isScheduledFuture) {
+    const sendEmail = v.data.send_email !== false; // default true
+    if (data.published && !isScheduledFuture && sendEmail) {
       notifyNewAnnouncement(data.title, data.content);
     }
 
@@ -131,7 +132,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, title, content, published, scheduled_at } = body;
+    const { id, title, content, published, scheduled_at, send_email } = body;
     if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
     const supabase = getServiceClient();
@@ -161,11 +162,13 @@ export async function PUT(req: NextRequest) {
       if (current) translateContent("announcements", id, { title: current.title, content: current.content });
     }
 
-    // If just published, trigger notification broadcast
+    // If just published, trigger notification broadcast (unless send_email=false)
     if (published === true) {
       const { data: ann } = await supabase.from("announcements").select("title, content").eq("id", id).single();
       if (ann) {
-        notifyNewAnnouncement(ann.title, ann.content);
+        if (send_email !== false) {
+          notifyNewAnnouncement(ann.title, ann.content);
+        }
         translateContent("announcements", id, { title: ann.title, content: ann.content });
       }
     }
