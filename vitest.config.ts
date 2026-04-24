@@ -8,6 +8,10 @@ export default defineConfig({
     env: {
       JWT_SECRET: "test-secret-key-at-least-32-chars-long!!",
     },
+    // Keep vitest off the Playwright E2E specs — they import
+    // `@playwright/test` which vitest can't run. `npm run test:e2e`
+    // handles those.
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
   },
   resolve: {
     alias: {
