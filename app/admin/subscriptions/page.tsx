@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
@@ -83,6 +83,9 @@ const yearOptions = Array.from({ length: 7 }, (_, i) => String(currentYear - 2 +
 
 export default function AdminSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  // SectionTabs needs a controlled value — previously the Tabs was
+  // uncontrolled via defaultValue="members".
+  const [subTab, setSubTab] = useState("members");
   const [stats, setStats] = useState<Stats>({ paid: 0, pending: 0, overdue: 0, totalCollected: 0 });
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -1310,13 +1313,21 @@ export default function AdminSubscriptionsPage() {
         className="hidden"
       />
 
-      <Tabs defaultValue="members" onValueChange={(val) => { if (val === "district-report" && districtRows.length === 0) loadDistrictReport(); }}>
-        <TabsList>
-          <TabsTrigger value="members">Member Payments</TabsTrigger>
-          <TabsTrigger value="district-report" className="gap-1.5"><BarChart3 size={14} /> District Report</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="members" className="space-y-6 mt-4">
+      <SectionTabs
+        value={subTab}
+        onValueChange={(val) => {
+          setSubTab(val);
+          // Lazy-load district report on first switch — same behavior as
+          // the previous uncontrolled Tabs onValueChange side-effect.
+          if (val === "district-report" && districtRows.length === 0) loadDistrictReport();
+        }}
+        aria-label="Subscription admin sections"
+        tabs={[
+          { value: "members", label: "Member Payments" },
+          { value: "district-report", label: "District Report", icon: BarChart3 },
+        ]}
+      >
+        <SectionTabsContent value="members" className="space-y-6 mt-4">
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
@@ -1771,9 +1782,9 @@ export default function AdminSubscriptionsPage() {
         </div>
       )}
 
-        </TabsContent>
+        </SectionTabsContent>
 
-        <TabsContent value="district-report" className="space-y-4 mt-4">
+        <SectionTabsContent value="district-report" className="space-y-4 mt-4">
           {districtLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
@@ -1845,8 +1856,8 @@ export default function AdminSubscriptionsPage() {
               </div>
             </>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
 
       {/* Verify Payment Dialog */}
       <Dialog open={!!payDialog} onOpenChange={(open) => { if (!open) { setPayDialog(null); setPayeeInfo(null); setPayeeOverride(false); } }}>

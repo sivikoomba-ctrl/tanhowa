@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
@@ -364,15 +364,18 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Manage Users</h1>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={tab} className="mt-4 space-y-4">
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        aria-label="User account status filter"
+        tabs={[
+          { value: "all", label: "All" },
+          { value: "approved", label: "Approved" },
+          { value: "rejected", label: "Rejected" },
+          { value: "pending", label: "Pending" },
+        ]}
+      >
+        <SectionTabsContent value={tab} className="mt-4 space-y-4">
           {users.length > 0 && (
             <div className="flex items-center gap-4 text-sm">
               <span className="flex items-center gap-1.5">
@@ -492,8 +495,8 @@ export default function AdminUsersPage() {
               )}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
 
       {/* Nudge Dialog */}
       <NudgeDialog

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent, type SectionTabItem } from "@/components/section-tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -367,20 +367,24 @@ export default function ResolutionsPage() {
         )}
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="voting" className="gap-1.5">
-            <Vote size={14} />{t("resolution.voting")} ({votingOpen.length})
-          </TabsTrigger>
-          <TabsTrigger value="results" className="gap-1.5">
-            <Check size={14} />{t("resolution.results")} ({results.length})
-          </TabsTrigger>
-          {canCreate && (
-            <TabsTrigger value="my" className="gap-1.5">
-              <FileText size={14} />{t("resolution.my_drafts")} ({drafts.length})
-            </TabsTrigger>
-          )}
-        </TabsList>
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        aria-label="Resolution sections"
+        // Build the tab list dynamically — "My Drafts" only shows for
+        // members with canCreate. Keeps the conditional contained in the
+        // data array rather than conditionally-rendering a <TabsTrigger>.
+        tabs={((): SectionTabItem[] => {
+          const base: SectionTabItem[] = [
+            { value: "voting", label: t("resolution.voting"), icon: Vote, count: votingOpen.length },
+            { value: "results", label: t("resolution.results"), icon: Check, count: results.length },
+          ];
+          if (canCreate) {
+            base.push({ value: "my", label: t("resolution.my_drafts"), icon: FileText, count: drafts.length });
+          }
+          return base;
+        })()}
+      >
 
         {categories.length > 0 && (
           <div className="mt-3">
@@ -395,7 +399,7 @@ export default function ResolutionsPage() {
         )}
 
         {/* Voting Open */}
-        <TabsContent value="voting" className="mt-4">
+        <SectionTabsContent value="voting" className="mt-4">
           {votingOpen.length === 0 ? (
             <div className="text-center py-12">
               <Vote className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -408,10 +412,10 @@ export default function ResolutionsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
+        </SectionTabsContent>
 
         {/* Results */}
-        <TabsContent value="results" className="mt-4">
+        <SectionTabsContent value="results" className="mt-4">
           {results.length === 0 ? (
             <p className="text-muted-foreground text-center py-12">{t("resolution.no_results")}</p>
           ) : (
@@ -421,11 +425,11 @@ export default function ResolutionsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
+        </SectionTabsContent>
 
         {/* My Resolutions */}
         {canCreate && (
-          <TabsContent value="my" className="mt-4">
+          <SectionTabsContent value="my" className="mt-4">
             {drafts.length === 0 ? (
               <p className="text-muted-foreground text-center py-12">{t("resolution.no_drafts")}</p>
             ) : (
@@ -459,9 +463,9 @@ export default function ResolutionsPage() {
                 ))}
               </div>
             )}
-          </TabsContent>
+          </SectionTabsContent>
         )}
-      </Tabs>
+      </SectionTabs>
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>

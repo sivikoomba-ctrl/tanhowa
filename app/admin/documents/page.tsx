@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -580,14 +580,17 @@ export default function AdminDocumentsPage() {
         </DialogContent>
       </Dialog>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="pending">Pending Approval</TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="all">All</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={tab} className="mt-4">
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        aria-label="Document approval filter"
+        tabs={[
+          { value: "pending", label: "Pending Approval" },
+          { value: "approved", label: "Approved" },
+          { value: "all", label: "All" },
+        ]}
+      >
+        <SectionTabsContent value={tab} className="mt-4">
           {documents.length === 0 ? (
             <div className="text-center py-12">
               <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -686,8 +689,8 @@ export default function AdminDocumentsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
     </div>
   );
 }

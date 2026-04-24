@@ -1,7 +1,7 @@
 "use client";
 
-import { lazy, Suspense } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { lazy, Suspense, useState } from "react";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { BarChart3, IndianRupee, Receipt, Award, Users, ClipboardCheck } from "lucide-react";
 import { OverviewTab } from "./_components/overview-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
@@ -12,48 +12,56 @@ const MembersTab = lazy(() => import("./_components/members-tab").then(m => ({ d
 const PerformanceTab = lazy(() => import("./_components/performance-tab").then(m => ({ default: m.PerformanceTab })));
 
 export default function ReportsPage() {
+  // SectionTabs requires a controlled value/onValueChange pair, so the
+  // page moves from the previously-uncontrolled `defaultValue="overview"`
+  // to a useState. Same initial value; no behavioral difference for users.
+  const [tab, setTab] = useState("overview");
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Reports</h1>
 
-      <Tabs defaultValue="overview">
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="overview" className="flex items-center gap-1.5"><BarChart3 size={14} /> Overview</TabsTrigger>
-          <TabsTrigger value="subscriptions" className="flex items-center gap-1.5"><IndianRupee size={14} /> Subscriptions</TabsTrigger>
-          <TabsTrigger value="expenses" className="flex items-center gap-1.5"><Receipt size={14} /> Expenses</TabsTrigger>
-          <TabsTrigger value="contributions" className="flex items-center gap-1.5"><Award size={14} /> Contributions</TabsTrigger>
-          <TabsTrigger value="members" className="flex items-center gap-1.5"><Users size={14} /> Members</TabsTrigger>
-          <TabsTrigger value="performance" className="flex items-center gap-1.5"><ClipboardCheck size={14} /> Performance</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="mt-4">
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        aria-label="Reports dashboard sections"
+        tabs={[
+          { value: "overview", label: "Overview", icon: BarChart3 },
+          { value: "subscriptions", label: "Subscriptions", icon: IndianRupee },
+          { value: "expenses", label: "Expenses", icon: Receipt },
+          { value: "contributions", label: "Contributions", icon: Award },
+          { value: "members", label: "Members", icon: Users },
+          { value: "performance", label: "Performance", icon: ClipboardCheck },
+        ]}
+      >
+        <SectionTabsContent value="overview" className="mt-4">
           <OverviewTab />
-        </TabsContent>
+        </SectionTabsContent>
 
-        <TabsContent value="subscriptions" className="mt-4">
+        <SectionTabsContent value="subscriptions" className="mt-4">
           <SubscriptionsTab />
-        </TabsContent>
+        </SectionTabsContent>
 
-        <TabsContent value="expenses" className="mt-4">
+        <SectionTabsContent value="expenses" className="mt-4">
           <ExpensesTab />
-        </TabsContent>
+        </SectionTabsContent>
 
-        <TabsContent value="contributions" className="mt-4">
+        <SectionTabsContent value="contributions" className="mt-4">
           <ContributionsTab />
-        </TabsContent>
+        </SectionTabsContent>
 
-        <TabsContent value="members" className="mt-4">
+        <SectionTabsContent value="members" className="mt-4">
           <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
             <MembersTab />
           </Suspense>
-        </TabsContent>
+        </SectionTabsContent>
 
-        <TabsContent value="performance" className="mt-4">
+        <SectionTabsContent value="performance" className="mt-4">
           <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
             <PerformanceTab />
           </Suspense>
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
     </div>
   );
 }

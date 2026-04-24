@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Lightbulb, Trash2, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from "lucide-react";
@@ -118,15 +118,18 @@ export default function AdminSuggestionsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Suggestions</h1>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="in_progress">In Progress</TabsTrigger>
-          <TabsTrigger value="resolved">Resolved</TabsTrigger>
-          <TabsTrigger value="all">All</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={tab} className="mt-4">
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        aria-label="Suggestion status filter"
+        tabs={[
+          { value: "pending", label: "Pending" },
+          { value: "in_progress", label: "In Progress" },
+          { value: "resolved", label: "Resolved" },
+          { value: "all", label: "All" },
+        ]}
+      >
+        <SectionTabsContent value={tab} className="mt-4">
           {suggestions.length === 0 ? (
             <div className="text-center py-12">
               <Lightbulb className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -239,8 +242,8 @@ export default function AdminSuggestionsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
     </div>
   );
 }

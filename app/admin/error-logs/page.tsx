@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { toast } from "sonner";
 import { AlertTriangle, Trash2, ChevronLeft, ChevronRight, RefreshCw, CheckCircle2 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
@@ -163,16 +163,19 @@ export default function AdminErrorLogsPage() {
         Last refreshed: {formatDateTime(lastRefreshed)} {autoRefresh && "(auto-refreshing every 30s)"}
       </p>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="api">API</TabsTrigger>
-          <TabsTrigger value="client">Client</TabsTrigger>
-          <TabsTrigger value="auth">Auth</TabsTrigger>
-          <TabsTrigger value="unresolved">Unresolved</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={tab} className="mt-4">
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        aria-label="Error log type filter"
+        tabs={[
+          { value: "all", label: "All" },
+          { value: "api", label: "API" },
+          { value: "client", label: "Client" },
+          { value: "auth", label: "Auth" },
+          { value: "unresolved", label: "Unresolved" },
+        ]}
+      >
+        <SectionTabsContent value={tab} className="mt-4">
           {logs.length === 0 ? (
             <div className="text-center py-12">
               <AlertTriangle className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -287,8 +290,8 @@ export default function AdminErrorLogsPage() {
               </Button>
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
     </div>
   );
 }

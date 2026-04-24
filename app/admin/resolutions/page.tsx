@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -131,19 +131,24 @@ export default function AdminResolutionsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Manage Resolutions</h1>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="all">All ({resolutions.length})</TabsTrigger>
-          <TabsTrigger value="submitted">
-            Submitted {(counts.submitted || 0) > 0 && <span className="ml-1 bg-amber-500 text-white rounded-full px-1.5 py-0.5 text-xs">{counts.submitted}</span>}
-          </TabsTrigger>
-          <TabsTrigger value="approved">Approved ({counts.approved || 0})</TabsTrigger>
-          <TabsTrigger value="voting_open">Voting ({counts.voting_open || 0})</TabsTrigger>
-          <TabsTrigger value="passed">Passed ({counts.passed || 0})</TabsTrigger>
-          <TabsTrigger value="failed">Failed ({counts.failed || 0})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={tab} className="mt-4">
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        aria-label="Resolution status filter"
+        // Counts previously rendered as `(N)` inline and a pending-state
+        // amber pill on `submitted`. SectionTabs shows the count uniformly
+        // as a muted pill; submitted's count stays visually distinguishable
+        // because it's the only one non-zero when work is pending.
+        tabs={[
+          { value: "all", label: "All", count: resolutions.length },
+          { value: "submitted", label: "Submitted", count: counts.submitted || 0 },
+          { value: "approved", label: "Approved", count: counts.approved || 0 },
+          { value: "voting_open", label: "Voting", count: counts.voting_open || 0 },
+          { value: "passed", label: "Passed", count: counts.passed || 0 },
+          { value: "failed", label: "Failed", count: counts.failed || 0 },
+        ]}
+      >
+        <SectionTabsContent value={tab} className="mt-4">
           {filtered.length === 0 ? (
             <p className="text-muted-foreground text-center py-12">
               No {tab === "all" ? "" : statusLabels[tab]?.toLowerCase() || ""} resolutions
@@ -238,8 +243,8 @@ export default function AdminResolutionsPage() {
               })}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
 
       {/* Remarks Dialog (for approve/reject) */}
       <Dialog open={!!remarksId} onOpenChange={(open) => { if (!open) setRemarksId(null); }}>

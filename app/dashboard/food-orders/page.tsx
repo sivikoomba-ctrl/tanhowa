@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionTabs, SectionTabsContent } from "@/components/section-tabs";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import {
@@ -226,21 +226,17 @@ export default function FoodOrdersPage() {
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="menu" className="gap-1">
-            <UtensilsCrossed className="h-4 w-4" /> Menu
-          </TabsTrigger>
-          <TabsTrigger value="orders" className="gap-1">
-            <Package className="h-4 w-4" /> My Orders
-            {orders.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs">{orders.length}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
+      <SectionTabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        aria-label="Food orders sections"
+        tabs={[
+          { value: "menu", label: "Menu", icon: UtensilsCrossed },
+          { value: "orders", label: "My Orders", icon: Package, count: orders.length },
+        ]}
+      >
         {/* MENU TAB */}
-        <TabsContent value="menu" className="mt-4">
+        <SectionTabsContent value="menu" className="mt-4">
           {menuItems.length === 0 ? (
             <EmptyState />
           ) : (
@@ -318,10 +314,10 @@ export default function FoodOrdersPage() {
               ))}
             </div>
           )}
-        </TabsContent>
+        </SectionTabsContent>
 
         {/* ORDERS TAB */}
-        <TabsContent value="orders" className="mt-4">
+        <SectionTabsContent value="orders" className="mt-4">
           {orders.length === 0 ? (
             <EmptyState />
           ) : (
@@ -377,8 +373,8 @@ export default function FoodOrdersPage() {
               ))}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </SectionTabsContent>
+      </SectionTabs>
 
       {/* CART DIALOG */}
       <Dialog open={showCart} onOpenChange={setShowCart}>
