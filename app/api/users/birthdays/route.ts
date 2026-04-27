@@ -11,7 +11,7 @@ export async function GET() {
     const supabase = getServiceClient();
     const { data } = await supabase
       .from("users")
-      .select("name, dob, photo_url")
+      .select("name, dob, photo_url, occupation, social_links, posting_details")
       .eq("status", "approved")
       .neq("email", "tanhowa19791@gmail.com")
       .not("dob", "is", null);
@@ -22,7 +22,16 @@ export async function GET() {
     const today = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
     // Find birthdays in next 7 days (including today)
-    const upcoming: { name: string; dob: string; photo_url: string | null; isToday: boolean; daysUntil: number }[] = [];
+    const upcoming: {
+      name: string;
+      designation: string;
+      district: string;
+      block: string;
+      dob: string;
+      photo_url: string | null;
+      isToday: boolean;
+      daysUntil: number;
+    }[] = [];
 
     for (const u of data) {
       if (!u.dob) continue;
@@ -35,8 +44,22 @@ export async function GET() {
       const daysUntil = Math.ceil((thisYearBday.getTime() - now.getTime()) / 86400000);
 
       if (daysUntil <= 7 || mmdd === today) {
+        const sl = (u.social_links as Record<string, string>) || {};
+        const pd = (u.posting_details as Record<string, string>) || {};
+        const title = sl.title || "";
+        let displayName = u.name || "";
+        if (title && !displayName.toUpperCase().startsWith(title.toUpperCase())) {
+          displayName = `${title} ${displayName}`;
+        }
+        const designation = u.occupation || "";
+        const district = pd.special_duty_district || pd.deputed_district || pd.regular_district || "";
+        const block = pd.special_duty_block || pd.deputed_block || pd.regular_block || "";
+
         upcoming.push({
-          name: u.name,
+          name: displayName,
+          designation,
+          district,
+          block,
           dob: u.dob,
           photo_url: u.photo_url,
           isToday: mmdd === today,

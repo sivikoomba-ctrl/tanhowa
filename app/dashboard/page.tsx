@@ -64,7 +64,7 @@ export default function DashboardHome() {
   const [mySubscriptions, setMySubscriptions] = useState<MySubscription[]>([]);
   const [myContributions, setMyContributions] = useState({ count: 0, minutes: 0 });
   const [topContributors, setTopContributors] = useState<{ name: string; action_count: number; total_minutes: number }[]>([]);
-  const [birthdays, setBirthdays] = useState<{ name: string; isToday: boolean; daysUntil: number }[]>([]);
+  const [birthdays, setBirthdays] = useState<{ name: string; designation: string; district: string; block: string; isToday: boolean; daysUntil: number }[]>([]);
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
   const [milestones, setMilestones] = useState<string[]>([]);
@@ -413,13 +413,28 @@ export default function DashboardHome() {
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
               <Cake size={14} className="text-pink-500" /> {t("dash.upcoming_birthdays")}
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {birthdays.map((b) => (
-                <Badge key={b.name} variant="outline" className={`text-xs py-1 px-2.5 ${b.isToday ? "bg-pink-50 text-pink-700 border-pink-300" : ""}`}>
-                  {b.isToday ? "🎂 " : "🎈 "}{b.name}
-                  {b.isToday ? " — Today!" : ` — in ${b.daysUntil}d`}
-                </Badge>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {birthdays.map((b) => {
+                const place = [b.block, b.district].filter(Boolean).join(", ");
+                const subtitle = [b.designation, place].filter(Boolean).join(" • ");
+                return (
+                  <div
+                    key={b.name}
+                    className={`rounded-xl border px-3 py-2 ${b.isToday ? "bg-pink-50 border-pink-300" : "bg-muted/30 border-border"}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg leading-none mt-0.5">{b.isToday ? "🎂" : "🎈"}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${b.isToday ? "text-pink-700" : ""}`}>{b.name}</p>
+                        {subtitle && <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>}
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {b.isToday ? "Today!" : `in ${b.daysUntil} day${b.daysUntil === 1 ? "" : "s"}`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
