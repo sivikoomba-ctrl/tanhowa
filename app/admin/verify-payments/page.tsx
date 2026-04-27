@@ -685,15 +685,20 @@ export default function VerifyPaymentsPage() {
             </div>
           )}
           {previewUrl && (
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
                 Open in new tab
               </a>
-              {verifyTarget && (
-                <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => { handleDistrictVerify(verifyTarget); setPreviewUrl(null); setPreviewLoading(false); setVerifyTarget(null); }}>
-                  <CheckCircle2 size={14} /> Confirm Verify & Forward
+              <div className="flex items-center gap-2">
+                {verifyTarget && (
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => { handleDistrictVerify(verifyTarget); setPreviewUrl(null); setPreviewLoading(false); setVerifyTarget(null); }}>
+                    <CheckCircle2 size={14} /> Confirm Verify & Forward
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => { setPreviewUrl(null); setPreviewLoading(false); setVerifyTarget(null); setPreviewSub(null); }}>
+                  <XCircle size={14} /> Close
                 </Button>
-              )}
+              </div>
             </div>
           )}
         </DialogContent>
