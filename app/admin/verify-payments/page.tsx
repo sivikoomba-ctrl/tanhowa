@@ -648,44 +648,46 @@ export default function VerifyPaymentsPage() {
 
       {/* Proof Preview Dialog */}
       <Dialog open={!!previewUrl || previewLoading} onOpenChange={() => { setPreviewUrl(null); setPreviewLoading(false); setVerifyTarget(null); setPreviewSub(null); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pt-6 pb-3 border-b">
             <DialogTitle>Payment Proof</DialogTitle>
           </DialogHeader>
-          {previewSub && (
-            <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 text-sm">
-              <div>
-                <p className="font-medium">{previewSub.member_name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {previewSub.member_phone} &middot; {previewSub.period}
-                  {previewSub.transaction_id && <> &middot; Txn: {previewSub.transaction_id}</>}
-                </p>
+          <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0 space-y-3">
+            {previewSub && (
+              <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 text-sm">
+                <div>
+                  <p className="font-medium">{previewSub.member_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {previewSub.member_phone} &middot; {previewSub.period}
+                    {previewSub.transaction_id && <> &middot; Txn: {previewSub.transaction_id}</>}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-green-700">{previewSub.amount.toLocaleString("en-IN")}</p>
+                  <Badge variant="outline" className="text-[10px]">{previewSub.status}</Badge>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="font-semibold text-green-700">{previewSub.amount.toLocaleString("en-IN")}</p>
-                <Badge variant="outline" className="text-[10px]">{previewSub.status}</Badge>
+            )}
+            {previewLoading && (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
-            </div>
-          )}
-          {previewLoading && (
-            <div className="flex justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          )}
+            )}
+            {previewUrl && (
+              <div className="rounded-xl overflow-hidden border">
+                {previewUrl.toLowerCase().includes(".pdf") ? (
+                  <iframe src={previewUrl} className="w-full h-[70vh]" title="Payment Proof PDF" />
+                ) : (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={previewUrl} alt="Payment Proof" className="w-full" />
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           {previewUrl && (
-            <div className="rounded-xl overflow-hidden border">
-              {previewUrl.toLowerCase().includes(".pdf") ? (
-                <iframe src={previewUrl} className="w-full h-[70vh]" title="Payment Proof PDF" />
-              ) : (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={previewUrl} alt="Payment Proof" className="w-full" />
-                </>
-              )}
-            </div>
-          )}
-          {previewUrl && (
-            <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center justify-between gap-2 flex-wrap px-6 py-3 border-t bg-background">
               <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
                 Open in new tab
               </a>
