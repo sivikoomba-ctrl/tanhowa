@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 540" width="480" height="540" role="img" aria-label="TANHOWA - Tamil Nadu Horticultural Officers Welfare Association">
+  <title>TANHOWA Logo</title>
+
+  <defs>
+    <linearGradient id="petalA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#d9f99d"/>
+      <stop offset="35%" stop-color="#a3e635"/>
+      <stop offset="70%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#065f46"/>
+    </linearGradient>
+    <linearGradient id="petalB" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#bbf7d0"/>
+      <stop offset="35%" stop-color="#34d399"/>
+      <stop offset="70%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#064e3b"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="42%" cy="38%" r="62%">
+      <stop offset="0%"  stop-color="#fef9c3"/>
+      <stop offset="35%" stop-color="#fbbf24"/>
+      <stop offset="80%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#c2410c"/>
+    </radialGradient>
+    <linearGradient id="wordGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"  stop-color="#064e3b"/>
+      <stop offset="50%" stop-color="#047857"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <filter id="petalShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+      <feOffset dx="0" dy="3" result="off"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.30"/></feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="sunGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Bloom mark -->
+  <g transform="translate(240,200)" filter="url(#petalShadow)">
+    <g>
+      <g><path d="M 0,-30 C 36,-60 44,-118 0,-150 C -44,-118 -36,-60 0,-30 Z" fill="url(#petalA)"/></g>
+      <g transform="rotate(72)"><path d="M 0,-30 C 36,-60 44,-118 0,-150 C -44,-118 -36,-60 0,-30 Z" fill="url(#petalB)"/></g>
+      <g transform="rotate(144)"><path d="M 0,-30 C 36,-60 44,-118 0,-150 C -44,-118 -36,-60 0,-30 Z" fill="url(#petalA)"/></g>
+      <g transform="rotate(216)"><path d="M 0,-30 C 36,-60 44,-118 0,-150 C -44,-118 -36,-60 0,-30 Z" fill="url(#petalB)"/></g>
+      <g transform="rotate(288)"><path d="M 0,-30 C 36,-60 44,-118 0,-150 C -44,-118 -36,-60 0,-30 Z" fill="url(#petalA)"/></g>
+    </g>
+    <circle r="36" fill="url(#sun)" filter="url(#sunGlow)"/>
+    <circle cx="-10" cy="-12" r="10" fill="#fef9c3" opacity="0.55"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="240" y="430" font-family="'Inter', 'Helvetica Neue', sans-serif" font-size="68" font-weight="900" fill="url(#wordGrad)" text-anchor="middle" letter-spacing="-2">TANHOWA</text>
+
+  <!-- Underline accent -->
+  <line x1="120" y1="448" x2="360" y2="448" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Full name -->
+  <text x="240" y="478" font-family="'Inter', 'Helvetica Neue', sans-serif" font-size="13" font-weight="700" fill="#064e3b" text-anchor="middle" letter-spacing="3.2">TAMIL NADU HORTICULTURAL OFFICERS WELFARE ASSOCIATION</text>
+
+  <!-- Tagline -->
+  <text x="240" y="508" font-family="'Inter', 'Helvetica Neue', sans-serif" font-size="12" font-weight="500" font-style="italic" fill="#65a30d" text-anchor="middle" letter-spacing="2">Growing Together &#8226; Nurturing Tomorrow</text>
+</svg>

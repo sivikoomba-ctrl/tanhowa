@@ -98,6 +98,7 @@ const navItems = [
   { href: "/dashboard/calendar", labelKey: "nav.calendar" as const, icon: CalendarDays },
   { href: "/dashboard/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
   { href: "/dashboard/polls", labelKey: "nav.polls" as const, icon: BarChart3 },
+  { href: "/dashboard/logo-vote", labelKey: "nav.logo_vote" as const, icon: Flower2 },
   { href: "/dashboard/documents", labelKey: "nav.documents" as const, icon: FileText },
   { href: "/dashboard/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
   { href: "/dashboard/payment-status", labelKey: "nav.payment_status" as const, icon: IndianRupee },

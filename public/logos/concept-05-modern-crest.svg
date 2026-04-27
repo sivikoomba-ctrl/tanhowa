@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500" role="img" aria-label="TANHOWA - Modern Crest concept">
+  <title>Concept 5 — Modern Geometric Crest</title>
+  <defs>
+    <linearGradient id="c5crest" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#166534"/>
+      <stop offset="100%" stop-color="#14532d"/>
+    </linearGradient>
+    <linearGradient id="c5leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#bef264"/>
+      <stop offset="55%" stop-color="#65a30d"/>
+      <stop offset="100%" stop-color="#365314"/>
+    </linearGradient>
+    <linearGradient id="c5gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#facc15"/>
+      <stop offset="100%" stop-color="#a16207"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(200,200)">
+    <!-- Crest silhouette: chamfered diamond / modernised shield -->
+    <path d="M 0,-115 L 90,-70 L 100,30 L 0,120 L -100,30 L -90,-70 Z" fill="url(#c5crest)"/>
+    <!-- Inner crest line -->
+    <path d="M 0,-100 L 78,-62 L 87,28 L 0,105 L -87,28 L -78,-62 Z" fill="none" stroke="url(#c5gold)" stroke-width="1.4"/>
+    <!-- Decorative inner dotted -->
+    <path d="M 0,-90 L 70,-56 L 78,26 L 0,95 L -78,26 L -70,-56 Z" fill="none" stroke="#a16207" stroke-width="0.6" stroke-dasharray="1 4"/>
+
+    <!-- Top brass dot -->
+    <circle cx="0" cy="-100" r="4" fill="url(#c5gold)"/>
+
+    <!-- Bold central leaf with single bold vein -->
+    <path d="M 0,55 C -45,30 -55,-25 0,-65 C 55,-25 45,30 0,55 Z" fill="url(#c5leaf)"/>
+    <line x1="0" y1="55" x2="0" y2="-65" stroke="#fefce8" stroke-width="1.5" opacity="0.7"/>
+
+    <!-- Side veins -->
+    <path d="M 0,28 Q -18,16 -32,6" stroke="#fefce8" stroke-width="0.8" fill="none" opacity="0.55"/>
+    <path d="M 0,28 Q 18,16 32,6" stroke="#fefce8" stroke-width="0.8" fill="none" opacity="0.55"/>
+    <path d="M 0,0 Q -20,-12 -34,-26" stroke="#fefce8" stroke-width="0.8" fill="none" opacity="0.55"/>
+    <path d="M 0,0 Q 20,-12 34,-26" stroke="#fefce8" stroke-width="0.8" fill="none" opacity="0.55"/>
+
+    <!-- Two side accents -->
+    <circle cx="-65" cy="-15" r="2.5" fill="url(#c5gold)"/>
+    <circle cx="65" cy="-15" r="2.5" fill="url(#c5gold)"/>
+
+    <!-- Est.line at base -->
+    <text x="0" y="92" font-family="Inter,sans-serif" font-size="8" font-weight="800" fill="#facc15" text-anchor="middle" letter-spacing="3">EST. TAMIL NADU</text>
+  </g>
+
+  <text x="200" y="385" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" fill="#14532d" text-anchor="middle" letter-spacing="5">TANHOWA</text>
+  <line x1="135" y1="402" x2="265" y2="402" stroke="#a16207" stroke-width="1.5" stroke-linecap="round"/>
+  <text x="200" y="426" font-family="Inter, Helvetica, sans-serif" font-size="9.5" font-weight="600" fill="#3f6212" text-anchor="middle" letter-spacing="3">HORTICULTURAL OFFICERS WELFARE ASSOCIATION</text>
+</svg>
