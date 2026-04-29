@@ -108,7 +108,9 @@ async function sendTelegram(chatId: string, text: string) {
 
 /**
  * Check if daily greetings have already run today. If not, run them.
- * Called fire-and-forget from /api/users/me GET.
+ * Called fire-and-forget from /api/users/me GET, and also by the
+ * /api/cron/daily-greetings cron route. Atomic — the unique-key INSERT
+ * on a dated marker row ensures only one concurrent caller does the work.
  */
 export async function triggerDailyGreetings() {
   try {
@@ -119,16 +121,15 @@ export async function triggerDailyGreetings() {
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     const mmdd = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-    // Check last run date
-    const { data: setting } = await supabase
+    // Atomic claim of today's run. site_settings.key has a unique constraint,
+    // so only the first concurrent request to insert this dated marker succeeds;
+    // any other concurrent caller gets a duplicate-key error and bails out.
+    const { error: claimErr } = await supabase
       .from("site_settings")
-      .select("value")
-      .eq("key", "daily_greetings_last_run")
-      .single();
+      .insert({ key: `daily_greetings_run_${todayStr}`, value: "1" });
+    if (claimErr) return; // Another request already claimed today's run
 
-    if (setting?.value === todayStr) return; // Already ran today
-
-    // Mark as running immediately (prevent duplicate runs from concurrent requests)
+    // Update the canonical last-run pointer for diagnostics
     await supabase.from("site_settings").upsert({
       key: "daily_greetings_last_run",
       value: todayStr,
