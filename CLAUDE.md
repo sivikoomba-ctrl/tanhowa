@@ -286,7 +286,7 @@ Self-triggering birthday + festival greetings system. `triggerDailyGreetings()` 
 
 - **Birthday:** Finds members with matching DOB month/day, sends personalized email + Telegram + creates announcement
 - **Festival:** Checks 15+ Tamil Nadu/Indian festivals against today's date, sends broadcast email + Telegram + creates announcement
-- **Fallback:** Also available as Python tools (`tools/birthday_greetings.py`, `tools/festival_greetings.py`) for manual/forced runs
+- **Fallback:** Also available as a Python tool (`tools/daily_greetings.py`) for manual/forced runs — shares the same atomic lock so it won't duplicate
 
 ## Auto Gender Detection
 
