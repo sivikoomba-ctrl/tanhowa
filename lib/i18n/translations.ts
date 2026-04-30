@@ -244,6 +244,11 @@ const translations = {
   "dash.failed_announcements": { en: "Failed to load announcements", ta: "அறிவிப்புகளை ஏற்ற இயலவில்லை" },
   "dash.failed_events": { en: "Failed to load events", ta: "நிகழ்வுகளை ஏற்ற இயலவில்லை" },
   "dash.failed_subscriptions": { en: "Failed to load subscriptions", ta: "சந்தாக்களை ஏற்ற இயலவில்லை" },
+  "dash.todays_focus": { en: "Today's Focus", ta: "இன்றைய கவனம்" },
+  "dash.no_active_tasks": { en: "No active tasks — you're all caught up!", ta: "செயலில் பணிகள் இல்லை — அனைத்தும் முடிந்தது!" },
+  "dash.task_due": { en: "Due", ta: "காலக்கெடு" },
+  "dash.task_in_progress": { en: "In Progress", ta: "செயலில் உள்ளது" },
+  "dash.task_to_commit": { en: "Approved", ta: "ஒப்புதல் பெற்றது" },
 
   // Landing / Login page
   "login.tagline": { en: "Connecting Horticultural Officers across Tamil Nadu", ta: "தமிழ்நாடு முழுவதும் தோட்டக்கலை அதிகாரிகளை இணைக்கிறது" },

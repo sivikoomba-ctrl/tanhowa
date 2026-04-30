@@ -56,6 +56,31 @@ interface ActivePoll {
   myVote: number | null;
 }
 
+interface TodayTodo {
+  id: string;
+  event_id: string;
+  title: string;
+  status: string;
+  urgent: boolean;
+  important: boolean;
+  due_date: string | null;
+  committedByMe: boolean;
+}
+
+function todayQuadrantLabel(urgent: boolean, important: boolean): string | null {
+  if (urgent && important) return "Do First";
+  if (!urgent && important) return "Schedule";
+  if (urgent && !important) return "Delegate";
+  return null; // Eliminate quadrant — don't show a pill
+}
+
+function todayQuadrantColor(urgent: boolean, important: boolean): string {
+  if (urgent && important) return "bg-red-100 text-red-700 border-red-200";
+  if (!urgent && important) return "bg-blue-100 text-blue-700 border-blue-200";
+  if (urgent && !important) return "bg-amber-100 text-amber-700 border-amber-200";
+  return "bg-gray-100 text-gray-700 border-gray-200";
+}
+
 export default function DashboardHome() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -72,6 +97,7 @@ export default function DashboardHome() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [streak, setStreak] = useState(0);
   const [activePoll, setActivePoll] = useState<ActivePoll | null>(null);
+  const [todayTodos, setTodayTodos] = useState<TodayTodo[]>([]);
   const [activityFeed, setActivityFeed] = useState<{ id: string; user_name: string; action: string; description: string; created_at: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -176,6 +202,11 @@ export default function DashboardHome() {
     // Fetch activity feed (recent portal activity)
     fetch("/api/contributions?feed=true&limit=8").then((r) => r.json())
       .then((d) => setActivityFeed(d.activities || []))
+      .catch(() => {});
+
+    // Fetch top 3 active tasks for Today's Focus card
+    fetch("/api/todos/today").then((r) => r.json())
+      .then((d) => setTodayTodos(d.todos || []))
       .catch(() => {});
 
     // Fetch most recent active poll for Quick Poll widget
@@ -494,6 +525,71 @@ export default function DashboardHome() {
             </div>
             {activePoll.totalVotes > 0 && (
               <p className="text-xs text-muted-foreground mt-2">{activePoll.totalVotes} vote{activePoll.totalVotes !== 1 ? "s" : ""}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Today's Focus — top 3 active tasks for the user */}
+      {loaded && (
+        <Card className="border-primary/20">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <ListTodo size={14} className="text-green-600" /> {t("dash.todays_focus")}
+              </h3>
+              <Link href="/dashboard/todos" className="text-xs text-primary hover:underline flex items-center gap-1">
+                {t("dash.view_all")} <ArrowRight size={12} />
+              </Link>
+            </div>
+            {todayTodos.length === 0 ? (
+              <div className="text-center py-6">
+                <ListTodo size={28} className="mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">{t("dash.no_active_tasks")}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {todayTodos.map((todo) => {
+                  const qLabel = todayQuadrantLabel(todo.urgent, todo.important);
+                  const qColor = todayQuadrantColor(todo.urgent, todo.important);
+                  const isInProgress = todo.status === "in_progress";
+                  const dueLabel = todo.due_date
+                    ? new Date(todo.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
+                    : null;
+                  return (
+                    <Link key={todo.id} href="/dashboard/todos" className="block">
+                      <div className="rounded-xl border border-border bg-muted/20 hover:bg-muted/40 transition-colors p-3 h-full flex flex-col">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 bg-background">
+                            {todo.event_id}
+                          </Badge>
+                          {qLabel && (
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${qColor}`}>
+                              {qLabel}
+                            </Badge>
+                          )}
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-1.5 py-0 ${
+                              isInProgress
+                                ? "bg-blue-50 text-blue-700 border-blue-200"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            }`}
+                          >
+                            {isInProgress ? t("dash.task_in_progress") : t("dash.task_to_commit")}
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-medium line-clamp-2 flex-1">{todo.title}</p>
+                        {dueLabel && (
+                          <p className="text-[11px] text-muted-foreground mt-1.5">
+                            {t("dash.task_due")}: {dueLabel}
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
             )}
           </CardContent>
         </Card>
