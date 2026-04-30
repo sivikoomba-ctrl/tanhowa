@@ -17,6 +17,67 @@ export async function sendTelegramMessage(chatId: string | number, text: string,
   return res.json();
 }
 
+export interface InlineButton {
+  text: string;
+  callback_data?: string;
+  url?: string;
+}
+export type InlineKeyboard = InlineButton[][];
+
+export async function sendTelegramMessageWithKeyboard(
+  chatId: string | number,
+  text: string,
+  keyboard: InlineKeyboard,
+  parseMode: "HTML" | "Markdown" = "HTML"
+) {
+  if (!BOT_TOKEN) return null;
+
+  const res = await fetch(`${API_BASE}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: parseMode,
+      reply_markup: { inline_keyboard: keyboard },
+    }),
+  });
+
+  return res.json();
+}
+
+export async function answerCallbackQuery(callbackQueryId: string, text?: string) {
+  if (!BOT_TOKEN) return null;
+
+  const res = await fetch(`${API_BASE}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      callback_query_id: callbackQueryId,
+      ...(text ? { text } : {}),
+    }),
+  });
+
+  return res.json();
+}
+
+export async function sendForceReply(chatId: string | number, text: string, parseMode: "HTML" | "Markdown" = "HTML") {
+  if (!BOT_TOKEN) return null;
+
+  const res = await fetch(`${API_BASE}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: parseMode,
+      reply_markup: { force_reply: true, selective: false },
+    }),
+  });
+
+  return res.json();
+}
+
 export async function setWebhook(url: string) {
   if (!BOT_TOKEN) return null;
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { sendTelegramMessage, notifyTaskCommitted, notifyTaskStatusChanged } from "@/lib/telegram";
+import { sendTelegramMessage, notifyTaskCommitted, notifyTaskStatusChanged, answerCallbackQuery, sendForceReply } from "@/lib/telegram";
 import { logContribution } from "@/lib/contributions";
 import { sendOTPEmail } from "@/lib/mail";
 import { logError } from "@/lib/error-logger";
@@ -12,6 +12,13 @@ interface TelegramUpdate {
     chat: { id: number };
     from?: { id: number; first_name?: string; username?: string };
     text?: string;
+    reply_to_message?: { text?: string };
+  };
+  callback_query?: {
+    id: string;
+    from: { id: number; first_name?: string; username?: string };
+    message?: { chat: { id: number } };
+    data?: string;
   };
 }
 
@@ -29,6 +36,13 @@ export async function POST(req: NextRequest) {
     }
 
     const update: TelegramUpdate = await req.json();
+    const supabase = getServiceClient();
+
+    // Inline-keyboard button taps from daily-briefing messages
+    if (update.callback_query) {
+      return await handleCallbackQuery(supabase, update.callback_query);
+    }
+
     const message = update.message;
     if (!message?.text) {
       return NextResponse.json({ ok: true });
@@ -36,7 +50,19 @@ export async function POST(req: NextRequest) {
 
     const chatId = message.chat.id;
     const text = message.text.trim();
-    const supabase = getServiceClient();
+
+    // Force-reply follow-ups (user replied to a "what's blocking?" / "your update?" prompt)
+    if (message.reply_to_message?.text) {
+      const replyTo = message.reply_to_message.text;
+      const blockedPrompt = replyTo.match(/blocking\s+(ET-[\d-]+)/i);
+      if (blockedPrompt) {
+        return await handleBlocked(supabase, chatId, blockedPrompt[1].toUpperCase(), text);
+      }
+      const updatePrompt = replyTo.match(/update\s+for\s+(ET-[\d-]+)/i);
+      if (updatePrompt) {
+        return await handleAddNote(supabase, chatId, updatePrompt[1].toUpperCase(), text, "update");
+      }
+    }
 
     // /start command — welcome message
     if (text === "/start") {
@@ -584,5 +610,39 @@ async function handleBlocked(supabase: any, chatId: number, eventId: string, rea
   })();
 
   await sendTelegramMessage(chatId, `🚧 <b>Blocker recorded on ${eventId}</b>\nAdmins have been notified. Use /update ${eventId} message to add more context.`);
+  return NextResponse.json({ ok: true });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleCallbackQuery(supabase: any, query: NonNullable<TelegramUpdate["callback_query"]>) {
+  const data = (query.data || "").trim();
+  const chatId = query.message?.chat?.id;
+  if (!chatId) {
+    await answerCallbackQuery(query.id);
+    return NextResponse.json({ ok: true });
+  }
+
+  // Acknowledge tap immediately so the spinner clears even if downstream is slow
+  await answerCallbackQuery(query.id);
+
+  // Expected formats: "done:ET-001", "blocked:ET-001", "update:ET-001"
+  const [action, rawEventId] = data.split(":");
+  const eventId = (rawEventId || "").toUpperCase();
+  if (!eventId.match(/^ET-[\d-]+$/)) {
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "done") {
+    return await handleDone(supabase, chatId, eventId, "");
+  }
+  if (action === "blocked") {
+    await sendForceReply(chatId, `🚧 Reply with what's blocking <b>${eventId}</b>:`);
+    return NextResponse.json({ ok: true });
+  }
+  if (action === "update") {
+    await sendForceReply(chatId, `📝 Reply with your update for <b>${eventId}</b>:`);
+    return NextResponse.json({ ok: true });
+  }
+
   return NextResponse.json({ ok: true });
 }
