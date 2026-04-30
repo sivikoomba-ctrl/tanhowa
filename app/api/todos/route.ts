@@ -4,7 +4,7 @@ import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
-import { notifyTaskCommitted, notifyTaskStatusChanged } from "@/lib/telegram";
+import { notifyTaskAssigned, notifyTaskCommitted, notifyTaskStatusChanged } from "@/lib/telegram";
 import { validate, todoCreateSchema } from "@/lib/validation";
 import { writeLimiter } from "@/lib/rate-limit";
 
@@ -528,6 +528,19 @@ export async function PUT(req: NextRequest) {
       if (body.due_date !== undefined) updates.due_date = body.due_date || null;
     }
 
+    // Capture prior assignment so we can notify the new assignee(s) if it changed
+    let priorAssignedTo: string | null = null;
+    let priorAssignedTeamId: string | null = null;
+    if (dbRole === "admin" && (body.assigned_to !== undefined || body.assigned_team_id !== undefined)) {
+      const { data: prior } = await supabase
+        .from("todos")
+        .select("assigned_to, assigned_team_id")
+        .eq("id", body.id)
+        .single();
+      priorAssignedTo = prior?.assigned_to || null;
+      priorAssignedTeamId = prior?.assigned_team_id || null;
+    }
+
     let query = supabase.from("todos").update(updates).eq("id", body.id);
 
     // Non-admins can only edit their own tasks
@@ -577,6 +590,55 @@ export async function PUT(req: NextRequest) {
             notifyTaskStatusChanged(u.telegram_chat_id, taskFull.title, taskFull.event_id, body.status).catch(() => {});
           }
         } catch (e) { logError({ type: "api", message: `Notification failed: ${e instanceof Error ? e.message : String(e)}`, path: "/api/todos", method: "PUT", status_code: 500 }); }
+      })();
+    }
+
+    // Fire-and-forget: notify on (re)assignment — fan out to user or team members
+    const newAssignedTo = body.assigned_to !== undefined ? (body.assigned_to || null) : null;
+    const newAssignedTeamId = body.assigned_team_id !== undefined ? (body.assigned_team_id || null) : null;
+    const assigneeChanged = body.assigned_to !== undefined && newAssignedTo && newAssignedTo !== priorAssignedTo;
+    const teamChanged = body.assigned_team_id !== undefined && newAssignedTeamId && newAssignedTeamId !== priorAssignedTeamId;
+    if (dbRole === "admin" && (assigneeChanged || teamChanged)) {
+      (async () => {
+        try {
+          const { data: taskFull } = await supabase
+            .from("todos")
+            .select("title, event_id")
+            .eq("id", body.id)
+            .single();
+          if (!taskFull) return;
+
+          const { data: actor } = await supabase
+            .from("users")
+            .select("name")
+            .eq("id", session.userId)
+            .single();
+          const actorName = actor?.name || "Admin";
+
+          // Build the recipient set: individual assignee or all team members
+          const recipientIds = new Set<string>();
+          if (assigneeChanged && newAssignedTo) recipientIds.add(newAssignedTo);
+          if (teamChanged && newAssignedTeamId) {
+            const { data: members } = await supabase
+              .from("team_members")
+              .select("user_id")
+              .eq("team_id", newAssignedTeamId);
+            for (const m of members || []) recipientIds.add(m.user_id);
+          }
+          recipientIds.delete(session.userId); // Don't notify the admin who assigned it
+
+          if (recipientIds.size === 0) return;
+
+          const { data: users } = await supabase
+            .from("users")
+            .select("telegram_chat_id")
+            .in("id", Array.from(recipientIds))
+            .not("telegram_chat_id", "is", null);
+
+          for (const u of users || []) {
+            notifyTaskAssigned(u.telegram_chat_id, taskFull.title, taskFull.event_id, actorName).catch(() => {});
+          }
+        } catch (e) { logError({ type: "api", message: `Assignment notification failed: ${e instanceof Error ? e.message : String(e)}`, path: "/api/todos", method: "PUT", status_code: 500 }); }
       })();
     }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { sendTelegramMessage } from "@/lib/telegram";
+import { sendTelegramMessage, notifyTaskCommitted, notifyTaskStatusChanged } from "@/lib/telegram";
+import { logContribution } from "@/lib/contributions";
 import { sendOTPEmail } from "@/lib/mail";
 import { logError } from "@/lib/error-logger";
 
@@ -46,6 +47,9 @@ export async function POST(req: NextRequest) {
           "Send your registered <b>email address</b> to receive a verification code, then use <b>/link your@email.com 123456</b>.\n\n" +
           "<b>Commands:</b>\n" +
           "/mytasks — View your active tasks\n" +
+          "/commit ET-XXX [hours] — Commit to a task (optional timebox)\n" +
+          "/done ET-XXX [message] — Submit task for completion review\n" +
+          "/blocked ET-XXX reason — Report a blocker\n" +
           "/update ET-XXX Your message — Add a note to a task\n" +
           "/report ET-XXX Your report — Submit a report\n" +
           "/status — Check link status"
@@ -139,6 +143,30 @@ export async function POST(req: NextRequest) {
       const eventId = reportMatch[1].toUpperCase();
       const noteContent = reportMatch[2].trim();
       return await handleAddNote(supabase, chatId, eventId, noteContent, "report");
+    }
+
+    // /commit ET-XXX [hours] — commit to a task with optional timebox
+    const commitMatch = text.match(/^\/commit\s+(ET-[\d-]+)(?:\s+(\d+(?:\.\d+)?))?\s*$/i);
+    if (commitMatch) {
+      const eventId = commitMatch[1].toUpperCase();
+      const hours = commitMatch[2] ? parseFloat(commitMatch[2]) : null;
+      return await handleCommit(supabase, chatId, eventId, hours);
+    }
+
+    // /done ET-XXX [message] — submit task for completion review
+    const doneMatch = text.match(/^\/done\s+(ET-[\d-]+)(?:\s+(.+))?$/i);
+    if (doneMatch) {
+      const eventId = doneMatch[1].toUpperCase();
+      const summary = doneMatch[2]?.trim() || "";
+      return await handleDone(supabase, chatId, eventId, summary);
+    }
+
+    // /blocked ET-XXX reason — report a blocker
+    const blockedMatch = text.match(/^\/blocked\s+(ET-[\d-]+)\s+(.+)$/i);
+    if (blockedMatch) {
+      const eventId = blockedMatch[1].toUpperCase();
+      const reason = blockedMatch[2].trim();
+      return await handleBlocked(supabase, chatId, eventId, reason);
     }
 
     const linkMatch = text.match(/^\/link\s+([^\s]+@[^\s]+)\s+(\d{6})$/i);
@@ -246,7 +274,7 @@ export async function POST(req: NextRequest) {
     // Unrecognized command
     await sendTelegramMessage(
       chatId,
-      "🤔 I didn't understand that.\n\n<b>Available commands:</b>\n/mytasks — Your active tasks\n/update ET-XXX message — Add update\n/report ET-XXX message — Submit report\n/status — Check link status\n/link your@email.com 123456 — Complete account linking\n\nOr send your email to receive a verification code."
+      "🤔 I didn't understand that.\n\n<b>Available commands:</b>\n/mytasks — Your active tasks\n/commit ET-XXX [hours] — Commit to a task\n/done ET-XXX [message] — Submit for review\n/blocked ET-XXX reason — Report a blocker\n/update ET-XXX message — Add update\n/report ET-XXX message — Submit report\n/status — Check link status\n/link your@email.com 123456 — Complete account linking\n\nOr send your email to receive a verification code."
     );
 
     return NextResponse.json({ ok: true });
@@ -323,5 +351,238 @@ async function handleAddNote(supabase: any, chatId: number, eventId: string, con
     chatId,
     `✅ <b>${typeLabel} added</b> to <b>${eventId}</b> — ${todo.title}`
   );
+  return NextResponse.json({ ok: true });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleCommit(supabase: any, chatId: number, eventId: string, hours: number | null) {
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, name")
+    .eq("telegram_chat_id", String(chatId))
+    .single();
+  if (!user) {
+    await sendTelegramMessage(chatId, "❌ Account not linked. Send your email first.");
+    return NextResponse.json({ ok: true });
+  }
+
+  const { data: todo } = await supabase
+    .from("todos")
+    .select("id, title, event_id, status, committed_by, submitted_by, assigned_to, assigned_team_id")
+    .eq("event_id", eventId)
+    .single();
+  if (!todo) {
+    await sendTelegramMessage(chatId, `❌ Task <b>${eventId}</b> not found.`);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (todo.committed_by && todo.committed_by !== user.id) {
+    await sendTelegramMessage(chatId, `⚠️ <b>${eventId}</b> is already committed by another member.`);
+    return NextResponse.json({ ok: true });
+  }
+  if (!["approved", "in_progress"].includes(todo.status)) {
+    await sendTelegramMessage(chatId, `⚠️ <b>${eventId}</b> cannot be committed (status: ${todo.status}). Only approved or in-progress tasks can be committed.`);
+    return NextResponse.json({ ok: true });
+  }
+
+  // Authorization: must be the assignee, or member of assigned team, or already committed
+  const { data: userTeams } = await supabase
+    .from("team_members")
+    .select("team_id")
+    .eq("user_id", user.id);
+  const teamIds = new Set((userTeams || []).map((row: { team_id: string }) => row.team_id));
+  const canCommit =
+    todo.assigned_to === user.id ||
+    todo.committed_by === user.id ||
+    (todo.assigned_team_id && teamIds.has(todo.assigned_team_id)) ||
+    (!todo.assigned_to && !todo.assigned_team_id); // unassigned tasks open to anyone
+  if (!canCommit) {
+    await sendTelegramMessage(chatId, `❌ You are not assigned to <b>${eventId}</b>.`);
+    return NextResponse.json({ ok: true });
+  }
+
+  const updates: Record<string, unknown> = {
+    committed_by: user.id,
+    committed_at: new Date().toISOString(),
+    status: "in_progress",
+    updated_at: new Date().toISOString(),
+  };
+  if (hours && hours > 0) updates.timebox_hours = hours;
+
+  const { error } = await supabase.from("todos").update(updates).eq("id", todo.id);
+  if (error) {
+    await sendTelegramMessage(chatId, "❌ Failed to commit. Try again.");
+    return NextResponse.json({ ok: true });
+  }
+
+  logContribution(user.id, "task_committed", `Committed to ${eventId} via Telegram`);
+
+  // Notify submitter & admins (mirrors PUT commit-action behavior)
+  (async () => {
+    try {
+      if (todo.submitted_by && todo.submitted_by !== user.id) {
+        const { data: submitter } = await supabase
+          .from("users")
+          .select("telegram_chat_id")
+          .eq("id", todo.submitted_by)
+          .single();
+        if (submitter?.telegram_chat_id) {
+          notifyTaskCommitted(submitter.telegram_chat_id, todo.title, todo.event_id, user.name || "A member", "", 0, hours).catch(() => {});
+        }
+      }
+      const { data: admins } = await supabase
+        .from("users")
+        .select("telegram_chat_id")
+        .in("role", ["admin", "super_admin"])
+        .not("telegram_chat_id", "is", null);
+      for (const a of admins || []) {
+        notifyTaskCommitted(a.telegram_chat_id, todo.title, todo.event_id, user.name || "A member", "", 0, hours).catch(() => {});
+      }
+    } catch { /* silent */ }
+  })();
+
+  const timeboxLine = hours ? ` (timebox: ${hours}h)` : "";
+  await sendTelegramMessage(chatId, `🤝 <b>Committed to ${eventId}</b>${timeboxLine}\n${todo.title}\n\nGood luck! Use /done ${eventId} when finished, or /blocked ${eventId} reason if stuck.`);
+  return NextResponse.json({ ok: true });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleDone(supabase: any, chatId: number, eventId: string, summary: string) {
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, name")
+    .eq("telegram_chat_id", String(chatId))
+    .single();
+  if (!user) {
+    await sendTelegramMessage(chatId, "❌ Account not linked. Send your email first.");
+    return NextResponse.json({ ok: true });
+  }
+
+  const { data: todo } = await supabase
+    .from("todos")
+    .select("id, title, event_id, status, committed_by, submitted_by")
+    .eq("event_id", eventId)
+    .single();
+  if (!todo) {
+    await sendTelegramMessage(chatId, `❌ Task <b>${eventId}</b> not found.`);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (todo.status !== "in_progress") {
+    await sendTelegramMessage(chatId, `⚠️ <b>${eventId}</b> is not in-progress (status: ${todo.status}).`);
+    return NextResponse.json({ ok: true });
+  }
+  if (todo.committed_by !== user.id) {
+    await sendTelegramMessage(chatId, `❌ Only the committer can submit <b>${eventId}</b> for review.`);
+    return NextResponse.json({ ok: true });
+  }
+
+  const { error } = await supabase.from("todos").update({
+    status: "review",
+    updated_at: new Date().toISOString(),
+  }).eq("id", todo.id);
+  if (error) {
+    await sendTelegramMessage(chatId, "❌ Failed to submit. Try again.");
+    return NextResponse.json({ ok: true });
+  }
+
+  // Add a closing report note (with whatever summary the member typed)
+  await supabase.from("todo_notes").insert({
+    todo_id: todo.id,
+    user_id: user.id,
+    content: `[via Telegram] ${summary || "Marked done — ready for review."}`,
+    type: "report",
+  });
+
+  logContribution(user.id, "task_updated", `Submitted ${eventId} for review via Telegram`);
+
+  // Notify admins
+  (async () => {
+    try {
+      const { data: admins } = await supabase
+        .from("users")
+        .select("telegram_chat_id")
+        .in("role", ["admin", "super_admin"])
+        .not("telegram_chat_id", "is", null);
+      for (const a of admins || []) {
+        notifyTaskStatusChanged(a.telegram_chat_id, todo.title, todo.event_id, "review").catch(() => {});
+      }
+    } catch { /* silent */ }
+  })();
+
+  await sendTelegramMessage(chatId, `🎉 <b>${eventId} submitted for review</b>\n${todo.title}\n\nThanks! An admin will review and mark it completed.`);
+  return NextResponse.json({ ok: true });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleBlocked(supabase: any, chatId: number, eventId: string, reason: string) {
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, name")
+    .eq("telegram_chat_id", String(chatId))
+    .single();
+  if (!user) {
+    await sendTelegramMessage(chatId, "❌ Account not linked. Send your email first.");
+    return NextResponse.json({ ok: true });
+  }
+
+  const { data: todo } = await supabase
+    .from("todos")
+    .select("id, title, event_id, assigned_to, committed_by, assigned_team_id, submitted_by")
+    .eq("event_id", eventId)
+    .single();
+  if (!todo) {
+    await sendTelegramMessage(chatId, `❌ Task <b>${eventId}</b> not found.`);
+    return NextResponse.json({ ok: true });
+  }
+
+  // Authorization: must have access to the task
+  const { data: userTeams } = await supabase
+    .from("team_members")
+    .select("team_id")
+    .eq("user_id", user.id);
+  const teamIds = new Set((userTeams || []).map((row: { team_id: string }) => row.team_id));
+  const canAccess =
+    todo.assigned_to === user.id ||
+    todo.committed_by === user.id ||
+    todo.submitted_by === user.id ||
+    (todo.assigned_team_id && teamIds.has(todo.assigned_team_id));
+  if (!canAccess) {
+    await sendTelegramMessage(chatId, `❌ You do not have access to <b>${eventId}</b>.`);
+    return NextResponse.json({ ok: true });
+  }
+
+  const { error } = await supabase.from("todo_notes").insert({
+    todo_id: todo.id,
+    user_id: user.id,
+    content: `[BLOCKED via Telegram] ${reason}`,
+    type: "update",
+  });
+  if (error) {
+    await sendTelegramMessage(chatId, "❌ Failed to record blocker. Try again.");
+    return NextResponse.json({ ok: true });
+  }
+
+  // Ping admins so they know it's stuck
+  (async () => {
+    try {
+      const { data: admins } = await supabase
+        .from("users")
+        .select("telegram_chat_id")
+        .in("role", ["admin", "super_admin"])
+        .not("telegram_chat_id", "is", null);
+      const memberName = user.name || "A member";
+      const escapedReason = reason.length > 200 ? reason.slice(0, 200) + "…" : reason;
+      const safeReason = escapedReason.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeTitle = (todo.title || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeName = memberName.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const msg = `🚧 <b>Task Blocked</b>\n\n<b>${todo.event_id}</b> — ${safeTitle}\nReported by: ${safeName}\n\n<i>${safeReason}</i>\n\n<a href="https://www.tanhowa.in/admin/todos">View in Admin</a>`;
+      for (const a of admins || []) {
+        if (a.telegram_chat_id) sendTelegramMessage(a.telegram_chat_id, msg).catch(() => {});
+      }
+    } catch { /* silent */ }
+  })();
+
+  await sendTelegramMessage(chatId, `🚧 <b>Blocker recorded on ${eventId}</b>\nAdmins have been notified. Use /update ${eventId} message to add more context.`);
   return NextResponse.json({ ok: true });
 }
