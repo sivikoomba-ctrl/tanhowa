@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Eye, Pencil, Send, Clock, Mail } from "lucide-react";
+import { Plus, Trash2, Eye, Pencil, Send, Clock, Mail, Languages } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
@@ -34,9 +34,10 @@ export default function AdminAnnouncementsPage() {
   const [editSendEmail, setEditSendEmail] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+  const [previewLang, setPreviewLang] = useState<"en" | "ta">("en");
 
-  function load() {
-    fetch("/api/announcements")
+  function load(lang: "en" | "ta" = previewLang) {
+    fetch(`/api/announcements${lang === "ta" ? "?lang=ta" : ""}`)
       .then((r) => r.json())
       .then((d) => setAnnouncements(d.announcements || []))
       .catch(() => toast.error("Failed to load announcements"));
@@ -47,8 +48,9 @@ export default function AdminAnnouncementsPage() {
   }
 
   useEffect(() => {
-    load();
-  }, []);
+    load(previewLang);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewLang]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -152,13 +154,23 @@ export default function AdminAnnouncementsPage() {
           <h1 className="text-2xl font-bold">Announcements</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Anyone can freely announce — personal, family functions, official events, or any update to all members.</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
-              <Plus size={16} className="mr-1" />
-              New Announcement
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={previewLang === "ta" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPreviewLang(previewLang === "ta" ? "en" : "ta")}
+            title="Preview content as Tamil-language members would see it. Source remains English; this only changes the displayed translation."
+          >
+            <Languages size={14} className="mr-1" />
+            {previewLang === "ta" ? "Showing TA · click for EN" : "Preview as TA"}
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus size={16} className="mr-1" />
+                New Announcement
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Announcement</DialogTitle>
@@ -196,7 +208,8 @@ export default function AdminAnnouncementsPage() {
               </Button>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <div className="space-y-3">
