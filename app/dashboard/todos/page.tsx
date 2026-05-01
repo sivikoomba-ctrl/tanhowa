@@ -38,6 +38,7 @@ import {
   Eye,
   List,
   LayoutGrid,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -217,6 +218,18 @@ export default function TodosPage() {
   // Subtask creation
   const [showCreateSubtask, setShowCreateSubtask] = useState(false);
   const [subtaskParentId, setSubtaskParentId] = useState<string | null>(null);
+
+  // Ship 3a — AI subtask suggestions
+  const [aiSubtaskOpen, setAiSubtaskOpen] = useState(false);
+  const [aiSubtaskLoading, setAiSubtaskLoading] = useState(false);
+  const [aiSubtaskSuggestions, setAiSubtaskSuggestions] = useState<{ text: string; selected: boolean }[]>([]);
+  const [aiSubtaskInserting, setAiSubtaskInserting] = useState(false);
+
+  // Ship 3b — AI completion drafter
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewDraft, setReviewDraft] = useState("");
+  const [reviewDrafting, setReviewDrafting] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   // Note form
   const [noteContent, setNoteContent] = useState("");
@@ -429,6 +442,131 @@ export default function TodosPage() {
     }
   }
 
+  // ── Ship 3a: AI subtask suggestions ─────────────────────────────────
+  async function openAiSubtaskSuggest() {
+    if (!selectedTodo) return;
+    setAiSubtaskOpen(true);
+    setAiSubtaskSuggestions([]);
+    setAiSubtaskLoading(true);
+    try {
+      const res = await fetch("/api/todos/suggest-subtasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ todoId: selectedTodo.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to generate suggestions");
+        setAiSubtaskOpen(false);
+        return;
+      }
+      setAiSubtaskSuggestions((data.suggestions as string[]).map((text) => ({ text, selected: true })));
+    } catch {
+      toast.error("Failed to reach AI service");
+      setAiSubtaskOpen(false);
+    } finally {
+      setAiSubtaskLoading(false);
+    }
+  }
+
+  async function insertAiSubtasks() {
+    if (!selectedTodo) return;
+    const picked = aiSubtaskSuggestions.filter((s) => s.selected && s.text.trim().length > 0);
+    if (picked.length === 0) {
+      toast.error("Pick at least one to add");
+      return;
+    }
+    setAiSubtaskInserting(true);
+    let inserted = 0;
+    for (const s of picked) {
+      try {
+        const res = await fetch("/api/todos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: s.text.trim(), parent_id: selectedTodo.id }),
+        });
+        if (res.ok) inserted++;
+      } catch { /* continue */ }
+    }
+    setAiSubtaskInserting(false);
+    if (inserted > 0) {
+      toast.success(`Added ${inserted} sub-task${inserted === 1 ? "" : "s"}`);
+      setAiSubtaskOpen(false);
+      // Refresh subtasks for the open task
+      try {
+        const subtasksRes = await fetch(`/api/todos?parent_id=${selectedTodo.id}`).then((r) => r.json());
+        setSubtasks(subtasksRes.todos || []);
+      } catch { /* silent */ }
+      fetchTodos();
+    } else {
+      toast.error("Failed to add sub-tasks");
+    }
+  }
+
+  // ── Ship 3b: AI completion drafter ──────────────────────────────────
+  async function openReviewDialog() {
+    setReviewDraft("");
+    setReviewDialogOpen(true);
+  }
+
+  async function generateAiDraft() {
+    if (!selectedTodo) return;
+    setReviewDrafting(true);
+    try {
+      const res = await fetch("/api/todos/draft-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ todoId: selectedTodo.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to draft report");
+        return;
+      }
+      setReviewDraft(data.draft as string);
+    } catch {
+      toast.error("Failed to reach AI service");
+    } finally {
+      setReviewDrafting(false);
+    }
+  }
+
+  async function submitReviewWithReport() {
+    if (!selectedTodo) return;
+    setReviewSubmitting(true);
+    try {
+      // 1) If there is a report body, save it as a report-type note first
+      const trimmed = reviewDraft.trim();
+      if (trimmed) {
+        await fetch("/api/todos/notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ todo_id: selectedTodo.id, content: trimmed, type: "report" }),
+        });
+      }
+      // 2) Mark for review
+      const res = await fetch("/api/todos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectedTodo.id, action: "request_review" }),
+      });
+      if (res.ok) {
+        toast.success("Submitted for review");
+        setSelectedTodo({ ...selectedTodo, status: "review" });
+        setReviewDialogOpen(false);
+        setReviewDraft("");
+        fetchTodos();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to submit");
+      }
+    } catch {
+      toast.error("Submit failed");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
+
   async function handleCommit() {
     if (!selectedTodo) return;
     setCommitting(true);
@@ -636,26 +774,12 @@ export default function TodosPage() {
               </div>
             )}
 
-            {/* Request Completion Review */}
+            {/* Request Completion Review (with optional AI-drafted report) */}
             {selectedTodo.status === "in_progress" && selectedTodo.committed_by && (
               <Button
                 variant="outline"
                 className="gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
-                onClick={async () => {
-                  const res = await fetch("/api/todos", {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id: selectedTodo.id, action: "request_review" }),
-                  });
-                  if (res.ok) {
-                    toast.success("Completion review requested — admin will be notified");
-                    setSelectedTodo({ ...selectedTodo, status: "review" });
-                    fetchTodos();
-                  } else {
-                    const data = await res.json();
-                    toast.error(data.error || "Failed to request review");
-                  }
-                }}
+                onClick={openReviewDialog}
               >
                 <Eye size={16} />
                 Request Completion Review
@@ -719,25 +843,39 @@ export default function TodosPage() {
             {/* Sub-Tasks Tab */}
             {detailTab === "subtasks" && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <p className="text-sm text-muted-foreground">
                     {subtasks.length === 0 ? "No sub-tasks yet." : `${subtasks.length} sub-task(s)`}
                   </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSubtaskParentId(selectedTodo.id);
-                      setShowCreateSubtask(true);
-                      setFormTitle("");
-                      setFormDescription("");
-                      setFormDueDate("");
-                    }}
-                    className="gap-1.5"
-                  >
-                    <Plus size={14} />
-                    Add Sub-Task
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {!selectedTodo.parent_id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={openAiSubtaskSuggest}
+                        className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50"
+                        title="Ask Gemini to break this task into 3-5 sub-tasks"
+                      >
+                        <Sparkles size={14} />
+                        AI Suggest
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSubtaskParentId(selectedTodo.id);
+                        setShowCreateSubtask(true);
+                        setFormTitle("");
+                        setFormDescription("");
+                        setFormDueDate("");
+                      }}
+                      className="gap-1.5"
+                    >
+                      <Plus size={14} />
+                      Add Sub-Task
+                    </Button>
+                  </div>
                 </div>
 
                 {subtasks.map((st) => {
@@ -1349,6 +1487,114 @@ export default function TodosPage() {
           </div>
         </div>
       )}
+
+      {/* Ship 3a — AI Suggest Subtasks Dialog */}
+      <Dialog open={aiSubtaskOpen} onOpenChange={setAiSubtaskOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles size={18} className="text-amber-600" />
+              AI Suggested Sub-Tasks
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Gemini suggested these sub-tasks based on the task title and description. Edit, deselect, or accept what makes sense.
+            </p>
+            {aiSubtaskLoading && (
+              <div className="text-center py-8 text-sm text-muted-foreground">Generating…</div>
+            )}
+            {!aiSubtaskLoading && aiSubtaskSuggestions.length > 0 && (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {aiSubtaskSuggestions.map((s, i) => (
+                  <div key={i} className="flex items-start gap-2 rounded-lg border p-2">
+                    <input
+                      type="checkbox"
+                      checked={s.selected}
+                      onChange={(e) => {
+                        const next = [...aiSubtaskSuggestions];
+                        next[i] = { ...next[i], selected: e.target.checked };
+                        setAiSubtaskSuggestions(next);
+                      }}
+                      className="mt-2 shrink-0"
+                    />
+                    <Textarea
+                      value={s.text}
+                      onChange={(e) => {
+                        const next = [...aiSubtaskSuggestions];
+                        next[i] = { ...next[i], text: e.target.value };
+                        setAiSubtaskSuggestions(next);
+                      }}
+                      rows={2}
+                      className="flex-1 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setAiSubtaskOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={insertAiSubtasks}
+                disabled={aiSubtaskInserting || aiSubtaskLoading || aiSubtaskSuggestions.filter((s) => s.selected).length === 0}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {aiSubtaskInserting ? "Adding…" : `Add ${aiSubtaskSuggestions.filter((s) => s.selected).length} Sub-Task${aiSubtaskSuggestions.filter((s) => s.selected).length === 1 ? "" : "s"}`}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ship 3b — Completion Review Dialog with optional AI-drafted report */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Submit for Completion Review</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Add a brief completion report so the admin reviewer has context. Optional — leave blank to submit without one.
+            </p>
+            <div className="flex items-center justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={generateAiDraft}
+                disabled={reviewDrafting}
+                className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50"
+                title="Ask Gemini to draft a report from your notes, time entries, and vouchers"
+              >
+                <Sparkles size={14} />
+                {reviewDrafting ? "Drafting…" : reviewDraft ? "Re-draft" : "AI Draft"}
+              </Button>
+            </div>
+            <Textarea
+              value={reviewDraft}
+              onChange={(e) => setReviewDraft(e.target.value)}
+              rows={8}
+              placeholder="What was done, time spent, blockers, follow-ups…"
+              className="text-sm"
+            />
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setReviewDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={submitReviewWithReport}
+                disabled={reviewSubmitting}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {reviewSubmitting ? "Submitting…" : "Submit for Review"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Task Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
