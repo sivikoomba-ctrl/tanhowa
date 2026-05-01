@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { MessageSquareWarning, Trash2, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from "lucide-react";
+import { MessageSquareWarning, Trash2, AlertTriangle, ArrowUp, ArrowRight, ArrowDown, Languages } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 const statusOptions = [
@@ -57,13 +57,15 @@ export default function AdminGrievancesPage() {
   const [grievances, setGrievances] = useState<Grievance[]>([]);
   const [tab, setTab] = useState("pending");
   const [remarks, setRemarks] = useState<Record<string, string>>({});
+  const [previewLang, setPreviewLang] = useState<"en" | "ta">("en");
 
   const load = useCallback(() => {
-    fetch("/api/grievances?type=grievance&status=" + tab)
+    const langParam = previewLang === "ta" ? "&lang=ta" : "";
+    fetch(`/api/grievances?type=grievance&status=${tab}${langParam}`)
       .then((r) => r.json())
       .then((d) => setGrievances(d.grievances || []))
       .catch(() => toast.error("Failed to load grievances"));
-  }, [tab]);
+  }, [tab, previewLang]);
 
   useEffect(() => {
     load();
@@ -116,7 +118,18 @@ export default function AdminGrievancesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Grievances</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Grievances</h1>
+        <Button
+          variant={previewLang === "ta" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setPreviewLang(previewLang === "ta" ? "en" : "ta")}
+          title="Preview content as Tamil-language members would see it. Source remains English; this only changes the displayed translation."
+        >
+          <Languages size={14} className="mr-1" />
+          {previewLang === "ta" ? "Showing TA · click for EN" : "Preview as TA"}
+        </Button>
+      </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>

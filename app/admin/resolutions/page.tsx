@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, X, Play, Square, Trash2 } from "lucide-react";
+import { Check, X, Play, Square, Trash2, Languages } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 interface Resolution {
@@ -57,17 +57,19 @@ export default function AdminResolutionsPage() {
   const [remarksId, setRemarksId] = useState<string | null>(null);
   const [remarksAction, setRemarksAction] = useState<string>("");
   const [remarks, setRemarks] = useState("");
+  const [previewLang, setPreviewLang] = useState<"en" | "ta">("en");
 
-  function loadResolutions() {
-    fetch("/api/resolutions")
+  function loadResolutions(lang: "en" | "ta" = previewLang) {
+    fetch(`/api/resolutions${lang === "ta" ? "?lang=ta" : ""}`)
       .then((r) => r.json())
       .then((d) => setResolutions(d.resolutions || []))
       .catch(() => toast.error("Failed to load resolutions"));
   }
 
   useEffect(() => {
-    loadResolutions();
-  }, []);
+    loadResolutions(previewLang);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewLang]);
 
   const filtered = useMemo(() => {
     if (tab === "all") return resolutions;
@@ -129,7 +131,18 @@ export default function AdminResolutionsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Manage Resolutions</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Manage Resolutions</h1>
+        <Button
+          variant={previewLang === "ta" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setPreviewLang(previewLang === "ta" ? "en" : "ta")}
+          title="Preview content as Tamil-language members would see it. Source remains English; this only changes the displayed translation."
+        >
+          <Languages size={14} className="mr-1" />
+          {previewLang === "ta" ? "Showing TA · click for EN" : "Preview as TA"}
+        </Button>
+      </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
