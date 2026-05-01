@@ -209,7 +209,7 @@ export default function AdminResolutionsPage() {
                             {r.approved_at && <span>Approved: {formatDate(r.approved_at)}</span>}
                             {r.voting_opened_at && <span>Voting opened: {formatDate(r.voting_opened_at)}</span>}
                             {r.voting_closed_at && <span>Closed: {formatDate(r.voting_closed_at)}</span>}
-                            <span>Members: {r.total_members} | Majority: {r.votes_required}</span>
+                            <span>Members: {r.total_members} <span className="italic">(at opening)</span> | Majority: {r.votes_required}</span>
                           </div>
                         </div>
 

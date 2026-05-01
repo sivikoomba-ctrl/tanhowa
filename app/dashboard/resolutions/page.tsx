@@ -533,7 +533,7 @@ function VotingCard({ resolution: r, onVote, voting }: { resolution: Resolution;
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Total members: {r.total_members} &middot; Majority required: {r.votes_required}
+                Total members: {r.total_members} <span className="italic">(as of opening)</span> &middot; Majority required: {r.votes_required}
                 {r.voting_opened_at && <> &middot; Opened {formatDate(r.voting_opened_at)}</>}
               </p>
             </div>
