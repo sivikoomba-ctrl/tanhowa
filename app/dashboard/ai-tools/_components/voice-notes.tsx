@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, MicOff, Copy, Check, Trash2 } from "lucide-react";
+import { Mic, MicOff, Copy, Check, Trash2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
 
@@ -17,9 +17,26 @@ export function VoiceNotes() {
   const [interim, setInterim] = useState("");
   const [copied, setCopied] = useState(false);
   const [supported, setSupported] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const loggedRef = useRef(false);
   const t = useT();
+
+  function friendlyError(code: string): string {
+    switch (code) {
+      case "not-allowed":
+      case "service-not-allowed":
+        return t("ai.mic_blocked");
+      case "audio-capture":
+        return t("ai.mic_unavailable");
+      case "no-speech":
+        return t("ai.no_speech");
+      case "network":
+        return t("ai.network_error");
+      default:
+        return `${t("ai.speech_error")}: ${code}`;
+    }
+  }
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -29,6 +46,7 @@ export function VoiceNotes() {
   }, []);
 
   function startRecording() {
+    setErrorMsg(null);
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       toast.error(t("ai.use_chrome"));
@@ -61,7 +79,12 @@ export function VoiceNotes() {
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       if (event.error !== "aborted") {
-        toast.error(`Speech recognition error: ${event.error}`);
+        const msg = friendlyError(event.error);
+        toast.error(msg);
+        // Persist mic-permission errors so the user can act on them after the toast fades
+        if (event.error === "not-allowed" || event.error === "service-not-allowed" || event.error === "audio-capture") {
+          setErrorMsg(msg);
+        }
       }
       setIsRecording(false);
     };
@@ -147,6 +170,13 @@ export function VoiceNotes() {
       <p className="text-center text-sm text-muted-foreground">
         {isRecording ? t("ai.listening") : t("ai.tap_to_record")}
       </p>
+
+      {errorMsg && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 flex items-start gap-2">
+          <AlertCircle size={18} className="text-red-600 shrink-0 mt-0.5" />
+          <p className="text-sm text-red-800 leading-relaxed">{errorMsg}</p>
+        </div>
+      )}
 
       {interim && (
         <p className="text-sm text-muted-foreground italic text-center animate-pulse">

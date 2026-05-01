@@ -477,6 +477,11 @@ const translations = {
   "ai.clear": { en: "Clear", ta: "அழி" },
   "ai.speech_not_supported": { en: "Speech Recognition Not Supported", ta: "பேச்சு அங்கீகாரம் ஆதரிக்கப்படவில்லை" },
   "ai.use_chrome": { en: "Please use Google Chrome or Microsoft Edge for voice notes.", ta: "குரல் குறிப்புகளுக்கு Google Chrome அல்லது Microsoft Edge பயன்படுத்தவும்." },
+  "ai.mic_blocked": { en: "Microphone access is blocked. Tap the lock icon next to the URL → Permissions → allow Microphone, then reload this page.", ta: "மைக்ரோஃபோன் அணுகல் தடுக்கப்பட்டுள்ளது. URL-க்கு அடுத்த பூட்டு ஐகானைத் தட்டவும் → அனுமதிகள் → மைக்ரோஃபோனை அனுமதிக்கவும், பின்னர் இந்தப் பக்கத்தை மீண்டும் ஏற்றவும்." },
+  "ai.mic_unavailable": { en: "Microphone unavailable. Check your device's mic settings and try again.", ta: "மைக்ரோஃபோன் கிடைக்கவில்லை. உங்கள் சாதனத்தின் மைக் அமைப்புகளை சரிபார்த்து மீண்டும் முயற்சிக்கவும்." },
+  "ai.no_speech": { en: "No speech detected. Try speaking closer to the microphone.", ta: "பேச்சு கண்டறியப்படவில்லை. மைக்ரோஃபோனுக்கு அருகில் பேச முயற்சிக்கவும்." },
+  "ai.network_error": { en: "Network error. Check your internet connection and try again.", ta: "நெட்வொர்க் பிழை. உங்கள் இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்." },
+  "ai.speech_error": { en: "Speech recognition error", ta: "பேச்சு அங்கீகார பிழை" },
 
   // Chatbot widget
   "chat.title": { en: "TANHOWA Assistant", ta: "TANHOWA உதவியாளர்" },
