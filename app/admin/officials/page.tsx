@@ -334,9 +334,9 @@ function OfficialRow({ user: u, onRemove, isSuperAdmin, onDesignationChange }: {
   return (
     <Card>
       <CardContent className="pt-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <Avatar className="w-11 h-11 border-2 border-primary/20">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+            <Avatar className="w-11 h-11 border-2 border-primary/20 shrink-0">
               {u.photo_url && <AvatarImage src={u.photo_url} />}
               <AvatarFallback className="bg-primary/10 text-primary font-bold">
                 {u.name?.charAt(0)?.toUpperCase() || "?"}
@@ -349,21 +349,21 @@ function OfficialRow({ user: u, onRemove, isSuperAdmin, onDesignationChange }: {
                   {u.official_type === "state" ? <><Crown size={10} className="mr-1" />State</> : u.official_type === "volunteer" ? <><Users size={10} className="mr-1" />Volunteer Admin</> : <><Building2 size={10} className="mr-1" />{u.posting_details?.official_designation || "District"}</>}
                 </Badge>
               </div>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1 flex-wrap">
-                {u.occupation && <span className="flex items-center gap-1"><Briefcase size={11} />{u.occupation}{u.posting_details?.official_designation ? ` / ${u.posting_details.official_designation}` : ""}</span>}
-                {u.posting_details?.regular_district && <span className="flex items-center gap-1"><MapPin size={11} />{u.posting_details.regular_district}{u.posting_details.regular_block && ` — ${u.posting_details.regular_block}`}</span>}
-                {u.phone && <span className="flex items-center gap-1"><Phone size={11} />{u.phone}</span>}
-                {u.email && <span className="flex items-center gap-1"><Mail size={11} />{u.email}</span>}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-1 text-xs text-muted-foreground mt-1 sm:flex-wrap">
+                {u.occupation && <span className="flex items-center gap-1 min-w-0"><Briefcase size={11} className="shrink-0" /><span className="truncate">{u.occupation}{u.posting_details?.official_designation ? ` / ${u.posting_details.official_designation}` : ""}</span></span>}
+                {u.posting_details?.regular_district && <span className="flex items-center gap-1 min-w-0"><MapPin size={11} className="shrink-0" /><span className="truncate">{u.posting_details.regular_district}{u.posting_details.regular_block && ` — ${u.posting_details.regular_block}`}</span></span>}
+                {u.phone && <span className="flex items-center gap-1"><Phone size={11} className="shrink-0" />{u.phone}</span>}
+                {u.email && <span className="flex items-center gap-1 min-w-0"><Mail size={11} className="shrink-0" /><span className="truncate">{u.email}</span></span>}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto">
             {isSuperAdmin && onDesignationChange && (
               <Select
                 value={u.posting_details?.official_designation || "none"}
                 onValueChange={(val) => onDesignationChange(u.id, val === "none" ? "" : val)}
               >
-                <SelectTrigger className="w-[180px] h-8 text-xs">
+                <SelectTrigger className="flex-1 sm:flex-none sm:w-[180px] h-8 text-xs">
                   <SelectValue placeholder="TANHOWA Role" />
                 </SelectTrigger>
                 <SelectContent>
