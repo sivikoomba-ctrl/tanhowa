@@ -1,9 +1,10 @@
 /**
- * Daily Greetings - triggered by first site visitor each day.
+ * Daily Greetings - triggered by /api/cron/daily-greetings at 07:00 IST.
  * Sends birthday wishes + festival greetings via email, Telegram, and portal announcements.
- * Uses site_settings "daily_greetings_last_run" to ensure once-per-day execution.
+ * Uses an atomic dated-key INSERT into site_settings so concurrent callers do not double-send.
  */
 import { getServiceClient } from "@/lib/supabase";
+import { logError } from "@/lib/error-logger";
 
 // Curated list of unique birthday wishes — each member gets a different one
 // (deterministic per user via id-hash, so the same wish never goes to two members on the same day).
@@ -273,7 +274,18 @@ export async function triggerDailyGreetings() {
         published: true,
       });
     }
-  } catch {
-    // Silent - don't block user requests
+  } catch (error) {
+    // Surface failures so /admin/error-logs flags them. The atomic claim row
+    // for today is already in site_settings — operators can delete it and
+    // re-trigger the cron, or run tools/daily_greetings.py --no-lock.
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await logError({
+      type: "api",
+      message: `triggerDailyGreetings failed: ${msg}`,
+      stack: error instanceof Error ? error.stack : "",
+      path: "/lib/daily-greetings",
+      method: "INTERNAL",
+      status_code: 500,
+    });
   }
 }

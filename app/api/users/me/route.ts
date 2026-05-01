@@ -5,7 +5,6 @@ import { logError } from "@/lib/error-logger";
 import { logApiPerf } from "@/lib/api-perf";
 import { logContribution } from "@/lib/contributions";
 import { notifyAdminNewRegistration } from "@/lib/mail";
-import { triggerDailyGreetings } from "@/lib/daily-greetings";
 
 export async function GET() {
   const _perfStart = Date.now();
@@ -29,8 +28,10 @@ export async function GET() {
       .eq("id", session.userId)
       .then(() => {});
 
-    // Trigger daily greetings (birthday + festival) - runs once per day on first visitor
-    triggerDailyGreetings().catch(() => {});
+    // Daily greetings run via /api/cron/daily-greetings (07:00 IST). Calling
+    // them fire-and-forget here was unsafe: Vercel could terminate the lambda
+    // mid-execution after the atomic claim was made, locking out the cron for
+    // the rest of the day.
 
     // Check Finance Team membership (for UI defaults)
     const isFinance = user?.role === "admin" || user?.role === "super_admin"
