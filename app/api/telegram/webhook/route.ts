@@ -65,6 +65,14 @@ export async function POST(req: NextRequest) {
     }
 
     // /start command — welcome message
+    // Supports deeplink: /start <email> from "Connect Telegram" CTA on the portal.
+    // Re-dispatches as if the user had typed the email manually so the OTP flow fires automatically.
+    const startWithEmail = text.match(/^\/start\s+([^\s]+@[^\s]+)$/i);
+    if (startWithEmail) {
+      const email = startWithEmail[1].toLowerCase().trim();
+      // Falls through to the email-OTP handler below
+      return await handleEmailOtp(supabase, chatId, email);
+    }
     if (text === "/start") {
       await sendTelegramMessage(
         chatId,
@@ -249,52 +257,7 @@ export async function POST(req: NextRequest) {
 
     // Email linking request — send OTP instead of linking directly
     if (text.includes("@") && !text.startsWith("/")) {
-      const email = text.toLowerCase().trim();
-      const { data: user, error } = await supabase
-        .from("users")
-        .select("id, name, telegram_chat_id")
-        .eq("email", email)
-        .single();
-
-      if (error || !user) {
-        await sendTelegramMessage(chatId, "❌ Email not found. Make sure you use your registered TANHOWA email.");
-        return NextResponse.json({ ok: true });
-      }
-
-      if (user.telegram_chat_id && user.telegram_chat_id !== String(chatId)) {
-        await sendTelegramMessage(chatId, "⚠️ This TANHOWA account is already linked to another Telegram chat. Please contact admin if you need to relink it.");
-        return NextResponse.json({ ok: true });
-      }
-
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-      await supabase
-        .from("otp_codes")
-        .update({ used: true })
-        .eq("email", email)
-        .eq("purpose", OTP_PURPOSE_TELEGRAM_LINK)
-        .eq("used", false);
-
-      const { error: otpInsertError } = await supabase.from("otp_codes").insert({
-        email,
-        code: otp,
-        purpose: OTP_PURPOSE_TELEGRAM_LINK,
-        expires_at: expiresAt,
-      });
-
-      if (otpInsertError) {
-        await sendTelegramMessage(chatId, "❌ Failed to generate a verification code right now. Please try again.");
-        return NextResponse.json({ ok: true });
-      }
-
-      await sendOTPEmail(email, otp);
-      await sendTelegramMessage(
-        chatId,
-        `📨 Verification code sent to <b>${email}</b>.\n\nReply with:\n<link>${`/link ${email} 123456`}</link>\n\nReplace 123456 with the code from your email.`
-          .replace("<link>", "")
-          .replace("</link>", "")
-      );
-      return NextResponse.json({ ok: true });
+      return await handleEmailOtp(supabase, chatId, text.toLowerCase().trim());
     }
 
     // Unrecognized command
@@ -610,6 +573,58 @@ async function handleBlocked(supabase: any, chatId: number, eventId: string, rea
   })();
 
   await sendTelegramMessage(chatId, `🚧 <b>Blocker recorded on ${eventId}</b>\nAdmins have been notified. Use /update ${eventId} message to add more context.`);
+  return NextResponse.json({ ok: true });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleEmailOtp(supabase: any, chatId: number, email: string) {
+  const { data: user, error } = await supabase
+    .from("users")
+    .select("id, name, telegram_chat_id")
+    .eq("email", email)
+    .single();
+
+  if (error || !user) {
+    await sendTelegramMessage(chatId, "❌ Email not found. Make sure you use your registered TANHOWA email.");
+    return NextResponse.json({ ok: true });
+  }
+
+  if (user.telegram_chat_id && user.telegram_chat_id === String(chatId)) {
+    await sendTelegramMessage(chatId, `✅ Already linked to <b>${user.name}</b>. Use /mytasks to see your active tasks.`);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (user.telegram_chat_id && user.telegram_chat_id !== String(chatId)) {
+    await sendTelegramMessage(chatId, "⚠️ This TANHOWA account is already linked to another Telegram chat. Please contact admin if you need to relink it.");
+    return NextResponse.json({ ok: true });
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  await supabase
+    .from("otp_codes")
+    .update({ used: true })
+    .eq("email", email)
+    .eq("purpose", OTP_PURPOSE_TELEGRAM_LINK)
+    .eq("used", false);
+
+  const { error: otpInsertError } = await supabase.from("otp_codes").insert({
+    email,
+    code: otp,
+    purpose: OTP_PURPOSE_TELEGRAM_LINK,
+    expires_at: expiresAt,
+  });
+
+  if (otpInsertError) {
+    await sendTelegramMessage(chatId, "❌ Failed to generate a verification code right now. Please try again.");
+    return NextResponse.json({ ok: true });
+  }
+
+  await sendOTPEmail(email, otp);
+  await sendTelegramMessage(
+    chatId,
+    `📨 Verification code sent to <b>${email}</b>.\n\nCheck your email and reply here with:\n<code>/link ${email} 123456</code>\n\nReplace <code>123456</code> with the 6-digit code from your email.`
+  );
   return NextResponse.json({ ok: true });
 }
 

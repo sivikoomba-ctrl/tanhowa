@@ -16,6 +16,7 @@ import { MetricCard } from "@/components/metric-card";
 import { AdminContacts } from "@/components/admin-contacts";
 import { StatusBadge } from "@/components/status-badge";
 import { SectionError } from "@/components/section-error";
+import ConnectTelegramBanner from "@/components/connect-telegram-banner";
 import { useT } from "@/lib/i18n";
 
 function getGreeting(): { text: string; icon: typeof Sun } {
@@ -292,6 +293,9 @@ export default function DashboardHome() {
 
   return (
     <div className="space-y-6">
+      {/* Connect Telegram CTA — auto-hides if already linked or dismissed */}
+      <ConnectTelegramBanner />
+
       {/* Welcome Greeting */}
       <div>
         <div className="flex items-center gap-2">

@@ -250,6 +250,13 @@ const translations = {
   "dash.task_in_progress": { en: "In Progress", ta: "செயலில் உள்ளது" },
   "dash.task_to_commit": { en: "Approved", ta: "ஒப்புதல் பெற்றது" },
 
+  // Connect Telegram banner
+  "tg_banner.title": { en: "Get task updates on Telegram", ta: "டெலிகிராமில் பணி புதுப்பிப்புகளைப் பெறுங்கள்" },
+  "tg_banner.body": { en: "Connect our Telegram bot to receive your morning briefing, task reminders, and tap-to-act buttons — no more opening the portal for every update.", ta: "காலை சுருக்கம், பணி நினைவூட்டல்கள் மற்றும் தட்டு-செயல் பொத்தான்களைப் பெற எங்கள் டெலிகிராம் போட்டை இணைக்கவும் — ஒவ்வொரு புதுப்பிப்பிற்கும் போர்ட்டலைத் திறக்க வேண்டியதில்லை." },
+  "tg_banner.connect": { en: "Connect Telegram", ta: "டெலிகிராமை இணைக்கவும்" },
+  "tg_banner.later": { en: "Maybe later", ta: "பின்னர்" },
+  "tg_banner.dismiss": { en: "Dismiss", ta: "மூடு" },
+
   // Landing / Login page
   "login.tagline": { en: "Connecting Horticultural Officers across Tamil Nadu", ta: "தமிழ்நாடு முழுவதும் தோட்டக்கலை அதிகாரிகளை இணைக்கிறது" },
   "login.welcome": { en: "Welcome", ta: "வரவேற்கிறோம்" },
