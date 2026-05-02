@@ -65,6 +65,7 @@ export default function AdminHistoryPage() {
   const [form, setForm] = useState<FormState>(blankForm);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -86,6 +87,10 @@ export default function AdminHistoryPage() {
 
   useEffect(() => {
     load();
+    fetch("/api/users/me")
+      .then((r) => r.json())
+      .then((d) => setCanDelete(d?.user?.role === "super_admin"))
+      .catch(() => {});
   }, []);
 
   function startCreate() {
@@ -254,14 +259,17 @@ export default function AdminHistoryPage() {
                   <Button variant="outline" size="sm" onClick={() => startEdit(e)}>
                     <Pencil className="w-4 h-4" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => remove(e.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {canDelete && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => remove(e.id)}
+                      className="text-destructive hover:text-destructive"
+                      title="Delete (State-Admin only)"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

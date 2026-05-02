@@ -1,12 +1,13 @@
 /**
  * TANHOWA History timeline.
  * GET — all approved members can read (supports ?lang=ta for translations).
- * POST/PUT/DELETE — admin or super_admin only.
+ * POST/PUT — admin or super_admin (any admin can curate).
+ * DELETE — super_admin only (irreversible, kept narrow).
  * Title + description auto-translate EN↔TA on create/update.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, isSuperAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { translateContent, getTranslations } from "@/lib/translate-content";
 import { logAudit } from "@/lib/audit-log";
@@ -160,7 +161,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!(await canEditHistory(session))) {
+    if (!(await isSuperAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
