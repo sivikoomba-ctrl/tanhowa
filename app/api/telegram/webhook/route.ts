@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { sendTelegramMessage, notifyTaskCommitted, notifyTaskStatusChanged, answerCallbackQuery, sendForceReply } from "@/lib/telegram";
+import { sendTelegramMessage, sendTelegramMessageReplace, notifyTaskCommitted, notifyTaskStatusChanged, answerCallbackQuery, sendForceReply } from "@/lib/telegram";
 import { logContribution } from "@/lib/contributions";
 import { sendOTPEmail } from "@/lib/mail";
 import { logError } from "@/lib/error-logger";
@@ -13,27 +13,72 @@ function normalizeEventId(raw: string): string {
   return upper.startsWith("ET-") ? upper : upper.replace(/^ET/, "ET-");
 }
 
-const COMMANDS_HELP =
-  "<b>Commands:</b>\n" +
-  "/mytasks — Your active tasks\n" +
-  "/commit ET-XXX [hours] — Commit to a task\n" +
-  "/done ET-XXX [message] — Submit for review\n" +
-  "/blocked ET-XXX reason — Report a blocker\n" +
-  "/update ET-XXX message — Add update\n" +
-  "/report ET-XXX message — Submit report\n" +
-  "/status — Check link status\n" +
-  "/help — Detailed guide with examples\n" +
-  "/link your@email.com 123456 — Complete account linking\n\n" +
-  "<b>Examples:</b>\n" +
-  "• <code>/mytasks</code>\n" +
-  "• <code>/commit ET-022 4</code>  <i>(commit with a 4-hour timebox)</i>\n" +
-  "• <code>/done ET-022 visited 3 farmers</code>\n" +
-  "• <code>/blocked ET-010 waiting for vendor quote</code>\n" +
-  "• <code>/update ET-005 inspection done, report tomorrow</code>\n" +
-  "• <code>/status</code>\n\n" +
-  "<i>Tip: the hyphen is optional — <code>ET022</code> works too.</i>";
+/**
+ * Look up an Event ID from the linked member's actual portal tasks so the help/examples
+ * use a real, copy-pasteable ID. Falls back to "ET-XXX" for unlinked users or those
+ * with no active tasks.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getExampleEventId(supabase: any, chatId: number): Promise<string> {
+  const { data: user } = await supabase
+    .from("users")
+    .select("id")
+    .eq("telegram_chat_id", String(chatId))
+    .single();
+  if (!user) return "ET-XXX";
 
-const HELP_DETAILED =
+  // Prefer an active task assigned to or committed by this member.
+  const { data: own } = await supabase
+    .from("todos")
+    .select("event_id")
+    .in("status", ["approved", "in_progress"])
+    .is("parent_id", null)
+    .or(`assigned_to.eq.${user.id},committed_by.eq.${user.id}`)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (own && own.length > 0 && own[0].event_id) return own[0].event_id;
+
+  // Fall back to any active top-level task in the portal — still real, copy-pasteable.
+  const { data: anyActive } = await supabase
+    .from("todos")
+    .select("event_id")
+    .in("status", ["approved", "in_progress"])
+    .is("parent_id", null)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (anyActive && anyActive.length > 0 && anyActive[0].event_id) return anyActive[0].event_id;
+
+  return "ET-XXX";
+}
+
+function commandsHelp(exampleId: string): string {
+  return (
+    "<b>Commands:</b>\n" +
+    "/mytasks — Your active tasks\n" +
+    "/commit ET-XXX [hours] — Commit to a task\n" +
+    "/done ET-XXX [message] — Submit for review\n" +
+    "/blocked ET-XXX reason — Report a blocker\n" +
+    "/update ET-XXX message — Add update\n" +
+    "/report ET-XXX message — Submit report\n" +
+    "/status — Check link status\n" +
+    "/help — Detailed guide with examples\n" +
+    "/link your@email.com 123456 — Complete account linking\n\n" +
+    "<b>Examples (using your actual task " + exampleId + "):</b>\n" +
+    "• <code>/mytasks</code>\n" +
+    `• <code>/commit ${exampleId} 4</code>  <i>(commit with a 4-hour timebox)</i>\n` +
+    `• <code>/done ${exampleId} visited 3 farmers</code>\n` +
+    `• <code>/blocked ${exampleId} waiting for vendor quote</code>\n` +
+    `• <code>/update ${exampleId} inspection done, report tomorrow</code>\n` +
+    "• <code>/status</code>\n\n" +
+    "<i>Tip: the hyphen is optional — <code>" +
+    exampleId.replace(/-/g, "") +
+    "</code> works too.</i>"
+  );
+}
+
+function helpDetailed(exampleId: string): string {
+  const noHyphen = exampleId.replace(/-/g, "");
+  return (
   "📘 <b>TANHOWA Bot — Detailed Guide</b>\n\n" +
   "This bot lets you work on your TANHOWA tasks without opening the portal. Daily briefings arrive each morning, and you can mark tasks done, blocked, or add notes — right from chat.\n\n" +
   "━━━━━━━━━━━━━━━\n" +
@@ -59,33 +104,35 @@ const HELP_DETAILED =
   "Example: <code>/mytasks</code>\n\n" +
   "<b>/commit ET-XXX [hours]</b>\n" +
   "Claim a task as yours. Optionally set a timebox in hours.\n" +
-  "Example: <code>/commit ET-022 4</code> — commit with a 4-hour timebox.\n" +
-  "Example: <code>/commit ET-022</code> — commit without a timebox.\n\n" +
+  `Example: <code>/commit ${exampleId} 4</code> — commit with a 4-hour timebox.\n` +
+  `Example: <code>/commit ${exampleId}</code> — commit without a timebox.\n\n` +
   "<b>/done ET-XXX [message]</b>\n" +
   "Submit your committed task for completion review. Add a closing note if you like.\n" +
-  "Example: <code>/done ET-022 visited 3 farmers, photos uploaded</code>\n" +
+  `Example: <code>/done ${exampleId} visited 3 farmers, photos uploaded</code>\n` +
   "Note: only the committer can mark a task done.\n\n" +
   "<b>/blocked ET-XXX reason</b>\n" +
   "Flag a blocker. Admins are notified immediately.\n" +
-  "Example: <code>/blocked ET-010 waiting for vendor quote, ETA Friday</code>\n\n" +
+  `Example: <code>/blocked ${exampleId} waiting for vendor quote, ETA Friday</code>\n\n` +
   "<b>/update ET-XXX message</b>\n" +
   "Add a quick progress note (visible to assignee/committer/admins).\n" +
-  "Example: <code>/update ET-005 inspection done, drafting report</code>\n\n" +
+  `Example: <code>/update ${exampleId} inspection done, drafting report</code>\n\n` +
   "<b>/report ET-XXX message</b>\n" +
   "Submit a longer formal report. Saved as a Note of type <i>report</i>.\n" +
-  "Example: <code>/report ET-005 Inspection of 12 nurseries complete. 3 flagged for follow-up...</code>\n\n" +
+  `Example: <code>/report ${exampleId} Inspection of 12 nurseries complete. 3 flagged for follow-up...</code>\n\n` +
   "<b>/status</b>\n" +
   "Shows whether this Telegram chat is linked, and to which TANHOWA account.\n\n" +
   "━━━━━━━━━━━━━━━\n" +
   "<b>4️⃣ Tips</b>\n" +
   "━━━━━━━━━━━━━━━\n" +
-  "• Event IDs are flexible: <code>ET-022</code>, <code>ET022</code>, <code>et022</code> all work.\n" +
-  "• Sub-task IDs use double hyphens: <code>ET-022-01</code>.\n" +
+  `• Event IDs are flexible: <code>${exampleId}</code>, <code>${noHyphen}</code>, <code>${noHyphen.toLowerCase()}</code> all work.\n` +
+  `• Sub-task IDs use double hyphens: <code>${exampleId}-01</code>.\n` +
   "• Each note posted from Telegram is tagged <code>[via Telegram]</code> in the portal.\n" +
   "• Forgot your tasks? Just send <code>/mytasks</code> any time.\n" +
   "• Need to relink to a different account? Contact admin.\n\n" +
   "━━━━━━━━━━━━━━━\n" +
-  "Questions? Contact your State-Admin via the portal at <b>www.tanhowa.in/dashboard/messages</b>.";
+  "Questions? Contact your State-Admin via the portal at <b>www.tanhowa.in/dashboard/messages</b>."
+  );
+}
 
 interface TelegramUpdate {
   message?: {
@@ -154,12 +201,13 @@ export async function POST(req: NextRequest) {
       return await handleEmailOtp(supabase, chatId, email);
     }
     if (text === "/start") {
-      await sendTelegramMessage(
+      const exampleId = await getExampleEventId(supabase, chatId);
+      await sendTelegramMessageReplace(
         chatId,
         "🌿 <b>Welcome to TANHOWA Tasks Bot!</b>\n\n" +
           "Link your TANHOWA account to receive task notifications and send updates.\n\n" +
           "Send your registered <b>email address</b> to receive a verification code, then use <b>/link your@email.com 123456</b>.\n\n" +
-          COMMANDS_HELP +
+          commandsHelp(exampleId) +
           "\n\nFor a full walk-through, send <code>/help</code>."
       );
       return NextResponse.json({ ok: true });
@@ -167,7 +215,8 @@ export async function POST(req: NextRequest) {
 
     // /help — detailed bot guide
     if (text === "/help") {
-      await sendTelegramMessage(chatId, HELP_DETAILED);
+      const exampleId = await getExampleEventId(supabase, chatId);
+      await sendTelegramMessageReplace(chatId, helpDetailed(exampleId));
       return NextResponse.json({ ok: true });
     }
 
@@ -180,9 +229,9 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (user) {
-        await sendTelegramMessage(chatId, `✅ Linked to <b>${user.name}</b> (${user.email})`);
+        await sendTelegramMessageReplace(chatId, `✅ Linked to <b>${user.name}</b> (${user.email})`);
       } else {
-        await sendTelegramMessage(chatId, "❌ Not linked. Send your registered email to receive a verification code, then use /link your@email.com 123456.");
+        await sendTelegramMessageReplace(chatId, "❌ Not linked. Send your registered email to receive a verification code, then use /link your@email.com 123456.");
       }
       return NextResponse.json({ ok: true });
     }
@@ -198,7 +247,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (!user) {
-        await sendTelegramMessage(chatId, "❌ Account not linked. Send your email first to receive a verification code.");
+        await sendTelegramMessageReplace(chatId, "❌ Account not linked. Send your email first to receive a verification code.");
         return NextResponse.json({ ok: true });
       }
 
@@ -212,7 +261,7 @@ export async function POST(req: NextRequest) {
         .limit(10);
 
       if (!todos || todos.length === 0) {
-        await sendTelegramMessage(chatId, "📋 No active tasks assigned to you.");
+        await sendTelegramMessageReplace(chatId, "📋 No active tasks assigned to you.");
         return NextResponse.json({ ok: true });
       }
 
@@ -223,8 +272,8 @@ export async function POST(req: NextRequest) {
         const due = t.due_date ? ` | Due: ${new Date(t.due_date).toLocaleDateString("en-IN")}` : "";
         msg += `${statusEmoji} <b>${t.event_id}</b> — ${t.title}${committed}${due}\n`;
       }
-      msg += "\nUse /update ET-XXX message to add a note.";
-      await sendTelegramMessage(chatId, msg);
+      msg += `\nUse /update ${todos[0].event_id} message to add a note.`;
+      await sendTelegramMessageReplace(chatId, msg);
       return NextResponse.json({ ok: true });
     }
 
@@ -279,12 +328,12 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (error || !user) {
-        await sendTelegramMessage(chatId, "❌ Email not found. Make sure you use your registered TANHOWA email.");
+        await sendTelegramMessageReplace(chatId, "❌ Email not found. Make sure you use your registered TANHOWA email.");
         return NextResponse.json({ ok: true });
       }
 
       if (user.telegram_chat_id && user.telegram_chat_id !== String(chatId)) {
-        await sendTelegramMessage(chatId, "⚠️ This TANHOWA account is already linked to another Telegram chat. Please contact admin if you need to relink it.");
+        await sendTelegramMessageReplace(chatId, "⚠️ This TANHOWA account is already linked to another Telegram chat. Please contact admin if you need to relink it.");
         return NextResponse.json({ ok: true });
       }
 
@@ -301,13 +350,13 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (!otpRecord) {
-        await sendTelegramMessage(chatId, "❌ Invalid or expired verification code. Send your email again to request a new code.");
+        await sendTelegramMessageReplace(chatId, "❌ Invalid or expired verification code. Send your email again to request a new code.");
         return NextResponse.json({ ok: true });
       }
 
       const { data: existing } = await supabase.from("users").select("id").eq("telegram_chat_id", String(chatId)).single();
       if (existing && existing.id !== user.id) {
-        await sendTelegramMessage(chatId, "⚠️ This Telegram account is already linked to a different TANHOWA account.");
+        await sendTelegramMessageReplace(chatId, "⚠️ This Telegram account is already linked to a different TANHOWA account.");
         return NextResponse.json({ ok: true });
       }
 
@@ -326,12 +375,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Unrecognized command
-    await sendTelegramMessage(
-      chatId,
-      "🤔 I didn't understand that.\n\n" +
-        COMMANDS_HELP +
-        "\n\nOr send your email to receive a verification code."
-    );
+    {
+      const exampleId = await getExampleEventId(supabase, chatId);
+      await sendTelegramMessageReplace(
+        chatId,
+        "🤔 I didn't understand that.\n\n" +
+          commandsHelp(exampleId) +
+          "\n\nOr send your email to receive a verification code."
+      );
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -358,7 +410,7 @@ async function handleAddNote(supabase: any, chatId: number, eventId: string, con
     .single();
 
   if (!user) {
-    await sendTelegramMessage(chatId, "❌ Account not linked. Send your email first.");
+    await sendTelegramMessageReplace(chatId, "❌ Account not linked. Send your email first.");
     return NextResponse.json({ ok: true });
   }
 
@@ -370,7 +422,7 @@ async function handleAddNote(supabase: any, chatId: number, eventId: string, con
     .single();
 
   if (!todo) {
-    await sendTelegramMessage(chatId, `❌ Task <b>${eventId}</b> not found.`);
+    await sendTelegramMessageReplace(chatId, `❌ Task <b>${eventId}</b> not found.`);
     return NextResponse.json({ ok: true });
   }
 
@@ -385,7 +437,7 @@ async function handleAddNote(supabase: any, chatId: number, eventId: string, con
     (todo.assigned_team_id && teamIds.has(todo.assigned_team_id));
 
   if (!canAccessTask) {
-    await sendTelegramMessage(chatId, `❌ You do not have access to update <b>${eventId}</b>.`);
+    await sendTelegramMessageReplace(chatId, `❌ You do not have access to update <b>${eventId}</b>.`);
     return NextResponse.json({ ok: true });
   }
 
@@ -398,7 +450,7 @@ async function handleAddNote(supabase: any, chatId: number, eventId: string, con
   });
 
   if (error) {
-    await sendTelegramMessage(chatId, "❌ Failed to add note. Try again.");
+    await sendTelegramMessageReplace(chatId, "❌ Failed to add note. Try again.");
     return NextResponse.json({ ok: true });
   }
 
@@ -418,7 +470,7 @@ async function handleCommit(supabase: any, chatId: number, eventId: string, hour
     .eq("telegram_chat_id", String(chatId))
     .single();
   if (!user) {
-    await sendTelegramMessage(chatId, "❌ Account not linked. Send your email first.");
+    await sendTelegramMessageReplace(chatId, "❌ Account not linked. Send your email first.");
     return NextResponse.json({ ok: true });
   }
 
@@ -428,16 +480,16 @@ async function handleCommit(supabase: any, chatId: number, eventId: string, hour
     .eq("event_id", eventId)
     .single();
   if (!todo) {
-    await sendTelegramMessage(chatId, `❌ Task <b>${eventId}</b> not found.`);
+    await sendTelegramMessageReplace(chatId, `❌ Task <b>${eventId}</b> not found.`);
     return NextResponse.json({ ok: true });
   }
 
   if (todo.committed_by && todo.committed_by !== user.id) {
-    await sendTelegramMessage(chatId, `⚠️ <b>${eventId}</b> is already committed by another member.`);
+    await sendTelegramMessageReplace(chatId, `⚠️ <b>${eventId}</b> is already committed by another member.`);
     return NextResponse.json({ ok: true });
   }
   if (!["approved", "in_progress"].includes(todo.status)) {
-    await sendTelegramMessage(chatId, `⚠️ <b>${eventId}</b> cannot be committed (status: ${todo.status}). Only approved or in-progress tasks can be committed.`);
+    await sendTelegramMessageReplace(chatId, `⚠️ <b>${eventId}</b> cannot be committed (status: ${todo.status}). Only approved or in-progress tasks can be committed.`);
     return NextResponse.json({ ok: true });
   }
 
@@ -453,7 +505,7 @@ async function handleCommit(supabase: any, chatId: number, eventId: string, hour
     (todo.assigned_team_id && teamIds.has(todo.assigned_team_id)) ||
     (!todo.assigned_to && !todo.assigned_team_id); // unassigned tasks open to anyone
   if (!canCommit) {
-    await sendTelegramMessage(chatId, `❌ You are not assigned to <b>${eventId}</b>.`);
+    await sendTelegramMessageReplace(chatId, `❌ You are not assigned to <b>${eventId}</b>.`);
     return NextResponse.json({ ok: true });
   }
 
@@ -467,7 +519,7 @@ async function handleCommit(supabase: any, chatId: number, eventId: string, hour
 
   const { error } = await supabase.from("todos").update(updates).eq("id", todo.id);
   if (error) {
-    await sendTelegramMessage(chatId, "❌ Failed to commit. Try again.");
+    await sendTelegramMessageReplace(chatId, "❌ Failed to commit. Try again.");
     return NextResponse.json({ ok: true });
   }
 
@@ -498,7 +550,7 @@ async function handleCommit(supabase: any, chatId: number, eventId: string, hour
   })();
 
   const timeboxLine = hours ? ` (timebox: ${hours}h)` : "";
-  await sendTelegramMessage(chatId, `🤝 <b>Committed to ${eventId}</b>${timeboxLine}\n${todo.title}\n\nGood luck! Use /done ${eventId} when finished, or /blocked ${eventId} reason if stuck.`);
+  await sendTelegramMessageReplace(chatId, `🤝 <b>Committed to ${eventId}</b>${timeboxLine}\n${todo.title}\n\nGood luck! Use /done ${eventId} when finished, or /blocked ${eventId} reason if stuck.`);
   return NextResponse.json({ ok: true });
 }
 
@@ -510,7 +562,7 @@ async function handleDone(supabase: any, chatId: number, eventId: string, summar
     .eq("telegram_chat_id", String(chatId))
     .single();
   if (!user) {
-    await sendTelegramMessage(chatId, "❌ Account not linked. Send your email first.");
+    await sendTelegramMessageReplace(chatId, "❌ Account not linked. Send your email first.");
     return NextResponse.json({ ok: true });
   }
 
@@ -520,16 +572,16 @@ async function handleDone(supabase: any, chatId: number, eventId: string, summar
     .eq("event_id", eventId)
     .single();
   if (!todo) {
-    await sendTelegramMessage(chatId, `❌ Task <b>${eventId}</b> not found.`);
+    await sendTelegramMessageReplace(chatId, `❌ Task <b>${eventId}</b> not found.`);
     return NextResponse.json({ ok: true });
   }
 
   if (todo.status !== "in_progress") {
-    await sendTelegramMessage(chatId, `⚠️ <b>${eventId}</b> is not in-progress (status: ${todo.status}).`);
+    await sendTelegramMessageReplace(chatId, `⚠️ <b>${eventId}</b> is not in-progress (status: ${todo.status}).`);
     return NextResponse.json({ ok: true });
   }
   if (todo.committed_by !== user.id) {
-    await sendTelegramMessage(chatId, `❌ Only the committer can submit <b>${eventId}</b> for review.`);
+    await sendTelegramMessageReplace(chatId, `❌ Only the committer can submit <b>${eventId}</b> for review.`);
     return NextResponse.json({ ok: true });
   }
 
@@ -538,7 +590,7 @@ async function handleDone(supabase: any, chatId: number, eventId: string, summar
     updated_at: new Date().toISOString(),
   }).eq("id", todo.id);
   if (error) {
-    await sendTelegramMessage(chatId, "❌ Failed to submit. Try again.");
+    await sendTelegramMessageReplace(chatId, "❌ Failed to submit. Try again.");
     return NextResponse.json({ ok: true });
   }
 
@@ -566,7 +618,7 @@ async function handleDone(supabase: any, chatId: number, eventId: string, summar
     } catch { /* silent */ }
   })();
 
-  await sendTelegramMessage(chatId, `🎉 <b>${eventId} submitted for review</b>\n${todo.title}\n\nThanks! An admin will review and mark it completed.`);
+  await sendTelegramMessageReplace(chatId, `🎉 <b>${eventId} submitted for review</b>\n${todo.title}\n\nThanks! An admin will review and mark it completed.`);
   return NextResponse.json({ ok: true });
 }
 
@@ -578,7 +630,7 @@ async function handleBlocked(supabase: any, chatId: number, eventId: string, rea
     .eq("telegram_chat_id", String(chatId))
     .single();
   if (!user) {
-    await sendTelegramMessage(chatId, "❌ Account not linked. Send your email first.");
+    await sendTelegramMessageReplace(chatId, "❌ Account not linked. Send your email first.");
     return NextResponse.json({ ok: true });
   }
 
@@ -588,7 +640,7 @@ async function handleBlocked(supabase: any, chatId: number, eventId: string, rea
     .eq("event_id", eventId)
     .single();
   if (!todo) {
-    await sendTelegramMessage(chatId, `❌ Task <b>${eventId}</b> not found.`);
+    await sendTelegramMessageReplace(chatId, `❌ Task <b>${eventId}</b> not found.`);
     return NextResponse.json({ ok: true });
   }
 
@@ -604,7 +656,7 @@ async function handleBlocked(supabase: any, chatId: number, eventId: string, rea
     todo.submitted_by === user.id ||
     (todo.assigned_team_id && teamIds.has(todo.assigned_team_id));
   if (!canAccess) {
-    await sendTelegramMessage(chatId, `❌ You do not have access to <b>${eventId}</b>.`);
+    await sendTelegramMessageReplace(chatId, `❌ You do not have access to <b>${eventId}</b>.`);
     return NextResponse.json({ ok: true });
   }
 
@@ -615,7 +667,7 @@ async function handleBlocked(supabase: any, chatId: number, eventId: string, rea
     type: "update",
   });
   if (error) {
-    await sendTelegramMessage(chatId, "❌ Failed to record blocker. Try again.");
+    await sendTelegramMessageReplace(chatId, "❌ Failed to record blocker. Try again.");
     return NextResponse.json({ ok: true });
   }
 
@@ -639,7 +691,7 @@ async function handleBlocked(supabase: any, chatId: number, eventId: string, rea
     } catch { /* silent */ }
   })();
 
-  await sendTelegramMessage(chatId, `🚧 <b>Blocker recorded on ${eventId}</b>\nAdmins have been notified. Use /update ${eventId} message to add more context.`);
+  await sendTelegramMessageReplace(chatId, `🚧 <b>Blocker recorded on ${eventId}</b>\nAdmins have been notified. Use /update ${eventId} message to add more context.`);
   return NextResponse.json({ ok: true });
 }
 
@@ -652,17 +704,17 @@ async function handleEmailOtp(supabase: any, chatId: number, email: string) {
     .single();
 
   if (error || !user) {
-    await sendTelegramMessage(chatId, "❌ Email not found. Make sure you use your registered TANHOWA email.");
+    await sendTelegramMessageReplace(chatId, "❌ Email not found. Make sure you use your registered TANHOWA email.");
     return NextResponse.json({ ok: true });
   }
 
   if (user.telegram_chat_id && user.telegram_chat_id === String(chatId)) {
-    await sendTelegramMessage(chatId, `✅ Already linked to <b>${user.name}</b>. Use /mytasks to see your active tasks.`);
+    await sendTelegramMessageReplace(chatId, `✅ Already linked to <b>${user.name}</b>. Use /mytasks to see your active tasks.`);
     return NextResponse.json({ ok: true });
   }
 
   if (user.telegram_chat_id && user.telegram_chat_id !== String(chatId)) {
-    await sendTelegramMessage(chatId, "⚠️ This TANHOWA account is already linked to another Telegram chat. Please contact admin if you need to relink it.");
+    await sendTelegramMessageReplace(chatId, "⚠️ This TANHOWA account is already linked to another Telegram chat. Please contact admin if you need to relink it.");
     return NextResponse.json({ ok: true });
   }
 
@@ -683,7 +735,7 @@ async function handleEmailOtp(supabase: any, chatId: number, email: string) {
   });
 
   if (otpInsertError) {
-    await sendTelegramMessage(chatId, "❌ Failed to generate a verification code right now. Please try again.");
+    await sendTelegramMessageReplace(chatId, "❌ Failed to generate a verification code right now. Please try again.");
     return NextResponse.json({ ok: true });
   }
 
