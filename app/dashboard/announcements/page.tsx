@@ -29,9 +29,32 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(months / 12)}y ago`;
 }
 
+// Allowlist for inline images — only profile-photo CDNs the project already trusts.
+function isSafeImageUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:") return false;
+    const h = u.hostname;
+    return (
+      h.endsWith(".supabase.co") ||
+      h.endsWith(".fbcdn.net") ||
+      h === "platform-lookaside.fbsbx.com" ||
+      h.endsWith(".googleusercontent.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
 function renderSimpleMarkdown(text: string): string {
   return text
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    // Image syntax ![alt](url) — must run BEFORE link syntax so ! prefix is consumed
+    .replace(/!\[([^\]]*)\]\((https:\/\/[^\s)"'<>]+)\)/g, (_m, alt: string, url: string) => {
+      if (!isSafeImageUrl(url)) return "";
+      const safeAlt = alt.replace(/"/g, "&quot;");
+      return `<img src="${url}" alt="${safeAlt}" class="inline-block w-8 h-8 rounded-full object-cover align-middle mx-1 ring-1 ring-border" />`;
+    })
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/__(.+?)__/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")

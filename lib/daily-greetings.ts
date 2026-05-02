@@ -104,6 +104,69 @@ async function sendTelegram(chatId: string, text: string) {
   } catch { /* silent */ }
 }
 
+// Send a photo with HTML caption (Telegram caption limit ~1024 chars).
+// Falls back silently — caller should also send a text message if photo fails.
+async function sendTelegramPhoto(chatId: string, photoUrl: string, caption: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token || !chatId) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        photo: photoUrl,
+        caption,
+        parse_mode: "HTML",
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Allowed photo CDNs — same set the markdown renderer accepts inline.
+function isTrustedPhotoUrl(url: string | null | undefined): url is string {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:") return false;
+    const h = u.hostname;
+    return (
+      h.endsWith(".supabase.co") ||
+      h.endsWith(".fbcdn.net") ||
+      h === "platform-lookaside.fbsbx.com" ||
+      h.endsWith(".googleusercontent.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function initialsFor(name: string): string {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+// Inline-block circle avatar (HTML-email-safe — uses table-style attrs).
+function circleAvatarHtml(name: string, photoUrl: string | null | undefined, sizePx: number): string {
+  const safeName = escapeAttr(name);
+  if (isTrustedPhotoUrl(photoUrl)) {
+    return `<img src="${photoUrl}" alt="${safeName}" width="${sizePx}" height="${sizePx}" style="display:inline-block;width:${sizePx}px;height:${sizePx}px;border-radius:50%;object-fit:cover;vertical-align:middle;border:1px solid #d8e2dc" />`;
+  }
+  // Fallback — initials avatar
+  const initials = escapeAttr(initialsFor(name));
+  const fontSize = Math.max(10, Math.round(sizePx * 0.42));
+  return `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;border-radius:50%;background:#2d6a4f;color:#fff;text-align:center;line-height:${sizePx}px;font-size:${fontSize}px;font-weight:600;vertical-align:middle">${initials}</span>`;
+}
+
 /**
  * Check if daily greetings have already run today. If not, run them.
  * Called fire-and-forget from /api/users/me GET, and also by the
@@ -155,7 +218,7 @@ export async function triggerDailyGreetings() {
     // ==================== BIRTHDAYS ====================
     const { data: usersWithDob } = await supabase
       .from("users")
-      .select("id, name, email, dob, occupation, telegram_chat_id, social_links, posting_details")
+      .select("id, name, email, dob, occupation, telegram_chat_id, social_links, posting_details, photo_url")
       .eq("status", "approved")
       .neq("email", "tanhowa19791@gmail.com")
       .not("dob", "is", null);
@@ -170,6 +233,7 @@ export async function triggerDailyGreetings() {
       wish: string;
       email: string;
       telegram_chat_id: string | null;
+      photoUrl: string | null;
     }
     const birthdayMembers: BirthdayMember[] = [];
 
@@ -202,6 +266,7 @@ export async function triggerDailyGreetings() {
           wish,
           email: u.email,
           telegram_chat_id: u.telegram_chat_id,
+          photoUrl: typeof u.photo_url === "string" && u.photo_url ? u.photo_url : null,
         });
       }
     }
@@ -210,33 +275,44 @@ export async function triggerDailyGreetings() {
       // Personal email + Telegram (each gets a unique wish)
       for (const b of birthdayMembers) {
         const placeHtml = b.placeLine ? `<p style="font-size:13px;color:#777;margin:0 0 12px">${b.placeLine}</p>` : "";
-        const html = `<div style="text-align:center;padding:20px"><div style="font-size:48px;margin-bottom:16px">🎂🌸🎉</div><h2 style="color:#2d6a4f;font-size:22px;margin:0 0 8px">Happy Birthday!</h2><p style="font-size:16px;color:#333;margin:0 0 4px">Dear <strong>${b.displayName}</strong>,</p>${placeHtml}<p style="font-size:14px;color:#555;line-height:1.7">${b.wish}</p><div style="background:#f0f8f0;border-radius:8px;padding:16px;margin:20px 0"><p style="color:#2d6a4f;font-weight:600;margin:0">With warm wishes from all members of TANHOWA</p></div></div>`;
+        const avatar = circleAvatarHtml(b.displayName, b.photoUrl, 96);
+        const html = `<div style="text-align:center;padding:20px"><div style="margin-bottom:12px">${avatar}</div><div style="font-size:40px;margin-bottom:12px">🎂🌸🎉</div><h2 style="color:#2d6a4f;font-size:22px;margin:0 0 8px">Happy Birthday!</h2><p style="font-size:16px;color:#333;margin:0 0 4px">Dear <strong>${b.displayName}</strong>,</p>${placeHtml}<p style="font-size:14px;color:#555;line-height:1.7">${b.wish}</p><div style="background:#f0f8f0;border-radius:8px;padding:16px;margin:20px 0"><p style="color:#2d6a4f;font-weight:600;margin:0">With warm wishes from all members of TANHOWA</p></div></div>`;
         await sendDirectEmail(fromEmail, b.email, `Happy Birthday, ${b.displayName}! 🎂 - TANHOWA`, wrapEmail(html));
         await sleep(250);
         if (b.telegram_chat_id) {
           const placeTg = b.placeLine ? `<i>${b.placeLine}</i>\n\n` : "";
-          await sendTelegram(b.telegram_chat_id, `🎂🎉 <b>Happy Birthday, ${b.displayName}!</b>\n\n${placeTg}${b.wish}\n\n<i>With warm wishes from TANHOWA</i> 🌿`);
+          const caption = `🎂🎉 <b>Happy Birthday, ${b.displayName}!</b>\n\n${placeTg}${b.wish}\n\n<i>With warm wishes from TANHOWA</i> 🌿`;
+          let sentPhoto = false;
+          if (isTrustedPhotoUrl(b.photoUrl)) {
+            sentPhoto = await sendTelegramPhoto(b.telegram_chat_id, b.photoUrl, caption);
+          }
+          if (!sentPhoto) {
+            await sendTelegram(b.telegram_chat_id, caption);
+          }
           await sleep(100);
         }
       }
 
-      // Broadcast — list members with designation/place AND a unique wish per person
+      // Broadcast — list members with avatar + designation/place + unique wish
       const plural = birthdayMembers.length > 1 ? "s" : "";
       const namesHtml = birthdayMembers
         .map((b) => {
-          const placeHtml = b.placeLine ? `<div style="font-size:12px;color:#777;margin:2px 0 0 24px">${b.placeLine}</div>` : "";
-          return `<li style="margin:10px 0;font-size:14px;list-style:none">🎂 <strong>${b.displayName}</strong>${placeHtml}<div style="font-size:13px;color:#444;margin:4px 0 0 24px;line-height:1.6">${b.wish}</div></li>`;
+          const avatar = circleAvatarHtml(b.displayName, b.photoUrl, 40);
+          const placeHtml = b.placeLine ? `<div style="font-size:12px;color:#777;margin:2px 0 0 52px">${b.placeLine}</div>` : "";
+          return `<li style="margin:14px 0;font-size:14px;list-style:none">${avatar}<span style="margin-left:8px;vertical-align:middle">🎂 <strong>${b.displayName}</strong></span>${placeHtml}<div style="font-size:13px;color:#444;margin:4px 0 0 52px;line-height:1.6">${b.wish}</div></li>`;
         })
         .join("");
       const bcastHtml = `<div style="padding:16px"><div style="text-align:center"><div style="font-size:40px;margin-bottom:12px">🎉🎂🌸</div><h2 style="color:#2d6a4f;font-size:20px;margin:0 0 12px">Birthday Celebration${plural} Today!</h2><p style="font-size:14px;color:#555;margin:0 0 16px">Let us wish our fellow member${plural} a very happy birthday:</p></div><ul style="padding:0;margin:0">${namesHtml}</ul></div>`;
       const namesStr = birthdayMembers.map((b) => b.displayName).join(", ");
       await sendIndividually(fromEmail, allEmails,`🎂 Birthday Celebration${plural} Today! - ${namesStr}`, wrapEmail(bcastHtml));
 
-      // Announcement — designation/place + unique wish per person
+      // Announcement — embeds ![Name](photo_url) markdown which the dashboard
+      // announcements renderer turns into a small circular inline avatar.
       const namesList = birthdayMembers
         .map((b) => {
+          const photoMd = isTrustedPhotoUrl(b.photoUrl) ? `![${b.displayName}](${b.photoUrl}) ` : "";
           const place = b.placeLine ? `\n   ${b.placeLine}` : "";
-          return `🎂 ${b.displayName}${place}\n   "${b.wish}"`;
+          return `${photoMd}🎂 **${b.displayName}**${place}\n   "${b.wish}"`;
         })
         .join("\n\n");
       await supabase.from("announcements").insert({
