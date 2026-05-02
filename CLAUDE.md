@@ -33,7 +33,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/` — Next.js App Router: pages (`dashboard/`, `admin/`, `onboarding/`, `verify/`, `pending/`) and API routes (`api/`)
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
-- `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`, `date-dropdowns.tsx` (responsive Day/Month/Year native selects with mobile abbreviations), `photo-crop-dialog.tsx` (image cropping for profile photos), `global-search.tsx` (cross-entity search UI), `payment-proof-preview-dialog.tsx`, `analytics-tracker.tsx`, `push-manager.tsx`, `finance-otp-gate.tsx`, `settings-popover.tsx` (language + font size + theme controls)
+- `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`, `date-dropdowns.tsx` (responsive Day/Month/Year native selects with mobile abbreviations), `photo-crop-dialog.tsx` (image cropping for profile photos), `global-search.tsx` (cross-entity search UI), `payment-proof-preview-dialog.tsx`, `analytics-tracker.tsx`, `push-manager.tsx`, `finance-otp-gate.tsx`, `settings-popover.tsx` (language + font size + theme controls), `connect-telegram-banner.tsx` (dismissible CTA on `/dashboard` linking approved members to `@tanhowa_task_bot` with email pre-filled via `/start <email>` deeplink — hides if `telegram_chat_id` is set or user dismissed via `tanhowa-tg-banner-dismissed` localStorage key)
 - `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `query-engine.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `audit-log.ts`, `razorpay.ts`, `rate-limit.ts`, `daily-greetings.ts`, `translate-content.ts`, `badges.ts`, `validation.ts`, `sms.ts`, `document-urls.ts`, `export-xlsx.ts`, `push.ts`, `api-perf.ts`, `request-ip.ts`, `utils.ts`
 - `lib/i18n/` — Internationalization: `language-context.tsx` (React context + hooks), `translations.ts` (EN/TA dictionary), `index.ts` (barrel export)
 - `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
@@ -282,11 +282,12 @@ Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP
 
 ## Daily Greetings (`lib/daily-greetings.ts`)
 
-Self-triggering birthday + festival greetings system. `triggerDailyGreetings()` is called fire-and-forget from `GET /api/users/me` on the first visitor each day. Uses `site_settings` key `daily_greetings_last_run` as a once-per-day lock.
+Birthday + festival greetings system. Triggered by `/api/cron/daily-greetings` (Vercel cron at 01:30 UTC). Uses the atomic-claim lock pattern — `INSERT` into `site_settings` with key `daily_greetings_run_{YYYY-MM-DD}` so only one concurrent caller wins.
 
-- **Birthday:** Finds members with matching DOB month/day, sends personalized email + Telegram + creates announcement
+- **Birthday:** Finds members with matching DOB month/day, sends personalized email + Telegram + creates announcement (rich format: designation • block, district + per-member wish picked deterministically by `(hash * 31 + charCode)` from a 20-wish array)
 - **Festival:** Checks 15+ Tamil Nadu/Indian festivals against today's date, sends broadcast email + Telegram + creates announcement
-- **Fallback:** Also available as a Python tool (`tools/daily_greetings.py`) for manual/forced runs — shares the same atomic lock so it won't duplicate
+- **Fallback:** Python tool `tools/daily_greetings.py` for manual/forced runs — shares the same atomic lock and the same rich birthday format (synced 2026-05-01)
+- **NOT fire-and-forget anymore:** previously called from `GET /api/users/me` on the first visitor each day, but Vercel killed the lambda mid-execution after the lock row was inserted — locking out the cron and skipping the day. Removed 2026-05-01. Errors now flow through `logError()` instead of silent catch.
 
 ## Auto Gender Detection
 
@@ -313,6 +314,19 @@ On profile save (`PUT /api/users/me`), `detectGender()` auto-detects gender from
 - **Vision routes** accept FormData with image (10MB max), text routes accept JSON
 - All API routes: session check → rate limit → Gemini call → `logContribution()` → response
 - Contribution actions logged for all 5 tools
+
+### AI Bookends on Tasks (Ship 3)
+
+Two AI helpers at the start and end of a task lifecycle. Live at `/dashboard/todos`:
+
+| Route | Purpose | Auth | Rate Limit |
+|-------|---------|------|------------|
+| `POST /api/todos/suggest-subtasks` | 3-5 subtask suggestions for a top-level task (rejects `parent_id != null`) | assignee / committer / team-member / admin | 10/min |
+| `POST /api/todos/draft-report` | 2-3 paragraph first-person completion report from notes + time entries + vouchers | committer or admin only | 10/min |
+
+- **Model:** `gemini-2.5-flash`. Strict JSON output prompt for suggestions; plain prose for draft (no markdown, no fabricated data).
+- **UI:** amber Sparkles "AI Suggest" button in the Sub-Tasks tab; "AI Draft" button inside the completion-review dialog.
+- **Inserts route through standard endpoints** (`/api/todos`, `/api/todos/notes`) so audit + event_id + Telegram notifications flow normally.
 
 ## Chatbot / Query Engine
 
@@ -370,6 +384,10 @@ AI-powered chatbot with live portal data access via Gemini function calling.
 - **jsPDF does NOT support emoji/Unicode.** Only ASCII and standard latin characters work. Emoji renders as garbled text (e.g., "Ø<ß?"). Use plain text in all PDF generation (`jspdf` + `jspdf-autotable`).
 - **Error Logs:** Both UI sidebar and API (`/api/error-logs`) are restricted to `super_admin` only. Regular admins cannot access error logs.
 - **Two `logAudit` libraries exist** — use the correct one: `lib/audit.ts` takes 1 object arg `({ userId, action, targetType, targetId, details })`, while `lib/audit-log.ts` takes 5 positional args `(userId, action, targetType, targetId, details)`. Both write to the same `audit_logs` table.
+- **ZeptoMail token in `ZEPTOMAIL_TOKEN` must be the BARE key — NO `Zoho-enczapikey ` prefix.** All call sites prepend the prefix themselves (`Authorization: \`Zoho-enczapikey ${token}\``). Including the prefix in the env var causes a double prefix → ZeptoMail returns HTTP 500 silently → API accepts but never delivers. Caused the 2026-05-02 incident where OTPs vanished but birthday-cron emails still went out (only the daily-greetings code path used to omit the prefix in code, which masked the bug for that one path until it was fixed).
+- **ZeptoMail BCC blasts trigger Gmail's `4.7.28` domain rate-limit.** Sending one email with 30+ BCC recipients (the old `sendBroadcastEmail` and `sendBcc` pattern) makes Gmail flag the entire `tanhowa.in` domain as bulk/spam and rate-limit ALL outbound mail — including transactional OTPs — for several hours. Always send broadcasts as one-to-one with throttling (~250ms between sends). Both `lib/mail.ts:sendBroadcastEmail` and `lib/daily-greetings.ts:sendIndividually` now do this; never re-introduce BCC for member-wide sends.
+- **PostgREST direct writes bypass `translateContent()`** — the Python tools (which use `requests` against PostgREST because `supabase-py` rejects the new `sb_secret_*` key format) do NOT trigger EN→TA auto-translation. Backfill scripts must call Gemini themselves and upsert into `content_translations`.
+- **API edits re-translate and overwrite hand-cached translations** — if you manually upsert a Tamil translation and then someone hits PUT on the same announcement, `translateContent()` will re-run EN→TA via Gemini and overwrite your hand edit. No "translation-locked" flag exists yet.
 
 ## Reports & Analytics (`/admin/reports`)
 
@@ -405,15 +423,22 @@ The reports page is organized into 6 tabs, each in its own component under `app/
 ### Overview
 A Telegram bot sends real-time notifications for task events. Users link their Telegram account by sending their registered email to the bot.
 
+**Bot:** `@tanhowa_task_bot`
+
 **Key files:**
-- `lib/telegram.ts` — `sendTelegramMessage()`, notification helpers (`notifyTaskAssigned`, `notifyTaskCommitted`, `notifyTaskStatusChanged`, `notifyVoucherAction`, `notifyNewNote`), `escapeHtml()`
-- `app/api/telegram/webhook/route.ts` — Webhook handler for bot commands (`/start`, `/help`, `/status`, `/update`, `/report`)
+- `lib/telegram.ts` — `sendTelegramMessage()`, `sendTelegramMessageWithKeyboard()`, `answerCallbackQuery()`, `sendForceReply()`, notification helpers (`notifyTaskAssigned`, `notifyTaskCommitted`, `notifyTaskStatusChanged`, `notifyVoucherAction`, `notifyNewNote`), `escapeHtml()`. Types: `InlineButton`, `InlineKeyboard`.
+- `app/api/telegram/webhook/route.ts` — Webhook handler. Handles text commands, `callback_query` (inline keyboard taps), and `reply_to_message` (force_reply round-trips). Dispatches via `handleCommit`/`handleDone`/`handleBlocked`/`handleAddNote`/`handleEmailOtp`/`handleCallbackQuery`. Extend these instead of duplicating auth + event_id lookup.
+
+**Text commands:** `/start [email]`, `/help`, `/status`, `/commit`, `/done`, `/blocked`, `/update`, `/report`
+
+**Inline keyboard callbacks:** `done|blocked|update:ET-XXX` — sent from the daily-briefing cron's `[✅] [🚧] [📝] ET-XXX` buttons. `done` → marks complete. `blocked` / `update` → fires a `force_reply` prompt; the user's reply is matched against `"blocking ET-XXX <reason>"` / `"update for ET-XXX <text>"` and routed back through the standard handlers.
 
 ### Account Linking Flow
-1. User sends any email text to the bot
-2. Webhook looks up email in `users` table
-3. If found, stores `telegram_chat_id` on the user record
-4. Future task notifications are sent to that chat ID
+1. **Deeplink (preferred):** Connect Telegram banner on `/dashboard` opens `https://t.me/tanhowa_task_bot?start=<urlencoded-email>`. Webhook detects `/start <email>`, dispatches to `handleEmailOtp()`, OTP is sent — one-tap link.
+2. **Manual:** User sends any email text to the bot
+3. Webhook looks up email in `users` table
+4. If found, stores `telegram_chat_id` on the user record
+5. Future task notifications are sent to that chat ID
 
 ### Notification Pattern
 API routes use fire-and-forget async IIFE to send notifications without blocking the response:
@@ -1006,13 +1031,18 @@ Tracks which members have read announcements. Used by notification counts to sho
 
 ## Cron Jobs
 
-Vercel Cron-triggered endpoints. All require `Authorization: Bearer {CRON_SECRET}` header (except those using `site_settings` lock).
+Vercel Cron-triggered endpoints (defined in `vercel.json`). All require `Authorization: Bearer {CRON_SECRET}` header. Once-per-day jobs additionally use the atomic-claim lock pattern (`INSERT` into `site_settings` with key `{job}_run_{YYYY-MM-DD}`) so concurrent triggers don't double-run.
 
-| Route | Schedule | Purpose |
-|-------|----------|---------|
-| `/api/cron/daily-greetings` | Daily | Birthday + festival greetings (also triggered fire-and-forget from `/api/users/me`) |
-| `/api/cron/inactive-nudge` | Daily | Email + Telegram nudge to members inactive 30+ days |
-| `/api/cron/publish-scheduled` | Periodic | Auto-publishes scheduled announcements/events past their `scheduled_at` time |
+| Route | Schedule (UTC) | IST | Purpose |
+|-------|---------------|-----|---------|
+| `/api/cron/daily-briefing` | `0 0 * * *` | 05:30 | Per linked TG member: top 3 active tasks + Gemini-personalized 2-3 sentence briefing + inline keyboard rows `[✅] [🚧] [📝] ET-XXX` per task. Webhook handles the `callback_query` and `force_reply` round-trips. |
+| `/api/cron/task-reminder` | `30 0 * * *` | 06:00 | Daily digest of due-soon + timebox-hot tasks per assignee/committer |
+| `/api/cron/daily-greetings` | `30 1 * * *` | 07:00 | Birthday + festival greetings (see Daily Greetings section above for the lambda-killed fire-and-forget bug) |
+| `/api/cron/inactive-nudge` | `30 2 * * *` | 08:00 | Email + Telegram nudge to members inactive 30+ days |
+| `/api/cron/stuck-tasks` | `0 4 * * *` | 09:30 | Flags silent (no notes 3+ days) / past-due / timebox-exceeded tasks. Per-committer DM + admin digest. |
+| `/api/cron/publish-scheduled` | Periodic | — | Auto-publishes scheduled announcements/events past their `scheduled_at` time |
+
+The three task crons (daily-briefing, task-reminder, stuck-tasks) overlap by design — they cover different signals. **Consolidation deferred until adoption data is available** (audit scheduled 2026-05-15). Don't preemptively merge them.
 
 ## Volunteer Invites
 

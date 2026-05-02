@@ -242,22 +242,24 @@ async function getAllMemberEmails(): Promise<string[]> {
   return (data || []).map((u: { email: string }) => u.email).filter(Boolean);
 }
 
-// Send a branded notification email to all approved members using BCC batches
-// ZeptoMail limits recipients per email, so we batch in groups of 40
+// Send a branded notification email to all approved members.
+// Sends one-to-one with throttling (NOT BCC) — Gmail's `4.7.28 unusual rate
+// of mail` filter rate-limits the whole tanhowa.in domain when many recipients
+// are BCCed in a single message, which knocks out OTP delivery for hours.
+// 250ms per send → ~4/sec, well under bulk-sender thresholds.
 export async function sendBroadcastEmail(subject: string, bodyHtml: string) {
   if (HOLD_MEMBER_EMAILS) return;
   const emails = await getAllMemberEmails();
   if (emails.length === 0) return;
 
-  const BATCH_SIZE = 40;
-
-  for (let i = 0; i < emails.length; i += BATCH_SIZE) {
-    const batch = emails.slice(i, i + BATCH_SIZE);
+  const html = wrapEmailTemplate(bodyHtml);
+  for (const addr of emails) {
     try {
-      await sendBccEmail(FROM_EMAIL, batch, subject, wrapEmailTemplate(bodyHtml));
+      await sendEmail(addr, subject, html);
     } catch {
-      // Continue with next batch if one fails
+      // Continue with next recipient if one fails
     }
+    await new Promise((r) => setTimeout(r, 250));
   }
 }
 

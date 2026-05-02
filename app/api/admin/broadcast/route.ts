@@ -5,6 +5,9 @@ import { sendBroadcastEmail } from "@/lib/mail";
 import { logAudit } from "@/lib/audit-log";
 import { logError } from "@/lib/error-logger";
 
+// Throttled broadcast (250ms/send) can take ~70s for 270+ approved members
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();

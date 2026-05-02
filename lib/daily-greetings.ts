@@ -58,25 +58,8 @@ function wrapEmail(content: string): string {
   return `<div style="font-family:'Poppins',sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#fefae0;border-radius:12px"><div style="text-align:center;margin-bottom:24px"><h1 style="color:#2d6a4f;font-size:28px;margin:0">TANHOWA</h1><p style="color:#40916c;font-size:14px;margin:4px 0 0">Tamil Nadu Horticultural Officers Welfare Association</p></div><div style="background:white;border-radius:8px;padding:24px">${content}</div><p style="color:#999;font-size:11px;text-align:center;margin:16px 0 0">TANHOWA - <a href="https://tanhowa.in" style="color:#2d6a4f">Visit Portal</a></p></div>`;
 }
 
-async function sendBcc(from: string, emails: string[], subject: string, html: string) {
-  const token = process.env.ZEPTOMAIL_TOKEN;
-  if (!token || emails.length === 0) return;
-  const BATCH = 40;
-  for (let i = 0; i < emails.length; i += BATCH) {
-    const batch = emails.slice(i, i + BATCH);
-    try {
-      await fetch("https://api.zeptomail.in/v1.1/email", {
-        method: "POST",
-        headers: { Authorization: token, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: { address: from, name: "TANHOWA" },
-          to: [{ email_address: { address: batch[0] } }],
-          bcc: batch.slice(1).map((e) => ({ email_address: { address: e } })),
-          subject, htmlbody: html,
-        }),
-      });
-    } catch { /* continue */ }
-  }
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 async function sendDirectEmail(from: string, to: string, subject: string, html: string) {
@@ -85,7 +68,7 @@ async function sendDirectEmail(from: string, to: string, subject: string, html: 
   try {
     await fetch("https://api.zeptomail.in/v1.1/email", {
       method: "POST",
-      headers: { Authorization: token, "Content-Type": "application/json" },
+      headers: { Authorization: `Zoho-enczapikey ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: { address: from, name: "TANHOWA" },
         to: [{ email_address: { address: to } }],
@@ -93,6 +76,20 @@ async function sendDirectEmail(from: string, to: string, subject: string, html: 
       }),
     });
   } catch { /* silent */ }
+}
+
+// Send a broadcast as individual one-to-one emails with throttling.
+// Prior implementation BCCed in batches of 40, which Gmail flagged as
+// `4.7.28 unusual rate of mail` and rate-limited the whole tanhowa.in
+// domain — knocking out OTP delivery for hours after each blast.
+// 250ms spacing → ~4 sends/sec, well under bulk-sender thresholds.
+async function sendIndividually(from: string, emails: string[], subject: string, html: string) {
+  const token = process.env.ZEPTOMAIL_TOKEN;
+  if (!token || emails.length === 0) return;
+  for (const email of emails) {
+    await sendDirectEmail(from, email, subject, html);
+    await sleep(250);
+  }
 }
 
 async function sendTelegram(chatId: string, text: string) {
@@ -215,9 +212,11 @@ export async function triggerDailyGreetings() {
         const placeHtml = b.placeLine ? `<p style="font-size:13px;color:#777;margin:0 0 12px">${b.placeLine}</p>` : "";
         const html = `<div style="text-align:center;padding:20px"><div style="font-size:48px;margin-bottom:16px">🎂🌸🎉</div><h2 style="color:#2d6a4f;font-size:22px;margin:0 0 8px">Happy Birthday!</h2><p style="font-size:16px;color:#333;margin:0 0 4px">Dear <strong>${b.displayName}</strong>,</p>${placeHtml}<p style="font-size:14px;color:#555;line-height:1.7">${b.wish}</p><div style="background:#f0f8f0;border-radius:8px;padding:16px;margin:20px 0"><p style="color:#2d6a4f;font-weight:600;margin:0">With warm wishes from all members of TANHOWA</p></div></div>`;
         await sendDirectEmail(fromEmail, b.email, `Happy Birthday, ${b.displayName}! 🎂 - TANHOWA`, wrapEmail(html));
+        await sleep(250);
         if (b.telegram_chat_id) {
           const placeTg = b.placeLine ? `<i>${b.placeLine}</i>\n\n` : "";
           await sendTelegram(b.telegram_chat_id, `🎂🎉 <b>Happy Birthday, ${b.displayName}!</b>\n\n${placeTg}${b.wish}\n\n<i>With warm wishes from TANHOWA</i> 🌿`);
+          await sleep(100);
         }
       }
 
@@ -231,7 +230,7 @@ export async function triggerDailyGreetings() {
         .join("");
       const bcastHtml = `<div style="padding:16px"><div style="text-align:center"><div style="font-size:40px;margin-bottom:12px">🎉🎂🌸</div><h2 style="color:#2d6a4f;font-size:20px;margin:0 0 12px">Birthday Celebration${plural} Today!</h2><p style="font-size:14px;color:#555;margin:0 0 16px">Let us wish our fellow member${plural} a very happy birthday:</p></div><ul style="padding:0;margin:0">${namesHtml}</ul></div>`;
       const namesStr = birthdayMembers.map((b) => b.displayName).join(", ");
-      await sendBcc(fromEmail, allEmails, `🎂 Birthday Celebration${plural} Today! - ${namesStr}`, wrapEmail(bcastHtml));
+      await sendIndividually(fromEmail, allEmails,`🎂 Birthday Celebration${plural} Today! - ${namesStr}`, wrapEmail(bcastHtml));
 
       // Announcement — designation/place + unique wish per person
       const namesList = birthdayMembers
@@ -252,7 +251,7 @@ export async function triggerDailyGreetings() {
     const festival = FESTIVALS[mmdd];
     if (festival) {
       const festHtml = `<div style="text-align:center;padding:20px"><div style="font-size:48px;margin-bottom:16px">${festival.emoji}</div><h2 style="color:#2d6a4f;font-size:24px;margin:0 0 12px">${festival.greeting}</h2><p style="font-size:14px;color:#555;line-height:1.7;max-width:400px;margin:0 auto 20px">${festival.message}</p><div style="background:#f0f8f0;border-radius:8px;padding:16px;margin:16px 0"><p style="color:#2d6a4f;font-weight:600;margin:0">Warm wishes from TANHOWA Family</p></div></div>`;
-      await sendBcc(fromEmail, allEmails, `${festival.emoji} ${festival.greeting} - TANHOWA`, wrapEmail(festHtml));
+      await sendIndividually(fromEmail, allEmails,`${festival.emoji} ${festival.greeting} - TANHOWA`, wrapEmail(festHtml));
 
       // Telegram broadcast
       const { data: tgUsers } = await supabase
@@ -263,6 +262,7 @@ export async function triggerDailyGreetings() {
       for (const u of tgUsers || []) {
         if (u.telegram_chat_id) {
           await sendTelegram(u.telegram_chat_id, `${festival.emoji} <b>${festival.greeting}</b>\n\n${festival.message}\n\n<i>- TANHOWA Family</i> 🌿`);
+          await sleep(100);
         }
       }
 

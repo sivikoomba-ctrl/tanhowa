@@ -10,6 +10,9 @@ import { logError } from "@/lib/error-logger";
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
+// Throttled broadcasts (250ms/send) can take ~70s for 270+ members + festival sends + Telegram fan-out
+export const maxDuration = 300;
+
 export async function GET(req: NextRequest) {
   try {
     if (!CRON_SECRET) {
