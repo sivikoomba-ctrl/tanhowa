@@ -59,16 +59,6 @@ async function sendEmail(to: string, subject: string, htmlbody: string, attachme
   });
 }
 
-async function sendBccEmail(toSelf: string, bccAddresses: string[], subject: string, htmlbody: string) {
-  return sendZeptoMail({
-    from: { address: FROM_EMAIL, name: FROM_NAME },
-    to: [{ email_address: { address: toSelf } }],
-    bcc: bccAddresses.map((addr) => ({ email_address: { address: addr } })),
-    subject,
-    htmlbody,
-  });
-}
-
 /** Generate a PDF receipt as base64 string (server-side, same layout as client downloadReceipt) */
 async function generateReceiptPdf(
   memberName: string,

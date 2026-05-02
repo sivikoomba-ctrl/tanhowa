@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   GraduationCap, Plus, Trash2, Calendar, MapPin, Clock, Users,
   Video, Building, Pencil, UserCheck, Loader2, ExternalLink, QrCode,
-  Search, Send, Check, X, Mail, Upload, FileText, Globe, Lock, Eye,
+  Search, Send, Check, Mail, Upload, FileText, Globe, Lock, Eye,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { formatDate } from "@/lib/utils";
@@ -83,16 +83,16 @@ export default function AdminTrainingsPage() {
   const [matAccess, setMatAccess] = useState("enrolled");
   const matFileRef = useRef<HTMLInputElement>(null);
 
-  function load() {
+  const load = useCallback(() => {
     setLoading(true);
     fetch(`/api/trainings?status=${tab}`)
       .then((r) => r.json())
       .then((d) => setTrainings(d.trainings || []))
       .catch(() => toast.error("Failed to load"))
       .finally(() => setLoading(false));
-  }
+  }, [tab]);
 
-  useEffect(() => { load(); }, [tab]);
+  useEffect(() => { load(); }, [load]);
 
   function openEdit(t: Training) {
     setForm({

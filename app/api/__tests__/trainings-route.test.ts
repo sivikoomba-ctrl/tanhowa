@@ -14,9 +14,6 @@ const mockEnrollments = [
 ];
 
 const mockSingle = vi.fn(async () => ({ data: mockTrainings[0], error: null }));
-const mockSelect = vi.fn(() => ({ single: mockSingle, in: vi.fn(async () => ({ data: mockEnrollments })) }));
-const mockOrder = vi.fn(() => ({ select: mockSelect }));
-const mockEq = vi.fn(() => ({ order: mockOrder }));
 const mockFrom = vi.fn((table: string) => {
   if (table === "training_enrollments") {
     return { select: vi.fn(() => ({ in: vi.fn(async () => ({ data: mockEnrollments })) })) };

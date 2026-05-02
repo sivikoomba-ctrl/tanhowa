@@ -15,7 +15,6 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useT } from "@/lib/i18n";
 
 interface DistrictData {
   name: string;
@@ -41,7 +40,6 @@ interface DistrictData {
 type SortKey = "score" | "name" | "members" | "activeMembers" | "paymentRate" | "collectionAmount" | "tasksCompleted" | "avgContribMinutes";
 
 export default function DistrictBenchmarkPage() {
-  const t = useT();
   const [districts, setDistricts] = useState<DistrictData[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(new Date().getFullYear().toString());
@@ -208,7 +206,7 @@ export default function DistrictBenchmarkPage() {
                     </td>
                   </tr>
                 ) : (
-                  sorted.map((d, i) => {
+                  sorted.map((d) => {
                     // Find original rank (by score)
                     const originalRank = districts.findIndex(od => od.name === d.name);
                     return (

@@ -95,14 +95,6 @@ const emptyPosting: PostingDetails = {
   deputed_district: "", deputed_block: "",
 };
 
-function getDobLimits() {
-  const now = new Date();
-  return {
-    minDate: new Date(now.getFullYear() - 100, now.getMonth(), now.getDate()).toISOString().split("T")[0],
-    maxDate: new Date(now.getFullYear() - 18, now.getMonth(), now.getDate()).toISOString().split("T")[0],
-  };
-}
-
 function SectionHeader({ icon: Icon, title, subtitle, color = "text-primary" }: { icon: React.ElementType; title: string; subtitle?: string; color?: string }) {
   return (
     <div className="flex items-center gap-3 mb-4">
@@ -300,7 +292,6 @@ export default function ProfilePage() {
     personal: true, qualification: true, posting: true,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { minDate, maxDate } = getDobLimits();
   const t = useT();
 
   function toggleSection(key: string) {

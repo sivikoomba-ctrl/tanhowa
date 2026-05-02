@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -297,9 +297,9 @@ export default function ResolutionsPage() {
   }, [lang]);
 
   const categories = useMemo(() => Array.from(new Set(resolutions.map((r) => r.category).filter(Boolean))).sort(), [resolutions]);
-  const filterByCategory = (list: Resolution[]) => categoryFilter === "all" ? list : list.filter((r) => r.category === categoryFilter);
-  const votingOpen = useMemo(() => filterByCategory(resolutions.filter((r) => r.status === "voting_open")), [resolutions, categoryFilter]);
-  const results = useMemo(() => filterByCategory(resolutions.filter((r) => r.status === "passed" || r.status === "failed")), [resolutions, categoryFilter]);
+  const filterByCategory = useCallback((list: Resolution[]) => categoryFilter === "all" ? list : list.filter((r) => r.category === categoryFilter), [categoryFilter]);
+  const votingOpen = useMemo(() => filterByCategory(resolutions.filter((r) => r.status === "voting_open")), [resolutions, filterByCategory]);
+  const results = useMemo(() => filterByCategory(resolutions.filter((r) => r.status === "passed" || r.status === "failed")), [resolutions, filterByCategory]);
   const drafts = useMemo(() => myResolutions.filter((r) => r.status === "draft" || r.status === "submitted" || r.status === "approved" || r.status === "rejected"), [myResolutions]);
 
   async function handleCreate() {

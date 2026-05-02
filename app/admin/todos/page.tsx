@@ -23,7 +23,6 @@ import {
   Timer,
   IndianRupee,
   Pencil,
-  Hourglass,
   Copy,
   CheckSquare,
   Square,
@@ -36,36 +35,6 @@ import type { Todo, TodoNote, TodoAttachment, TodoVoucher, Member, Team, TimeEnt
 import TodoDetailView from "./_components/TodoDetailView";
 import EditTaskDialog from "./_components/EditTaskDialog";
 import CreateTaskDialog from "./_components/CreateTaskDialog";
-
-function TimeboxProgress({ totalHours, timeboxHours, contributors }: { totalHours: number; timeboxHours: number; contributors: number }) {
-  const percent = Math.min((totalHours / timeboxHours) * 100, 150);
-  const isOverdue = totalHours > timeboxHours;
-  const isWarning = percent >= 75 && !isOverdue;
-  const barColor = isOverdue ? "bg-red-500" : isWarning ? "bg-amber-500" : "bg-green-500";
-
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs">
-        <span className="flex items-center gap-1">
-          <Hourglass size={11} />
-          {Math.floor(totalHours)}h {Math.round((totalHours % 1) * 60)}m / {timeboxHours}h
-          {contributors > 0 && <span className="text-muted-foreground">({contributors} contributor{contributors !== 1 ? "s" : ""})</span>}
-        </span>
-        {isOverdue && (
-          <span className="text-red-600 font-medium">
-            Overdue by {Math.floor(totalHours - timeboxHours)}h {Math.round(((totalHours - timeboxHours) % 1) * 60)}m
-          </span>
-        )}
-      </div>
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${barColor}`}
-          style={{ width: `${Math.min(percent, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-}
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   pending: { label: "Pending", color: "bg-amber-100 text-amber-800", icon: Clock },

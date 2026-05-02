@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/metric-card";
 import {
@@ -190,7 +189,7 @@ export default function ActivityPage() {
                   <p className="text-sm text-muted-foreground text-center py-4">No activity yet</p>
                 ) : (
                   <div className="space-y-2">
-                    {data.topActions.map((a, i) => (
+                    {data.topActions.map((a) => (
                       <div key={a.action} className="flex items-center justify-between">
                         <span className="text-sm capitalize truncate flex-1">{a.label}</span>
                         <div className="flex items-center gap-2">

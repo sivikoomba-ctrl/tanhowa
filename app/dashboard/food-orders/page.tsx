@@ -81,16 +81,6 @@ export default function FoodOrdersPage() {
   const [placing, setPlacing] = useState(false);
   const [activeTab, setActiveTab] = useState("menu");
 
-  const loadMenu = useCallback(() => {
-    fetch("/api/food-orders?view=menu")
-      .then((r) => r.json())
-      .then((d) => {
-        setVendors(d.vendors || []);
-        setMenuItems(d.items || []);
-      })
-      .catch(() => toast.error("Failed to load menu"));
-  }, []);
-
   const loadOrders = useCallback(() => {
     fetch("/api/food-orders")
       .then((r) => r.json())

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Settings, Building2, QrCode, Upload, Eye, Wallet, Users, Globe, Phone, Mail, MapPin, Shield, Save, Loader2 } from "lucide-react";
+import { Settings, Building2, QrCode, Upload, Wallet, Users, Globe, Phone, Shield, Save, Loader2 } from "lucide-react";
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});

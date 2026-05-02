@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, ChevronDown, Save, Calculator } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, Save, Calculator } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -82,7 +82,6 @@ export default function SubscriptionsPage() {
   const t = useT();
 
   // Association Due Summary
-  const [duesOpen, setDuesOpen] = useState(false);
   const [duesPaid, setDuesPaid] = useState("");
   const [duesAdditional, setDuesAdditional] = useState("");
   const [duesSaving, setDuesSaving] = useState(false);

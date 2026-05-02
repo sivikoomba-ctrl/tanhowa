@@ -73,7 +73,7 @@ export default function AdminDocumentsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
-  const [historyDocId, setHistoryDocId] = useState<string | null>(null);
+  const [, setHistoryDocId] = useState<string | null>(null);
   const [historyDocTitle, setHistoryDocTitle] = useState("");
   const [versions, setVersions] = useState<DocVersion[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);

@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 }
 
 // DELETE — remove push subscription
-export async function DELETE(req: NextRequest) {
+export async function DELETE() {
   try {
     const session = await getSession();
     if (!session) {

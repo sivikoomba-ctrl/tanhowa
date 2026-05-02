@@ -105,7 +105,6 @@ export async function GET(req: NextRequest) {
     // --- Team performance ---
     const teamPerformance = teams.map(team => {
       const memberIds = teamMembersByTeam.get(team.id) || [];
-      const memberIdSet = new Set(memberIds);
       const teamTodos = todos.filter(t => t.assigned_team_id === team.id);
       const completedTodos = teamTodos.filter(t => t.status === "completed");
 

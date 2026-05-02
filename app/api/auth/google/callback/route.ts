@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { createSession, DEFAULT_ADMIN_EMAIL, SUPER_ADMIN_EMAILS, isBlockedEmail } from "@/lib/auth";
+import { createSession, SUPER_ADMIN_EMAILS, isBlockedEmail } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 interface GoogleTokenResponse {

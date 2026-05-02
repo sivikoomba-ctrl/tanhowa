@@ -95,9 +95,6 @@ export default function CalendarPage() {
   // Fetch data when month changes
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const startDate = new Date(year, month, 1).toISOString();
-    const endDate = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
-
     const allItems: CalendarItem[] = [];
 
     try {

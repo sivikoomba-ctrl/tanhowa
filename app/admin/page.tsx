@@ -13,9 +13,9 @@ import {
   ArrowRight, Wallet, IndianRupee, CalendarDays,
   ListTodo, Award, TrendingUp, AlertTriangle,
 } from "lucide-react";
-import { Cell, Pie, PieChart, Bar, BarChart } from "recharts";
+import { Cell, Pie, PieChart } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
-import { taskStatusConfig, CHART_COLORS } from "@/lib/chart-config";
+import { taskStatusConfig } from "@/lib/chart-config";
 import { formatDate } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
 import { AdminContacts } from "@/components/admin-contacts";

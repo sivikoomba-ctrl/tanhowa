@@ -332,7 +332,6 @@ export default function VerifyPaymentsPage() {
 
   // Stats
   const totalVerified = districts.reduce((sum, d) => sum + d.subscriptions.filter((s) => isDsVerified(s)).length, 0);
-  const totalWithProof = districts.reduce((sum, d) => sum + d.subscriptions.filter((s) => s.payment_proof_url).length, 0);
   const totalNoProof = districts.reduce((sum, d) => sum + d.subscriptions.filter((s) => !s.payment_proof_url).length, 0);
 
   if (loading) {

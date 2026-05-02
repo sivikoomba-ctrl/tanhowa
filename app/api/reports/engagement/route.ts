@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await getSession();
     if (!session || session.email !== "tanhowa19791@gmail.com") {

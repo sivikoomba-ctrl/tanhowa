@@ -4,7 +4,6 @@ import { z } from "zod";
 const trimmedString = z.string().trim();
 const nonEmptyString = trimmedString.min(1, "Required");
 const safeString = trimmedString.max(5000); // Prevent huge payloads
-const emailSchema = z.string().email().max(255);
 const uuidSchema = z.string().uuid();
 
 // Grievances / Suggestions

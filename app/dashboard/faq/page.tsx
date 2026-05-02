@@ -37,7 +37,6 @@ export default function FAQPage() {
       .then((d) => setFaqs(d.faqs || []))
       .catch(() => toast.error("Failed to load FAQs"))
       .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
 
   const categories = useMemo(() => {
