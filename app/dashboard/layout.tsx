@@ -45,6 +45,7 @@ import {
   MessagesSquare,
   Trophy,
   CalendarDays,
+  History as HistoryIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -114,6 +115,7 @@ const navItems = [
   { href: "/dashboard/trainings", labelKey: "nav.trainings" as const, icon: GraduationCap },
   { href: "/dashboard/ai-tools", labelKey: "nav.ai_tools" as const, icon: Sparkles },
   { href: "/dashboard/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
+  { href: "/dashboard/history", labelKey: "nav.history" as const, icon: HistoryIcon },
   { href: "/dashboard/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed, superAdminOnly: true },
 ];
 

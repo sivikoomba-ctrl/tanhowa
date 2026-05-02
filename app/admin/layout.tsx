@@ -45,6 +45,7 @@ import {
   TrendingUp,
   MessagesSquare,
   Sprout,
+  History as HistoryIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +86,7 @@ const adminNavItems = [
   { href: "/admin/analytics", labelKey: "nav.analytics" as const, icon: Activity },
   { href: "/admin/engagement", labelKey: "nav.engagement" as const, icon: TrendingUp },
   { href: "/admin/why-ministry", labelKey: "nav.why_ministry" as const, icon: Sprout },
+  { href: "/admin/history", labelKey: "nav.history" as const, icon: HistoryIcon },
   { href: "/admin/audit-logs", labelKey: "nav.audit_log" as const, icon: ClipboardList },
   { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
   { href: "/admin/settings", labelKey: "nav.settings" as const, icon: Settings },
@@ -174,6 +176,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           if (item.href === "/admin/analytics") return user?.email === "tanhowa19791@gmail.com" || user?.email === "tanhowaadmin@tanhowa.in";
           if (item.href === "/admin/engagement") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/why-ministry") return user?.email === "tanhowa19791@gmail.com";
+          if (item.href === "/admin/history") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/vouchers") return user?.role === "super_admin" || isFinanceTeam;
           return true;
         }).map((item) => {

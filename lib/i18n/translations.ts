@@ -51,6 +51,11 @@ const translations = {
   "nav.district_benchmark": { en: "District Benchmark", ta: "மாவட்ட ஒப்பீடு" },
   "nav.engagement": { en: "Engagement", ta: "ஈடுபாடு" },
   "nav.why_ministry": { en: "Why Ministry", ta: "ஏன் அமைச்சகம்" },
+  "nav.history": { en: "History", ta: "வரலாறு" },
+  "history.title": { en: "TANHOWA History", ta: "டேன்ஹோவா வரலாறு" },
+  "history.subtitle": { en: "Milestones in the journey of our association.", ta: "எங்கள் சங்கத்தின் பயணத்தில் முக்கிய நிகழ்வுகள்." },
+  "history.empty_title": { en: "No milestones yet", ta: "இன்னும் நிகழ்வுகள் இல்லை" },
+  "history.empty_desc": { en: "Check back soon — the State-Admin is curating our story.", ta: "விரைவில் மீண்டும் பாருங்கள் — மாநில நிர்வாகி எங்கள் வரலாற்றை தொகுத்து வருகிறார்." },
 
   // Group Chat
   "chat.channels": { en: "Channels", ta: "சேனல்கள்" },
