@@ -1,4 +1,4 @@
-const CACHE_NAME = "tanhowa-v5";
+const CACHE_NAME = "tanhowa-v6";
 const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [
   "/icons/icon-192x192.png",
