@@ -33,11 +33,12 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 - `app/` — Next.js App Router: pages (`dashboard/`, `admin/`, `onboarding/`, `verify/`, `pending/`) and API routes (`api/`)
 - `app/api/` — Server-side API routes. Template: `app/api/grievances/route.ts`
 - `components/ui/` — shadcn/ui auto-generated components (**do not manually edit**)
-- `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`, `date-dropdowns.tsx` (responsive Day/Month/Year native selects with mobile abbreviations), `photo-crop-dialog.tsx` (image cropping for profile photos), `global-search.tsx` (cross-entity search UI), `payment-proof-preview-dialog.tsx`, `analytics-tracker.tsx`, `push-manager.tsx`, `finance-otp-gate.tsx`, `settings-popover.tsx` (language + font size + theme controls), `connect-telegram-banner.tsx` (dismissible CTA on `/dashboard` linking approved members to `@tanhowa_task_bot` with email pre-filled via `/start <email>` deeplink — hides if `telegram_chat_id` is set or user dismissed via `tanhowa-tg-banner-dismissed` localStorage key)
-- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `query-engine.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `audit-log.ts`, `razorpay.ts`, `rate-limit.ts`, `daily-greetings.ts`, `translate-content.ts`, `badges.ts`, `validation.ts`, `sms.ts`, `document-urls.ts`, `export-xlsx.ts`, `push.ts`, `api-perf.ts`, `request-ip.ts`, `utils.ts`
+- `components/` — Custom shared components: `metric-card.tsx` (stat cards with border accent + skeleton), `status-badge.tsx` (universal status badge for all statuses), `empty-state.tsx` (empty content placeholder), `admin-contacts.tsx` (shared admin contacts card), `section-error.tsx` (per-section error with retry), `chatbot-widget.tsx`, `error-boundary.tsx`, `date-dropdowns.tsx` (responsive Day/Month/Year native selects with mobile abbreviations), `photo-crop-dialog.tsx` (image cropping for profile photos), `global-search.tsx` (cross-entity search UI), `payment-proof-preview-dialog.tsx`, `analytics-tracker.tsx`, `push-manager.tsx`, `finance-otp-gate.tsx`, `settings-popover.tsx` (language + font size + theme controls), `connect-telegram-banner.tsx` (dismissible CTA on `/dashboard` linking approved members to `@tanhowa_task_bot` with email pre-filled via `/start <email>` deeplink — hides if `telegram_chat_id` is set or user dismissed via `tanhowa-tg-banner-dismissed` localStorage key), `feedback-widget.tsx` (floating feedback button on every dashboard page; 1-5 star + comment + 7-day per-device cooldown), `re-engagement-modal.tsx` (one-shot "what kept you away" modal for members returning after 14+ day inactivity)
+- `lib/` — Shared utilities: `supabase.ts`, `auth.ts`, `mail.ts`, `db.ts`, `telegram.ts`, `tn-districts.ts`, `error-logger.ts`, `gemini.ts`, `query-engine.ts`, `contributions.ts`, `chart-config.ts`, `payment-verification.ts`, `subscription-proofs.ts`, `audit.ts`, `audit-log.ts`, `razorpay.ts`, `rate-limit.ts`, `daily-greetings.ts`, `translate-content.ts`, `badges.ts`, `validation.ts`, `sms.ts`, `document-urls.ts`, `export-xlsx.ts`, `push.ts`, `api-perf.ts`, `request-ip.ts`, `utils.ts`, `feedback-token.ts` (30-day signed JWT for the inactive-nudge email's feedback link)
 - `lib/i18n/` — Internationalization: `language-context.tsx` (React context + hooks), `translations.ts` (EN/TA dictionary), `index.ts` (barrel export)
 - `lib/__tests__/` — Vitest tests (auth, contributions, error-logger, tn-districts, utils)
 - `supabase/schema.sql` — Base database DDL (additional migrations documented below)
+- `scripts/apply-sql.mjs` — One-shot helper that loads `.env.local` and applies a `supabase/*.sql` file via the existing `postgres` package + `DATABASE_URL`. Usage: `node scripts/apply-sql.mjs supabase/foo_schema.sql`. Avoids the web SQL-editor copy-paste step.
 
 ## Authentication Flow
 
@@ -152,6 +153,9 @@ export async function GET(req: NextRequest) {
 | `achievements` | Earned member badges | user_id, badge (badge ID string), earned_at |
 | `event_rsvps` | Event RSVP tracking | event_id, user_id, status (going/interested) |
 | `announcement_reads` | Tracks which members read announcements | announcement_id, user_id, read_at |
+| `history_entries` | TANHOWA timeline milestones (super-admin curated) | event_date, title, description, image_url, sort_order, created_by |
+| `feedback` | Member feedback (widget / re-engagement modal / inactive-email link) | user_id, source (widget/re_engagement/inactive_email), rating (1-5), reason, comment, page_url, metadata (JSONB) |
+| `feedback_prompts_shown` | Tracks which members have been shown a feedback prompt so it never re-fires | user_id, kind (re_engagement), shown_at, responded (boolean), UNIQUE(user_id, kind) |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -163,7 +167,9 @@ export async function GET(req: NextRequest) {
 
 ### Migrations beyond base schema
 
-The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`, `trainings`, `training_enrollments`, `trainer_invites`, `training_materials`, `training_material_access`, `messages`, `chat_channels`, `chat_channel_members`, `chat_messages`, `chat_message_mentions`, `chat_message_reactions`, `push_subscriptions`, `analytics_events`, `achievements`, `event_rsvps`, `announcement_reads`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions, `scheduled_at` on announcements/events) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`, `supabase/trainings_schema.sql`, `supabase/messages_schema.sql`, `supabase/group_chat_schema.sql`, `supabase/group_chat_stage2_schema.sql`, `supabase/content_scheduling_schema.sql`, `supabase/analytics_schema.sql`. See the Tables section above for current schema.
+The base `schema.sql` only covers `users`, `otp_codes`, `announcements`, `events`, `documents`, and `site_settings`. Additional tables (`grievances`, `error_logs`, `subscriptions`, `document_access`, `teams`, `team_members`, `todos`, `todo_notes`, `todo_attachments`, `todo_vouchers`, `audit_logs`, `notification_prefs`, `polls`, `poll_votes`, `faqs`, `food_vendors`, `food_items`, `food_orders`, `food_order_items`, `trainings`, `training_enrollments`, `trainer_invites`, `training_materials`, `training_material_access`, `messages`, `chat_channels`, `chat_channel_members`, `chat_messages`, `chat_message_mentions`, `chat_message_reactions`, `push_subscriptions`, `analytics_events`, `achievements`, `event_rsvps`, `announcement_reads`) and column additions (`posting_details`, `office_address`, `last_active_at`, `profile_nudge`, `approved_by/at` on subscriptions, `visibility` on documents, `priority` on grievances, `paid_amount` on subscriptions, `scheduled_at` on announcements/events) were applied separately via the Supabase SQL editor. SQL files: `supabase/faq_schema.sql`, `supabase/food_orders_schema.sql`, `supabase/trainings_schema.sql`, `supabase/messages_schema.sql`, `supabase/group_chat_schema.sql`, `supabase/group_chat_stage2_schema.sql`, `supabase/content_scheduling_schema.sql`, `supabase/analytics_schema.sql`, `supabase/history_schema.sql`, `supabase/feedback_schema.sql`. See the Tables section above for current schema.
+
+**Applying SQL files:** Use `node scripts/apply-sql.mjs <path-to-file.sql>` from `tanhowa/`. The script loads `.env.local`, connects via `DATABASE_URL`, runs the file, and reports success or failure. Beats copy-pasting into the web SQL editor each time. Idempotent files (`CREATE TABLE IF NOT EXISTS`) can be re-applied safely.
 
 ## Environment Variables
 
@@ -285,8 +291,9 @@ Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP
 Birthday + festival greetings system. Triggered by `/api/cron/daily-greetings` (Vercel cron at 01:30 UTC). Uses the atomic-claim lock pattern — `INSERT` into `site_settings` with key `daily_greetings_run_{YYYY-MM-DD}` so only one concurrent caller wins.
 
 - **Birthday:** Finds members with matching DOB month/day, sends personalized email + Telegram + creates announcement (rich format: designation • block, district + per-member wish picked deterministically by `(hash * 31 + charCode)` from a 20-wish array)
-- **Festival:** Checks 15+ Tamil Nadu/Indian festivals against today's date, sends broadcast email + Telegram + creates announcement
-- **Fallback:** Python tool `tools/daily_greetings.py` for manual/forced runs — shares the same atomic lock and the same rich birthday format (synced 2026-05-01)
+- **Festival:** Checks 15+ Tamil Nadu/Indian festivals against today's date, sends broadcast email + Telegram + creates announcement (text-only by design — no per-person photo)
+- **Birthday photos (2026-05-02):** All four birthday channels include the celebrant's photo (or initials fallback). Personal email gets a 96px circle at the top; broadcast email shows a 40px circle next to each name; Telegram personal DM uses `sendPhoto` with HTML caption (falls back to `sendMessage` when no/untrusted photo); the in-app announcement embeds `![Name](photo_url)` markdown which the dashboard renderer turns into an inline circular avatar. Trusted photo hosts: `*.supabase.co`, `*.fbcdn.net`, `*.googleusercontent.com`, `platform-lookaside.fbsbx.com` — same allowlist enforced in `lib/daily-greetings.ts:isTrustedPhotoUrl`, `tools/daily_greetings.py:is_trusted_photo_url`, and the announcement renderer's `isSafeImageUrl` in `app/dashboard/announcements/page.tsx`. Untrusted URLs are silently dropped.
+- **Fallback:** Python tool `tools/daily_greetings.py` for manual/forced runs — shares the same atomic lock and the same rich birthday format including photos (synced 2026-05-02)
 - **NOT fire-and-forget anymore:** previously called from `GET /api/users/me` on the first visitor each day, but Vercel killed the lambda mid-execution after the lock row was inserted — locking out the cron and skipping the day. Removed 2026-05-01. Errors now flow through `logError()` instead of silent catch.
 
 ## Auto Gender Detection
@@ -857,6 +864,51 @@ ADDH (1) → JDH (2) → DDH (3) → ADH (4) → HO (5) → Retd (6) → Others 
 
 All auto-fill name, designation, district, block from user profile. Generate branded PDFs with TANHOWA footer using jsPDF + jspdf-autotable.
 
+## Why-Ministry Position Paper (super-admin only)
+
+Private bilingual workspace at `/admin/why-ministry` for the State-Admin to draft and maintain the *Why Farmers Need a Ministry of Horticulture* advocacy doc. **Strictly `tanhowa19791@gmail.com` only** — both API (`/api/why-ministry`) and the sidebar nav filter reject everyone else.
+
+- **Storage:** single `site_settings` row, key `why_ministry_doc`, value = JSON `{ title_*, intro_*, sections: [...], updated_at }`. **No DB migration needed.**
+- **Pre-seed:** first GET on an empty key returns 10 placeholder reason headings (specialised crop economics, post-harvest gap, climate-sensitive policy, exports, etc.) for the State-Admin to fill in.
+- **Section cards:** add / delete / reorder (↑/↓). Each section has EN/TA fields side-by-side.
+- **Hybrid translation (Option C):** server-side `autoTranslateBatch` runs Gemini EN→TA only on fields whose corresponding TA `_manual` flag is `false`. Typing in any TA field flips it to `_manual: true` so the server preserves the hand edit. A "Reset" button per TA field clears the flag and re-enables auto-translate on next save.
+- **PDF export:** "Print / Save PDF" button uses `window.print()` with a print-only stylesheet so Tamil renders correctly via browser fonts (jsPDF cannot render Tamil without a heavy font embed).
+- **Audit log:** every save writes `why_ministry_update` to `audit_logs`.
+
+## TANHOWA History Timeline
+
+Living history — admin-curated milestones backed by the `history_entries` table.
+
+- **Member view:** `/dashboard/history` — vertical alternating timeline with date markers, image cards, descriptions. Mobile-responsive. Renders Tamil when language toggle is set to TA.
+- **Curator view:** `/admin/history` — list + add/edit/delete dialog with date picker, title, description, image upload. Strictly `tanhowa19791@gmail.com` only (both API writes and sidebar visibility).
+- **Image storage:** new public Supabase bucket `history-images` (auto-created on first upload via `app/api/history/upload/route.ts`), 5MB cap, image MIME only. Hashed filenames to avoid collisions.
+- **Bilingual:** title + description auto-translate EN→TA via existing `translateContent()` on create/update; member GET honours `?lang=ta` and merges via `getTranslations("history_entries", ids, "ta")`.
+- **Audit log:** create/update/delete logged.
+
+## Member Feedback Loop & AI Pulse (super-admin only)
+
+Four collection channels in, one owner-only summary out at `/admin/feedback-pulse`.
+
+**Collection channels:**
+- **Floating widget** — `<FeedbackWidget />` mounted in `app/dashboard/layout.tsx`, visible on every dashboard page. 1-5 star rating + comment + page URL captured. 7-day per-device cooldown via localStorage (`tanhowa-feedback-cooldown-until`).
+- **Re-engagement modal** — `<ReEngagementModal daysInactive={N} />`, fires once when an approved member returns after 14+ days inactive (computed from `last_active_at` returned by `/api/users/me` BEFORE the route's fire-and-forget bump). Tracked in `feedback_prompts_shown` so it never re-shows. Dismiss = `POST /api/feedback/dismiss`.
+- **Inactive-nudge email link** — `app/api/cron/inactive-nudge/route.ts` mints a 30-day signed JWT per user via `lib/feedback-token.ts:createFeedbackToken()` and includes a "Tell us what would bring you back" link in BOTH the personal email AND the Telegram message. Email is a new addition (cron was Telegram-only before).
+- **Existing data** — grievances, suggestions, wishlist ideas (last 30 days) are pulled into the AI summary without any new member effort.
+
+**APIs:**
+- `POST /api/feedback` — accepts session-authenticated submissions (widget, re_engagement) AND token-authenticated submissions (inactive_email — JWT in body, verified against `JWT_SECRET` with `purpose: "feedback"` claim).
+- `GET /api/feedback` — returns the current user's `feedback_prompts_shown` rows so the modal knows whether to fire.
+- `POST /api/feedback/dismiss` — marks the re-engagement modal as shown without recording a response.
+- `GET /api/admin/feedback-pulse` — owner-only. Returns the cached AI summary (1-hour TTL via `site_settings` key `feedback_pulse_cache`).
+- `POST /api/admin/feedback-pulse` — owner-only. Deletes the cache to force a refresh.
+- `PUT /api/admin/feedback-pulse` — owner-only. Returns last-200 raw `feedback` rows with member name+email joined.
+
+**Public landing page:** `/feedback?t=<jwt>` — auth-less, accepts the token from the URL, shows reason radio + comment, submits via `/api/feedback`. Page route is NOT in `middleware.ts:ALLOWED_FOR_ALL` because middleware only matches `/api/*`; the API route allows token-auth even when the user has no session.
+
+**AI pulse:** Gemini 2.5-flash. Combines all `feedback` rows + grievances + ideas from last 30 days into a compact list, asks for `themes` (up to 6), `highlights` (tagged praise/complaint/request, up to 8), and `recommended_actions` (up to 5). Generic advice is explicitly forbidden in the prompt — wants concrete feature-specific suggestions. Cache + 1-hour TTL avoids re-running on every page load.
+
+**Mandatory profile-completion gate is unaffected** — the modal is mounted alongside the gate but only fires when daysInactive >= 14, after the gate clears.
+
 ## Mandatory Profile Completion
 
 All approved members must complete 12 fields before accessing any dashboard section (admins/super_admins exempt):
@@ -1038,7 +1090,7 @@ Vercel Cron-triggered endpoints (defined in `vercel.json`). All require `Authori
 | `/api/cron/daily-briefing` | `0 0 * * *` | 05:30 | Per linked TG member: top 3 active tasks + Gemini-personalized 2-3 sentence briefing + inline keyboard rows `[✅] [🚧] [📝] ET-XXX` per task. Webhook handles the `callback_query` and `force_reply` round-trips. |
 | `/api/cron/task-reminder` | `30 0 * * *` | 06:00 | Daily digest of due-soon + timebox-hot tasks per assignee/committer |
 | `/api/cron/daily-greetings` | `30 1 * * *` | 07:00 | Birthday + festival greetings (see Daily Greetings section above for the lambda-killed fire-and-forget bug) |
-| `/api/cron/inactive-nudge` | `30 2 * * *` | 08:00 | Email + Telegram nudge to members inactive 30+ days |
+| `/api/cron/inactive-nudge` | `30 2 * * *` | 08:00 | Email + Telegram nudge to members inactive 30+ days. Both channels include a "Tell us what would bring you back" link (30-day signed JWT minted via `lib/feedback-token.ts`) → public `/feedback?t=...` form → writes to `feedback` table with source `inactive_email`. |
 | `/api/cron/stuck-tasks` | `0 4 * * *` | 09:30 | Flags silent (no notes 3+ days) / past-due / timebox-exceeded tasks. Per-committer DM + admin digest. |
 | `/api/cron/publish-scheduled` | Periodic | — | Auto-publishes scheduled announcements/events past their `scheduled_at` time |
 
