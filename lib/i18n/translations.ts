@@ -50,6 +50,7 @@ const translations = {
   "nav.settings": { en: "Settings", ta: "அமைப்புகள்" },
   "nav.district_benchmark": { en: "District Benchmark", ta: "மாவட்ட ஒப்பீடு" },
   "nav.engagement": { en: "Engagement", ta: "ஈடுபாடு" },
+  "nav.why_ministry": { en: "Why Ministry", ta: "ஏன் அமைச்சகம்" },
 
   // Group Chat
   "chat.channels": { en: "Channels", ta: "சேனல்கள்" },
