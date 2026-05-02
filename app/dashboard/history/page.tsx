@@ -261,14 +261,14 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* Edit dialog (owner only) */}
+      {/* Edit dialog (admin only) */}
       <Dialog open={!!editForm} onOpenChange={(open) => !open && setEditForm(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>Edit Milestone</DialogTitle>
           </DialogHeader>
           {editForm && (
-            <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <div>
                 <Label>Event date *</Label>
                 <Input
@@ -303,7 +303,7 @@ export default function HistoryPage() {
               </p>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
             <Button variant="outline" onClick={() => setEditForm(null)} disabled={saving}>
               Cancel
             </Button>

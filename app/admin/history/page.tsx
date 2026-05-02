@@ -278,11 +278,11 @@ export default function AdminHistoryPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>{form.id ? "Edit Milestone" : "Add Milestone"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             <div>
               <Label>Event date *</Label>
               <Input
@@ -322,8 +322,9 @@ export default function AdminHistoryPage() {
                 }}
               />
               {form.image_url ? (
-                <div className="mt-2 relative aspect-[16/9] rounded-md overflow-hidden bg-muted">
-                  <Image src={form.image_url} alt="" fill className="object-cover" sizes="480px" />
+                <div className="mt-2 relative w-full max-h-48 rounded-md overflow-hidden bg-muted">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={form.image_url} alt="" className="w-full h-auto max-h-48 object-contain" />
                   <Button
                     variant="secondary"
                     size="sm"
@@ -352,7 +353,7 @@ export default function AdminHistoryPage() {
               <p className="text-xs text-muted-foreground mt-1">JPG/PNG, max 5MB.</p>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
               Cancel
             </Button>
