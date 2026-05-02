@@ -34,6 +34,7 @@ import {
   BarChart3,
   ChevronDown,
   MessageCircle,
+  Send,
   Landmark,
   Sparkles,
   UtensilsCrossed,
@@ -119,6 +120,7 @@ const navItems = [
   { href: "/dashboard/ai-tools", labelKey: "nav.ai_tools" as const, icon: Sparkles },
   { href: "/dashboard/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
   { href: "/dashboard/history", labelKey: "nav.history" as const, icon: HistoryIcon },
+  { href: "/dashboard/telegram", labelKey: "nav.telegram" as const, icon: Send },
   { href: "/dashboard/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed, superAdminOnly: true },
 ];
 
