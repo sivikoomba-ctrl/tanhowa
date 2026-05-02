@@ -1,20 +1,18 @@
 /**
  * TANHOWA History timeline.
  * GET — all approved members can read (supports ?lang=ta for translations).
- * POST/PUT/DELETE — strictly tanhowa19791@gmail.com (super-admin owner) only.
+ * POST/PUT/DELETE — admin or super_admin only.
  * Title + description auto-translate EN↔TA on create/update.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { translateContent, getTranslations } from "@/lib/translate-content";
 import { logAudit } from "@/lib/audit-log";
 
-const OWNER_EMAIL = "tanhowa19791@gmail.com";
-
-async function isOwner(session: { email: string } | null) {
-  return !!session && session.email === OWNER_EMAIL;
+async function canEditHistory(session: Awaited<ReturnType<typeof getSession>>) {
+  return await isAdmin(session);
 }
 
 export async function GET(req: NextRequest) {
@@ -63,7 +61,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!(await isOwner(session))) {
+    if (!(await canEditHistory(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -114,7 +112,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!(await isOwner(session))) {
+    if (!(await canEditHistory(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -162,7 +160,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!(await isOwner(session))) {
+    if (!(await canEditHistory(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

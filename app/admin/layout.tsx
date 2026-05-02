@@ -177,7 +177,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           if (item.href === "/admin/analytics") return user?.email === "tanhowa19791@gmail.com" || user?.email === "tanhowaadmin@tanhowa.in";
           if (item.href === "/admin/engagement") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/why-ministry") return user?.email === "tanhowa19791@gmail.com";
-          if (item.href === "/admin/history") return user?.email === "tanhowa19791@gmail.com";
+          if (item.href === "/admin/history") return user?.role === "admin" || user?.role === "super_admin";
           if (item.href === "/admin/feedback-pulse") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/vouchers") return user?.role === "super_admin" || isFinanceTeam;
           return true;

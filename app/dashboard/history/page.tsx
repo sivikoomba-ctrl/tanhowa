@@ -27,8 +27,6 @@ import { useT, useLang } from "@/lib/i18n";
 import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
 
-const OWNER_EMAIL = "tanhowa19791@gmail.com";
-
 interface HistoryEntry {
   id: string;
   event_date: string;
@@ -56,7 +54,7 @@ export default function HistoryPage() {
   const { lang } = useLang();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isOwner, setIsOwner] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
 
   // Edit dialog state
   const [editForm, setEditForm] = useState<EditForm | null>(null);
@@ -85,11 +83,14 @@ export default function HistoryPage() {
     load();
   }, [load]);
 
-  // Detect owner once on mount
+  // Detect admin/super_admin once on mount — they get the edit pencil
   useEffect(() => {
     fetch("/api/users/me")
       .then((r) => r.json())
-      .then((d) => setIsOwner(d?.user?.email === OWNER_EMAIL))
+      .then((d) => {
+        const role = d?.user?.role;
+        setCanEdit(role === "admin" || role === "super_admin");
+      })
       .catch(() => {});
   }, []);
 
@@ -211,7 +212,7 @@ export default function HistoryPage() {
                     </div>
                     <div className={`md:w-1/2 ${onLeft ? "md:pl-8" : "md:pr-8"}`}>
                       <Card className="overflow-hidden relative group">
-                        {isOwner && (
+                        {canEdit && (
                           <button
                             type="button"
                             onClick={() => openEdit(e)}

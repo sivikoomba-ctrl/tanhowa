@@ -1,20 +1,19 @@
 /**
  * Upload an image for a history entry to the `history-images` Supabase Storage
- * bucket and return its public URL. Owner-only.
+ * bucket and return its public URL. Admin or super_admin only.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
-const OWNER_EMAIL = "tanhowa19791@gmail.com";
 const BUCKET = "history-images";
 const MAX_BYTES = 5 * 1024 * 1024; // 5MB
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || session.email !== OWNER_EMAIL) {
+    if (!(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
