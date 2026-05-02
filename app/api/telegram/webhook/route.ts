@@ -7,6 +7,12 @@ import { logError } from "@/lib/error-logger";
 
 const OTP_PURPOSE_TELEGRAM_LINK = "telegram_link";
 
+// Accepts "ET022", "ET-022", "et022", "ET-022-01" and returns the canonical "ET-022-01" form.
+function normalizeEventId(raw: string): string {
+  const upper = raw.toUpperCase();
+  return upper.startsWith("ET-") ? upper : upper.replace(/^ET/, "ET-");
+}
+
 interface TelegramUpdate {
   message?: {
     chat: { id: number };
@@ -164,41 +170,41 @@ export async function POST(req: NextRequest) {
     }
 
     // /update ET-XXX message — add note to task
-    const updateMatch = text.match(/^\/update\s+(ET-[\d-]+)\s+(.+)$/i);
+    const updateMatch = text.match(/^\/update\s+(ET-?\d+(?:-\d+)*)\s+(.+)$/i);
     if (updateMatch) {
-      const eventId = updateMatch[1].toUpperCase();
+      const eventId = normalizeEventId(updateMatch[1]);
       const noteContent = updateMatch[2].trim();
       return await handleAddNote(supabase, chatId, eventId, noteContent, "update");
     }
 
     // /report ET-XXX message — add report to task
-    const reportMatch = text.match(/^\/report\s+(ET-[\d-]+)\s+(.+)$/i);
+    const reportMatch = text.match(/^\/report\s+(ET-?\d+(?:-\d+)*)\s+(.+)$/i);
     if (reportMatch) {
-      const eventId = reportMatch[1].toUpperCase();
+      const eventId = normalizeEventId(reportMatch[1]);
       const noteContent = reportMatch[2].trim();
       return await handleAddNote(supabase, chatId, eventId, noteContent, "report");
     }
 
     // /commit ET-XXX [hours] — commit to a task with optional timebox
-    const commitMatch = text.match(/^\/commit\s+(ET-[\d-]+)(?:\s+(\d+(?:\.\d+)?))?\s*$/i);
+    const commitMatch = text.match(/^\/commit\s+(ET-?\d+(?:-\d+)*)(?:\s+(\d+(?:\.\d+)?))?\s*$/i);
     if (commitMatch) {
-      const eventId = commitMatch[1].toUpperCase();
+      const eventId = normalizeEventId(commitMatch[1]);
       const hours = commitMatch[2] ? parseFloat(commitMatch[2]) : null;
       return await handleCommit(supabase, chatId, eventId, hours);
     }
 
     // /done ET-XXX [message] — submit task for completion review
-    const doneMatch = text.match(/^\/done\s+(ET-[\d-]+)(?:\s+(.+))?$/i);
+    const doneMatch = text.match(/^\/done\s+(ET-?\d+(?:-\d+)*)(?:\s+(.+))?$/i);
     if (doneMatch) {
-      const eventId = doneMatch[1].toUpperCase();
+      const eventId = normalizeEventId(doneMatch[1]);
       const summary = doneMatch[2]?.trim() || "";
       return await handleDone(supabase, chatId, eventId, summary);
     }
 
     // /blocked ET-XXX reason — report a blocker
-    const blockedMatch = text.match(/^\/blocked\s+(ET-[\d-]+)\s+(.+)$/i);
+    const blockedMatch = text.match(/^\/blocked\s+(ET-?\d+(?:-\d+)*)\s+(.+)$/i);
     if (blockedMatch) {
-      const eventId = blockedMatch[1].toUpperCase();
+      const eventId = normalizeEventId(blockedMatch[1]);
       const reason = blockedMatch[2].trim();
       return await handleBlocked(supabase, chatId, eventId, reason);
     }
