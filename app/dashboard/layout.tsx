@@ -56,6 +56,8 @@ import { useT } from "@/lib/i18n";
 import { SettingsPopover } from "@/components/settings-popover";
 import { GlobalSearch } from "@/components/global-search";
 import { PushManager } from "@/components/push-manager";
+import { FeedbackWidget } from "@/components/feedback-widget";
+import { ReEngagementModal } from "@/components/re-engagement-modal";
 
 interface UserData {
   name: string;
@@ -68,6 +70,7 @@ interface UserData {
   dob?: string;
   address?: string;
   office_address?: string;
+  last_active_at?: string | null;
   posting_details?: {
     regular_district?: string;
     regular_block?: string;
@@ -649,6 +652,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <PushManager />
         </main>
       </div>
+
+      {/* Feedback widget + re-engagement modal — only after the user is loaded.
+          daysInactive uses last_active_at as fetched, which /api/users/me returns
+          BEFORE bumping it for the current request, so the value reflects the
+          prior visit. */}
+      {user && (
+        <>
+          <FeedbackWidget />
+          <ReEngagementModal
+            daysInactive={
+              user.last_active_at
+                ? Math.floor((Date.now() - new Date(user.last_active_at).getTime()) / (1000 * 60 * 60 * 24))
+                : null
+            }
+          />
+        </>
+      )}
 
       {/* Notifications Dialog */}
       <Dialog open={showNotifications} onOpenChange={setShowNotifications}>

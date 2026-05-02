@@ -87,6 +87,7 @@ const adminNavItems = [
   { href: "/admin/engagement", labelKey: "nav.engagement" as const, icon: TrendingUp },
   { href: "/admin/why-ministry", labelKey: "nav.why_ministry" as const, icon: Sprout },
   { href: "/admin/history", labelKey: "nav.history" as const, icon: HistoryIcon },
+  { href: "/admin/feedback-pulse", labelKey: "nav.feedback_pulse" as const, icon: MessageCircle },
   { href: "/admin/audit-logs", labelKey: "nav.audit_log" as const, icon: ClipboardList },
   { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
   { href: "/admin/settings", labelKey: "nav.settings" as const, icon: Settings },
@@ -177,6 +178,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           if (item.href === "/admin/engagement") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/why-ministry") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/history") return user?.email === "tanhowa19791@gmail.com";
+          if (item.href === "/admin/feedback-pulse") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/vouchers") return user?.role === "super_admin" || isFinanceTeam;
           return true;
         }).map((item) => {
