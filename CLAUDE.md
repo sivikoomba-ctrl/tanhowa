@@ -95,6 +95,21 @@ export async function GET(req: NextRequest) {
 - Error responses: `{ error: "message" }` with appropriate status code
 - Use `logError()` from `lib/error-logger.ts` in catch blocks for server-side error tracking
 
+## Known Gotchas
+
+Read these before writing code that touches email, PDFs, audit logs, translations, or DB writes from Python.
+
+- **User photo:** DB column is `photo_url`, not `avatar_url`. Always use `photo_url` in TypeScript interfaces and code that reads user records.
+- **`GET /api/subscriptions?me=true`** — forces user-scoped results even for admins. The member dashboard always appends `?me=true`; the admin panel omits it to receive all members' data.
+- **jsPDF does NOT support emoji/Unicode.** Only ASCII and standard latin characters work. Emoji renders as garbled text (e.g., "Ø<ß?"). Use plain text in all PDF generation (`jspdf` + `jspdf-autotable`). For Tamil PDFs, use `window.print()` with a print-only stylesheet (browser fonts handle Tamil).
+- **Error Logs:** Both UI sidebar and API (`/api/error-logs`) are restricted to `super_admin` only. Regular admins cannot access error logs.
+- **Two `logAudit` libraries exist** — use the correct one: `lib/audit.ts` takes 1 object arg `({ userId, action, targetType, targetId, details })`, while `lib/audit-log.ts` takes 5 positional args `(userId, action, targetType, targetId, details)`. Both write to the same `audit_logs` table.
+- **ZeptoMail token in `ZEPTOMAIL_TOKEN` must be the BARE key — NO `Zoho-enczapikey ` prefix.** All call sites prepend the prefix themselves (`Authorization: \`Zoho-enczapikey ${token}\``). Including the prefix in the env var causes a double prefix → ZeptoMail returns HTTP 500 silently → API accepts but never delivers. Caused the 2026-05-02 incident where OTPs vanished but birthday-cron emails still went out (only the daily-greetings code path used to omit the prefix in code, which masked the bug for that one path until it was fixed).
+- **ZeptoMail BCC blasts trigger Gmail's `4.7.28` domain rate-limit.** Sending one email with 30+ BCC recipients (the old `sendBroadcastEmail` and `sendBcc` pattern) makes Gmail flag the entire `tanhowa.in` domain as bulk/spam and rate-limit ALL outbound mail — including transactional OTPs — for several hours. Always send broadcasts as one-to-one with throttling (~250ms between sends). Both `lib/mail.ts:sendBroadcastEmail` and `lib/daily-greetings.ts:sendIndividually` now do this; never re-introduce BCC for member-wide sends.
+- **PostgREST direct writes bypass `translateContent()`** — the Python tools (which use `requests` against PostgREST because `supabase-py` rejects the new `sb_secret_*` key format) do NOT trigger EN→TA auto-translation. Backfill scripts must call Gemini themselves and upsert into `content_translations`.
+- **API edits re-translate and overwrite hand-cached translations** — if you manually upsert a Tamil translation and then someone hits PUT on the same announcement, `translateContent()` will re-run EN→TA via Gemini and overwrite your hand edit. No "translation-locked" flag exists yet.
+- **Inline component functions destroy textarea focus** — never define `const Foo = () => (...)` inside a page component (React remounts on every re-render). Use JSX variable assignments (`const fooJsx = (...)`) and reference with `{fooJsx}`. See group-chat for the canonical workaround.
+
 ## Database
 
 **Provider:** Supabase PostgreSQL
@@ -102,60 +117,45 @@ export async function GET(req: NextRequest) {
 
 ### Tables
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `users` | Members and admins | email, name, phone, occupation, posting_details (JSONB), social_links (JSONB), role, status, official_type (state/district/null), last_active_at, profile_nudge (JSONB), telegram_chat_id |
-| `otp_codes` | Temporary OTP storage | email, code, expires_at, used |
-| `announcements` | News/announcements | title, content, author_id, published (boolean) |
-| `events` | Calendar events | title, description, date, location, image_url |
-| `documents` | Uploaded files | title, file_url, file_type, description, category, approved |
-| `grievances` | Suggestions (category="Suggestion") and grievances (others) | subject, description, category, priority (low/medium/high), status (pending/in_progress/resolved/rejected), admin_remarks, submitted_by |
-| `subscriptions` | Member payment tracking | user_id, period, amount, paid_amount, due_date, status (pending/paid/overdue/hold/rejected), payment_method, transaction_id, payment_proof_url, remarks, paid_at, approved_by, approved_at, payment_group_id (UUID, links bulk/split payments) |
-| `document_access` | Per-member document access | document_id, user_id (junction table for visibility="selected" documents) |
-| `error_logs` | Application error tracking | type (api/client/auth), message, stack, path, method, status_code, user_id, metadata (JSONB) |
-| `site_settings` | Key-value site config | key (unique), value |
-| `teams` | Member teams | name, description, icon, sort_order, created_by |
-| `team_members` | Team membership (junction) | team_id, user_id, role, added_by |
-| `todos` | Tasks with Eisenhower Matrix | title, description, status, urgent, important, due_date, event_id, parent_id, submitted_by, assigned_to, assigned_team_id, committed_by, committed_at, estimated_time, estimated_amount, timebox_hours, admin_remarks |
-| `todo_notes` | Task messages/reports | todo_id, user_id, content, type (note/report/update) |
-| `todo_attachments` | Task deliverable files | todo_id, user_id, file_url, file_name, file_type |
-| `todo_vouchers` | Task cost/bill tracking | todo_id, submitted_by, title, amount, receipt_url, status (pending/approved/rejected), approved_by, remarks |
-| `todo_time_entries` | Team time logging against tasks | todo_id, user_id, hours, description, logged_at |
-| `expense_vouchers` | Standalone expense claims (officials) | submitted_by, title, amount, invoice_number, vendor_name, expense_date, category, receipt_url, status, approved_by, remarks |
-| `resolutions` | Member-proposed resolutions | title, description, category, status (draft/submitted/approved/rejected/voting_open/passed/failed), submitted_by, approved_by, votes_required, total_members |
-| `resolution_votes` | Individual votes on resolutions | resolution_id, user_id (unique per resolution) |
-| `contributions` | Auto-logged portal actions | user_id, action, description, estimated_minutes, metadata (JSONB) |
-| `audit_logs` | Admin action audit trail | user_id, user_name, user_email, action, target_type, target_id, details (JSONB), created_at |
-| `notification_prefs` | Per-user notification settings | user_id, email (bool), telegram (bool), in_app (bool) |
-| `polls` | Quick opinion polls | title, options (JSONB), status (active/closed), expires_at, created_by |
-| `poll_votes` | Individual poll votes | poll_id, user_id, option_index |
-| `faqs` | Admin-managed FAQ entries | question, answer, category, sort_order, published, created_by |
-| `food_vendors` | Food order vendors | name, phone, active |
-| `food_items` | Vendor menu items | vendor_id, name, price, category, available |
-| `food_orders` | Member food orders | user_id, vendor_id, total, status (pending/confirmed/preparing/ready/delivered/cancelled), notes |
-| `food_order_items` | Order line items | order_id, item_id, quantity, price |
-| `content_translations` | Cached auto-translations (EN↔TA) | source_table, source_id, field, lang, translated_text |
-| `wishlist_ideas` | Community idea submissions | title, description, category, status (open/reviewing/approved/in_progress/completed/rejected), upvote_count, submitted_by, approved_by, admin_remarks, linked_task_id |
-| `wishlist_upvotes` | Idea upvote tracking (unique per user+idea) | idea_id, user_id |
-| `trainings` | Training sessions | title, description, topic, trainer_name, trainer_type, date, duration_hours, location, mode, meeting_link, max_participants, status, materials_url |
-| `training_enrollments` | Member enrollment in trainings | training_id, user_id, status (enrolled/cancelled/attended), checked_in_at |
-| `trainer_invites` | Trainer invitations (member or external) | training_id, invited_user_id, external_name, external_email, external_phone, invited_by, status (pending/accepted/declined), responded_at |
-| `training_materials` | Uploaded training materials | training_id, title, description, file_url, file_name, file_type, file_size, language (en/ta/kn/te), group_id, access (all/enrolled/selected), sort_order, uploaded_by |
-| `training_material_access` | Per-member material access (for access='selected') | material_id, user_id |
-| `messages` | Direct member-to-member messages | sender_id, recipient_id, content, read_at |
-| `chat_channels` | Group chat channels | name, description, is_default, archived, created_by |
-| `chat_channel_members` | Per-channel membership + state | channel_id, user_id, role (member/admin), muted, last_read_at, joined_at |
-| `chat_messages` | Group chat messages | channel_id, sender_id, content, file_url, file_name, file_type, reply_to, deleted_at |
-| `chat_message_mentions` | @mentions parsed on message create | message_id, mentioned_user_id, read_at (UNIQUE message_id + mentioned_user_id) |
-| `chat_message_reactions` | Emoji reactions per message | message_id, user_id, emoji (UNIQUE message_id + user_id + emoji) |
-| `push_subscriptions` | Web Push notification subscriptions | user_id, endpoint, keys |
-| `analytics_events` | Engagement tracking events | event_type, page_path, element, device, screen, session_id, user_id |
-| `achievements` | Earned member badges | user_id, badge (badge ID string), earned_at |
-| `event_rsvps` | Event RSVP tracking | event_id, user_id, status (going/interested) |
-| `announcement_reads` | Tracks which members read announcements | announcement_id, user_id, read_at |
-| `history_entries` | TANHOWA timeline milestones (super-admin curated) | event_date, title, description, image_url, sort_order, created_by |
-| `feedback` | Member feedback (widget / re-engagement modal / inactive-email link) | user_id, source (widget/re_engagement/inactive_email), rating (1-5), reason, comment, page_url, metadata (JSONB) |
-| `feedback_prompts_shown` | Tracks which members have been shown a feedback prompt so it never re-fires | user_id, kind (re_engagement), shown_at, responded (boolean), UNIQUE(user_id, kind) |
+One-line index. For column-level detail, jump to the matching feature section below.
+
+| Table | Purpose |
+|-------|---------|
+| `users` | Members and admins (see Auth + Mandatory Profile Completion) |
+| `otp_codes` | Temporary OTP storage |
+| `announcements` | News/announcements |
+| `events` | Calendar events |
+| `documents` | Uploaded files (`visibility` = "all" / "selected") |
+| `grievances` | Suggestions (category="Suggestion") and grievances (others) (see Suggestions & Grievances) |
+| `subscriptions` | Member payment tracking (see Payment Group Linking + Special Subscriptions) |
+| `document_access` | Per-member document access (junction for `visibility="selected"`) |
+| `error_logs` | Application error tracking |
+| `site_settings` | Key-value site config (also holds atomic-claim cron locks) |
+| `teams` / `team_members` | Member teams (see Team Lead Role) |
+| `todos` / `todo_notes` / `todo_attachments` / `todo_vouchers` / `todo_time_entries` | Task management (see Task Management System) |
+| `expense_vouchers` | Standalone expense claims for officials (see Expense Vouchers) |
+| `resolutions` / `resolution_votes` | e-Resolutions voting (see e-Resolutions) |
+| `contributions` | Auto-logged portal actions (see Contributions Tracking) |
+| `audit_logs` | Admin action audit trail |
+| `notification_prefs` | Per-user notification settings |
+| `polls` / `poll_votes` | Quick opinion polls (see Polls) |
+| `faqs` | Admin-managed FAQ entries |
+| `food_vendors` / `food_items` / `food_orders` / `food_order_items` | Food order system |
+| `content_translations` | Cached auto-translations (see Content Auto-Translation) |
+| `wishlist_ideas` / `wishlist_upvotes` | Community ideas board (see Wishlist / Ideas Board) |
+| `trainings` / `training_enrollments` / `trainer_invites` / `training_materials` / `training_material_access` | Trainings (see Trainings System) |
+| `messages` | Direct member-to-member messages |
+| `chat_channels` / `chat_channel_members` / `chat_messages` / `chat_message_mentions` / `chat_message_reactions` | Group chat (see Group Chat) |
+| `push_subscriptions` | Web Push notification subscriptions |
+| `analytics_events` | Engagement tracking events |
+| `achievements` | Earned member badges (see Achievements / Badges) |
+| `event_rsvps` | Event RSVP tracking |
+| `announcement_reads` | Tracks which members read announcements |
+| `history_entries` | TANHOWA timeline milestones (super-admin curated) |
+| `feedback` / `feedback_prompts_shown` | Member feedback loop (see Member Feedback Loop) |
+| `logo_concepts` / `logo_votes` / `logo_comments` | New-logo selection vote (see Logo Vote) |
+| `admin_tasks` | Owner-only private task list (see Owner-Only Admin Tools) |
+| `admin_documents` | Owner-only private document vault (see Owner-Only Admin Tools) |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET)
@@ -288,7 +288,7 @@ Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP
 
 ## Daily Greetings (`lib/daily-greetings.ts`)
 
-Birthday + festival greetings system. Triggered by `/api/cron/daily-greetings` (Vercel cron at 01:30 UTC). Uses the atomic-claim lock pattern — `INSERT` into `site_settings` with key `daily_greetings_run_{YYYY-MM-DD}` so only one concurrent caller wins.
+Birthday + festival greetings system. Triggered by `/api/cron/daily-greetings` (Vercel cron at 01:30 UTC — see the **Cron Jobs** section below for the full schedule + the lambda-killed fire-and-forget bug that drove the move from `/api/users/me` to a dedicated cron). Uses the atomic-claim lock pattern — `INSERT` into `site_settings` with key `daily_greetings_run_{YYYY-MM-DD}` so only one concurrent caller wins.
 
 - **Birthday:** Finds members with matching DOB month/day, sends personalized email + Telegram + creates announcement (rich format: designation • block, district + per-member wish picked deterministically by `(hash * 31 + charCode)` from a 20-wish array)
 - **Festival:** Checks 15+ Tamil Nadu/Indian festivals against today's date, sends broadcast email + Telegram + creates announcement (text-only by design — no per-person photo)
@@ -383,18 +383,6 @@ AI-powered chatbot with live portal data access via Gemini function calling.
 - District officials (`official_type=district`) display as **"District-Admin"**
 - State-Admin approval remark: "Approved. - Name, Designation, TANHOWA."
 - DS/DJS approval remark: "Provisionally approved. - Name, Designation, TANHOWA."
-
-## Known Gotchas
-
-- **User photo:** DB column is `photo_url`, not `avatar_url`. Always use `photo_url` in TypeScript interfaces and code that reads user records.
-- **`GET /api/subscriptions?me=true`** — forces user-scoped results even for admins. The member dashboard always appends `?me=true`; the admin panel omits it to receive all members' data.
-- **jsPDF does NOT support emoji/Unicode.** Only ASCII and standard latin characters work. Emoji renders as garbled text (e.g., "Ø<ß?"). Use plain text in all PDF generation (`jspdf` + `jspdf-autotable`).
-- **Error Logs:** Both UI sidebar and API (`/api/error-logs`) are restricted to `super_admin` only. Regular admins cannot access error logs.
-- **Two `logAudit` libraries exist** — use the correct one: `lib/audit.ts` takes 1 object arg `({ userId, action, targetType, targetId, details })`, while `lib/audit-log.ts` takes 5 positional args `(userId, action, targetType, targetId, details)`. Both write to the same `audit_logs` table.
-- **ZeptoMail token in `ZEPTOMAIL_TOKEN` must be the BARE key — NO `Zoho-enczapikey ` prefix.** All call sites prepend the prefix themselves (`Authorization: \`Zoho-enczapikey ${token}\``). Including the prefix in the env var causes a double prefix → ZeptoMail returns HTTP 500 silently → API accepts but never delivers. Caused the 2026-05-02 incident where OTPs vanished but birthday-cron emails still went out (only the daily-greetings code path used to omit the prefix in code, which masked the bug for that one path until it was fixed).
-- **ZeptoMail BCC blasts trigger Gmail's `4.7.28` domain rate-limit.** Sending one email with 30+ BCC recipients (the old `sendBroadcastEmail` and `sendBcc` pattern) makes Gmail flag the entire `tanhowa.in` domain as bulk/spam and rate-limit ALL outbound mail — including transactional OTPs — for several hours. Always send broadcasts as one-to-one with throttling (~250ms between sends). Both `lib/mail.ts:sendBroadcastEmail` and `lib/daily-greetings.ts:sendIndividually` now do this; never re-introduce BCC for member-wide sends.
-- **PostgREST direct writes bypass `translateContent()`** — the Python tools (which use `requests` against PostgREST because `supabase-py` rejects the new `sb_secret_*` key format) do NOT trigger EN→TA auto-translation. Backfill scripts must call Gemini themselves and upsert into `content_translations`.
-- **API edits re-translate and overwrite hand-cached translations** — if you manually upsert a Tamil translation and then someone hits PUT on the same announcement, `translateContent()` will re-run EN→TA via Gemini and overwrite your hand edit. No "translation-locked" flag exists yet.
 
 ## Reports & Analytics (`/admin/reports`)
 
@@ -668,6 +656,21 @@ Grouped payments (same `payment_group_id`) appear as single entries in the finan
 
 `GET /api/notifications` returns counts of items needing attention: new announcements since `last_active_at`, pending/overdue subscriptions, and active tasks assigned to the user. Dashboard layout fetches this on mount and shows a bell icon with total count badge. Clicking opens a dialog with categorized links.
 
+## Member Dashboard Home Widgets
+
+`/dashboard/page.tsx` is a stack of conditionally-rendered widget cards loaded in parallel by `loadData()`. Each widget hides when its data array is empty so the page never shows a half-loaded skeleton. Add new widgets to this same effect rather than spinning up a fresh fetch hook.
+
+| Widget | Data source | Notes |
+|--------|-------------|-------|
+| Today's Focus | `GET /api/todos/today` | Top 3 active tasks for the user. Empty-state copy when none. |
+| Quick Poll | `GET /api/polls` | Picks the first poll where `status === "active"` and `expires_at > now`. Inline vote with optimistic update; results revealed only after the user votes. |
+| Activity Feed | `GET /api/contributions?feed=true&limit=8` | Cross-member portal-wide recent actions with avatars + relative time (`timeAgo()`). |
+| Top Contributors | `GET /api/contributions?period=month` | First 3 get gold/silver/bronze emoji prefixes. |
+| Upcoming Birthdays | `/api/birthdays/upcoming` | Today highlighted in pink. |
+| Connect Telegram banner | `<ConnectTelegramBanner>` | Self-hides when `telegram_chat_id` is set or the user already dismissed via localStorage. |
+
+`/dashboard/activity` is the deep-dive companion page (separate from the home feed): per-user contribution analytics — current streak, longest streak, week/month totals, top action types, badge progress. Sources `/api/contributions?me=true&period=all` and computes everything client-side.
+
 ## Shared UI Components
 
 When building new pages, use these instead of duplicating patterns:
@@ -801,6 +804,8 @@ useEffect(() => { load(); }, [lang]);
 
 **Tamil detection:** `isTamil()` heuristic (>30% Tamil Unicode chars U+0B80-U+0BFF) skips already-Tamil content.
 
+**Preview-as-TA toggle:** Admin pages for announcements, events, resolutions, and grievances expose a "Preview as Tamil" toggle that flips the page state to fetch with `?lang=ta`, so curators can see how the auto-translated copy will render to Tamil-language members before publish (no DB write — pure read-side preview). When adding a new admin content type, mirror this pattern instead of inventing a new preview UX.
+
 ## Wishlist / Ideas Board
 
 Community-driven idea board where members submit ideas, others upvote, and admins review + convert to tasks.
@@ -819,6 +824,16 @@ Community-driven idea board where members submit ideas, others upvote, and admin
 **Categories:** Training, Infrastructure, Events, Digital Tools, Policy, Welfare, Communication, Other
 
 **Statuses:** `open` → `reviewing` → `approved` → `in_progress` → `completed` (or `rejected`)
+
+## Logo Vote
+
+Time-boxed members-only vote on the new TANHOWA logo. Tables: `logo_concepts`, `logo_votes`, `logo_comments` (schema: `supabase/logo_vote_schema.sql`).
+
+- **Member page:** `/dashboard/logo-vote` — 6 SVG concepts (`Bloom`, `Sprout T`, `Heraldic Shield`, `Monogram T`, `Laurel Wreath`, `Modern Crest`). Member picks one, can change any time before voting closes, can leave one editable comment. Peers' votes are anonymous; comments show author name + district publicly.
+- **Admin page:** `/admin/logo-vote` — concept-level tally, comment moderation, open/close window.
+- **API surface:** `/api/logo-vote` (current concepts + window state), `/api/logo-vote/vote` (POST/PUT current member's vote), `/api/logo-vote/comment` (POST/PUT/DELETE), `/api/logo-vote/admin` (super_admin tally + close).
+- **Window:** stored as 3 `site_settings` rows — `logo_vote_open` (`true`/`false`), `logo_vote_started_at`, `logo_vote_ends_at`. Schema seeds a 7-day window on first install. Re-applying the schema (`node scripts/apply-sql.mjs supabase/logo_vote_schema.sql`) re-opens the window — be careful in prod.
+- **Uniqueness:** `logo_votes.user_id` and `logo_comments.user_id` are both `UNIQUE` so each member has exactly one vote and one comment record (updates use UPSERT).
 
 ## Payment Status Transparency
 
@@ -1015,6 +1030,19 @@ Admins can suspend approved members. Status flow: `pending` → `approved` → `
 - **Restricted to:** `tanhowa19791@gmail.com` (owner) only
 - **Notifications:** Email sent on suspension/unsuspension
 
+## Owner-Only Admin Tools
+
+Four admin pages restricted to the owner (`tanhowa19791@gmail.com`). All four follow the same gating pattern: API route checks `session.email`, sidebar in `app/admin/layout.tsx` filters them out for everyone else. **Add owner-gated tools here, not as one-off pages.**
+
+| Page | API | Storage | Purpose |
+|------|-----|---------|---------|
+| `/admin/special-tasks` | `/api/admin-tasks` | `admin_tasks` table | Private parallel task tracker (3 types: `internal`, `assigned`, `checklist`). Same priority/status vocabulary as the public `todos` system but lives in its own table so owner work doesn't pollute member-visible lists. |
+| `/admin/special-documents` | `/api/admin-documents` | `admin_documents` table + private storage bucket | Document vault for confidential files (Legal, Finance, HR, Contracts, Reports, Correspondence, Policies, Minutes, Confidential, Other). Hidden from regular members and admins. |
+| `/admin/district-dues` | `/api/district-dues` | Reads `subscriptions` + writes `amount_paid` + `additional_money` per member | District-grouped dues calculator: shows pending across 2025, 2026, UATT case for every member, with inline edit of `amount_paid` / `additional_money`. Replaces an external spreadsheet that was previously emailed around. |
+| `/admin/settings` | `/api/settings` | `site_settings` key/value table | Branding, payee bank details, payment QR upload (`/api/upload/qr-code`), contact info, feature toggles. Free-form key/value editor — be careful, no schema validation. |
+
+**Owner check is the source of truth, not the role.** A district admin (`role=admin`) cannot reach these pages; a future second super_admin would need an explicit allowlist update if you ever stop hardcoding the email.
+
 ## Calendar & iCal Export
 
 Unified calendar view combining events and trainings with iCal export.
@@ -1113,13 +1141,15 @@ Member service request submission system.
 
 ### Adding a new dashboard feature
 
-1. Create the Supabase table via SQL editor
+1. Write the schema as `supabase/<feature>_schema.sql` (use `CREATE TABLE IF NOT EXISTS` so it's idempotent), then apply via `node scripts/apply-sql.mjs supabase/<feature>_schema.sql` from `tanhowa/` — beats the web SQL editor copy-paste
 2. Create API route at `app/api/<feature>/route.ts` — follow `app/api/grievances/route.ts` as a template
 3. Create member page at `app/dashboard/<feature>/page.tsx`
 4. Create admin page at `app/admin/<feature>/page.tsx`
-5. Add nav item with icon to `app/dashboard/layout.tsx` (`navItems` array)
+5. Add nav item with icon to `app/dashboard/layout.tsx` (`navItems` array). If the feature is gated behind the 12-field mandatory profile completion check, no extra wiring needed — the layout already redirects incomplete profiles. If owner-only, gate it on `session.email === "tanhowa19791@gmail.com"`.
 6. Add nav item with icon to `app/admin/layout.tsx` (`adminNavItems` array)
-7. Add any needed shadcn components: `npx shadcn@latest add <component>`
+7. Add UI strings to `lib/i18n/translations.ts` (EN + TA) and consume via `useT()` — never hardcode user-visible text
+8. For user-generated content: call `translateContent("<table>", id, { field1, field2 })` from POST/PUT handlers (fire-and-forget) and accept `?lang=ta` on GET via `getTranslations()`. See Content Auto-Translation
+9. Add any needed shadcn components: `npx shadcn@latest add <component>`
 
 ### Adding a shadcn component
 
