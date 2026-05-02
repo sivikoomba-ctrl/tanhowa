@@ -187,7 +187,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // /mytasks command
+    // /mytasks command — strictly the linked member's own tasks (assigned to them OR committed by them).
+    // Team-assigned tasks are intentionally excluded so admins/super_admins on many teams don't see
+    // every member's work in their personal task list.
     if (text === "/mytasks") {
       const { data: user } = await supabase
         .from("users")
@@ -200,31 +202,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Get user's teams
-      const { data: userTeams } = await supabase
-        .from("team_members")
-        .select("team_id")
-        .eq("user_id", user.id);
-
-      const teamIds = (userTeams || []).map((t) => t.team_id);
-
-      let query = supabase
+      const { data: todos } = await supabase
         .from("todos")
         .select("event_id, title, status, due_date, committed_by")
         .in("status", ["approved", "in_progress"])
         .is("parent_id", null)
+        .or(`assigned_to.eq.${user.id},committed_by.eq.${user.id}`)
         .order("created_at", { ascending: false })
         .limit(10);
-
-      if (teamIds.length > 0) {
-        query = query.or(
-          `assigned_to.eq.${user.id},committed_by.eq.${user.id},assigned_team_id.in.(${teamIds.join(",")})`
-        );
-      } else {
-        query = query.or(`assigned_to.eq.${user.id},committed_by.eq.${user.id}`);
-      }
-
-      const { data: todos } = await query;
 
       if (!todos || todos.length === 0) {
         await sendTelegramMessage(chatId, "📋 No active tasks assigned to you.");

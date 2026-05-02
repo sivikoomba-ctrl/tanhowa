@@ -129,30 +129,16 @@ async function runDailyBriefing(): Promise<{ users_briefed: number; tasks_surfac
     return { users_briefed: 0, tasks_surfaced: 0 };
   }
 
-  // 3) Team membership map
-  const teamIds = [...new Set(todos.filter((t) => t.assigned_team_id).map((t) => t.assigned_team_id as string))];
-  const teamMembersByTeam: Record<string, string[]> = {};
-  if (teamIds.length > 0) {
-    const { data: teamRows } = await supabase
-      .from("team_members")
-      .select("team_id, user_id")
-      .in("team_id", teamIds);
-    for (const r of teamRows || []) {
-      const list = teamMembersByTeam[r.team_id] || [];
-      list.push(r.user_id);
-      teamMembersByTeam[r.team_id] = list;
-    }
-  }
-
   let usersBriefed = 0;
   let tasksSurfaced = 0;
 
   for (const u of linkedUsers as { id: string; name: string | null; telegram_chat_id: string }[]) {
-    // Filter tasks visible to this user (assignee/committer/team)
+    // Strictly the user's OWN tasks: assigned to them or already committed by them.
+    // Team-assigned tasks are intentionally excluded so admins/super_admins on many
+    // teams don't get every member's work in their morning briefing.
     const mine = todos.filter((t) => {
       if (t.assigned_to === u.id) return true;
       if (t.committed_by === u.id) return true;
-      if (t.assigned_team_id && (teamMembersByTeam[t.assigned_team_id] || []).includes(u.id)) return true;
       return false;
     });
 
