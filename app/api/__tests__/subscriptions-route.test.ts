@@ -26,10 +26,12 @@ const subscriptionRows = [
 ];
 
 function makeSupabaseMock() {
-  const query = {
-    eq: vi.fn(() => query),
-    order: vi.fn(async () => ({ data: subscriptionRows, error: null })),
-  };
+  const query: Record<string, unknown> = {};
+  query.eq = vi.fn(() => query);
+  query.order = vi.fn(() => query);
+  query.range = vi.fn(() => query);
+  query.then = (resolve: (v: unknown) => void) =>
+    resolve({ data: subscriptionRows, count: subscriptionRows.length, error: null });
 
   const ownSubscriptionQuery = {
     eq: vi.fn(() => ownSubscriptionQuery),

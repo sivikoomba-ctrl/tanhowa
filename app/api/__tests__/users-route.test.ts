@@ -22,7 +22,7 @@ const mockRange = vi.fn(async () => ({
   count: 1,
 }));
 const mockOr = vi.fn(() => ({ range: mockRange }));
-const mockNeq = vi.fn(() => ({ or: mockOr, range: mockRange }));
+const mockNeq: ReturnType<typeof vi.fn> = vi.fn(() => ({ neq: mockNeq, or: mockOr, range: mockRange }));
 const mockEq = vi.fn(() => ({ neq: mockNeq, or: mockOr, range: mockRange }));
 const mockOrder = vi.fn(() => ({ eq: mockEq, neq: mockNeq, or: mockOr, range: mockRange }));
 const mockSelect = vi.fn(() => ({ order: mockOrder }));

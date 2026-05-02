@@ -38,6 +38,7 @@ describe("POST /api/upload/payment-proof/extract-date", () => {
     const { POST } = await import("../upload/payment-proof/extract-date/route");
     const response = await POST({
       formData: async () => formData,
+      headers: { get: () => "127.0.0.1" },
     } as never);
 
     expect(response.status).toBe(400);
@@ -65,6 +66,7 @@ describe("POST /api/upload/payment-proof/extract-date", () => {
     const { POST } = await import("../upload/payment-proof/extract-date/route");
     const response = await POST({
       formData: async () => formData,
+      headers: { get: () => "127.0.0.1" },
     } as never);
     const data = await response.json();
 
