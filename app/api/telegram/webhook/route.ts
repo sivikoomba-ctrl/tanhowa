@@ -13,6 +13,80 @@ function normalizeEventId(raw: string): string {
   return upper.startsWith("ET-") ? upper : upper.replace(/^ET/, "ET-");
 }
 
+const COMMANDS_HELP =
+  "<b>Commands:</b>\n" +
+  "/mytasks — Your active tasks\n" +
+  "/commit ET-XXX [hours] — Commit to a task\n" +
+  "/done ET-XXX [message] — Submit for review\n" +
+  "/blocked ET-XXX reason — Report a blocker\n" +
+  "/update ET-XXX message — Add update\n" +
+  "/report ET-XXX message — Submit report\n" +
+  "/status — Check link status\n" +
+  "/help — Detailed guide with examples\n" +
+  "/link your@email.com 123456 — Complete account linking\n\n" +
+  "<b>Examples:</b>\n" +
+  "• <code>/mytasks</code>\n" +
+  "• <code>/commit ET-022 4</code>  <i>(commit with a 4-hour timebox)</i>\n" +
+  "• <code>/done ET-022 visited 3 farmers</code>\n" +
+  "• <code>/blocked ET-010 waiting for vendor quote</code>\n" +
+  "• <code>/update ET-005 inspection done, report tomorrow</code>\n" +
+  "• <code>/status</code>\n\n" +
+  "<i>Tip: the hyphen is optional — <code>ET022</code> works too.</i>";
+
+const HELP_DETAILED =
+  "📘 <b>TANHOWA Bot — Detailed Guide</b>\n\n" +
+  "This bot lets you work on your TANHOWA tasks without opening the portal. Daily briefings arrive each morning, and you can mark tasks done, blocked, or add notes — right from chat.\n\n" +
+  "━━━━━━━━━━━━━━━\n" +
+  "<b>1️⃣ Linking your account (one-time)</b>\n" +
+  "━━━━━━━━━━━━━━━\n" +
+  "Send your registered TANHOWA email here. The bot will email a 6-digit code.\n" +
+  "Reply with: <code>/link your@email.com 123456</code>\n" +
+  "Once linked, you'll get task notifications automatically.\n\n" +
+  "━━━━━━━━━━━━━━━\n" +
+  "<b>2️⃣ Your daily workflow</b>\n" +
+  "━━━━━━━━━━━━━━━\n" +
+  "<b>Morning:</b> The bot sends a daily briefing at ~05:30 IST with your top 3 active tasks and tap-to-act buttons [✅] [🚧] [📝].\n\n" +
+  "<b>During the day:</b>\n" +
+  "→ Tap <b>✅ Done</b> on a task to submit it for review.\n" +
+  "→ Tap <b>🚧 Blocked</b> and the bot will ask <i>what's blocking?</i> — just reply with the reason.\n" +
+  "→ Tap <b>📝 Update</b> and reply with a quick progress note.\n\n" +
+  "<b>Evening:</b> Use /mytasks any time to see what's still open.\n\n" +
+  "━━━━━━━━━━━━━━━\n" +
+  "<b>3️⃣ Commands explained</b>\n" +
+  "━━━━━━━━━━━━━━━\n" +
+  "<b>/mytasks</b>\n" +
+  "Lists your top 10 active tasks (assigned to you, your team, or already committed by you).\n" +
+  "Example: <code>/mytasks</code>\n\n" +
+  "<b>/commit ET-XXX [hours]</b>\n" +
+  "Claim a task as yours. Optionally set a timebox in hours.\n" +
+  "Example: <code>/commit ET-022 4</code> — commit with a 4-hour timebox.\n" +
+  "Example: <code>/commit ET-022</code> — commit without a timebox.\n\n" +
+  "<b>/done ET-XXX [message]</b>\n" +
+  "Submit your committed task for completion review. Add a closing note if you like.\n" +
+  "Example: <code>/done ET-022 visited 3 farmers, photos uploaded</code>\n" +
+  "Note: only the committer can mark a task done.\n\n" +
+  "<b>/blocked ET-XXX reason</b>\n" +
+  "Flag a blocker. Admins are notified immediately.\n" +
+  "Example: <code>/blocked ET-010 waiting for vendor quote, ETA Friday</code>\n\n" +
+  "<b>/update ET-XXX message</b>\n" +
+  "Add a quick progress note (visible to assignee/committer/admins).\n" +
+  "Example: <code>/update ET-005 inspection done, drafting report</code>\n\n" +
+  "<b>/report ET-XXX message</b>\n" +
+  "Submit a longer formal report. Saved as a Note of type <i>report</i>.\n" +
+  "Example: <code>/report ET-005 Inspection of 12 nurseries complete. 3 flagged for follow-up...</code>\n\n" +
+  "<b>/status</b>\n" +
+  "Shows whether this Telegram chat is linked, and to which TANHOWA account.\n\n" +
+  "━━━━━━━━━━━━━━━\n" +
+  "<b>4️⃣ Tips</b>\n" +
+  "━━━━━━━━━━━━━━━\n" +
+  "• Event IDs are flexible: <code>ET-022</code>, <code>ET022</code>, <code>et022</code> all work.\n" +
+  "• Sub-task IDs use double hyphens: <code>ET-022-01</code>.\n" +
+  "• Each note posted from Telegram is tagged <code>[via Telegram]</code> in the portal.\n" +
+  "• Forgot your tasks? Just send <code>/mytasks</code> any time.\n" +
+  "• Need to relink to a different account? Contact admin.\n\n" +
+  "━━━━━━━━━━━━━━━\n" +
+  "Questions? Contact your State-Admin via the portal at <b>www.tanhowa.in/dashboard/messages</b>.";
+
 interface TelegramUpdate {
   message?: {
     chat: { id: number };
@@ -85,15 +159,15 @@ export async function POST(req: NextRequest) {
         "🌿 <b>Welcome to TANHOWA Tasks Bot!</b>\n\n" +
           "Link your TANHOWA account to receive task notifications and send updates.\n\n" +
           "Send your registered <b>email address</b> to receive a verification code, then use <b>/link your@email.com 123456</b>.\n\n" +
-          "<b>Commands:</b>\n" +
-          "/mytasks — View your active tasks\n" +
-          "/commit ET-XXX [hours] — Commit to a task (optional timebox)\n" +
-          "/done ET-XXX [message] — Submit task for completion review\n" +
-          "/blocked ET-XXX reason — Report a blocker\n" +
-          "/update ET-XXX Your message — Add a note to a task\n" +
-          "/report ET-XXX Your report — Submit a report\n" +
-          "/status — Check link status"
+          COMMANDS_HELP +
+          "\n\nFor a full walk-through, send <code>/help</code>."
       );
+      return NextResponse.json({ ok: true });
+    }
+
+    // /help — detailed bot guide
+    if (text === "/help") {
+      await sendTelegramMessage(chatId, HELP_DETAILED);
       return NextResponse.json({ ok: true });
     }
 
@@ -269,7 +343,9 @@ export async function POST(req: NextRequest) {
     // Unrecognized command
     await sendTelegramMessage(
       chatId,
-      "🤔 I didn't understand that.\n\n<b>Available commands:</b>\n/mytasks — Your active tasks\n/commit ET-XXX [hours] — Commit to a task\n/done ET-XXX [message] — Submit for review\n/blocked ET-XXX reason — Report a blocker\n/update ET-XXX message — Add update\n/report ET-XXX message — Submit report\n/status — Check link status\n/link your@email.com 123456 — Complete account linking\n\nOr send your email to receive a verification code."
+      "🤔 I didn't understand that.\n\n" +
+        COMMANDS_HELP +
+        "\n\nOr send your email to receive a verification code."
     );
 
     return NextResponse.json({ ok: true });
