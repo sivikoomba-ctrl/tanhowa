@@ -31,6 +31,9 @@ function timeAgo(dateStr: string): string {
 
 function renderSimpleMarkdown(text: string): string {
   return text
+    .replace(/<img\s[^>]*alt="([^"]*)"[^>]*\/?>/gi, "$1")
+    .replace(/<img[^>]*\/?>/gi, "")
+    .replace(/<[^>]+>/g, "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/__(.+?)__/g, "<strong>$1</strong>")

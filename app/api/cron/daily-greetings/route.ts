@@ -128,12 +128,12 @@ export async function GET(req: NextRequest) {
     // ==================== BIRTHDAY GREETINGS ====================
     const { data: usersWithDob } = await supabase
       .from("users")
-      .select("id, name, email, dob, telegram_chat_id, social_links")
+      .select("id, name, email, dob, telegram_chat_id, social_links, occupation, posting_details")
       .eq("status", "approved")
       .neq("email", "tanhowa19791@gmail.com")
       .not("dob", "is", null);
 
-    const birthdayMembers: { name: string; email: string; displayName: string; telegram_chat_id: string | null }[] = [];
+    const birthdayMembers: { name: string; email: string; displayName: string; telegram_chat_id: string | null; details: string }[] = [];
 
     for (const u of usersWithDob || []) {
       if (!u.dob) continue;
@@ -142,16 +142,22 @@ export async function GET(req: NextRequest) {
       const userMmdd = `${parts[1]}-${parts[2]}`;
       if (userMmdd === mmdd) {
         const sl = u.social_links || {};
-        const title = sl.title || "";
+        const title = (sl as Record<string, string>).title || "";
         let displayName = u.name || "";
         if (title && !displayName.toUpperCase().startsWith(title.toUpperCase())) {
           displayName = `${title} ${displayName}`;
         }
+        const pd = (u.posting_details as Record<string, string>) || {};
+        const detailParts: string[] = [];
+        if (u.occupation) detailParts.push(u.occupation);
+        if (pd.regular_block) detailParts.push(pd.regular_block);
+        if (pd.regular_district) detailParts.push(pd.regular_district);
         birthdayMembers.push({
           name: u.name,
           email: u.email,
           displayName,
           telegram_chat_id: u.telegram_chat_id,
+          details: detailParts.join(", "),
         });
       }
     }
@@ -177,7 +183,11 @@ export async function GET(req: NextRequest) {
       await sendBcc(fromEmail, allEmails, `🎂 Birthday Celebration${plural} Today! - ${namesStr}`, wrapEmail(broadcastHtml));
 
       // Create announcement
-      const namesList = birthdayMembers.map((b) => `🎂 ${b.displayName}`).join("\n");
+      const namesList = birthdayMembers.map((b) => {
+        let entry = `🎂 **${b.displayName}**`;
+        if (b.details) entry += `\n${b.details}`;
+        return entry;
+      }).join("\n\n");
       await supabase.from("announcements").insert({
         title: `Birthday Wishes - ${dateStr}`,
         content: `Wishing a very happy birthday to our fellow member${plural}!\n\n${namesList}\n\nMay this year bring you new achievements, good health, and happiness! 🌸🎉\n\n- TANHOWA Family`,
