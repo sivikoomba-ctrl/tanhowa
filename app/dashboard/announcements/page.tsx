@@ -60,10 +60,14 @@ function renderSimpleMarkdown(text: string): string {
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(/_(.+?)_/g, "<em>$1</em>")
     .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary underline">$1</a>')
-    .replace(/(https?:\/\/[^\s<]+)/g, (match, url) => {
-      if (match.includes('href="')) return match;
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary underline">${url}</a>`;
-    });
+    // Bare-URL autolink — must skip URLs that are already inside an HTML
+    // attribute (the image/link replacements above emit `<img src="…">` and
+    // `<a href="…">`). Negative lookbehind for `=`, `"`, `'` rules those out;
+    // excluding `"` from the URL char-class also stops greedy matches from
+    // swallowing the closing quote of an attribute.
+    .replace(/(?<!["'=])(https?:\/\/[^\s<"']+)/g, (_match, url) =>
+      `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary underline">${url}</a>`
+    );
 }
 
 interface RecentMember {
