@@ -47,6 +47,7 @@ import {
   Trophy,
   CalendarDays,
   History as HistoryIcon,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,6 +123,7 @@ const navItems = [
   { href: "/dashboard/history", labelKey: "nav.history" as const, icon: HistoryIcon },
   { href: "/dashboard/telegram", labelKey: "nav.telegram" as const, icon: Send },
   { href: "/dashboard/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed, superAdminOnly: true },
+  { href: "/dashboard/project-h", labelKey: "nav.project_h" as const, icon: Lock, projectHOnly: true },
 ];
 
 function getMissingFields(u: UserData): string[] {
@@ -154,6 +156,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [titleSaving, setTitleSaving] = useState(false);
   const [showVolunteerInvite, setShowVolunteerInvite] = useState(false);
   const [isFinanceTeam, setIsFinanceTeam] = useState(false);
+  const [isProjectH, setIsProjectH] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [volunteerInvite, setVolunteerInvite] = useState<{ id: string; district: string; inviterName: string } | null>(null);
   const [volunteerResponding, setVolunteerResponding] = useState(false);
@@ -206,6 +209,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }
           setUser(data.user);
           if (data.is_finance_team) setIsFinanceTeam(true);
+          if (data.is_project_h) setIsProjectH(true);
           // Check for missing mandatory fields — block access until complete
           const missing = getMissingFields(data.user);
           if (missing.length > 0 && data.user.role !== "admin" && data.user.role !== "super_admin") {
@@ -383,6 +387,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {navItems.filter((item) => {
           if ("superAdminOnly" in item && item.superAdminOnly && user?.role !== "super_admin") return false;
           if ("officialOnly" in item && item.officialOnly && !(user?.official_type === "state" || user?.official_type === "district" || user?.role === "admin" || user?.role === "super_admin")) return false;
+          if ("projectHOnly" in item && item.projectHOnly && !isProjectH) return false;
           return true;
         }).map((item) => {
           const isActive = pathname === item.href;

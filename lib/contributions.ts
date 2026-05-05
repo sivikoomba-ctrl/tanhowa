@@ -41,7 +41,8 @@ export type ContributionAction =
   | "group_message_sent"
   | "chat_file_shared"
   | "logo_vote"
-  | "logo_feedback";
+  | "logo_feedback"
+  | "project_h_upload";
 
 const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number }> = {
   payment_proof_uploaded:  { label: "Uploaded payment proof", minutes: 5 },
@@ -85,6 +86,7 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   chat_file_shared:          { label: "Shared file in group chat", minutes: 2 },
   logo_vote:                 { label: "Voted in logo selection", minutes: 1 },
   logo_feedback:             { label: "Shared logo feedback", minutes: 2 },
+  project_h_upload:          { label: "Uploaded Project H document", minutes: 5 },
 };
 
 export function getActionConfig(action: ContributionAction) {

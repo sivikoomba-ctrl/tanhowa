@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, createSession, isFinanceTeamMember } from "@/lib/auth";
+import { getSession, createSession, isFinanceTeamMember, isProjectHMember } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logApiPerf } from "@/lib/api-perf";
 import { logContribution } from "@/lib/contributions";
@@ -38,8 +38,13 @@ export async function GET() {
       ? await isFinanceTeamMember(session.userId)
       : false;
 
+    // Project H access — TT Team members + super_admin
+    const isProjectH = user?.role === "super_admin"
+      ? true
+      : await isProjectHMember(session.userId);
+
     logApiPerf("/api/users/me", "GET", 200, _perfStart);
-    return NextResponse.json({ user, is_finance_team: isFinance });
+    return NextResponse.json({ user, is_finance_team: isFinance, is_project_h: isProjectH });
   } catch (error) {
     logApiPerf("/api/users/me", "GET", 500, _perfStart);
     const msg = error instanceof Error ? error.message : "Unknown error";

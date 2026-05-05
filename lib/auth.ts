@@ -176,3 +176,23 @@ export async function isFinanceTeamMember(userId: string): Promise<boolean> {
     .limit(1);
   return !!membership && membership.length > 0;
 }
+
+/**
+ * Check if a user is a TT Team member — grants access to Project H (policy vault).
+ */
+export async function isProjectHMember(userId: string): Promise<boolean> {
+  const supabase = getServiceClient();
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id")
+    .eq("name", "TT Team");
+  if (!teams || teams.length === 0) return false;
+  const teamIds = teams.map((t) => t.id);
+  const { data: membership } = await supabase
+    .from("team_members")
+    .select("id")
+    .eq("user_id", userId)
+    .in("team_id", teamIds)
+    .limit(1);
+  return !!membership && membership.length > 0;
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 export async function GET() {
@@ -55,7 +55,15 @@ export async function GET() {
         .filter((m) => "id" in m && m.id),
     }));
 
-    return NextResponse.json({ teams: teamsWithMembers });
+    // Privacy filter: private teams visible only to admins/officials and the team's own members
+    const canSeeAllPrivate = await isAdminOrOfficial(session);
+    const visibleTeams = canSeeAllPrivate
+      ? teamsWithMembers
+      : teamsWithMembers.filter(
+          (t) => !t.is_private || t.members.some((m: { id?: string }) => m.id === session.userId)
+        );
+
+    return NextResponse.json({ teams: visibleTeams });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/teams", method: "GET", status_code: 500 });
@@ -86,6 +94,7 @@ export async function POST(req: NextRequest) {
         description: (body.description || "").trim(),
         icon: body.icon || "",
         sort_order: body.sort_order || 0,
+        is_private: !!body.is_private,
         created_by: session.userId,
       })
       .select()
@@ -143,6 +152,7 @@ export async function PUT(req: NextRequest) {
     if (body.description !== undefined) updates.description = body.description;
     if (body.icon !== undefined) updates.icon = body.icon;
     if (body.sort_order !== undefined) updates.sort_order = body.sort_order;
+    if (body.is_private !== undefined) updates.is_private = !!body.is_private;
 
     const { error } = await supabase
       .from("teams")

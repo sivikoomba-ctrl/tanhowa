@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Pencil, Trash2, UsersRound, Search, X, Check, Crown } from "lucide-react";
+import { Plus, Pencil, Trash2, UsersRound, Search, X, Check, Crown, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 interface Member {
@@ -36,6 +36,7 @@ interface Team {
   description: string;
   icon: string;
   sort_order: number;
+  is_private: boolean;
   members: TeamMember[];
 }
 
@@ -48,6 +49,7 @@ export default function AdminTeamsPage() {
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formSortOrder, setFormSortOrder] = useState(0);
+  const [formIsPrivate, setFormIsPrivate] = useState(false);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [memberRoles, setMemberRoles] = useState<Record<string, string>>({});
   const [memberSearch, setMemberSearch] = useState("");
@@ -77,6 +79,7 @@ export default function AdminTeamsPage() {
     setFormName("");
     setFormDescription("");
     setFormSortOrder(teams.length);
+    setFormIsPrivate(false);
     setSelectedMemberIds([]);
     setMemberRoles({});
     setMemberSearch("");
@@ -88,6 +91,7 @@ export default function AdminTeamsPage() {
     setFormName(team.name);
     setFormDescription(team.description);
     setFormSortOrder(team.sort_order);
+    setFormIsPrivate(!!team.is_private);
     setSelectedMemberIds(team.members.map((m) => m.id));
     const roles: Record<string, string> = {};
     team.members.forEach((m) => { if (m.team_role && m.team_role !== "member") roles[m.id] = m.team_role; });
@@ -109,6 +113,7 @@ export default function AdminTeamsPage() {
         name: formName.trim(),
         description: formDescription.trim(),
         sort_order: formSortOrder,
+        is_private: formIsPrivate,
         members_with_roles: members,
         ...(editingTeam ? { id: editingTeam.id } : {}),
       };
@@ -211,6 +216,11 @@ export default function AdminTeamsPage() {
                     <Badge variant="outline" className="ml-2 text-xs">
                       {team.members.length} member{team.members.length !== 1 ? "s" : ""}
                     </Badge>
+                    {team.is_private && (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] gap-1">
+                        <Lock size={10} />Private
+                      </Badge>
+                    )}
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(team)}>
@@ -291,6 +301,24 @@ export default function AdminTeamsPage() {
                 className="w-24"
               />
             </div>
+
+            <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-muted/30 transition-colors">
+              <input
+                type="checkbox"
+                checked={formIsPrivate}
+                onChange={(e) => setFormIsPrivate(e.target.checked)}
+                className="mt-1 h-4 w-4"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-1.5 text-sm font-medium">
+                  <Lock size={14} className="text-amber-600" />
+                  Private team (members only)
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Hidden from non-members. Admins and officials can still view it.
+                </p>
+              </div>
+            </label>
 
             <div className="space-y-2">
               <Label>

@@ -30,6 +30,7 @@ const translations = {
   "nav.letters": { en: "Letters & Forms", ta: "கடிதங்கள் & படிவங்கள்" },
   "nav.faq": { en: "FAQ", ta: "கேள்வி பதில்" },
   "nav.food_orders": { en: "Food Orders", ta: "உணவு ஆர்டர்" },
+  "nav.project_h": { en: "Project H", ta: "திட்டம் H" },
   "nav.feedback": { en: "Feedback", ta: "கருத்து" },
   "nav.suggestions": { en: "Suggestions", ta: "பரிந்துரைகள்" },
   "nav.service_requests": { en: "Service Requests", ta: "சேவை கோரிக்கைகள்" },

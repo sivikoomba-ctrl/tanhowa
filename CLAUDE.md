@@ -875,6 +875,12 @@ ADDH (1) → JDH (2) → DDH (3) → ADH (4) → HO (5) → Retd (6) → Others 
 - **Team Lead:** `team_members.role` column supports "lead" designation. Admin teams page has Crown toggle per member. Leads shown first with amber highlight and Crown icon on both admin and member teams pages. API payload uses `members_with_roles: [{ user_id, role }]`.
 - **Legal Advisor:** Hardcoded card on `/dashboard/teams` (not from DB). Shows Thiru. S. Rajendiran (Advocate, B.Com., B.L.) with photo, address, phones, email. Photo at Supabase `avatars/legal-advisor-rajendiran.jpeg`. Appears below all team cards and also when no teams exist.
 
+## Private Teams & Project H
+
+- **`teams.is_private`** (boolean, default false) — when true, the team is hidden from non-members in `/dashboard/teams`. Filter happens in `GET /api/teams`: admins/officials always see everything; everyone else only sees public teams + private teams they belong to. Toggle lives on the create/edit team dialog in `/admin/teams`. Schema: `supabase/team_privacy_schema.sql`.
+- **Project H** — restricted policy document vault for the **TT Team**. Page `/dashboard/project-h`, API `/api/project-h` (GET/POST/PUT/DELETE — file + metadata in a single multipart POST, max 50 MB), private bucket `project-h-documents` (auto-created on first upload), 5-min signed URLs for downloads. Categories: Policy Drafts, Position Papers, Cabinet Notes, Reports, Correspondence, Meeting Minutes, Other. DELETE is uploader-or-super_admin only. Schema: `supabase/project_h_schema.sql` (table `project_h_documents`).
+- **Access gate:** `lib/auth.ts:isProjectHMember(userId)` checks for membership in the team named exactly `"TT Team"`. `/api/users/me` returns `is_project_h: boolean` (true for super_admin or any TT Team member). Dashboard sidebar reads this to conditionally show the Project H nav entry — gate uses `projectHOnly: true` flag on the navItem and the `isProjectH` state in `app/dashboard/layout.tsx`. Mirrors the `is_finance_team` pattern. Adding any future "team gives X powers" feature should reuse this exact pipeline.
+
 ## Letters & Forms (superAdminOnly)
 
 3 government letter templates at `/dashboard/letters` — restricted to `tanhowa19791@gmail.com`:
