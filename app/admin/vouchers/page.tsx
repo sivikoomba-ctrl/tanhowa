@@ -667,7 +667,7 @@ export default function AdminVouchersPage() {
           </DialogHeader>
           {previewUrl && (
             <div className="rounded-xl overflow-hidden border">
-              {previewUrl.toLowerCase().endsWith(".pdf") ? (
+              {previewUrl.toLowerCase().includes(".pdf") ? (
                 <iframe src={previewUrl} className="w-full h-[70vh]" title="Receipt PDF" />
               ) : (
                 <>

@@ -388,14 +388,25 @@ export default function VouchersPage() {
 
       {/* Receipt Preview Dialog */}
       <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("voucher.receipt")}</DialogTitle>
           </DialogHeader>
           {previewUrl && (
             <div className="rounded-xl overflow-hidden border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={previewUrl} alt="Receipt" className="w-full" />
+              {previewUrl.toLowerCase().includes(".pdf") ? (
+                <iframe src={previewUrl} className="w-full h-[70vh]" title="Receipt PDF" />
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={previewUrl} alt="Receipt" className="w-full" />
+              )}
+            </div>
+          )}
+          {previewUrl && (
+            <div className="flex justify-end">
+              <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                Open in new tab
+              </a>
             </div>
           )}
         </DialogContent>
