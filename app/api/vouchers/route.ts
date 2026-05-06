@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit-log";
 import { sendVoucherStatusEmail } from "@/lib/mail";
 import { validate, voucherCreateSchema } from "@/lib/validation";
 import { writeLimiter } from "@/lib/rate-limit";
+import { resolveDocumentUrl } from "@/lib/document-urls";
 
 const FINANCE_TEAM_ID = "1c09bb67-5df7-4d1a-9b08-e0860a350061";
 
@@ -55,7 +56,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch vouchers" }, { status: 500 });
     }
 
-    return NextResponse.json({ vouchers: vouchers || [] });
+    const resolved = await Promise.all(
+      (vouchers || []).map(async (v) => ({
+        ...v,
+        receipt_url: v.receipt_url ? await resolveDocumentUrl(supabase, v.receipt_url) : null,
+      }))
+    );
+
+    return NextResponse.json({ vouchers: resolved });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/vouchers", method: "GET", status_code: 500 });
