@@ -38,6 +38,7 @@ export type ContributionAction =
   | "training_enrolled"
   | "idea_submitted"
   | "idea_upvoted"
+  | "voice_idea_transcribed"
   | "group_message_sent"
   | "chat_file_shared"
   | "logo_vote"
@@ -82,6 +83,7 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   training_enrolled:         { label: "Enrolled in training", minutes: 2 },
   idea_submitted:            { label: "Submitted an idea", minutes: 3 },
   idea_upvoted:              { label: "Upvoted an idea", minutes: 1 },
+  voice_idea_transcribed:    { label: "Recorded an idea by voice", minutes: 2 },
   group_message_sent:        { label: "Sent group chat message", minutes: 1 },
   chat_file_shared:          { label: "Shared file in group chat", minutes: 2 },
   logo_vote:                 { label: "Voted in logo selection", minutes: 1 },

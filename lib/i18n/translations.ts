@@ -26,7 +26,7 @@ const translations = {
   "nav.finance": { en: "Finance", ta: "நிதி" },
   "nav.ai_tools": { en: "AI Tools", ta: "AI கருவிகள்" },
   "nav.payment_status": { en: "Payment Status", ta: "கட்டண நிலை" },
-  "nav.wishlist": { en: "Ideas Board", ta: "யோசனைகள்" },
+  "nav.wishlist": { en: "IDEA BOARD", ta: "யோசனை பலகை" },
   "nav.letters": { en: "Letters & Forms", ta: "கடிதங்கள் & படிவங்கள்" },
   "nav.faq": { en: "FAQ", ta: "கேள்வி பதில்" },
   "nav.food_orders": { en: "Food Orders", ta: "உணவு ஆர்டர்" },
@@ -850,8 +850,8 @@ const translations = {
   "profile.photo_updated": { en: "Photo updated", ta: "புகைப்படம் புதுப்பிக்கப்பட்டது" },
 
   // --- Wishlist / Ideas Board ---
-  "wishlist.title": { en: "Ideas Board", ta: "யோசனை பலகை" },
-  "wishlist.subtitle": { en: "Share ideas, upvote what matters, shape TANHOWA's future", ta: "யோசனைகளைப் பகிருங்கள், முக்கியமானவற்றை ஆதரிக்கவும், TANHOWA-வின் எதிர்காலத்தை வடிவமையுங்கள்" },
+  "wishlist.title": { en: "IDEA BOARD", ta: "யோசனை பலகை" },
+  "wishlist.subtitle": { en: "Let the ideas flow — share, upvote, shape TANHOWA's future", ta: "யோசனைகள் பாயட்டும் — பகிருங்கள், ஆதரிக்கவும், TANHOWA-வின் எதிர்காலத்தை வடிவமையுங்கள்" },
   "wishlist.submit_idea": { en: "Submit Idea", ta: "யோசனை சமர்ப்பி" },
   "wishlist.new_idea": { en: "Share Your Idea", ta: "உங்கள் யோசனையைப் பகிருங்கள்" },
   "wishlist.idea_title": { en: "Idea Title", ta: "யோசனை தலைப்பு" },
@@ -871,6 +871,19 @@ const translations = {
   "wishlist.newest": { en: "Newest", ta: "புதியவை" },
   "wishlist.no_ideas": { en: "No ideas yet", ta: "இன்னும் யோசனைகள் இல்லை" },
   "wishlist.no_ideas_desc": { en: "Be the first to share an idea for TANHOWA!", ta: "TANHOWA-க்கான முதல் யோசனையைப் பகிருங்கள்!" },
+  // Voice capture
+  "wishlist.speak_idea": { en: "Speak your idea", ta: "உங்கள் யோசனையைப் பேசுங்கள்" },
+  "wishlist.speak_hint": { en: "Speak in Tamil, English, or both. AI will translate to English — you can edit before submitting.", ta: "தமிழ், ஆங்கிலம் அல்லது இரண்டிலும் பேசலாம். AI ஆங்கிலத்தில் மாற்றும் — அனுப்பும் முன் திருத்தலாம்." },
+  "wishlist.tap_to_record": { en: "Tap the mic to start (max 60s)", ta: "தொடங்க மைக்கைத் தட்டுங்கள் (அதிகபட்சம் 60வி)" },
+  "wishlist.recording": { en: "Recording…", ta: "பதிவு செய்கிறது…" },
+  "wishlist.left": { en: "left", ta: "மீதம்" },
+  "wishlist.transcribing": { en: "Transcribing your idea…", ta: "உங்கள் யோசனையை மாற்றுகிறது…" },
+  "wishlist.transcribed_success": { en: "Got it! Review and edit below.", ta: "கிடைத்தது! கீழே பார்த்து திருத்தவும்." },
+  "wishlist.transcribe_failed": { en: "Transcription failed. Please try again or type your idea.", ta: "மாற்றம் தோல்வியடைந்தது. மீண்டும் முயற்சிக்கவும் அல்லது தட்டச்சு செய்யவும்." },
+  "wishlist.recording_too_short": { en: "Recording too short. Please speak for at least 2 seconds.", ta: "பதிவு மிகக் குறைவு. குறைந்தது 2 விநாடிகள் பேசவும்." },
+  "wishlist.mic_denied": { en: "Microphone access denied. Please allow mic in your browser settings.", ta: "மைக் அனுமதி மறுக்கப்பட்டது. உலாவி அமைப்புகளில் அனுமதிக்கவும்." },
+  "wishlist.mic_unsupported": { en: "Voice recording is not supported on this browser. Please type your idea instead.", ta: "இந்த உலாவியில் குரல் பதிவு ஆதரிக்கப்படவில்லை. தட்டச்சு செய்யவும்." },
+  "wishlist.review_hint": { en: "AI translated your voice — feel free to edit before submitting.", ta: "AI உங்கள் குரலை மாற்றியது — அனுப்பும் முன் திருத்தலாம்." },
 
   // Payment Status
   "payment_status.title": { en: "Subscription Status", ta: "சந்தா நிலை" },

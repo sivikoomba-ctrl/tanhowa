@@ -12,9 +12,10 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
-import { Lightbulb, Plus, ArrowBigUp, Search, Sparkles, TrendingUp, User } from "lucide-react";
+import { Lightbulb, Plus, ArrowBigUp, Search, Sparkles, TrendingUp, User, Mic } from "lucide-react";
 import { toast } from "sonner";
 import { useT, useLang } from "@/lib/i18n";
+import { VoiceCaptureDialog, type VoiceCaptureResult } from "@/components/voice-capture-dialog";
 
 const CATEGORIES = ["Training", "Infrastructure", "Events", "Digital Tools", "Policy", "Welfare", "Communication", "Other"];
 
@@ -43,8 +44,18 @@ export default function WishlistPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [sortBy, setSortBy] = useState<"votes" | "newest">("votes");
+  const [showVoice, setShowVoice] = useState(false);
+  const [fromVoice, setFromVoice] = useState(false);
   const t = useT();
   const { lang } = useLang();
+
+  function handleVoiceTranscribed(result: VoiceCaptureResult) {
+    setTitle(result.title);
+    setDescription(result.description);
+    if (result.category) setCategory(result.category);
+    setFromVoice(true);
+    setShowCreate(true);
+  }
 
   function load() {
     fetch(`/api/wishlist${lang === "ta" ? "?lang=ta" : ""}`)
@@ -77,6 +88,7 @@ export default function WishlistPage() {
       setTitle("");
       setDescription("");
       setCategory("");
+      setFromVoice(false);
       load();
     } else {
       toast.error("Failed to submit idea");
@@ -146,9 +158,14 @@ export default function WishlistPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{t("wishlist.subtitle")}</p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90">
-          <Plus size={16} className="mr-1" /> {t("wishlist.submit_idea")}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowVoice(true)} variant="outline" className="border-primary/40 text-primary hover:bg-primary/5">
+            <Mic size={16} className="mr-1" /> {t("wishlist.speak_idea")}
+          </Button>
+          <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90">
+            <Plus size={16} className="mr-1" /> {t("wishlist.submit_idea")}
+          </Button>
+        </div>
       </div>
 
       {/* Metrics */}
@@ -245,10 +262,16 @@ export default function WishlistPage() {
       )}
 
       {/* Create Idea Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(o) => { setShowCreate(o); if (!o) setFromVoice(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{t("wishlist.new_idea")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            {fromVoice && (
+              <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 flex items-start gap-2">
+                <Sparkles size={14} className="text-primary shrink-0 mt-0.5" />
+                <p className="text-xs text-primary leading-relaxed">{t("wishlist.review_hint")}</p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>{t("wishlist.idea_title")} *</Label>
               <Input placeholder={t("wishlist.idea_title_ph")} value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -272,6 +295,8 @@ export default function WishlistPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <VoiceCaptureDialog open={showVoice} onOpenChange={setShowVoice} onTranscribed={handleVoiceTranscribed} />
     </div>
   );
 }
