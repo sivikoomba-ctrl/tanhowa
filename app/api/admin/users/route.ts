@@ -93,6 +93,10 @@ export async function PUT(req: NextRequest) {
       if (role === "super_admin") {
         return NextResponse.json({ error: "Cannot assign Super Admin role" }, { status: 403 });
       }
+      const VALID_ROLES = ["member", "admin"];
+      if (!VALID_ROLES.includes(role)) {
+        return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+      }
       await supabase.from("users").update({ role }).eq("id", userId);
     } else if (action === "set-official") {
       const { officialType } = body; // "state", "district", "volunteer", or null (to remove)

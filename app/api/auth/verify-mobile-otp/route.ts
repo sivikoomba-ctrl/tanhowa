@@ -51,17 +51,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Also try partial match (phone field may contain spaces/dashes)
-    if (!user) {
-      const { data } = await supabase
-        .from("users")
-        .select("*")
-        .ilike("phone", `%${normalized}%`);
-      if (data && data.length === 1) {
-        user = data[0];
-      }
-    }
-
     if (!user) {
       return NextResponse.json(
         { error: "No account found with this mobile number. Please sign up with Google or Email first." },

@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Government/official email addresses are not allowed. Please use your personal email." }, { status: 403 });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpNum = crypto.getRandomValues(new Uint32Array(1))[0] % 900000 + 100000;
+    const otp = otpNum.toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     const supabase = getServiceClient();
@@ -40,10 +41,14 @@ export async function POST(req: NextRequest) {
       .eq("purpose", OTP_PURPOSE_LOGIN)
       .eq("used", false);
 
-    // Store new OTP
+    // Store hashed OTP
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(otp));
+    const hashedOtp = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+
     const { error: dbError } = await supabase.from("otp_codes").insert({
       email: email.toLowerCase(),
-      code: otp,
+      code: hashedOtp,
       purpose: OTP_PURPOSE_LOGIN,
       expires_at: expiresAt.toISOString(),
     });

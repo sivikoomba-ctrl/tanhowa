@@ -22,20 +22,21 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
+    const supabaseHost = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/^https?:\/\//, "");
     const contentSecurityPolicy = [
       "default-src 'self'",
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'none'",
       "object-src 'none'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
+      "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://checkout.razorpay.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https:",
-      "connect-src 'self' https: wss:",
-      "frame-src 'self' https:",
+      `img-src 'self' data: blob: https://${supabaseHost} https://images.unsplash.com https://lh3.googleusercontent.com https://*.fbcdn.net https://platform-lookaside.fbsbx.com`,
+      `connect-src 'self' https://${supabaseHost} https://va.vercel-scripts.com https://api.open-meteo.com https://checkout.razorpay.com wss:`,
+      "frame-src 'self' https://checkout.razorpay.com",
       "worker-src 'self' blob:",
-      "media-src 'self' blob: https:",
+      "media-src 'self' blob:",
       "upgrade-insecure-requests",
     ].join("; ");
 

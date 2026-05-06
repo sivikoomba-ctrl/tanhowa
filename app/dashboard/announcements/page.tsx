@@ -29,6 +29,14 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(months / 12)}y ago`;
 }
 
+function sanitizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    return parsed.href;
+  } catch { return ""; }
+}
+
 function renderSimpleMarkdown(text: string): string {
   return text
     .replace(/<img\s[^>]*alt="([^"]*)"[^>]*\/?>/gi, "$1")
@@ -39,10 +47,16 @@ function renderSimpleMarkdown(text: string): string {
     .replace(/__(.+?)__/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(/_(.+?)_/g, "<em>$1</em>")
-    .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary underline">$1</a>')
+    .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, url) => {
+      const safe = sanitizeUrl(url);
+      if (!safe) return label;
+      return `<a href="${safe}" target="_blank" rel="noopener noreferrer" class="text-primary underline">${label}</a>`;
+    })
     .replace(/(https?:\/\/[^\s<]+)/g, (match, url) => {
       if (match.includes('href="')) return match;
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary underline">${url}</a>`;
+      const safe = sanitizeUrl(url);
+      if (!safe) return match;
+      return `<a href="${safe}" target="_blank" rel="noopener noreferrer" class="text-primary underline">${safe}</a>`;
     });
 }
 

@@ -151,6 +151,10 @@ export async function POST(req: NextRequest) {
     if (body.file_url && (body.file_type === "application/pdf" || body.file_type?.startsWith("image/"))) {
       (async () => {
         try {
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowedOrigins = [supabaseUrl, "https://images.unsplash.com"];
+          const fileUrl = new URL(body.file_url);
+          if (!allowedOrigins.some((o) => o && fileUrl.origin === new URL(o).origin)) return;
           const fileRes = await fetch(body.file_url);
           if (!fileRes.ok) return;
           const buffer = Buffer.from(await fileRes.arrayBuffer());

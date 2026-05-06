@@ -7,7 +7,7 @@ import { getRequestIp } from "@/lib/request-ip";
 
 const clientErrorLogLimiter = createRateLimiter(20, 15 * 60 * 1000);
 
-// POST: Client-side error submission (no auth required)
+// POST: Client-side error submission (auth optional but recorded)
 export async function POST(req: NextRequest) {
   try {
     const ip = getRequestIp(req);
@@ -17,20 +17,23 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    if (!body.message) {
+    if (!body.message || typeof body.message !== "string") {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
+    const session = await getSession();
+
+    const truncate = (s: unknown, max: number) => typeof s === "string" ? s.slice(0, max) : "";
     const supabase = getServiceClient();
     await supabase.from("error_logs").insert({
       type: "client",
-      message: body.message,
-      stack: body.stack || "",
-      path: body.path || "",
+      message: truncate(body.message, 2000),
+      stack: truncate(body.stack, 4000),
+      path: truncate(body.path, 500),
       method: "",
       status_code: 0,
-      user_id: null,
-      metadata: body.metadata || {},
+      user_id: session?.userId || null,
+      metadata: typeof body.metadata === "object" && body.metadata ? body.metadata : {},
       status: "unresolved",
     });
 

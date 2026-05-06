@@ -10,7 +10,7 @@ const API_CACHE = "tanhowa-api-v3";
 const CACHEABLE_API = [
   "/api/announcements", "/api/events", "/api/polls", "/api/documents",
   "/api/resolutions", "/api/stats", "/api/trainings", "/api/faq",
-  "/api/wishlist", "/api/notifications",
+  "/api/wishlist",
 ];
 
 self.addEventListener("install", (event) => {

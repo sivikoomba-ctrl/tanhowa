@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { logError } from "@/lib/error-logger";
 import { sendTelegramMessage } from "@/lib/telegram";
@@ -8,8 +8,16 @@ import { sendTelegramMessage } from "@/lib/telegram";
  * Runs once per day via Vercel Cron or manual trigger.
  * Uses site_settings key "inactive_nudge_last_run" to prevent duplicate runs.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret) {
+      const authHeader = req.headers.get("authorization");
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
+
     const supabase = getServiceClient();
 
     // Check last run (once per day)

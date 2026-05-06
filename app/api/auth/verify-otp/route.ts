@@ -29,12 +29,17 @@ export async function POST(req: NextRequest) {
     const supabase = getServiceClient();
     const normalizedEmail = email.toLowerCase();
 
+    // Hash the submitted code for comparison
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(code));
+    const hashedCode = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+
     // Find valid OTP
     const { data: otpRecord, error: otpError } = await supabase
       .from("otp_codes")
       .select("*")
       .eq("email", normalizedEmail)
-      .eq("code", code)
+      .eq("code", hashedCode)
       .eq("purpose", OTP_PURPOSE_LOGIN)
       .eq("used", false)
       .gt("expires_at", new Date().toISOString())

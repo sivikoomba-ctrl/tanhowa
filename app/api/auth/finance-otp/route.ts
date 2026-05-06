@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many OTP requests. Please wait." }, { status: 429 });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpNum = crypto.getRandomValues(new Uint32Array(1))[0] % 900000 + 100000;
+    const otp = otpNum.toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     const supabase = getServiceClient();
@@ -36,10 +37,14 @@ export async function POST(req: NextRequest) {
       .eq("purpose", OTP_PURPOSE)
       .eq("used", false);
 
-    // Store new OTP
+    // Store hashed OTP
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(otp));
+    const hashedOtp = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+
     const { error: dbError } = await supabase.from("otp_codes").insert({
       email: session.email,
-      code: otp,
+      code: hashedOtp,
       purpose: OTP_PURPOSE,
       expires_at: expiresAt.toISOString(),
     });
@@ -78,11 +83,15 @@ export async function PUT(req: NextRequest) {
 
     const supabase = getServiceClient();
 
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(code));
+    const hashedCode = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+
     const { data: otpRecord, error: otpError } = await supabase
       .from("otp_codes")
       .select("*")
       .eq("email", session.email)
-      .eq("code", code)
+      .eq("code", hashedCode)
       .eq("purpose", OTP_PURPOSE)
       .eq("used", false)
       .gt("expires_at", new Date().toISOString())

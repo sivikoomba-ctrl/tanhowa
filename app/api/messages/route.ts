@@ -17,6 +17,11 @@ export async function GET(req: NextRequest) {
     const withUser = url.searchParams.get("with");
     const unreadCount = url.searchParams.get("unread_count");
 
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (withUser && !UUID_RE.test(withUser)) {
+      return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
+    }
+
     const supabase = getServiceClient();
     const me = session.userId;
 
