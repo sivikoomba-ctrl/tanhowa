@@ -1,4 +1,4 @@
-const CACHE_NAME = "tanhowa-v6";
+const CACHE_NAME = "tanhowa-v7";
 const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [
   "/icons/icon-192x192.png",
@@ -6,12 +6,20 @@ const STATIC_ASSETS = [
 ];
 
 // Cache key for API responses (network-first with offline fallback)
-const API_CACHE = "tanhowa-api-v3";
+const API_CACHE = "tanhowa-api-v4";
 const CACHEABLE_API = [
   "/api/announcements", "/api/events", "/api/polls", "/api/documents",
   "/api/resolutions", "/api/stats", "/api/trainings", "/api/faq",
   "/api/wishlist", "/api/notifications",
 ];
+
+// Auth-sensitive paths — never intercept these. Their behavior depends entirely on
+// the session cookie; serving a stale cached version causes "browser stuck loading"
+// or redirect-loop bugs that disappear only in incognito (where there's no SW).
+const AUTH_SENSITIVE_PATHS = [
+  "/", "/onboarding", "/pending", "/suspended", "/verify", "/feedback",
+];
+const AUTH_SENSITIVE_PREFIXES = ["/admin", "/dashboard"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -57,6 +65,12 @@ self.addEventListener("fetch", (event) => {
 
   // Skip other API calls
   if (url.pathname.startsWith("/api/")) return;
+
+  // Skip auth-sensitive pages — let the browser go straight to network so the session
+  // cookie is always honored. Otherwise stale cached HTML can break the OAuth round-trip
+  // ("browser running but not going through" symptom that disappears in incognito).
+  if (AUTH_SENSITIVE_PATHS.includes(url.pathname)) return;
+  if (AUTH_SENSITIVE_PREFIXES.some((p) => url.pathname.startsWith(p))) return;
 
   // Network-first for pages, cache-first for static assets
   if (request.url.match(/\.(png|jpg|jpeg|svg|webp|woff2?|ico)$/)) {
