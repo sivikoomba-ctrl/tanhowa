@@ -61,6 +61,10 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 
 **Session implementation:** JWT signed with HS256, stored in httpOnly cookie named `session`, 7-day expiry. Uses `jose` library (not jsonwebtoken) for Edge compatibility.
 
+**Edge Runtime on OAuth start routes:** `app/api/auth/google/route.ts` and `app/api/auth/facebook/route.ts` (the *start* routes, not the callbacks) export `runtime = "edge"` to drop cold-start from 1-3s to ~50ms — sign-in feels instant. Do NOT move the callback routes to Edge — they need Node-only modules (Supabase service client, etc.). Only the redirect-to-provider step is Edge-eligible.
+
+**Blocked email keywords (`isBlockedEmail` in `lib/auth.ts`):** Government/official emails are rejected at sign-up so members keep portal access through transfers. Domain blocks: `tn.gov.in`, `nic.in`, `gov.in`. Keyword blocks (designation/institution): `adh, ddh, jdh, addh, ho, dho, ado, jdo, coe, tanhoda`. **Matching is word-boundary, not substring** — `localPart.split(/[._\-+0-9]+/)` then `segments.includes(kw)` — so `adh.kannan`, `kannan-adh`, `adh1234`, `coe_tnj` all match while `madhuri` / `padhma` correctly don't. Super-admin emails (`SUPER_ADMIN_EMAILS`) are exempt. When adding a keyword, prefer one that is unambiguous as a standalone word — never a fragment that appears inside legitimate names.
+
 **`login_count` tracking:** Both auth routes (`google/callback` and `verify-otp`) increment `login_count` and update `last_login_at` on every login. **Auto-delete:** if `login_count >= 7` and `user.name` is empty and `role !== "admin"`, the account is deleted and the error `account_deleted_incomplete_profile` is returned. Warning banners appear on `/onboarding` at count ≥ 3 (amber) and ≥ 5 (red).
 
 ## API Route Patterns
@@ -109,6 +113,7 @@ Read these before writing code that touches email, PDFs, audit logs, translation
 - **PostgREST direct writes bypass `translateContent()`** — the Python tools (which use `requests` against PostgREST because `supabase-py` rejects the new `sb_secret_*` key format) do NOT trigger EN→TA auto-translation. Backfill scripts must call Gemini themselves and upsert into `content_translations`.
 - **API edits re-translate and overwrite hand-cached translations** — if you manually upsert a Tamil translation and then someone hits PUT on the same announcement, `translateContent()` will re-run EN→TA via Gemini and overwrite your hand edit. No "translation-locked" flag exists yet.
 - **Inline component functions destroy textarea focus** — never define `const Foo = () => (...)` inside a page component (React remounts on every re-render). Use JSX variable assignments (`const fooJsx = (...)`) and reference with `{fooJsx}`. See group-chat for the canonical workaround.
+- **Vercel runs serverless in UTC — always compute "today" in IST.** Naive `new Date().getMonth()` / `getDate()` / `getFullYear()` returns UTC calendar components, which lag IST by 5.5 hours every night. Members hitting the dashboard between midnight IST and 05:30 IST see yesterday's date for any "today" comparison (DOB, event_date, scheduled_at). IST has no DST, so a fixed +5:30 shift is reliable: `const ist = new Date(Date.now() + 5.5 * 3600 * 1000)` then read `ist.getUTCFullYear()` / `getUTCMonth()` / `getUTCDate()`. Anchor day-count math on `Date.UTC(year, month, date)` for both today and target so subtraction stays in the same frame. Crons firing at 01:30+ UTC don't trip this because by 07:00 IST both clocks agree on the date. Fixed pattern in `app/api/users/birthdays/route.ts` (commit `1a74a0f`); apply to any new "today" comparison.
 
 ## Database
 
@@ -693,12 +698,14 @@ When building new pages, use these instead of duplicating patterns:
 
 ## PWA & Service Worker
 
-`public/sw.js` (v3) implements:
-- **API cache** (`tanhowa-api-v2`): announcements, events, polls, documents, resolutions, and stats responses cached for offline viewing
-- **Static cache** (`tanhowa-v3`): images, fonts, icons (cache-first)
+`public/sw.js` (current: `tanhowa-v7` / `tanhowa-api-v4`) implements:
+- **API cache** (`tanhowa-api-v4`): announcements, events, polls, documents, resolutions, and stats responses cached for offline viewing
+- **Static cache** (`tanhowa-v7`): images, fonts, icons (cache-first)
 - **Pages**: network-first, falls back to cached version or `/offline` page
-- Bump `CACHE_NAME` version when changing caching behavior
+- Bump BOTH `CACHE_NAME` and `API_CACHE` version strings when changing caching behavior — the `activate` handler drops anything not in the new whitelist, forcing all clients to refresh on next visit
 - **Install banner:** Login page (`app/page.tsx`) shows a PWA install prompt with instructions for Chrome/Safari
+- **Auth-sensitive skip list:** `AUTH_SENSITIVE_PATHS` (`/`, `/onboarding`, `/pending`, `/suspended`, `/verify`, `/feedback`) and `AUTH_SENSITIVE_PREFIXES` (`/admin`, `/dashboard`) bypass SW interception entirely — the fetch handler returns early so the browser hits the network directly and the new session cookie is always honored. Without this skip list, members hit "stuck sign-in" / "frozen UI" in regular Chrome (works in incognito because there's no SW). Add any new auth-flow route to the right list AND bump cache versions in the same commit. See `reference_sw_staleness_diagnostic.md`.
+- **Trade-off:** PWA offline support is lost for the auth-flow routes. They never worked offline meaningfully (need live session/data), so practical impact is zero — keep the skip list aggressive rather than letting one stuck-sign-in regression slip through.
 
 ## Cross-Component Communication
 
@@ -811,9 +818,9 @@ useEffect(() => { load(); }, [lang]);
 
 **Preview-as-TA toggle:** Admin pages for announcements, events, resolutions, and grievances expose a "Preview as Tamil" toggle that flips the page state to fetch with `?lang=ta`, so curators can see how the auto-translated copy will render to Tamil-language members before publish (no DB write — pure read-side preview). When adding a new admin content type, mirror this pattern instead of inventing a new preview UX.
 
-## Wishlist / Ideas Board
+## Wishlist / IDEA BOARD
 
-Community-driven idea board where members submit ideas, others upvote, and admins review + convert to tasks.
+Community-driven idea board where members submit ideas, others upvote, and admins review + convert to tasks. UI label is **IDEA BOARD** (renamed from "Ideas Board" — `nav.wishlist` and `wishlist.title` i18n keys).
 
 **Tables:** `wishlist_ideas` + `wishlist_upvotes`
 
@@ -829,6 +836,8 @@ Community-driven idea board where members submit ideas, others upvote, and admin
 **Categories:** Training, Infrastructure, Events, Digital Tools, Policy, Welfare, Communication, Other
 
 **Statuses:** `open` → `reviewing` → `approved` → `in_progress` → `completed` (or `rejected`)
+
+**Voice capture (Tamil/English mixed → English):** Mic button on the create form opens `<VoiceCaptureDialog>` (`components/voice-capture-dialog.tsx`). MediaRecorder captures up to 60s and POSTs to `/api/ai-tools/transcribe-idea` (Gemini 2.5-flash audio, rate limit 5/min, 5MB cap, 2KB min). Gemini returns `{ title, description, category }` in clean English regardless of Tamil/English/mixed input — member can edit before submitting. The dialog pre-flights `navigator.permissions.query({ name: "microphone" })` and renders a 4-scenario help card (phone browser / Android PWA → Chrome site settings / iOS PWA → iOS Settings → TANHOWA / desktop) when state is `"denied"`. PWA mic permission isn't in Android app permissions — it lives in Chrome's site settings; see `reference_pwa_mic_permission_chain.md`. Logs `voice_idea_transcribed` contribution.
 
 ## Logo Vote
 
@@ -943,6 +952,7 @@ All approved members must complete 12 fields before accessing any dashboard sect
 - Polite bilingual message (EN/TA) with `Flower2` icon
 - Warning banner on profile page shows missing fields
 - Logic: `getMissingFields()` in `app/dashboard/layout.tsx`
+- **Placeholder name detection:** `PLACEHOLDER_NAMES` Set in `app/dashboard/layout.tsx` rejects names where every word is a placeholder (`unnamed`, `user`, `test`, `guest`, `anonymous`, `no name`, `n/a`, `na`). So "unnamed", "user user", "test test" all count as missing — the member is forced to enter a real first + last name. Add new placeholders to the Set rather than altering the field check.
 
 ## Trainings System
 
