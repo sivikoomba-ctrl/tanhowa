@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { logError } from "@/lib/error-logger";
 
+export const runtime = "edge";
+
 export async function GET() {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID;
