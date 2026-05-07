@@ -11,9 +11,13 @@ export const SUPER_ADMIN_EMAILS = new Set([DEFAULT_ADMIN_EMAIL, SYSTEM_ADMIN_EMA
 
 // Blocked government email domains and patterns
 const BLOCKED_EMAIL_DOMAINS = ["tn.gov.in", "nic.in", "gov.in"];
-const BLOCKED_EMAIL_PREFIXES = [
+// Designation / institution keywords that signal an OFFICIAL account, not a personal one.
+// Members must register with their personal email so they retain access after transfers/role changes.
+const BLOCKED_EMAIL_KEYWORDS = [
   "adh", "ddh", "jdh", "addh", "ho",       // designation-based
   "dho", "ado", "jdo",                       // alternate designation prefixes
+  "coe",                                     // Centre of Excellence (TN horticulture)
+  "tanhoda",                                 // TANHODA = TN Horticulture Development Agency
 ];
 
 /** Returns true if the email is a government/official email that should be blocked */
@@ -24,9 +28,12 @@ export function isBlockedEmail(email: string): boolean {
   const domain = lower.split("@")[1] || "";
   // Block entire government domains
   if (BLOCKED_EMAIL_DOMAINS.some((d) => domain === d || domain.endsWith("." + d))) return true;
-  // Block designation-based prefixes on any domain
+  // Block designation/institution keywords as a separate "word" in the local part.
+  // Splitting on common separators avoids false positives like "madhuri" matching "adh"
+  // or "padhma" matching "adh", while still catching adh.kannan / kannan-adh / adh1234 / coe_tnj.
   const localPart = lower.split("@")[0] || "";
-  if (BLOCKED_EMAIL_PREFIXES.some((p) => localPart === p || localPart.startsWith(p + ".") || localPart.startsWith(p + "_"))) return true;
+  const segments = localPart.split(/[._\-+0-9]+/).filter(Boolean);
+  if (BLOCKED_EMAIL_KEYWORDS.some((kw) => segments.includes(kw))) return true;
   return false;
 }
 

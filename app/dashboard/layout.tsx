@@ -126,10 +126,16 @@ const navItems = [
   { href: "/dashboard/project-h", labelKey: "nav.project_h" as const, icon: Lock, projectHOnly: true },
 ];
 
+// Generic placeholder names that should be treated as "no real name entered"
+const PLACEHOLDER_NAMES = new Set(["unnamed", "user", "test", "guest", "anonymous", "no name", "n/a", "na"]);
+
 function getMissingFields(u: UserData): string[] {
   const missing: string[] = [];
-  const nameParts = (u.name || "").trim().split(/\s+/).filter(Boolean);
-  if (nameParts.length < 2) missing.push("Last Name / Initial");
+  const trimmedName = (u.name || "").trim();
+  const nameParts = trimmedName.split(/\s+/).filter(Boolean);
+  // Flag missing if no name, fewer than 2 parts, or any placeholder word like "unnamed" / "user"
+  const isPlaceholder = trimmedName.length > 0 && nameParts.every((p) => PLACEHOLDER_NAMES.has(p.toLowerCase()));
+  if (!trimmedName || nameParts.length < 2 || isPlaceholder) missing.push("Full Name (First + Last)");
   if (!u.phone?.trim()) missing.push("Phone Number");
   if (!u.occupation?.trim()) missing.push("Designation");
   if (!u.posting_details?.regular_district) missing.push("District");
