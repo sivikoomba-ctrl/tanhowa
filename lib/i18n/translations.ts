@@ -883,6 +883,17 @@ const translations = {
   "wishlist.recording_too_short": { en: "Recording too short. Please speak for at least 2 seconds.", ta: "பதிவு மிகக் குறைவு. குறைந்தது 2 விநாடிகள் பேசவும்." },
   "wishlist.mic_denied": { en: "Microphone access denied. Please allow mic in your browser settings.", ta: "மைக் அனுமதி மறுக்கப்பட்டது. உலாவி அமைப்புகளில் அனுமதிக்கவும்." },
   "wishlist.mic_unsupported": { en: "Voice recording is not supported on this browser. Please type your idea instead.", ta: "இந்த உலாவியில் குரல் பதிவு ஆதரிக்கப்படவில்லை. தட்டச்சு செய்யவும்." },
+  "wishlist.mic_will_ask": { en: "Your browser will ask for mic permission the first time.", ta: "உலாவி முதலில் மைக் அனுமதி கேட்கும்." },
+  "wishlist.mic_blocked_title": { en: "Microphone is blocked", ta: "மைக்ரோஃபோன் தடுக்கப்பட்டுள்ளது" },
+  "wishlist.mic_blocked_intro": { en: "You've blocked mic access for this site earlier. Please enable it in your settings to record your idea:", ta: "நீங்கள் ஏற்கனவே இந்த தளத்திற்கு மைக் அனுமதியைத் தடுத்துள்ளீர்கள். உங்கள் யோசனையைப் பதிவு செய்ய அமைப்புகளில் இயக்கவும்:" },
+  "wishlist.mic_help_phone_browser_label": { en: "On phone (browser)", ta: "தொலைபேசி (உலாவி)" },
+  "wishlist.mic_help_phone_browser": { en: "Tap the lock icon next to the address → Permissions → set Microphone to Allow.", ta: "முகவரிக்கு அருகே உள்ள 🔒 பூட்டை தட்டவும் → Permissions → Microphone ஐ Allow என்று மாற்றவும்." },
+  "wishlist.mic_help_pwa_label": { en: "If using the installed TANHOWA app", ta: "TANHOWA செயலியில்" },
+  "wishlist.mic_help_pwa": { en: "Long-press the app icon → App info → Permissions → Microphone → Allow. (iOS: Settings → TANHOWA → Microphone → On.)", ta: "செயலி ஐகானை நீளமாக அழுத்தவும் → App info → Permissions → Microphone → Allow. (iOS: Settings → TANHOWA → Microphone → On.)" },
+  "wishlist.mic_help_desktop_label": { en: "On computer", ta: "கணினியில்" },
+  "wishlist.mic_help_desktop": { en: "Click the lock icon in the address bar → Site settings → Microphone → Allow.", ta: "முகவரிப் பட்டியில் 🔒 பூட்டை கிளிக் செய்யவும் → Site settings → Microphone → Allow." },
+  "wishlist.mic_help_then_reload": { en: "After allowing, reload this page and tap the mic button again.", ta: "அனுமதித்த பிறகு, இந்தப் பக்கத்தை மீண்டும் ஏற்றி, மைக் பொத்தானை மீண்டும் தட்டவும்." },
+  "wishlist.mic_help_reload": { en: "Reload page", ta: "பக்கத்தை மீளேற்று" },
   "wishlist.review_hint": { en: "AI translated your voice — feel free to edit before submitting.", ta: "AI உங்கள் குரலை மாற்றியது — அனுப்பும் முன் திருத்தலாம்." },
 
   // Payment Status
