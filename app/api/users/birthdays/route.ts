@@ -18,8 +18,17 @@ export async function GET() {
 
     if (!data || data.length === 0) return NextResponse.json({ birthdays: [] });
 
-    const now = new Date();
-    const today = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    // Compute "today" in IST. Vercel runs serverless in UTC; using Date.getMonth()/getDate()
+    // would resolve to yesterday's UTC date for ~5.5 hours after IST midnight, leaving
+    // yesterday's celebrants stuck as "Today!" until 05:30 IST. IST has no DST so a fixed
+    // +5:30 shift is reliable.
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+    const istNow = new Date(Date.now() + IST_OFFSET_MS);
+    const todayYear = istNow.getUTCFullYear();
+    const todayMonth = istNow.getUTCMonth(); // 0-indexed
+    const todayDate = istNow.getUTCDate();
+    const today = `${String(todayMonth + 1).padStart(2, "0")}-${String(todayDate).padStart(2, "0")}`;
+    const todayMidnightIST = Date.UTC(todayYear, todayMonth, todayDate);
 
     // Find birthdays in next 7 days (including today)
     const upcoming: {
@@ -38,10 +47,12 @@ export async function GET() {
       const [, month, day] = u.dob.split("-");
       const mmdd = `${month}-${day}`;
 
-      // Calculate days until birthday
-      const thisYearBday = new Date(now.getFullYear(), parseInt(month) - 1, parseInt(day));
-      if (thisYearBday < now) thisYearBday.setFullYear(now.getFullYear() + 1);
-      const daysUntil = Math.ceil((thisYearBday.getTime() - now.getTime()) / 86400000);
+      // Calculate days until birthday — both anchor and target in the same IST midnight frame
+      const m = parseInt(month);
+      const d = parseInt(day);
+      let thisYearBdayMs = Date.UTC(todayYear, m - 1, d);
+      if (thisYearBdayMs < todayMidnightIST) thisYearBdayMs = Date.UTC(todayYear + 1, m - 1, d);
+      const daysUntil = Math.round((thisYearBdayMs - todayMidnightIST) / 86400000);
 
       if (daysUntil <= 7 || mmdd === today) {
         const sl = (u.social_links as Record<string, string>) || {};
