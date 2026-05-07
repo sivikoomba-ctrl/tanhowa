@@ -228,6 +228,10 @@ export function VoiceCaptureDialog({ open, onOpenChange, onTranscribed }: Props)
                 </li>
                 <li className="flex gap-2">
                   <span className="font-bold shrink-0">3.</span>
+                  <span><span className="font-semibold">{t("wishlist.mic_help_ios_label")}:</span> {t("wishlist.mic_help_ios")}</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-bold shrink-0">4.</span>
                   <span><span className="font-semibold">{t("wishlist.mic_help_desktop_label")}:</span> {t("wishlist.mic_help_desktop")}</span>
                 </li>
               </ol>
