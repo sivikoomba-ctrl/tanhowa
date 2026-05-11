@@ -18,7 +18,7 @@ export async function POST(_req: NextRequest) {
   // Fetch every team's lead in one query
   const { data: leads, error } = await supabase
     .from("team_members")
-    .select("team:teams(id, name), user:users(id, name, email, telegram_chat_id)")
+    .select("team:team_id(id, name), user:user_id(id, name, email, telegram_chat_id)")
     .eq("role", "lead");
 
   if (error) {
