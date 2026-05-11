@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Pencil, Trash2, UsersRound, Search, X, Check, Crown, Lock, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, UsersRound, Search, X, Check, Crown, Lock, AlertTriangle, Send } from "lucide-react";
 import { toast } from "sonner";
 
 interface Member {
@@ -55,6 +55,30 @@ export default function AdminTeamsPage() {
   const [memberSearch, setMemberSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [showOnlyNoLead, setShowOnlyNoLead] = useState(false);
+  const [notifying, setNotifying] = useState(false);
+
+  async function notifyLeads() {
+    if (!confirm("Send a Telegram message to every current Team Lead with a linked Telegram?\n\nLeads without linked Telegram will be skipped. You (the caller) are skipped.")) return;
+    setNotifying(true);
+    try {
+      const res = await fetch("/api/admin/teams/notify-leads", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      const { summary, sent, skipped, failed } = data;
+      const lines = [
+        `Sent ${summary.sent}, skipped ${summary.skipped}, failed ${summary.failed}.`,
+        ...(sent.length ? [`✓ ${sent.join("; ")}`] : []),
+        ...(skipped.length ? [`— ${skipped.map((s: { lead: string; reason: string }) => `${s.lead} (${s.reason})`).join("; ")}`] : []),
+        ...(failed.length ? [`✗ ${failed.map((f: { lead: string; error: string }) => `${f.lead} (${f.error})`).join("; ")}`] : []),
+      ];
+      toast.success(lines[0], { description: lines.slice(1).join("\n") });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Notify failed: ${msg}`);
+    } finally {
+      setNotifying(false);
+    }
+  }
 
   const noLeadCount = useMemo(
     () => teams.filter((t) => !t.members.some((m) => m.team_role === "lead")).length,
@@ -221,10 +245,16 @@ export default function AdminTeamsPage() {
             </button>
           )}
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus size={16} />
-          Create Team
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={notifyLeads} variant="outline" className="gap-2" disabled={notifying} title="Send a Telegram designation message to every current Team Lead">
+            <Send size={14} />
+            {notifying ? "Sending…" : "Telegram leads"}
+          </Button>
+          <Button onClick={openCreate} className="gap-2">
+            <Plus size={16} />
+            Create Team
+          </Button>
+        </div>
       </div>
 
       {teams.length === 0 ? (
