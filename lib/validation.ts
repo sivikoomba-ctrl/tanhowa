@@ -110,6 +110,14 @@ export const voucherCreateSchema = z.object({
   expense_date: z.string().optional().nullable(),
   category: z.enum(["Travel", "Printing", "Food & Refreshments", "Stationery", "Communication", "Venue & Hall", "Transport", "Miscellaneous"]).optional(),
   receipt_url: z.string().max(1000).optional().nullable(),
+  // Payment-proof fields (optional) — extracted from a payment screenshot
+  // via /api/upload/payment-proof/extract-date. Either bill or payment proof
+  // is sufficient; both can be attached.
+  payment_proof_url: z.string().max(1000).optional().nullable(),
+  payment_method: safeString.max(100).optional(),
+  payment_transaction_id: safeString.max(200).optional(),
+  payment_date: z.string().optional().nullable(),
+  paid_to: safeString.max(500).optional(),
   submitted_by: z.string().uuid().optional(),
 });
 

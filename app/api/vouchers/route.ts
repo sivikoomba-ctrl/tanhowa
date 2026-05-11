@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
       (vouchers || []).map(async (v) => ({
         ...v,
         receipt_url: v.receipt_url ? await resolveDocumentUrl(supabase, v.receipt_url) : null,
+        payment_proof_url: v.payment_proof_url ? await resolveDocumentUrl(supabase, v.payment_proof_url) : null,
       }))
     );
 
@@ -106,6 +107,11 @@ export async function POST(req: NextRequest) {
         expense_date: v.data.expense_date || null,
         category: v.data.category || "",
         receipt_url: v.data.receipt_url || null,
+        payment_proof_url: v.data.payment_proof_url || null,
+        payment_method: v.data.payment_method || "",
+        payment_transaction_id: v.data.payment_transaction_id || "",
+        payment_date: v.data.payment_date || null,
+        paid_to: v.data.paid_to || "",
       })
       .select("*, submitter:submitted_by(id, name, email, official_type)")
       .single();
@@ -170,6 +176,11 @@ export async function PUT(req: NextRequest) {
       if (body.expense_date !== undefined) updates.expense_date = body.expense_date;
       if (body.category !== undefined) updates.category = body.category;
       if (body.receipt_url !== undefined) updates.receipt_url = body.receipt_url;
+      if (body.payment_proof_url !== undefined) updates.payment_proof_url = body.payment_proof_url;
+      if (body.payment_method !== undefined) updates.payment_method = body.payment_method;
+      if (body.payment_transaction_id !== undefined) updates.payment_transaction_id = body.payment_transaction_id;
+      if (body.payment_date !== undefined) updates.payment_date = body.payment_date;
+      if (body.paid_to !== undefined) updates.paid_to = body.paid_to;
     }
 
     let query = supabase.from("expense_vouchers").update(updates).in("id", ids);

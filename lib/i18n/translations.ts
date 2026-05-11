@@ -688,6 +688,12 @@ const translations = {
   "voucher.approved_amount": { en: "Approved", ta: "அங்கீகரிக்கப்பட்டது" },
   "voucher.pending_count": { en: "Pending", ta: "நிலுவையில்" },
   "voucher.view_receipt": { en: "View Receipt", ta: "ரசீது பார்" },
+  "voucher.view_payment_proof": { en: "View Payment Proof", ta: "பணம் செலுத்திய சான்று பார்" },
+  "voucher.payment_proof": { en: "Payment Proof", ta: "பணம் செலுத்திய சான்று" },
+  "voucher.payment_method": { en: "Payment Method", ta: "பணம் செலுத்தும் முறை" },
+  "voucher.transaction_id": { en: "Transaction ID", ta: "பரிவர்த்தனை எண்" },
+  "voucher.payment_date": { en: "Payment Date", ta: "பணம் செலுத்திய தேதி" },
+  "voucher.paid_to": { en: "Paid To", ta: "பெறுநர்" },
   "voucher.approved_by": { en: "Approved by", ta: "அங்கீகரித்தவர்" },
   "voucher.remarks": { en: "Remarks", ta: "குறிப்புகள்" },
 

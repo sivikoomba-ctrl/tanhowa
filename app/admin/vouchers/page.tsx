@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail } from "lucide-react";
+import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail, ScanLine, Loader2 } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate } from "@/lib/utils";
 import { FinanceOtpGate } from "@/components/finance-otp-gate";
@@ -29,6 +29,11 @@ interface Voucher {
   expense_date: string | null;
   category: string;
   receipt_url: string | null;
+  payment_proof_url: string | null;
+  payment_method: string;
+  payment_transaction_id: string;
+  payment_date: string | null;
+  paid_to: string;
   status: string;
   remarks: string;
   created_at: string;
@@ -53,10 +58,22 @@ export default function AdminVouchersPage() {
 
   // Create voucher
   const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "" });
+  const [createForm, setCreateForm] = useState({
+    title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "",
+    payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
+  });
   const [createFile, setCreateFile] = useState<File | null>(null);
+  const [createPaymentFile, setCreatePaymentFile] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanningPayment, setScanningPayment] = useState(false);
+  // scanned amounts mirror the member dialog — see app/dashboard/vouchers/page.tsx
+  const [scannedBillAmount, setScannedBillAmount] = useState<number | null>(null);
+  const [scannedPaymentAmount, setScannedPaymentAmount] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const paymentFileInputRef = useRef<HTMLInputElement>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+  const scanPaymentInputRef = useRef<HTMLInputElement>(null);
 
   // Bulk selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -92,24 +109,39 @@ export default function AdminVouchersPage() {
     load();
   }, [load]);
 
+  async function uploadFile(file: File): Promise<string | null> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const uploadRes = await fetch("/api/upload/document", { method: "POST", body: formData });
+    const uploadData = await uploadRes.json();
+    if (uploadRes.ok) return uploadData.url || uploadData.file_url;
+    return null;
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
 
     let receiptUrl: string | null = null;
     if (createFile) {
-      const formData = new FormData();
-      formData.append("file", createFile);
-      const uploadRes = await fetch("/api/upload/document", { method: "POST", body: formData });
-      const uploadData = await uploadRes.json();
-      if (uploadRes.ok) {
-        receiptUrl = uploadData.url || uploadData.file_url;
-      } else {
+      receiptUrl = await uploadFile(createFile);
+      if (!receiptUrl) {
         toast.error("Failed to upload receipt");
         setCreating(false);
         return;
       }
     }
+    let paymentProofUrl: string | null = null;
+    if (createPaymentFile) {
+      paymentProofUrl = await uploadFile(createPaymentFile);
+      if (!paymentProofUrl) {
+        toast.error("Failed to upload payment proof");
+        setCreating(false);
+        return;
+      }
+    }
+
+    const submittedBy = selectedOfficial && selectedOfficial !== "self" ? selectedOfficial : undefined;
 
     const res = await fetch("/api/vouchers", {
       method: "POST",
@@ -123,15 +155,26 @@ export default function AdminVouchersPage() {
         expense_date: createForm.expense_date || null,
         category: createForm.category,
         receipt_url: receiptUrl,
-        ...(selectedOfficial ? { submitted_by: selectedOfficial } : {}),
+        payment_proof_url: paymentProofUrl,
+        payment_method: createForm.payment_method,
+        payment_transaction_id: createForm.payment_transaction_id,
+        payment_date: createForm.payment_date || null,
+        paid_to: createForm.paid_to,
+        ...(submittedBy ? { submitted_by: submittedBy } : {}),
       }),
     });
 
     if (res.ok) {
       toast.success("Voucher created");
       setCreateOpen(false);
-      setCreateForm({ title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "" });
+      setCreateForm({
+        title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "",
+        payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
+      });
       setCreateFile(null);
+      setCreatePaymentFile(null);
+      setScannedBillAmount(null);
+      setScannedPaymentAmount(null);
       setSelectedOfficial("");
       load();
     } else {
@@ -139,6 +182,99 @@ export default function AdminVouchersPage() {
       toast.error(data.error || "Failed to create");
     }
     setCreating(false);
+  }
+
+  async function handleScanBill(file: File) {
+    setScanning(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/ai-tools/expense-ocr", { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Failed to scan bill");
+        return;
+      }
+      const data = await res.json();
+      if (data.vendor_name === "Not a receipt") {
+        toast.error("This image does not appear to be a receipt or invoice.");
+        return;
+      }
+      const updates = { ...createForm };
+      if (data.vendor_name) {
+        updates.vendor_name = data.vendor_name;
+        if (!createForm.title) updates.title = `${data.vendor_name} expense`;
+      }
+      if (data.total_amount != null) {
+        updates.amount = String(data.total_amount);
+        setScannedBillAmount(Number(data.total_amount));
+      }
+      if (data.invoice_number) updates.invoice_number = data.invoice_number;
+      if (data.category) {
+        const matched = expenseCategories.find((c) => c.toLowerCase().includes(String(data.category).toLowerCase()));
+        if (matched) updates.category = matched;
+      }
+      if (data.date) {
+        const parts = String(data.date).split("/");
+        if (parts.length === 3) {
+          updates.expense_date = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+        }
+      }
+      const descParts: string[] = [];
+      if (data.items?.length) {
+        descParts.push((data.items as { description: string; quantity?: number; amount?: number }[])
+          .map((it) => `${it.description}${it.quantity ? ` x${it.quantity}` : ""}${it.amount != null ? ` - ₹${it.amount}` : ""}`)
+          .join("\n"));
+      }
+      if (data.tax != null) descParts.push(`Tax/GST: ₹${data.tax}`);
+      if (data.payment_method) descParts.push(`Payment: ${data.payment_method}`);
+      if (data.notes) descParts.push(data.notes);
+      if (descParts.length) updates.description = descParts.join("\n");
+      setCreateForm(updates);
+      setCreateFile(file);
+      toast.success("Bill scanned! Fields auto-filled.");
+    } catch {
+      toast.error("Failed to scan bill");
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  async function handleScanPayment(file: File) {
+    setScanningPayment(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Failed to scan payment proof");
+        return;
+      }
+      const data = await res.json();
+      if (data.date == null && data.transaction_id == null && data.amount == null && data.paid_to == null) {
+        toast.error("Could not read payment details from this image.");
+        return;
+      }
+      const updates = { ...createForm };
+      if (data.payment_method) updates.payment_method = data.payment_method;
+      if (data.transaction_id) updates.payment_transaction_id = data.transaction_id;
+      if (data.date) updates.payment_date = data.date;
+      if (data.paid_to) updates.paid_to = data.paid_to;
+      if (data.amount != null) {
+        setScannedPaymentAmount(Number(data.amount));
+        if (scannedBillAmount == null && !createForm.amount) {
+          updates.amount = String(data.amount);
+        }
+      }
+      setCreateForm(updates);
+      setCreatePaymentFile(file);
+      toast.success("Payment proof scanned! Fields auto-filled.");
+    } catch {
+      toast.error("Failed to scan payment proof");
+    } finally {
+      setScanningPayment(false);
+    }
   }
 
   async function handleAction(id: string, status: string) {
@@ -297,6 +433,12 @@ export default function AdminVouchersPage() {
     if (v.expense_date) {
       expenseRows.push(["Expense Date", new Date(v.expense_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })]);
     }
+    if (v.payment_method) expenseRows.push(["Payment Method", v.payment_method]);
+    if (v.payment_transaction_id) expenseRows.push(["Transaction ID", v.payment_transaction_id]);
+    if (v.payment_date) {
+      expenseRows.push(["Payment Date", new Date(v.payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })]);
+    }
+    if (v.paid_to) expenseRows.push(["Paid To", v.paid_to]);
     expenseRows.push(["Submitted On", formatDate(v.created_at)]);
     expenseRows.push(["Status", statusLabel]);
     if (v.approver?.name) expenseRows.push(["Approved By", v.approver.name]);
@@ -430,6 +572,30 @@ export default function AdminVouchersPage() {
             <DialogHeader>
               <DialogTitle>Create Expense Voucher</DialogTitle>
             </DialogHeader>
+            {/* Scan Bill */}
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
+              <ScanLine className="w-5 h-5 text-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">Scan a bill to auto-fill</p>
+                <p className="text-xs text-muted-foreground">Receipt/invoice image — AI extracts vendor, amount, items</p>
+              </div>
+              <Button type="button" size="sm" variant="outline" disabled={scanning} onClick={() => scanInputRef.current?.click()}>
+                {scanning ? <><Loader2 size={14} className="mr-1 animate-spin" /> Scanning...</> : <><ScanLine size={14} className="mr-1" /> Scan Bill</>}
+              </Button>
+              <input ref={scanInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleScanBill(f); e.target.value = ""; }} />
+            </div>
+            {/* Scan Payment Proof */}
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary/10 border border-secondary/30">
+              <ScanLine className="w-5 h-5 text-secondary-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">Scan a payment screenshot</p>
+                <p className="text-xs text-muted-foreground">UPI/bank screenshot — extracts txn ID, payment date, payee, method</p>
+              </div>
+              <Button type="button" size="sm" variant="outline" disabled={scanningPayment} onClick={() => scanPaymentInputRef.current?.click()}>
+                {scanningPayment ? <><Loader2 size={14} className="mr-1 animate-spin" /> Scanning...</> : <><ScanLine size={14} className="mr-1" /> Scan Payment</>}
+              </Button>
+              <input ref={scanPaymentInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleScanPayment(f); e.target.value = ""; }} />
+            </div>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <Label>On behalf of (official)</Label>
@@ -502,6 +668,46 @@ export default function AdminVouchersPage() {
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => setCreateFile(e.target.files?.[0] || null)} />
               </div>
+
+              {/* Payment details (optional) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Payment Method</Label>
+                  <Input value={createForm.payment_method} onChange={(e) => setCreateForm({ ...createForm, payment_method: e.target.value })} placeholder="e.g. UPI / Bank Transfer" />
+                </div>
+                <div>
+                  <Label>Transaction ID</Label>
+                  <Input value={createForm.payment_transaction_id} onChange={(e) => setCreateForm({ ...createForm, payment_transaction_id: e.target.value })} placeholder="UTR / UPI ref" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Payment Date</Label>
+                  <Input type="date" value={createForm.payment_date} onChange={(e) => setCreateForm({ ...createForm, payment_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Paid To</Label>
+                  <Input value={createForm.paid_to} onChange={(e) => setCreateForm({ ...createForm, paid_to: e.target.value })} placeholder="Recipient name" />
+                </div>
+              </div>
+              <div>
+                <Label>Payment Proof (optional)</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Button type="button" variant="outline" size="sm" onClick={() => paymentFileInputRef.current?.click()}>
+                    <Upload size={14} className="mr-1" />
+                    {createPaymentFile ? createPaymentFile.name : "Upload Payment Proof"}
+                  </Button>
+                  {createPaymentFile && <Button type="button" variant="ghost" size="sm" onClick={() => setCreatePaymentFile(null)}>Remove</Button>}
+                </div>
+                <input ref={paymentFileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => setCreatePaymentFile(e.target.files?.[0] || null)} />
+              </div>
+
+              {scannedBillAmount != null && scannedPaymentAmount != null && Math.abs(scannedBillAmount - scannedPaymentAmount) > 0.5 && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                  <strong>Amount mismatch:</strong> bill shows &#8377;{scannedBillAmount.toLocaleString("en-IN")} but payment shows &#8377;{scannedPaymentAmount.toLocaleString("en-IN")}. Verify before saving.
+                </div>
+              )}
+
               <Button type="submit" disabled={creating} className="w-full bg-primary hover:bg-primary/90">
                 {creating ? "Creating..." : "Create Voucher"}
               </Button>
@@ -601,16 +807,31 @@ export default function AdminVouchersPage() {
                                 {v.vendor_name && <span className="text-xs text-muted-foreground">Vendor: {v.vendor_name}</span>}
                               </div>
                               {v.expense_date && <p className="text-xs text-muted-foreground mt-0.5">Expense date: {formatDate(v.expense_date)}</p>}
+                              {(v.payment_method || v.payment_transaction_id || v.payment_date || v.paid_to) && (
+                                <div className="text-xs text-muted-foreground mt-0.5 space-x-2">
+                                  {v.payment_method && <span>Paid via {v.payment_method}</span>}
+                                  {v.payment_transaction_id && <span>Txn: {v.payment_transaction_id}</span>}
+                                  {v.payment_date && <span>on {formatDate(v.payment_date)}</span>}
+                                  {v.paid_to && <span>to {v.paid_to}</span>}
+                                </div>
+                              )}
                               {v.description && <p className="text-xs text-muted-foreground mt-1">{v.description}</p>}
                               <div className="flex flex-wrap items-center gap-2 mt-1.5">
                                 {v.submitter?.name && <span className="text-xs text-muted-foreground uppercase">by {v.submitter.name}</span>}
                                 <span className="text-xs text-muted-foreground">{formatDate(v.created_at)}</span>
                               </div>
-                              {v.receipt_url && (
-                                <button onClick={() => setPreviewUrl(v.receipt_url)} className="flex items-center gap-1 text-xs text-primary hover:underline mt-1">
-                                  <Eye size={12} /> View receipt
-                                </button>
-                              )}
+                              <div className="flex items-center gap-3 mt-1">
+                                {v.receipt_url && (
+                                  <button onClick={() => setPreviewUrl(v.receipt_url)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                    <Eye size={12} /> View receipt
+                                  </button>
+                                )}
+                                {v.payment_proof_url && (
+                                  <button onClick={() => setPreviewUrl(v.payment_proof_url)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                    <Eye size={12} /> View payment proof
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">

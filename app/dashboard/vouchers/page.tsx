@@ -26,6 +26,11 @@ interface Voucher {
   expense_date: string | null;
   category: string;
   receipt_url: string | null;
+  payment_proof_url: string | null;
+  payment_method: string;
+  payment_transaction_id: string;
+  payment_date: string | null;
+  paid_to: string;
   status: string;
   remarks: string;
   created_at: string;
@@ -44,13 +49,27 @@ export default function VouchersPage() {
   const [isOfficial, setIsOfficial] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "" });
+  const [form, setForm] = useState({
+    title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "",
+    payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
+  });
+  // scannedBillAmount is the bill amount as captured by Scan Bill. We compare
+  // it to the payment amount extracted from Scan Payment Proof to surface a
+  // non-blocking mismatch warning. Stored separately because the user may edit
+  // form.amount manually afterwards — we still want to compare against the
+  // original scanned values.
+  const [scannedBillAmount, setScannedBillAmount] = useState<number | null>(null);
+  const [scannedPaymentAmount, setScannedPaymentAmount] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const paymentFileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [scanningPayment, setScanningPayment] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
+  const scanPaymentInputRef = useRef<HTMLInputElement>(null);
   const t = useT();
 
   useEffect(() => {
@@ -74,20 +93,34 @@ export default function VouchersPage() {
       .finally(() => setLoading(false));
   }
 
+  async function uploadFile(file: File): Promise<string | null> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const uploadRes = await fetch("/api/upload/document", { method: "POST", body: formData });
+    const uploadData = await uploadRes.json();
+    if (uploadRes.ok) return uploadData.url || uploadData.file_url;
+    return null;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
 
     let receiptUrl: string | null = null;
     if (receiptFile) {
-      const formData = new FormData();
-      formData.append("file", receiptFile);
-      const uploadRes = await fetch("/api/upload/document", { method: "POST", body: formData });
-      const uploadData = await uploadRes.json();
-      if (uploadRes.ok) {
-        receiptUrl = uploadData.url || uploadData.file_url;
-      } else {
+      receiptUrl = await uploadFile(receiptFile);
+      if (!receiptUrl) {
         toast.error("Failed to upload receipt");
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    let paymentProofUrl: string | null = null;
+    if (paymentProofFile) {
+      paymentProofUrl = await uploadFile(paymentProofFile);
+      if (!paymentProofUrl) {
+        toast.error("Failed to upload payment proof");
         setSubmitting(false);
         return;
       }
@@ -105,13 +138,24 @@ export default function VouchersPage() {
         expense_date: form.expense_date || null,
         category: form.category,
         receipt_url: receiptUrl,
+        payment_proof_url: paymentProofUrl,
+        payment_method: form.payment_method,
+        payment_transaction_id: form.payment_transaction_id,
+        payment_date: form.payment_date || null,
+        paid_to: form.paid_to,
       }),
     });
 
     if (res.ok) {
       toast.success("Voucher submitted");
-      setForm({ title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "" });
+      setForm({
+        title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "",
+        payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
+      });
       setReceiptFile(null);
+      setPaymentProofFile(null);
+      setScannedBillAmount(null);
+      setScannedPaymentAmount(null);
       setDialogOpen(false);
       load();
     } else {
@@ -154,7 +198,10 @@ export default function VouchersPage() {
         updates.vendor_name = data.vendor_name;
         if (!form.title) updates.title = `${data.vendor_name} expense`;
       }
-      if (data.total_amount != null) updates.amount = String(data.total_amount);
+      if (data.total_amount != null) {
+        updates.amount = String(data.total_amount);
+        setScannedBillAmount(Number(data.total_amount));
+      }
       if (data.invoice_number) updates.invoice_number = data.invoice_number;
       if (data.category) {
         const matched = expenseCategories.find((c) => c.toLowerCase().includes(data.category.toLowerCase()));
@@ -187,6 +234,48 @@ export default function VouchersPage() {
       toast.error("Failed to scan bill");
     } finally {
       setScanning(false);
+    }
+  }
+
+  async function handleScanPayment(file: File) {
+    setScanningPayment(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Failed to scan payment proof");
+        return;
+      }
+      const data = await res.json();
+      // The endpoint returns nulls for unrecognised images rather than an
+      // explicit error code, so detect "nothing extracted" and bail.
+      if (data.date == null && data.transaction_id == null && data.amount == null && data.paid_to == null) {
+        toast.error("Could not read payment details from this image.");
+        return;
+      }
+      const updates = { ...form };
+      if (data.payment_method) updates.payment_method = data.payment_method;
+      if (data.transaction_id) updates.payment_transaction_id = data.transaction_id;
+      if (data.date) updates.payment_date = data.date; // already YYYY-MM-DD
+      if (data.paid_to) updates.paid_to = data.paid_to;
+      // If the bill amount has not been set yet, take payment amount as a
+      // reasonable default for form.amount (officials sometimes only upload
+      // a payment screenshot, no bill). Never overwrite a bill-scanned amount.
+      if (data.amount != null) {
+        setScannedPaymentAmount(Number(data.amount));
+        if (scannedBillAmount == null && !form.amount) {
+          updates.amount = String(data.amount);
+        }
+      }
+      setForm(updates);
+      setPaymentProofFile(file);
+      toast.success("Payment proof scanned! Fields auto-filled.");
+    } catch {
+      toast.error("Failed to scan payment proof");
+    } finally {
+      setScanningPayment(false);
     }
   }
 
@@ -231,6 +320,18 @@ export default function VouchersPage() {
                 {scanning ? <><Loader2 size={14} className="mr-1 animate-spin" /> Scanning...</> : <><ScanLine size={14} className="mr-1" /> Scan Bill</>}
               </Button>
               <input ref={scanInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleScanBill(f); e.target.value = ""; }} />
+            </div>
+            {/* Scan Payment Proof Button */}
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary/10 border border-secondary/30">
+              <ScanLine className="w-5 h-5 text-secondary-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">Scan a payment screenshot</p>
+                <p className="text-xs text-muted-foreground">UPI/bank screenshot — extracts txn ID, payment date, payee, method</p>
+              </div>
+              <Button type="button" size="sm" variant="outline" disabled={scanningPayment} onClick={() => scanPaymentInputRef.current?.click()}>
+                {scanningPayment ? <><Loader2 size={14} className="mr-1 animate-spin" /> Scanning...</> : <><ScanLine size={14} className="mr-1" /> Scan Payment</>}
+              </Button>
+              <input ref={scanPaymentInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleScanPayment(f); e.target.value = ""; }} />
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -285,6 +386,46 @@ export default function VouchersPage() {
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
               </div>
+
+              {/* Payment details (optional) — populated by Scan Payment Proof or manual entry */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Payment Method</Label>
+                  <Input value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })} placeholder="e.g. UPI / Bank Transfer" />
+                </div>
+                <div>
+                  <Label>Transaction ID</Label>
+                  <Input value={form.payment_transaction_id} onChange={(e) => setForm({ ...form, payment_transaction_id: e.target.value })} placeholder="UTR / UPI ref" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Payment Date</Label>
+                  <Input type="date" value={form.payment_date} onChange={(e) => setForm({ ...form, payment_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Paid To</Label>
+                  <Input value={form.paid_to} onChange={(e) => setForm({ ...form, paid_to: e.target.value })} placeholder="Recipient name" />
+                </div>
+              </div>
+              <div>
+                <Label>Payment Proof (optional)</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Button type="button" variant="outline" size="sm" onClick={() => paymentFileInputRef.current?.click()}>
+                    <Upload size={14} className="mr-1" />
+                    {paymentProofFile ? paymentProofFile.name : "Upload Payment Proof"}
+                  </Button>
+                  {paymentProofFile && <Button type="button" variant="ghost" size="sm" onClick={() => setPaymentProofFile(null)}>Remove</Button>}
+                </div>
+                <input ref={paymentFileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)} />
+              </div>
+
+              {scannedBillAmount != null && scannedPaymentAmount != null && Math.abs(scannedBillAmount - scannedPaymentAmount) > 0.5 && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                  <strong>Amount mismatch:</strong> bill shows &#8377;{scannedBillAmount.toLocaleString("en-IN")} but payment shows &#8377;{scannedPaymentAmount.toLocaleString("en-IN")}. Verify before submitting.
+                </div>
+              )}
+
               <Button type="submit" disabled={submitting} className="w-full bg-primary hover:bg-primary/90">
                 {submitting ? t("voucher.submitting") : t("voucher.submit_voucher")}
               </Button>
@@ -353,13 +494,28 @@ export default function VouchersPage() {
                           {v.vendor_name && <span className="text-xs text-muted-foreground">Vendor: {v.vendor_name}</span>}
                         </div>
                         {v.expense_date && <p className="text-xs text-muted-foreground mt-0.5">Expense date: {formatDate(v.expense_date)}</p>}
+                        {(v.payment_method || v.payment_transaction_id || v.payment_date || v.paid_to) && (
+                          <div className="text-xs text-muted-foreground mt-0.5 space-x-2">
+                            {v.payment_method && <span>Paid via {v.payment_method}</span>}
+                            {v.payment_transaction_id && <span>Txn: {v.payment_transaction_id}</span>}
+                            {v.payment_date && <span>on {formatDate(v.payment_date)}</span>}
+                            {v.paid_to && <span>to {v.paid_to}</span>}
+                          </div>
+                        )}
                         {v.description && <p className="text-xs text-muted-foreground mt-1">{v.description}</p>}
                         <span className="text-xs text-muted-foreground mt-1 block">{formatDate(v.created_at)}</span>
-                        {v.receipt_url && (
-                          <button onClick={() => setPreviewUrl(v.receipt_url)} className="flex items-center gap-1 text-xs text-primary hover:underline mt-1">
-                            <Eye size={12} /> {t("voucher.view_receipt")}
-                          </button>
-                        )}
+                        <div className="flex items-center gap-3 mt-1">
+                          {v.receipt_url && (
+                            <button onClick={() => setPreviewUrl(v.receipt_url)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                              <Eye size={12} /> {t("voucher.view_receipt")}
+                            </button>
+                          )}
+                          {v.payment_proof_url && (
+                            <button onClick={() => setPreviewUrl(v.payment_proof_url)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                              <Eye size={12} /> {t("voucher.view_payment_proof")}
+                            </button>
+                          )}
+                        </div>
                         {v.remarks && (
                           <div className="mt-2 p-2 bg-muted rounded-md">
                             <p className="text-xs font-medium text-muted-foreground">{t("voucher.remarks")}:</p>
