@@ -8,6 +8,24 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 **Deployment:** Vercel (auto-deploys from `main` branch)
 **Domain DNS:** Cloudflare
 
+## Contents
+
+**Read first:** [Known Gotchas](#known-gotchas) · [API Route Patterns](#api-route-patterns) · [Common Tasks](#common-tasks)
+
+**Setup & conventions:** [Tech Stack](#tech-stack) · [Key Directories](#key-directories) · [Development Commands](#development-commands) · [Git & Deployment](#git--deployment) · [Environment Variables](#environment-variables) · [UI & Styling Conventions](#ui--styling-conventions) · [Shared UI Components](#shared-ui-components) · [Loading & Error Patterns](#loading--error-patterns) · [UI Labels](#ui-labels) · [Cross-Component Communication](#cross-component-communication)
+
+**Core architecture:** [Authentication Flow](#authentication-flow) · [Admin Auth Pattern](#admin-auth-pattern) · [Database](#database) · [Email System](#email-system-libmailts) · [Telegram Bot](#telegram-bot-integration) · [i18n](#internationalization-i18n) · [Content Auto-Translation](#content-auto-translation-enta) · [PWA & Service Worker](#pwa--service-worker) · [Cron Jobs](#cron-jobs) · [Activity Tracking](#activity-tracking) · [Audit Log](#audit-log) · [In-App Notifications](#in-app-notifications) · [Push Notifications](#push-notifications) · [Razorpay](#razorpay-integration) · [Global Search](#global-search) · [Notification Preferences](#notification-preferences)
+
+**AI:** [AI Tools](#ai-tools-dashboardai-tools) · [Chatbot / Query Engine](#chatbot--query-engine) · [AI Payment Proof Extraction](#ai-powered-payment-proof-extraction--verification) · [Daily Greetings](#daily-greetings-libdaily-greetingsts) · [Auto Gender Detection](#auto-gender-detection)
+
+**Member features:** [Member Dashboard Widgets](#member-dashboard-home-widgets) · [Suggestions & Grievances](#suggestions--grievances-split) · [Polls](#polls) · [Wishlist / IDEA BOARD](#wishlist--idea-board) · [Logo Vote](#logo-vote) · [Direct Messages](#direct-messages) · [Group Chat](#group-chat) · [Calendar & iCal](#calendar--ical-export) · [Event RSVP](#event-rsvp) · [Announcement Read Tracking](#announcement-read-tracking) · [Achievements / Badges](#achievements--badges) · [Contributions Tracking](#contributions-tracking) · [Member Directory Sorting](#member-directory-sorting) · [Digital Member ID Card](#digital-member-id-card) · [Profile Completeness](#profile-completeness) · [Mandatory Profile Completion](#mandatory-profile-completion) · [Location Sharing](#location-sharing--nearby-members) · [Trainings System](#trainings-system) · [TANHOWA History Timeline](#tanhowa-history-timeline) · [Member Feedback Loop](#member-feedback-loop--ai-pulse-super-admin-only) · [Service Requests](#service-requests) · [Volunteer Invites](#volunteer-invites)
+
+**Subscriptions / Finance / Tasks:** [Subscription Auto-Sync](#subscription-auto-sync) · [Special Subscriptions](#special-subscriptions) · [Payment Group Linking](#payment-group-linking) · [Payment Status Transparency](#payment-status-transparency) · [Finance (Bank Reconciliation)](#finance-bank-reconciliation) · [Expense Vouchers](#expense-vouchers-officials-only) · [Task Management](#task-management-system) · [e-Resolutions](#e-resolutions-voting-system) · [Reports & Analytics](#reports--analytics-adminreports) · [District Benchmark](#district-benchmark) · [Engagement Analytics](#engagement-analytics)
+
+**Roles & private spaces:** [Officials System](#officials-system) · [Team Lead & Legal Advisor](#team-lead-role--legal-advisor) · [Private Teams & Project H](#private-teams--project-h) · [Letters & Forms](#letters--forms-superadminonly) · [Why-Ministry Position Paper](#why-ministry-position-paper-super-admin-only) · [Owner-Only Admin Tools](#owner-only-admin-tools) · [Account Suspension](#account-suspension) · [Content Scheduling](#content-scheduling)
+
+---
+
 ## Tech Stack
 
 | Layer | Technology | Version |
