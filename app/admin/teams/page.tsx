@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Pencil, Trash2, UsersRound, Search, X, Check, Crown, Lock } from "lucide-react";
+import { Plus, Pencil, Trash2, UsersRound, Search, X, Check, Crown, Lock, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 interface Member {
@@ -54,6 +54,16 @@ export default function AdminTeamsPage() {
   const [memberRoles, setMemberRoles] = useState<Record<string, string>>({});
   const [memberSearch, setMemberSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showOnlyNoLead, setShowOnlyNoLead] = useState(false);
+
+  const noLeadCount = useMemo(
+    () => teams.filter((t) => !t.members.some((m) => m.team_role === "lead")).length,
+    [teams],
+  );
+  const visibleTeams = useMemo(
+    () => (showOnlyNoLead ? teams.filter((t) => !t.members.some((m) => m.team_role === "lead")) : teams),
+    [teams, showOnlyNoLead],
+  );
 
   async function fetchData() {
     try {
@@ -191,8 +201,26 @@ export default function AdminTeamsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Manage Teams</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-2xl font-bold">Manage Teams</h1>
+          {noLeadCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowOnlyNoLead((v) => !v)}
+              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
+                showOnlyNoLead
+                  ? "bg-red-600 text-white border-red-600 hover:bg-red-700"
+                  : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+              }`}
+              title={showOnlyNoLead ? "Show all teams" : "Show only teams without a lead"}
+            >
+              <AlertTriangle size={12} />
+              {noLeadCount} no-lead{noLeadCount !== 1 ? "s" : ""}
+              {showOnlyNoLead && <X size={12} className="ml-0.5" />}
+            </button>
+          )}
+        </div>
         <Button onClick={openCreate} className="gap-2">
           <Plus size={16} />
           Create Team
@@ -206,11 +234,13 @@ export default function AdminTeamsPage() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {teams.map((team) => (
+          {visibleTeams.map((team) => {
+            const hasLead = team.members.some((m) => m.team_role === "lead");
+            return (
             <Card key={team.id}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
+                  <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
                     <UsersRound size={20} className="text-primary" />
                     {team.name}
                     <Badge variant="outline" className="ml-2 text-xs">
@@ -219,6 +249,15 @@ export default function AdminTeamsPage() {
                     {team.is_private && (
                       <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] gap-1">
                         <Lock size={10} />Private
+                      </Badge>
+                    )}
+                    {!hasLead && team.members.length > 0 && (
+                      <Badge
+                        className="bg-red-50 text-red-700 border-red-200 text-[10px] gap-1 cursor-pointer hover:bg-red-100"
+                        onClick={() => openEdit(team)}
+                        title="No Team Lead assigned — click to edit and toggle Crown on a member"
+                      >
+                        <AlertTriangle size={10} />No Lead
                       </Badge>
                     )}
                   </CardTitle>
@@ -261,7 +300,8 @@ export default function AdminTeamsPage() {
                 )}
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
