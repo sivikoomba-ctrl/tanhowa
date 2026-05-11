@@ -499,7 +499,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="p-4 border-b border-sidebar-border">
           <div className="flex items-center justify-between">
             <Link href="/dashboard" className="flex items-center gap-2">
-              <Flower2 className="w-7 h-7 text-sidebar-primary" />
+              <Image src="/logo.png" alt="TANHOWA" width={32} height={32} priority className="rounded-full bg-white/95 p-0.5" />
               <span className="text-lg font-bold text-sidebar-foreground">TANHOWA</span>
             </Link>
             <button className="relative p-1.5 rounded-lg hover:bg-sidebar-accent/50 transition-colors" onClick={() => setShowNotifications(true)} aria-label="Notifications">
@@ -552,7 +552,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between p-4 border-b bg-card">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <Flower2 className="w-6 h-6 text-primary" />
+            <Image src="/logo.png" alt="TANHOWA" width={28} height={28} priority className="rounded-full" />
             <span className="font-bold text-primary">TANHOWA</span>
           </Link>
           <div className="flex items-center gap-1">
@@ -573,7 +573,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <SheetContent side="left" className="w-64 bg-sidebar text-sidebar-foreground p-0 flex flex-col h-full">
               <div className="shrink-0 p-4 border-b border-sidebar-border">
                 <div className="flex items-center gap-2">
-                  <Flower2 className="w-7 h-7 text-sidebar-primary" />
+                  <Image src="/logo.png" alt="TANHOWA" width={32} height={32} className="rounded-full bg-white/95 p-0.5" />
                   <span className="text-lg font-bold">TANHOWA</span>
                 </div>
                 {user?.name && (

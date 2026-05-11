@@ -1,5 +1,8 @@
+import { LOGO_DATA_URI } from "./logo-base64";
+
 const FROM_EMAIL = process.env.ZEPTOMAIL_FROM_EMAIL || "tanhowaadmin@tanhowa.in";
 const FROM_NAME = "TANHOWA";
+const LOGO_URL = "https://www.tanhowa.in/logo.png";
 
 // HOLD: All member-facing emails (except OTP) are temporarily disabled.
 // Set to false to re-enable member emails.
@@ -74,24 +77,30 @@ async function generateReceiptPdf(
     ? new Date(details.paid_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
     : "—";
 
-  // Header
-  doc.setFontSize(18);
+  // Header — logo + branding
+  try {
+    doc.addImage(LOGO_DATA_URI, "PNG", 90, 8, 30, 24);
+  } catch {
+    // If image fails for any reason, fall through to text-only header
+  }
+  doc.setFontSize(16);
   doc.setTextColor(45, 106, 79);
-  doc.text("TANHOWA", 105, 20, { align: "center" });
-  doc.setFontSize(10);
+  doc.text("TANHOWA", 105, 40, { align: "center" });
+  doc.setFontSize(9);
   doc.setTextColor(100);
-  doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, 27, { align: "center" });
-  doc.text("Payment Receipt", 105, 33, { align: "center" });
+  doc.text("Tamil Nadu Horticultural Officers Welfare Association", 105, 46, { align: "center" });
+  doc.setFontSize(10);
+  doc.text("Payment Receipt", 105, 52, { align: "center" });
 
   // Divider
   doc.setDrawColor(45, 106, 79);
   doc.setLineWidth(0.5);
-  doc.line(20, 37, 190, 37);
+  doc.line(20, 56, 190, 56);
 
   // Receipt details
   doc.setFontSize(11);
   doc.setTextColor(0);
-  let y = 48;
+  let y = 66;
   const left = 25;
   const right = 90;
 
@@ -151,6 +160,7 @@ export async function sendSubscriptionApprovedEmail(
     `
     <div style="font-family: 'Poppins', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #fefae0; border-radius: 12px;">
       <div style="text-align: center; margin-bottom: 24px;">
+        <img src="${LOGO_URL}" alt="TANHOWA" width="88" style="display:block; margin: 0 auto 8px; max-width: 88px; height: auto;" />
         <h1 style="color: #2d6a4f; font-size: 28px; margin: 0;">TANHOWA</h1>
         <p style="color: #40916c; font-size: 14px; margin: 4px 0 0;">Tamil Nadu Horticultural Officers Welfare Association</p>
       </div>
@@ -198,6 +208,7 @@ export async function sendReceiptEmail(
     `
     <div style="font-family: 'Poppins', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #fefae0; border-radius: 12px;">
       <div style="text-align: center; margin-bottom: 24px;">
+        <img src="${LOGO_URL}" alt="TANHOWA" width="88" style="display:block; margin: 0 auto 8px; max-width: 88px; height: auto;" />
         <h1 style="color: #2d6a4f; font-size: 28px; margin: 0;">TANHOWA</h1>
         <p style="color: #40916c; font-size: 14px; margin: 4px 0 0;">Tamil Nadu Horticultural Officers Welfare Association</p>
       </div>
@@ -261,6 +272,7 @@ function wrapEmailTemplate(content: string): string {
   return `
     <div style="font-family: 'Poppins', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #fefae0; border-radius: 12px;">
       <div style="text-align: center; margin-bottom: 24px;">
+        <img src="${LOGO_URL}" alt="TANHOWA" width="88" style="display:block; margin: 0 auto 8px; max-width: 88px; height: auto;" />
         <h1 style="color: #2d6a4f; font-size: 28px; margin: 0;">TANHOWA</h1>
         <p style="color: #40916c; font-size: 14px; margin: 4px 0 0;">Tamil Nadu Horticultural Officers Welfare Association</p>
       </div>
@@ -755,6 +767,7 @@ export async function sendOTPEmail(to: string, otp: string) {
   await sendEmail(to, "Your TANHOWA Login Code", `
     <div style="font-family: 'Poppins', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #fefae0; border-radius: 12px;">
       <div style="text-align: center; margin-bottom: 24px;">
+        <img src="${LOGO_URL}" alt="TANHOWA" width="88" style="display:block; margin: 0 auto 8px; max-width: 88px; height: auto;" />
         <h1 style="color: #2d6a4f; font-size: 28px; margin: 0;">TANHOWA</h1>
         <p style="color: #40916c; font-size: 14px; margin: 4px 0 0;">Tamil Nadu Horticultural Officers Welfare Association</p>
       </div>

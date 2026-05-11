@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Flower2, Mail, Smartphone } from "lucide-react";
+import { Mail, Smartphone } from "lucide-react";
 import { useT } from "@/lib/i18n";
 
 const categories = [
@@ -196,11 +196,17 @@ export default function LandingPage() {
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:py-6 lg:max-w-lg xl:max-w-xl mx-auto">
             {/* Branding */}
             <div className="text-center mb-8">
-              <div className="relative inline-flex items-center justify-center w-24 h-24 mb-4">
+              <div className="relative inline-flex items-center justify-center w-28 h-28 mb-4">
                 <div className="absolute inset-0 rounded-full border-2 border-primary/10 animate-[spin_20s_linear_infinite]" />
                 <div className="absolute inset-3 rounded-full border border-primary/15 animate-[spin_30s_linear_infinite_reverse]" />
-                <div className="absolute inset-5 rounded-full bg-primary/10" />
-                <Flower2 className="relative w-10 h-10 text-primary" />
+                <Image
+                  src="/logo.png"
+                  alt="TANHOWA"
+                  width={88}
+                  height={88}
+                  priority
+                  className="relative rounded-full"
+                />
               </div>
               <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-primary">
                 TANHOWA
