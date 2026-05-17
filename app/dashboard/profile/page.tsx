@@ -52,6 +52,7 @@ function parseTitleFromName(name: string): { title: string; firstName: string; l
 interface PostingDetails {
   regular_district: string;
   regular_block: string;
+  regular_farm: string;
   special_duty_district: string;
   special_duty_block: string;
   special_duty_place: string;
@@ -89,7 +90,7 @@ interface Profile {
 }
 
 const emptyPosting: PostingDetails = {
-  regular_district: "", regular_block: "",
+  regular_district: "", regular_block: "", regular_farm: "",
   special_duty_district: "", special_duty_block: "", special_duty_place: "",
   special_designation: "", special_farm: "",
   deputed_district: "", deputed_block: "",
@@ -896,6 +897,13 @@ export default function ProfilePage() {
                       <Select value={profile.posting_details.regular_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_block: val === "none" ? "" : val } })} disabled={!profile.posting_details.regular_district}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_block")} /></SelectTrigger>
                         <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{regularBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-xs text-muted-foreground">{t("posting.farms_if_applicable")}</Label>
+                      <Select value={profile.posting_details.regular_farm || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_farm: val === "none" ? "" : val } })}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_farm")} /></SelectTrigger>
+                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{TN_HORTICULTURE_FARMS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>

@@ -763,6 +763,7 @@ const translations = {
   "posting.select_block": { en: "Select block", ta: "வட்டம் தேர்வு செய்க" },
   "posting.special_designation": { en: "Special Designation", ta: "சிறப்பு பதவி" },
   "posting.farm": { en: "Farm", ta: "பண்ணை" },
+  "posting.farms_if_applicable": { en: "Farms (if applicable)", ta: "பண்ணைகள் (பொருந்தினால்)" },
   "posting.select_farm": { en: "Select farm", ta: "பண்ணை தேர்வு செய்க" },
 
   // --- Special designation options ---
