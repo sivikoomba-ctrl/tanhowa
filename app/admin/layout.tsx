@@ -46,6 +46,7 @@ import {
   MessagesSquare,
   Sprout,
   History as HistoryIcon,
+  Bug,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +89,7 @@ const adminNavItems = [
   { href: "/admin/why-ministry", labelKey: "nav.why_ministry" as const, icon: Sprout },
   { href: "/admin/history", labelKey: "nav.history" as const, icon: HistoryIcon },
   { href: "/admin/feedback-pulse", labelKey: "nav.feedback_pulse" as const, icon: MessageCircle },
+  { href: "/admin/pest-training", labelKey: "nav.pest_training" as const, icon: Bug },
   { href: "/admin/audit-logs", labelKey: "nav.audit_log" as const, icon: ClipboardList },
   { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
   { href: "/admin/settings", labelKey: "nav.settings" as const, icon: Settings },
@@ -171,7 +173,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <>
         {adminNavItems.filter((item) => {
-          const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks", "/admin/logo-vote"];
+          const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks", "/admin/logo-vote", "/admin/pest-training"];
           if (superAdminOnly.includes(item.href)) return user?.role === "super_admin";
           if (item.href === "/admin/special-documents") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/analytics") return user?.email === "tanhowa19791@gmail.com" || user?.email === "tanhowaadmin@tanhowa.in";
