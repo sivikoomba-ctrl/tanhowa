@@ -47,51 +47,188 @@ export function getBlocks(district: string): string[] {
   return TN_DISTRICTS[district] || [];
 }
 
-// Tamil Nadu State Horticulture Farms with coordinates and district mapping
+// Tamil Nadu State Horticulture facilities — used by the Profile "Farms (if applicable)" dropdown.
+// Source of truth (PDFs in Source/Add/):
+//   - Farms & Park Mail ID & address.pdf  (74 SHFs + 24 Parks & Gardens)
+//   - State coconut nursery.pdf            (23 SCNs)
+//   - coconut crossing centre.pdf          (16 CCCs)
+//   - CoEs (3) and HRTCs (2) provided in chat 2026-05-17
+// District names normalized to match TN_DISTRICTS keys above.
+// Coordinates omitted — weather-advisory falls back to district-level data when absent.
+// TODO: Special Centres list still pending — add as type "Special" when available.
+export type SHFarmType = "SHF" | "Park" | "SCN" | "CCC" | "CoE" | "HRTC";
+
 export interface SHFarm {
   name: string;
   district: string;
-  lat: number;
-  lng: number;
+  type: SHFarmType;
+  lat?: number;
+  lng?: number;
 }
 
+// Display order + labels for the grouped dropdown. Translation keys live in lib/i18n/translations.ts as `posting.farm_group.<type>`.
+export const FARM_TYPE_ORDER: SHFarmType[] = ["SHF", "Park", "SCN", "CCC", "CoE", "HRTC"];
+
 export const TN_HORTICULTURE_FARMS_DATA: SHFarm[] = [
-  { name: "SHF Kodaikanal", district: "Dindigul", lat: 10.2381, lng: 77.4892 },
-  { name: "SHF Ooty (Udhagamandalam)", district: "Nilgiris", lat: 11.4102, lng: 76.6950 },
-  { name: "SHF Coonoor", district: "Nilgiris", lat: 11.3530, lng: 76.7959 },
-  { name: "SHF Kotagiri", district: "Nilgiris", lat: 11.4225, lng: 76.8615 },
-  { name: "SHF Yercaud", district: "Salem", lat: 11.7753, lng: 78.2093 },
-  { name: "SHF Manjolai", district: "Tirunelveli", lat: 8.7880, lng: 77.3540 },
-  { name: "SHF Palani", district: "Dindigul", lat: 10.4520, lng: 77.5200 },
-  { name: "SHF Oddanchatram", district: "Dindigul", lat: 10.4900, lng: 77.7503 },
-  { name: "SHF Theni", district: "Theni", lat: 10.0104, lng: 77.4768 },
-  { name: "SHF Coimbatore", district: "Coimbatore", lat: 11.0168, lng: 76.9558 },
-  { name: "SHF Dharapuram", district: "Tiruppur", lat: 10.7360, lng: 77.5281 },
-  { name: "SHF Udumalpet", district: "Tiruppur", lat: 10.5870, lng: 77.2480 },
-  { name: "SHF Salem", district: "Salem", lat: 11.6643, lng: 78.1460 },
-  { name: "SHF Krishnagiri", district: "Krishnagiri", lat: 12.5186, lng: 78.2138 },
-  { name: "SHF Hosur", district: "Krishnagiri", lat: 12.7409, lng: 77.8253 },
-  { name: "SHF Dharmapuri", district: "Dharmapuri", lat: 12.1277, lng: 78.1570 },
-  { name: "SHF Vellore", district: "Vellore", lat: 12.9165, lng: 79.1325 },
-  { name: "SHF Tiruvannamalai", district: "Tiruvannamalai", lat: 12.2253, lng: 79.0747 },
-  { name: "SHF Thanjavur", district: "Thanjavur", lat: 10.7870, lng: 79.1378 },
-  { name: "SHF Madurai", district: "Madurai", lat: 9.9252, lng: 78.1198 },
-  { name: "SHF Dindigul", district: "Dindigul", lat: 10.3624, lng: 77.9695 },
-  { name: "SHF Tirunelveli", district: "Tirunelveli", lat: 8.7284, lng: 77.7050 },
-  { name: "SHF Thoothukudi", district: "Thoothukudi", lat: 8.7642, lng: 78.1348 },
-  { name: "SHF Ramanathapuram", district: "Ramanathapuram", lat: 9.3639, lng: 78.8395 },
-  { name: "SHF Virudhunagar", district: "Virudhunagar", lat: 9.5851, lng: 77.9529 },
-  { name: "SHF Cuddalore", district: "Cuddalore", lat: 11.7480, lng: 79.7714 },
-  { name: "SHF Villupuram", district: "Viluppuram", lat: 11.9401, lng: 79.4861 },
-  { name: "SHF Namakkal", district: "Namakkal", lat: 11.2189, lng: 78.1674 },
-  { name: "SHF Erode", district: "Erode", lat: 11.3410, lng: 77.7172 },
-  { name: "SHF Tiruppur", district: "Tiruppur", lat: 11.1085, lng: 77.3411 },
+  // State Horticulture Farms (SHFs)
+  { name: "SHF Keelapalur", district: "Ariyalur", type: "SHF" },
+  { name: "SHF Mathavaram", district: "Chennai", type: "SHF" },
+  { name: "SHF Anaikatty", district: "Coimbatore", type: "SHF" },
+  { name: "SHF Kannampalayam", district: "Coimbatore", type: "SHF" },
+  { name: "SHF Vridhachalam", district: "Cuddalore", type: "SHF" },
+  { name: "SHF Neyveli", district: "Cuddalore", type: "SHF" },
+  { name: "SHF Polayampalli", district: "Dharmapuri", type: "SHF" },
+  { name: "Block Level Nursery, Dharmapuri", district: "Dharmapuri", type: "SHF" },
+  { name: "SHF Sandhaiyur", district: "Dindigul", type: "SHF" },
+  { name: "SHF Sirumalai (Dindigul)", district: "Dindigul", type: "SHF" },
+  { name: "SHF Thandikudi", district: "Dindigul", type: "SHF" },
+  { name: "SHF Kodaikanal", district: "Dindigul", type: "SHF" },
+  { name: "SHF Baguthamapalayam", district: "Erode", type: "SHF" },
+  { name: "SHF Attur (Chengalpattu)", district: "Chengalpattu", type: "SHF" },
+  { name: "SHF A. Sathanur", district: "Kallakurichi", type: "SHF" },
+  { name: "SHF Vichanthangal", district: "Kancheepuram", type: "SHF" },
+  { name: "SHF Melkadhirpur", district: "Kancheepuram", type: "SHF" },
+  { name: "SHF Melottivakkam", district: "Kancheepuram", type: "SHF" },
+  { name: "SHF Pitchivakkam", district: "Kancheepuram", type: "SHF" },
+  { name: "SHF Kanniyakumari", district: "Kanniyakumari", type: "SHF" },
+  { name: "SHF Pechiparai", district: "Kanniyakumari", type: "SHF" },
+  { name: "SHF Mudalaipatti", district: "Karur", type: "SHF" },
+  { name: "SHF Thimmapuram", district: "Krishnagiri", type: "SHF" },
+  { name: "SHF Jeenur", district: "Krishnagiri", type: "SHF" },
+  { name: "SHF Poonjuthi", district: "Madurai", type: "SHF" },
+  { name: "SHF Vanduvancherry", district: "Nagapattinam", type: "SHF" },
+  { name: "SHF Pushpavanam", district: "Nagapattinam", type: "SHF" },
+  { name: "SHF Semmedu", district: "Namakkal", type: "SHF" },
+  { name: "SHF Padasolai", district: "Namakkal", type: "SHF" },
+  { name: "SHF Vengalam", district: "Perambalur", type: "SHF" },
+  { name: "SHF Kudumiyanmalai", district: "Pudukkottai", type: "SHF" },
+  { name: "SHF Vallathirakottai", district: "Pudukkottai", type: "SHF" },
+  { name: "SHF Nattumangalam", district: "Pudukkottai", type: "SHF" },
+  { name: "SHF Oriyur", district: "Ramanathapuram", type: "SHF" },
+  { name: "SHF Navlock", district: "Ranipet", type: "SHF" },
+  { name: "Giant Orchard Karumandurai", district: "Salem", type: "SHF" },
+  { name: "SHF Maniyarkundram", district: "Salem", type: "SHF" },
+  { name: "SHF Karumandurai", district: "Salem", type: "SHF" },
+  { name: "SHF Mulluvadi", district: "Salem", type: "SHF" },
+  { name: "SHF Sirumalai (Salem)", district: "Salem", type: "SHF" },
+  { name: "SHF Yercaud", district: "Salem", type: "SHF" },
+  { name: "SHF Devakottai", district: "Sivaganga", type: "SHF" },
+  { name: "SHF Nemam", district: "Sivaganga", type: "SHF" },
+  { name: "SHF Kilathari", district: "Sivaganga", type: "SHF" },
+  { name: "SHF Aduthurai", district: "Thanjavur", type: "SHF" },
+  { name: "SHF Marungulam", district: "Thanjavur", type: "SHF" },
+  { name: "SHF Periyakulam", district: "Theni", type: "SHF" },
+  { name: "SHF Keelavalanadu", district: "Thoothukudi", type: "SHF" },
+  { name: "SHF Vannikonenthal", district: "Tirunelveli", type: "SHF" },
+  { name: "SHF Sankaramanallur", district: "Tiruppur", type: "SHF" },
+  { name: "SHF Moovanallur", district: "Tiruvarur", type: "SHF" },
+  { name: "SHF Eekadu", district: "Tiruvallur", type: "SHF" },
+  { name: "SHF Pudurchekkadi", district: "Tiruvannamalai", type: "SHF" },
+  { name: "SHF Jamunamarathur", district: "Tiruvannamalai", type: "SHF" },
+  { name: "SHF Polur", district: "Tiruvannamalai", type: "SHF" },
+  { name: "SHF Kudapattu", district: "Tirupathur", type: "SHF" },
+  { name: "SHF Thagarakuppam", district: "Tirupathur", type: "SHF" },
+  { name: "SHF Thorakudi", district: "Tiruchirappalli", type: "SHF" },
+  { name: "SHF Agaramcheri", district: "Vellore", type: "SHF" },
+  { name: "SHF Poovani", district: "Virudhunagar", type: "SHF" },
+  { name: "SHF Srivilliputhur", district: "Virudhunagar", type: "SHF" },
+  { name: "SHF Adithanendhal", district: "Virudhunagar", type: "SHF" },
+  { name: "SHF Ellavazhapakkam", district: "Viluppuram", type: "SHF" },
+  { name: "SHF Kallar", district: "Nilgiris", type: "SHF" },
+  { name: "SHF Burliar", district: "Nilgiris", type: "SHF" },
+  { name: "SHF Devala", district: "Nilgiris", type: "SHF" },
+  { name: "PS Coonoor", district: "Nilgiris", type: "SHF" },
+  { name: "SHF Thummanatty", district: "Nilgiris", type: "SHF" },
+  { name: "SHF Nanjanad", district: "Nilgiris", type: "SHF" },
+  { name: "SHF Colgrain", district: "Nilgiris", type: "SHF" },
+  { name: "FPU Coonoor", district: "Nilgiris", type: "SHF" },
+  { name: "SHF Kattery", district: "Nilgiris", type: "SHF" },
+  { name: "SHF Doddabetta", district: "Nilgiris", type: "SHF" },
+  { name: "SHF Naduvankurichi", district: "Tenkasi", type: "SHF" },
+
+  // Parks & Gardens
+  { name: "Horticulture Park Madhavaram", district: "Chennai", type: "Park" },
+  { name: "Semmozhi Poonga", district: "Chennai", type: "Park" },
+  { name: "Heritage Garden Washermenpet", district: "Chennai", type: "Park" },
+  { name: "Kalaignar Centenary Park", district: "Chennai", type: "Park" },
+  { name: "Eco Park Kanniyakumari", district: "Kanniyakumari", type: "Park" },
+  { name: "Achdipirambu Genetic Heritage Garden", district: "Ramanathapuram", type: "Park" },
+  { name: "Rose Garden Yercaud", district: "Salem", type: "Park" },
+  { name: "Genetic Heritage Garden Yercaud", district: "Salem", type: "Park" },
+  { name: "Anna Park Yercaud", district: "Salem", type: "Park" },
+  { name: "Lake View Yercaud", district: "Salem", type: "Park" },
+  { name: "GBG 1 Yercaud", district: "Salem", type: "Park" },
+  { name: "GBG 2 Yercaud", district: "Salem", type: "Park" },
+  { name: "Eco Park Coutralam", district: "Tenkasi", type: "Park" },
+  { name: "TVM Park", district: "Tiruvannamalai", type: "Park" },
+  { name: "Rose Garden Kodaikanal", district: "Dindigul", type: "Park" },
+  { name: "Bryant Park Kodaikanal", district: "Dindigul", type: "Park" },
+  { name: "Chettiyar Park Kodaikanal", district: "Dindigul", type: "Park" },
+  { name: "Kattery Park", district: "Nilgiris", type: "Park" },
+  { name: "Doddabetta Tea Park", district: "Nilgiris", type: "Park" },
+  { name: "Sims Park Coonoor", district: "Nilgiris", type: "Park" },
+  { name: "Govt. Rose Garden Udhagamandalam", district: "Nilgiris", type: "Park" },
+  { name: "GBG Udhagamandalam", district: "Nilgiris", type: "Park" },
+  { name: "Arboretum Udhagamandalam", district: "Nilgiris", type: "Park" },
+  { name: "John Sullivan Park Kotagiri", district: "Nilgiris", type: "Park" },
+
+  // State Coconut Nurseries (SCN)
+  { name: "SCN, Aliyar", district: "Coimbatore", type: "SCN" },
+  { name: "SCN, Neyveli", district: "Cuddalore", type: "SCN" },
+  { name: "SCN, Bhavanisagar", district: "Erode", type: "SCN" },
+  { name: "SCN, Pitchivakkam", district: "Kancheepuram", type: "SCN" },
+  { name: "SCN, Puthalam", district: "Kanniyakumari", type: "SCN" },
+  { name: "SCN, BG Pudhur", district: "Krishnagiri", type: "SCN" },
+  { name: "SCN, Malliyam", district: "Mayiladuthurai", type: "SCN" },
+  { name: "SCN, Vellalaviduthy", district: "Pudukkottai", type: "SCN" },
+  { name: "SCN, Devipattinam", district: "Ramanathapuram", type: "SCN" },
+  { name: "SCN, Uchipuli", district: "Ramanathapuram", type: "SCN" },
+  { name: "SCN, Navlock", district: "Ranipet", type: "SCN" },
+  { name: "SCN, Danishpet", district: "Salem", type: "SCN" },
+  { name: "SCN, S.V. Mangalam", district: "Sivaganga", type: "SCN" },
+  { name: "SCN, Vadakarai", district: "Tenkasi", type: "SCN" },
+  { name: "SCN, Senkottai", district: "Tenkasi", type: "SCN" },
+  { name: "SCN, Vagaidam", district: "Theni", type: "SCN" },
+  { name: "SCN, Pattukkottai", district: "Thanjavur", type: "SCN" },
+  { name: "SCN, Madhavaram", district: "Tiruvallur", type: "SCN" },
+  { name: "SCN, Vazhavachanur", district: "Tiruvannamalai", type: "SCN" },
+  { name: "SCN, Vaduvur", district: "Tiruvarur", type: "SCN" },
+  { name: "SCN, Killikulam", district: "Thoothukudi", type: "SCN" },
+  { name: "SCN, Thorakudi", district: "Tiruchirappalli", type: "SCN" },
+  { name: "SCN, Devathanam", district: "Virudhunagar", type: "SCN" },
+
+  // Coconut Crossing Centres (CCC)
+  { name: "CCC, S.G Palayam", district: "Coimbatore", type: "CCC" },
+  { name: "CCC, Ayyampalayam", district: "Erode", type: "CCC" },
+  { name: "CCC, Agastheeswaram", district: "Kanniyakumari", type: "CCC" },
+  { name: "CCC, Kaveripattinam", district: "Krishnagiri", type: "CCC" },
+  { name: "CCC, Uchipuli", district: "Ramanathapuram", type: "CCC" },
+  { name: "CCC, Navlock", district: "Ranipet", type: "CCC" },
+  { name: "CCC, Sukkampatty", district: "Salem", type: "CCC" },
+  { name: "CCC, Ladanenthal", district: "Sivaganga", type: "CCC" },
+  { name: "CCC, Vadakarai", district: "Tenkasi", type: "CCC" },
+  { name: "CCC, Pattukkottai", district: "Thanjavur", type: "CCC" },
+  { name: "CCC, Bodinayakanur", district: "Theni", type: "CCC" },
+  { name: "CCC, Madhavaram", district: "Tiruvallur", type: "CCC" },
+  { name: "CCC, Udangudi", district: "Thoothukudi", type: "CCC" },
+  { name: "CCC, Thiruvarangam", district: "Tiruchirappalli", type: "CCC" },
+  { name: "CCC, Marakkanam", district: "Viluppuram", type: "CCC" },
+  { name: "CCC, Devadanam", district: "Virudhunagar", type: "CCC" },
+
+  // Centres of Excellence (CoE)
+  { name: "CoE for Cutflowers, Thally", district: "Krishnagiri", type: "CoE" },
+  { name: "CoE for Post-Harvest and Packaging Technology of Flowers, Thally (Yet to Open)", district: "Krishnagiri", type: "CoE" },
+  { name: "CoE for Vegetables, Reddiyarchatram", district: "Dindigul", type: "CoE" },
+
+  // Horticulture Research & Training Centres (HRTC)
+  { name: "HRTC, Thally", district: "Krishnagiri", type: "HRTC" },
+  { name: "Tamil Nadu Horticulture Management Institute, Madhavaram", district: "Chennai", type: "HRTC" },
 ];
 
-// Legacy array for backward compatibility (profile page Farm Manager dropdown)
-export const TN_HORTICULTURE_FARMS: string[] = TN_HORTICULTURE_FARMS_DATA.map(f => `Govt. Horticulture Farm, ${f.name.replace("SHF ", "")}`);
+// Dropdown labels: "Name — District"
+export const TN_HORTICULTURE_FARMS: string[] = TN_HORTICULTURE_FARMS_DATA.map(f => `${f.name} — ${f.district}`);
 
-// Get SHFs for a specific district
+// Get SHFs for a specific district (excludes parks)
 export function getSHFsByDistrict(district: string): SHFarm[] {
-  return TN_HORTICULTURE_FARMS_DATA.filter(f => f.district === district);
+  return TN_HORTICULTURE_FARMS_DATA.filter(f => f.district === district && f.type === "SHF");
 }

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { PhotoCropDialog } from "@/components/photo-crop-dialog";
@@ -16,7 +16,7 @@ import {
   GraduationCap, Globe, Save, Building2, ChevronDown, ChevronUp, Navigation, Bell,
   Download, IdCard,
 } from "lucide-react";
-import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS } from "@/lib/tn-districts";
+import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS_DATA, FARM_TYPE_ORDER } from "@/lib/tn-districts";
 import { useT } from "@/lib/i18n";
 import { DateDropdowns } from "@/components/date-dropdowns";
 import type { TranslationKey } from "@/lib/i18n/translations";
@@ -404,6 +404,25 @@ export default function ProfilePage() {
   const regularBlocks = getBlocks(profile.posting_details.regular_district);
   const specialBlocks = getBlocks(profile.posting_details.special_duty_district);
   const deputedBlocks = getBlocks(profile.posting_details.deputed_district);
+
+  const farmGroupsJsx = (
+    <>
+      <SelectItem value="none">{t("opt.none")}</SelectItem>
+      {FARM_TYPE_ORDER.map((typ) => {
+        const items = TN_HORTICULTURE_FARMS_DATA.filter((f) => f.type === typ);
+        if (!items.length) return null;
+        return (
+          <SelectGroup key={typ}>
+            <SelectLabel>{t(`posting.farm_group.${typ}` as TranslationKey)}</SelectLabel>
+            {items.map((f) => {
+              const value = `${f.name} — ${f.district}`;
+              return <SelectItem key={value} value={value}>{value}</SelectItem>;
+            })}
+          </SelectGroup>
+        );
+      })}
+    </>
+  );
 
   const displayName = profile.title
     ? `${profile.title} ${profile.first_name} ${profile.last_name}`
@@ -903,7 +922,7 @@ export default function ProfilePage() {
                       <Label className="text-xs text-muted-foreground">{t("posting.farms_if_applicable")}</Label>
                       <Select value={profile.posting_details.regular_farm || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_farm: val === "none" ? "" : val } })}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_farm")} /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{TN_HORTICULTURE_FARMS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                        <SelectContent>{farmGroupsJsx}</SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -948,7 +967,7 @@ export default function ProfilePage() {
                         <Label className="text-xs text-muted-foreground">{t("posting.farm")}</Label>
                         <Select value={profile.posting_details.special_farm || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_farm: val === "none" ? "" : val } })}>
                           <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_farm")} /></SelectTrigger>
-                          <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{TN_HORTICULTURE_FARMS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                          <SelectContent>{farmGroupsJsx}</SelectContent>
                         </Select>
                       </div>
                     )}

@@ -765,6 +765,12 @@ const translations = {
   "posting.farm": { en: "Farm", ta: "பண்ணை" },
   "posting.farms_if_applicable": { en: "Farms (if applicable)", ta: "பண்ணைகள் (பொருந்தினால்)" },
   "posting.select_farm": { en: "Select farm", ta: "பண்ணை தேர்வு செய்க" },
+  "posting.farm_group.SHF": { en: "Farms", ta: "பண்ணைகள்" },
+  "posting.farm_group.Park": { en: "Parks & Gardens", ta: "பூங்காக்கள் & தோட்டங்கள்" },
+  "posting.farm_group.SCN": { en: "State Coconut Nursery (SCN)", ta: "மாநில தென்னை நாற்றுப்பண்ணை (SCN)" },
+  "posting.farm_group.CCC": { en: "Coconut Crossing Centres (CCC)", ta: "தென்னை கலப்பின மையங்கள் (CCC)" },
+  "posting.farm_group.CoE": { en: "Centres of Excellence (CoE)", ta: "சிறப்பு மையங்கள் (CoE)" },
+  "posting.farm_group.HRTC": { en: "HRTC", ta: "HRTC" },
 
   // --- Special designation options ---
   "opt.ho_tech_state": { en: "HO Tech (State Scheme)", ta: "தோ.அ. தொழில்நுட்பம் (மாநிலத் திட்டம்)" },

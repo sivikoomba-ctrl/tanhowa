@@ -42,7 +42,9 @@ export function WeatherAdvisory() {
           district,
           block: block || undefined,
           place: place.trim() || undefined,
-          shf: selectedSHF ? { name: selectedSHF.name, lat: selectedSHF.lat, lng: selectedSHF.lng } : undefined,
+          shf: selectedSHF && selectedSHF.lat != null && selectedSHF.lng != null
+            ? { name: selectedSHF.name, lat: selectedSHF.lat, lng: selectedSHF.lng }
+            : undefined,
         }),
       });
       const data = await res.json();
