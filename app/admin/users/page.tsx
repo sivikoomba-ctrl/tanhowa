@@ -57,6 +57,7 @@ export default function AdminUsersPage() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [search, setSearch] = useState("");
   const [districtFilter, setDistrictFilter] = useState("all");
+  const [designationFilter, setDesignationFilter] = useState("all");
   const [joinedFilter, setJoinedFilter] = useState("all");
   const [nudgeUserId, setNudgeUserId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -84,6 +85,7 @@ export default function AdminUsersPage() {
     setExpandedId(null);
     setSearch("");
     setDistrictFilter("all");
+    setDesignationFilter("all");
     setJoinedFilter("all");
     setVisibleCount(PAGE_SIZE);
     setSelectedIds(new Set());
@@ -101,10 +103,18 @@ export default function AdminUsersPage() {
           u.occupation?.toLowerCase().includes(q)
       );
     }
-    if (districtFilter !== "all") {
+    if (districtFilter === "none") {
+      result = result.filter((u) => !u.posting_details?.regular_district?.trim());
+    } else if (districtFilter !== "all") {
       result = result.filter(
         (u) => u.posting_details?.regular_district === districtFilter
       );
+    }
+    if (designationFilter === "none") {
+      result = result.filter((u) => !u.occupation?.trim());
+    } else if (designationFilter !== "all") {
+      const r = new RegExp(`\\b${designationFilter}\\b`, "i");
+      result = result.filter((u) => r.test(u.occupation || ""));
     }
     if (joinedFilter !== "all") {
       const now = Date.now();
@@ -145,7 +155,7 @@ export default function AdminUsersPage() {
       return (a.name || "").localeCompare(b.name || "");
     });
     return result;
-  }, [users, search, districtFilter, joinedFilter]);
+  }, [users, search, districtFilter, designationFilter, joinedFilter]);
 
   const onlineCount = useMemo(() => {
     const fiveMinAgo = Date.now() - 5 * 60000;
@@ -424,9 +434,26 @@ export default function AdminUsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Districts</SelectItem>
+                <SelectItem value="none">Not Set (Empty)</SelectItem>
                 {DISTRICT_NAMES.map((d) => (
                   <SelectItem key={d} value={d}>{d}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={designationFilter} onValueChange={setDesignationFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <Filter size={14} className="mr-1 text-muted-foreground" />
+                <SelectValue placeholder="All Designations" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Designations</SelectItem>
+                <SelectItem value="none">Not Set (Empty)</SelectItem>
+                <SelectItem value="HO">HO</SelectItem>
+                <SelectItem value="ADH">ADH</SelectItem>
+                <SelectItem value="DDH">DDH</SelectItem>
+                <SelectItem value="JDH">JDH</SelectItem>
+                <SelectItem value="ADDH">ADDH</SelectItem>
+                <SelectItem value="System Admin">System Admin</SelectItem>
               </SelectContent>
             </Select>
           </div>
