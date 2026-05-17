@@ -56,7 +56,7 @@ export function getBlocks(district: string): string[] {
 // District names normalized to match TN_DISTRICTS keys above.
 // Coordinates omitted — weather-advisory falls back to district-level data when absent.
 // TODO: Special Centres list still pending — add as type "Special" when available.
-export type SHFarmType = "SHF" | "Park" | "SCN" | "CCC" | "CoE" | "HRTC";
+export type SHFarmType = "SHF" | "Park" | "SCN" | "CCC" | "CoE" | "HRTC" | "QCLab" | "UnderDev";
 
 export interface SHFarm {
   name: string;
@@ -67,7 +67,7 @@ export interface SHFarm {
 }
 
 // Display order + labels for the grouped dropdown. Translation keys live in lib/i18n/translations.ts as `posting.farm_group.<type>`.
-export const FARM_TYPE_ORDER: SHFarmType[] = ["SHF", "Park", "SCN", "CCC", "CoE", "HRTC"];
+export const FARM_TYPE_ORDER: SHFarmType[] = ["SHF", "Park", "SCN", "CCC", "CoE", "HRTC", "QCLab", "UnderDev"];
 
 export const TN_HORTICULTURE_FARMS_DATA: SHFarm[] = [
   // State Horticulture Farms (SHFs)
@@ -223,6 +223,14 @@ export const TN_HORTICULTURE_FARMS_DATA: SHFarm[] = [
   // Horticulture Research & Training Centres (HRTC)
   { name: "HRTC, Thally", district: "Krishnagiri", type: "HRTC" },
   { name: "Tamil Nadu Horticulture Management Institute, Madhavaram", district: "Chennai", type: "HRTC" },
+
+  // Quality Control Labs (QC Labs)
+  { name: "Quality Control Lab, JDHO", district: "Krishnagiri", type: "QCLab" },
+
+  // Under Development
+  { name: "Great Botanical Garden (GBG), Vathalmalai", district: "Dharmapuri", type: "UnderDev" },
+  { name: "New Farm, Shoolagiri", district: "Krishnagiri", type: "UnderDev" },
+  { name: "New Park, Guindy", district: "Chennai", type: "UnderDev" },
 ];
 
 // Dropdown labels: "Name — District"

@@ -771,6 +771,8 @@ const translations = {
   "posting.farm_group.CCC": { en: "Coconut Crossing Centres (CCC)", ta: "தென்னை கலப்பின மையங்கள் (CCC)" },
   "posting.farm_group.CoE": { en: "Centres of Excellence (CoE)", ta: "சிறப்பு மையங்கள் (CoE)" },
   "posting.farm_group.HRTC": { en: "HRTC", ta: "HRTC" },
+  "posting.farm_group.QCLab": { en: "QC Labs", ta: "தர கட்டுப்பாட்டு ஆய்வகங்கள் (QC Labs)" },
+  "posting.farm_group.UnderDev": { en: "Under Development", ta: "உருவாக்கத்தில்" },
 
   // --- Special designation options ---
   "opt.ho_tech_state": { en: "HO Tech (State Scheme)", ta: "தோ.அ. தொழில்நுட்பம் (மாநிலத் திட்டம்)" },
