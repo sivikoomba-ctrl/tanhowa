@@ -286,7 +286,22 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Cannot delete Super Admin" }, { status: 403 });
     }
 
+    // Capture identity + district before delete so the audit row is self-contained
+    // (target_id will point to a row that no longer exists)
+    const { data: target } = await supabase
+      .from("users")
+      .select("name, email, posting_details")
+      .eq("id", userId)
+      .single();
+    const district = (target?.posting_details as { regular_district?: string } | null)?.regular_district ?? null;
+
     await supabase.from("users").delete().eq("id", userId);
+
+    logAudit(session.userId, "delete", "user", userId, {
+      name: target?.name ?? null,
+      email: target?.email ?? null,
+      district,
+    });
 
     return NextResponse.json({ message: "User deleted" });
   } catch (error) {

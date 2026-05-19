@@ -43,6 +43,7 @@ const translations = {
   // Navigation — Admin
   "nav.dashboard": { en: "Dashboard", ta: "முகப்பு" },
   "nav.member_approval": { en: "Member Approval", ta: "உறுப்பினர் அங்கீகாரம்" },
+  "nav.roster": { en: "District Roster", ta: "மாவட்ட பட்டியல்" },
   "nav.verify_payments": { en: "Verify Payments", ta: "பணம் சரிபார்ப்பு" },
   "nav.district_dues": { en: "District Dues", ta: "மாவட்ட நிலுவை" },
   "nav.reports": { en: "Reports", ta: "அறிக்கைகள்" },

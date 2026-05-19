@@ -59,6 +59,7 @@ import { GlobalSearch } from "@/components/global-search";
 const adminNavItems = [
   { href: "/admin", labelKey: "nav.dashboard" as const, icon: LayoutDashboard },
   { href: "/admin/users", labelKey: "nav.member_approval" as const, icon: Users },
+  { href: "/admin/roster", labelKey: "nav.roster" as const, icon: ClipboardList },
   { href: "/admin/officials", labelKey: "nav.officials" as const, icon: Crown },
   { href: "/admin/teams", labelKey: "nav.teams" as const, icon: UsersRound },
   { href: "/admin/group-chat", labelKey: "nav.group_chat" as const, icon: MessagesSquare },
