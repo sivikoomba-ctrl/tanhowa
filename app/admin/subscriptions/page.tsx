@@ -1415,7 +1415,7 @@ export default function AdminSubscriptionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="not-paid">Not Paid (Pending + Overdue)</SelectItem>
+                  <SelectItem value="not-paid">Unpaid</SelectItem>
                   <SelectItem value="proof-uploaded">Proof Uploaded</SelectItem>
                   <SelectItem value="ds-verified">DS/DJS Verified</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
