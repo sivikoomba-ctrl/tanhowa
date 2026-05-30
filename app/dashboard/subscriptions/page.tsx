@@ -351,6 +351,7 @@ export default function SubscriptionsPage() {
   const dues2026 = subscriptions
     .filter((s) => s.period === "2026")
     .reduce((sum, s) => sum + (s.amount || 0), 0);
+  const specialPeriods = [...new Set(subscriptions.filter((s) => !/^\d{4}$/.test(s.period)).map((s) => s.period))];
   const duesUatt = subscriptions
     .filter((s) => !/^\d{4}$/.test(s.period))
     .reduce((sum, s) => sum + (s.amount || 0), 0);
@@ -667,7 +668,11 @@ export default function SubscriptionsPage() {
                     {[
                       { label: "Annual Subscription (up to 2025)", amount: duesUpTo2025, filter: (s: Subscription) => /^20(1[0-9]|2[0-5])$/.test(s.period) },
                       { label: "Annual Subscription (2026)", amount: dues2026, filter: (s: Subscription) => s.period === "2026" },
-                      { label: "Special Fund Contribution", amount: duesUatt, filter: (s: Subscription) => !/^\d{4}$/.test(s.period) },
+                      ...specialPeriods.map((p) => ({
+                        label: `Special Fund – ${p.replace(/^For\s+/i, "").replace(/\s+Case\s+(\d{4})$/i, " ($1)")}`,
+                        amount: subscriptions.filter((s) => s.period === p).reduce((sum, s) => sum + (s.amount || 0), 0),
+                        filter: (s: Subscription) => s.period === p,
+                      })),
                     ].map((row) => {
                       const matchingSubs = subscriptions.filter(row.filter);
                       const hasProof = matchingSubs.some((s) => s.payment_proof_url);
