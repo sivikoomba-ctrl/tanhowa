@@ -352,7 +352,7 @@ export default function SubscriptionsPage() {
     .filter((s) => s.period === "2026")
     .reduce((sum, s) => sum + (s.amount || 0), 0);
   const duesUatt = subscriptions
-    .filter((s) => s.period.toLowerCase().includes("uatt"))
+    .filter((s) => !/^\d{4}$/.test(s.period))
     .reduce((sum, s) => sum + (s.amount || 0), 0);
   const duesTotalToPay = duesUpTo2025 + dues2026 + duesUatt;
   const duesPaidNum = Number(duesPaid) || 0;
@@ -667,7 +667,7 @@ export default function SubscriptionsPage() {
                     {[
                       { label: "Subscriptions Due up to 2025", amount: duesUpTo2025, filter: (s: Subscription) => /^20(1[0-9]|2[0-5])$/.test(s.period) },
                       { label: "Annual Subscription 2026", amount: dues2026, filter: (s: Subscription) => s.period === "2026" },
-                      { label: "UATT 2.0 Case Contribution", amount: duesUatt, filter: (s: Subscription) => s.period.toLowerCase().includes("uatt") },
+                      { label: "Special Fund", amount: duesUatt, filter: (s: Subscription) => !/^\d{4}$/.test(s.period) },
                     ].map((row) => {
                       const matchingSubs = subscriptions.filter(row.filter);
                       const hasProof = matchingSubs.some((s) => s.payment_proof_url);
