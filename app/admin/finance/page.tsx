@@ -68,13 +68,14 @@ interface MonthSummary {
 }
 
 const FY_OPTIONS = [
+  { value: "2026-27", label: "2026-27" },
   { value: "2025-26", label: "2025-26" },
   { value: "2024-25", label: "2024-25" },
 ];
 
 export default function FinancePage() {
   const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState("2025-26");
+  const [year, setYear] = useState("2026-27");
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [totalCredits, setTotalCredits] = useState(0);
   const [totalSubscriptions, setTotalSubscriptions] = useState(0);

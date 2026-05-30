@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const hasFullAccess = admin || isStateOfficial || isDistrictOfficial;
 
     const url = new URL(req.url);
-    const year = url.searchParams.get("year") || "2025-26";
+    const year = url.searchParams.get("year") || "2026-27";
 
     // Financial year: April 1 to March 31
     const [startYear] = year.split("-").map(Number);
