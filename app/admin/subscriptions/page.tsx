@@ -497,18 +497,22 @@ export default function AdminSubscriptionsPage() {
     }).catch(() => {});
   }, []);
 
-  // Re-fetch from server when switching to a status that requires server-side filtering
-  // (avoids showing 0 results when the relevant records fall beyond the initial page)
+  // Re-fetch when the status filter changes in ways that affect what's loaded server-side
   const prevFilterStatus = useRef(filterStatus);
   useEffect(() => {
     if (prevFilterStatus.current === filterStatus) return;
+    const wasServerFiltered = SERVER_FILTERABLE.includes(prevFilterStatus.current);
     prevFilterStatus.current = filterStatus;
     if (SERVER_FILTERABLE.includes(filterStatus)) {
+      // Switch to a server-filterable status → fetch that status specifically
       load(filterStatus);
-    } else if (filterStatus === "all") {
-      load(); // reload full set when clearing the filter
+    } else if (wasServerFiltered) {
+      // Switch FROM a server-filtered status to a client-side filter (all / not-paid /
+      // proof-uploaded / ds-verified) → reload the full unfiltered set so client-side
+      // filters have the complete dataset to work with
+      load();
     }
-    // Complex client-side filters (not-paid, proof-uploaded, ds-verified) reuse the loaded set
+    // Switching between two client-side-only filters → existing loaded data is fine
   }, [filterStatus]);
 
   const periods = useMemo(() => {
