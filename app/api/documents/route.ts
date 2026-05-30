@@ -44,24 +44,32 @@ export async function GET(req: NextRequest) {
 
       const { data: documents } = await query;
 
-      // For admin, also fetch access list per document
+      // For admin, also fetch access list per document (users + teams)
       const docIds = (documents || []).map((d: { id: string }) => d.id);
-      const accessMap: Record<string, string[]> = {};
+      const accessUserMap: Record<string, string[]> = {};
+      const accessTeamMap: Record<string, string[]> = {};
       if (docIds.length > 0) {
         const { data: accessRows } = await supabase
           .from("document_access")
-          .select("document_id, user_id")
+          .select("document_id, user_id, team_id")
           .in("document_id", docIds);
         for (const row of accessRows || []) {
-          if (!accessMap[row.document_id]) accessMap[row.document_id] = [];
-          accessMap[row.document_id].push(row.user_id);
+          if (row.user_id) {
+            if (!accessUserMap[row.document_id]) accessUserMap[row.document_id] = [];
+            accessUserMap[row.document_id].push(row.user_id);
+          }
+          if (row.team_id) {
+            if (!accessTeamMap[row.document_id]) accessTeamMap[row.document_id] = [];
+            accessTeamMap[row.document_id].push(row.team_id);
+          }
         }
       }
 
       const docsWithAccess = await Promise.all((documents || []).map(async (d: { id: string; visibility?: string; file_url: string }) => ({
         ...d,
         file_url: await resolveDocumentUrl(supabase, d.file_url),
-        assigned_users: accessMap[d.id] || [],
+        assigned_users: accessUserMap[d.id] || [],
+        assigned_teams: accessTeamMap[d.id] || [],
       })));
 
       return NextResponse.json({ documents: docsWithAccess });
@@ -70,14 +78,27 @@ export async function GET(req: NextRequest) {
       query = query.eq("approved", true);
       const { data: allApproved } = await query;
 
-      // Get documents specifically assigned to this user
-      const { data: accessRows } = await supabase
-        .from("document_access")
-        .select("document_id")
+      // Get user's team memberships
+      const { data: myTeamRows } = await supabase
+        .from("team_members")
+        .select("team_id")
         .eq("user_id", session.userId);
-      const accessibleDocIds = new Set((accessRows || []).map((r: { document_id: string }) => r.document_id));
+      const myTeamIds = (myTeamRows || []).map((r: { team_id: string }) => r.team_id);
 
-      // Filter: show docs with visibility=all OR docs specifically assigned to this user
+      // Get document_access rows for this user directly OR via their teams
+      const [{ data: userAccessRows }, { data: teamAccessRows }] = await Promise.all([
+        supabase.from("document_access").select("document_id").eq("user_id", session.userId),
+        myTeamIds.length > 0
+          ? supabase.from("document_access").select("document_id").in("team_id", myTeamIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const accessibleDocIds = new Set([
+        ...(userAccessRows || []).map((r: { document_id: string }) => r.document_id),
+        ...(teamAccessRows || []).map((r: { document_id: string }) => r.document_id),
+      ]);
+
+      // Filter: show docs with visibility=all OR docs specifically assigned to this user/team
       const filteredDocuments = (allApproved || []).filter((d: { id: string; visibility?: string }) => {
         if (!d.visibility || d.visibility === "all") return true;
         return accessibleDocIds.has(d.id);
@@ -135,13 +156,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to upload document" }, { status: 500 });
     }
 
-    // If specific members selected, insert access rows
-    if (visibility === "specific" && Array.isArray(body.assigned_users) && body.assigned_users.length > 0) {
-      const rows = body.assigned_users.map((userId: string) => ({
-        document_id: data.id,
-        user_id: userId,
-      }));
-      await supabase.from("document_access").insert(rows);
+    // If specific access selected, insert user and/or team access rows
+    if (visibility === "specific") {
+      const rows: { document_id: string; user_id?: string; team_id?: string }[] = [];
+      if (Array.isArray(body.assigned_users)) {
+        for (const userId of body.assigned_users) rows.push({ document_id: data.id, user_id: userId });
+      }
+      if (Array.isArray(body.assigned_teams)) {
+        for (const teamId of body.assigned_teams) rows.push({ document_id: data.id, team_id: teamId });
+      }
+      if (rows.length > 0) await supabase.from("document_access").insert(rows);
     }
 
     logContribution(session.userId, "document_uploaded", "Uploaded document: " + body.title);
@@ -239,18 +263,17 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Update access list if provided
-    if (body.assigned_users !== undefined) {
-      // Remove old access rows
+    // Update access list if provided (users and/or teams)
+    if (body.assigned_users !== undefined || body.assigned_teams !== undefined) {
       await supabase.from("document_access").delete().eq("document_id", body.id);
-      // Insert new ones
-      if (Array.isArray(body.assigned_users) && body.assigned_users.length > 0) {
-        const rows = body.assigned_users.map((userId: string) => ({
-          document_id: body.id,
-          user_id: userId,
-        }));
-        await supabase.from("document_access").insert(rows);
+      const rows: { document_id: string; user_id?: string; team_id?: string }[] = [];
+      if (Array.isArray(body.assigned_users)) {
+        for (const userId of body.assigned_users) rows.push({ document_id: body.id, user_id: userId });
       }
+      if (Array.isArray(body.assigned_teams)) {
+        for (const teamId of body.assigned_teams) rows.push({ document_id: body.id, team_id: teamId });
+      }
+      if (rows.length > 0) await supabase.from("document_access").insert(rows);
     }
 
     if (body.approved !== undefined) {

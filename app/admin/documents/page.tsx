@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, FileText, Check, X, FileUp, Link, Upload, Users, Globe, UserCheck, History } from "lucide-react";
+import { Plus, Trash2, FileText, Check, X, FileUp, Link, Upload, Users, Globe, UserCheck, History, UsersRound } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 const docCategories = [
@@ -25,6 +25,11 @@ const docCategories = [
   "Others",
 ];
 
+interface Team {
+  id: string;
+  name: string;
+}
+
 interface Document {
   id: string;
   title: string;
@@ -35,6 +40,7 @@ interface Document {
   approved: boolean;
   visibility: string;
   assigned_users: string[];
+  assigned_teams: string[];
   created_at: string;
   users?: { name: string };
 }
@@ -59,6 +65,8 @@ interface Member {
 export default function AdminDocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [accessTeams, setAccessTeams] = useState<string[]>([]);
   const [tab, setTab] = useState("pending");
   const [form, setForm] = useState({ title: "", description: "", file_url: "", file_type: "", category: "", visibility: "all" });
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -92,13 +100,21 @@ export default function AdminDocumentsPage() {
       .catch(() => {});
   }, []);
 
+  const loadTeams = useCallback(() => {
+    fetch("/api/teams")
+      .then((r) => r.json())
+      .then((d) => setTeams((d.teams || []).map((t: { id: string; name: string }) => ({ id: t.id, name: t.name }))))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
     loadMembers();
-  }, [loadMembers]);
+    loadTeams();
+  }, [loadMembers, loadTeams]);
 
   const filteredMembers = members.filter((m) => {
     if (!memberSearch) return true;
@@ -207,14 +223,15 @@ export default function AdminDocumentsPage() {
     setAccessDocId(doc.id);
     setAccessVisibility(doc.visibility || "all");
     setAccessMembers(doc.assigned_users || []);
+    setAccessTeams(doc.assigned_teams || []);
     setMemberSearch("");
     setAccessDialogOpen(true);
   }
 
   async function saveAccess() {
     if (!accessDocId) return;
-    if (accessVisibility === "specific" && accessMembers.length === 0) {
-      toast.error("Please select at least one member");
+    if (accessVisibility === "specific" && accessMembers.length === 0 && accessTeams.length === 0) {
+      toast.error("Select at least one member or team");
       return;
     }
 
@@ -225,6 +242,7 @@ export default function AdminDocumentsPage() {
         id: accessDocId,
         visibility: accessVisibility,
         assigned_users: accessVisibility === "specific" ? accessMembers : [],
+        assigned_teams: accessVisibility === "specific" ? accessTeams : [],
       }),
     });
 
@@ -474,7 +492,7 @@ export default function AdminDocumentsPage() {
           <div className="space-y-4">
             <div>
               <Label>Who can see this document?</Label>
-              <div className="flex gap-2 mt-1">
+              <div className="flex gap-2 mt-1 flex-wrap">
                 <Button
                   type="button"
                   variant={accessVisibility === "all" ? "default" : "outline"}
@@ -490,10 +508,20 @@ export default function AdminDocumentsPage() {
                   variant={accessVisibility === "specific" ? "default" : "outline"}
                   size="sm"
                   className="flex-1"
-                  onClick={() => setAccessVisibility("specific")}
+                  onClick={() => { setAccessVisibility("specific"); setAccessTeams([]); }}
                 >
                   <Users size={14} className="mr-1" />
                   Specific Members
+                </Button>
+                <Button
+                  type="button"
+                  variant={accessVisibility === "team" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => { setAccessVisibility("team"); setAccessMembers([]); }}
+                >
+                  <UsersRound size={14} className="mr-1" />
+                  Specific Team
                 </Button>
               </div>
             </div>
@@ -525,6 +553,32 @@ export default function AdminDocumentsPage() {
                   ))}
                   {filteredMembers.length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-3">No members found</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {accessVisibility === "team" && (
+              <div>
+                <Label>Select Teams ({accessTeams.length} selected)</Label>
+                <div className="mt-2 max-h-52 overflow-y-auto border rounded-lg divide-y">
+                  {teams.map((t) => (
+                    <label
+                      key={t.id}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={accessTeams.includes(t.id)}
+                        onChange={() => toggleMember(accessTeams, setAccessTeams, t.id)}
+                        className="rounded"
+                      />
+                      <UsersRound size={14} className="text-muted-foreground shrink-0" />
+                      <span className="font-medium">{t.name}</span>
+                    </label>
+                  ))}
+                  {teams.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-3">No teams found</p>
                   )}
                 </div>
               </div>
