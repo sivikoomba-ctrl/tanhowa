@@ -3,7 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
-const PUBLIC_SETTINGS_KEYS = new Set(["payment_qr_url", "community_name", "tagline", "about"]);
+const PUBLIC_SETTINGS_KEYS = new Set(["payment_qr_url", "payment_upi_id", "community_name", "tagline", "about"]);
 
 export async function GET() {
   try {
@@ -44,7 +44,7 @@ export async function PUT(req: NextRequest) {
     const supabase = getServiceClient();
 
     const ALLOWED_SETTINGS_KEYS = new Set([
-      "payment_qr_url", "community_name", "tagline", "about",
+      "payment_qr_url", "payment_upi_id", "community_name", "tagline", "about",
       "bank_name", "bank_account", "bank_ifsc", "bank_branch",
       "razorpay_enabled", "online_payment_enabled",
       "announcement_auto_translate", "email_notifications_enabled",

@@ -69,6 +69,7 @@ export default function SubscriptionsPage() {
   const [uploading, setUploading] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [upiId, setUpiId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
 
@@ -336,6 +337,7 @@ export default function SubscriptionsPage() {
       .then((d) => {
         const s = d.settings || {};
         if (s.payment_qr_url) setQrUrl(s.payment_qr_url);
+        if (s.payment_upi_id) setUpiId(s.payment_upi_id);
       })
       .catch(() => {});
   }
@@ -995,6 +997,15 @@ export default function SubscriptionsPage() {
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       {(sub.status === "pending" || sub.status === "overdue") && (
                         <>
+                          {!hasProof && upiId && (
+                            <a
+                              href={`upi://pay?pa=${upiId}&pn=TANHOWA&am=${sub.amount}&cu=INR&tn=TANHOWA+${encodeURIComponent(sub.period)}`}
+                              className="inline-flex items-center gap-1 h-8 text-xs px-3 rounded-md border border-green-300 text-green-700 bg-white hover:bg-green-50 shrink-0"
+                            >
+                              <IndianRupee size={12} />
+                              Pay via UPI
+                            </a>
+                          )}
                           <Button
                             size="sm"
                             className={`h-8 text-xs ${!hasProof ? "bg-primary hover:bg-primary/90" : ""}`}
