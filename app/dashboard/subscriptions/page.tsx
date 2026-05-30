@@ -665,9 +665,9 @@ export default function SubscriptionsPage() {
                   </thead>
                   <tbody>
                     {[
-                      { label: "Subscriptions Due up to 2025", amount: duesUpTo2025, filter: (s: Subscription) => /^20(1[0-9]|2[0-5])$/.test(s.period) },
-                      { label: "Annual Subscription 2026", amount: dues2026, filter: (s: Subscription) => s.period === "2026" },
-                      { label: "Special Fund", amount: duesUatt, filter: (s: Subscription) => !/^\d{4}$/.test(s.period) },
+                      { label: "Annual Subscription (up to 2025)", amount: duesUpTo2025, filter: (s: Subscription) => /^20(1[0-9]|2[0-5])$/.test(s.period) },
+                      { label: "Annual Subscription (2026)", amount: dues2026, filter: (s: Subscription) => s.period === "2026" },
+                      { label: "Special Fund Contribution", amount: duesUatt, filter: (s: Subscription) => !/^\d{4}$/.test(s.period) },
                     ].map((row) => {
                       const matchingSubs = subscriptions.filter(row.filter);
                       const hasProof = matchingSubs.some((s) => s.payment_proof_url);
@@ -713,7 +713,7 @@ export default function SubscriptionsPage() {
                       );
                     })}
                     <tr className="bg-primary/5 font-semibold">
-                      <td className="border px-2 py-1.5">Total Amount to be Paid</td>
+                      <td className="border px-2 py-1.5">Total Dues</td>
                       <td className="border px-2 py-1.5 text-right font-mono">{duesTotalToPay.toLocaleString("en-IN")}</td>
                       <td className="border px-2 py-1.5"></td>
                       <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
@@ -722,7 +722,7 @@ export default function SubscriptionsPage() {
                       <td className="border px-2 py-1.5">
                         <div className="flex items-center gap-1.5">
                           <Edit2 size={12} className="text-green-600 shrink-0" />
-                          <span>Total Amount Paid (enter your amount)</span>
+                          <span>Amount Paid (enter your total)</span>
                         </div>
                       </td>
                       <td className="border px-1 py-0.5">
@@ -752,7 +752,7 @@ export default function SubscriptionsPage() {
                       <td className="border px-2 py-1.5">
                         <div className="flex items-center gap-1.5">
                           <Edit2 size={12} className="text-amber-600 shrink-0" />
-                          <span>Additional Money Paid for Special Work</span>
+                          <span>Additional Amount Paid</span>
                         </div>
                       </td>
                       <td className="border px-1 py-0.5">
