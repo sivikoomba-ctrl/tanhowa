@@ -25,7 +25,7 @@ export async function GET() {
     const since = lastActive.toISOString();
 
     // Count new items since last visit in parallel
-    const [announcementsRes, pendingSubsRes, assignedTodosRes, volunteerInviteRes] = await Promise.all([
+    const [announcementsRes, pendingSubsRes, proofSubmittedSubsRes, assignedTodosRes, volunteerInviteRes] = await Promise.all([
       // New announcements since last visit
       supabase
         .from("announcements")
@@ -33,12 +33,21 @@ export async function GET() {
         .eq("published", true)
         .gt("created_at", since),
 
-      // Pending/overdue subscriptions for this user
+      // Pending/overdue subscriptions with NO proof uploaded yet (still action needed)
       supabase
         .from("subscriptions")
         .select("id", { count: "exact", head: true })
         .eq("user_id", session.userId)
-        .in("status", ["pending", "overdue"]),
+        .in("status", ["pending", "overdue"])
+        .or("payment_proof_url.is.null,payment_proof_url.eq."),
+
+      // Pending/overdue subscriptions where proof IS uploaded (awaiting admin verification)
+      supabase
+        .from("subscriptions")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", session.userId)
+        .in("status", ["pending", "overdue"])
+        .gt("payment_proof_url", ""),
 
       // Tasks assigned to this user that need attention (pending or in_progress)
       supabase
@@ -57,6 +66,7 @@ export async function GET() {
 
     const newAnnouncements = announcementsRes.count || 0;
     const pendingSubs = pendingSubsRes.count || 0;
+    const proofSubmittedSubs = proofSubmittedSubsRes.count || 0;
     const activeTasks = assignedTodosRes.count || 0;
     const volunteerInvites = volunteerInviteRes.count || 0;
 
@@ -70,12 +80,13 @@ export async function GET() {
       draftAnnouncements = count || 0;
     }
 
-    const total = newAnnouncements + pendingSubs + activeTasks + volunteerInvites + draftAnnouncements;
+    const total = newAnnouncements + pendingSubs + proofSubmittedSubs + activeTasks + volunteerInvites + draftAnnouncements;
 
     return NextResponse.json({
       total,
       announcements: newAnnouncements,
       subscriptions: pendingSubs,
+      proofSubmitted: proofSubmittedSubs,
       tasks: activeTasks,
       volunteerInvites,
       draftAnnouncements,

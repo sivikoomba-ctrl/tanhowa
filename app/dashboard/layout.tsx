@@ -155,7 +155,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showIncomplete, setShowIncomplete] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0, volunteerInvites: 0, draftAnnouncements: 0 });
+  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, proofSubmitted: 0, tasks: 0, volunteerInvites: 0, draftAnnouncements: 0 });
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationEnabling, setLocationEnabling] = useState(false);
   const [showTitlePicker, setShowTitlePicker] = useState(false);
@@ -735,6 +735,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <p className="text-xs text-muted-foreground">{notifications.subscriptions} {t("notif.pending_payments")}</p>
                 </div>
                 <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">{notifications.subscriptions}</Badge>
+              </Link>
+            )}
+            {notifications.proofSubmitted > 0 && (
+              <Link
+                href="/dashboard/subscriptions"
+                onClick={() => setShowNotifications(false)}
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                  <Wallet size={16} className="text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Proof Submitted</p>
+                  <p className="text-xs text-muted-foreground">{notifications.proofSubmitted} payment{notifications.proofSubmitted > 1 ? "s" : ""} awaiting verification</p>
+                </div>
+                <Badge className="bg-blue-100 text-blue-700 border-0 text-xs">{notifications.proofSubmitted}</Badge>
               </Link>
             )}
             {notifications.tasks > 0 && (

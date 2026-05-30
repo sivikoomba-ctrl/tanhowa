@@ -339,7 +339,8 @@ export default function SubscriptionsPage() {
   }, []);
 
   const paid = subscriptions.filter((s) => s.status === "paid").length;
-  const pending = subscriptions.filter((s) => s.status === "pending" || s.status === "overdue").length;
+  const proofUploaded = subscriptions.filter((s) => (s.status === "pending" || s.status === "overdue") && s.payment_proof_url && s.payment_proof_url !== "").length;
+  const pending = subscriptions.filter((s) => (s.status === "pending" || s.status === "overdue") && (!s.payment_proof_url || s.payment_proof_url === "")).length;
   const totalPaid = subscriptions
     .filter((s) => s.status === "paid")
     .reduce((sum, s) => sum + (s.amount || 0), 0);
@@ -875,8 +876,9 @@ export default function SubscriptionsPage() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <MetricCard label={t("subs.paid")} value={paid} icon={CheckCircle2} borderColor="border-l-green-500" iconColor="text-green-500/40" />
+        <MetricCard label="Awaiting Verification" value={proofUploaded} icon={Clock} borderColor="border-l-blue-400" iconColor="text-blue-400/40" />
         <MetricCard label={t("subs.due")} value={pending} icon={Clock} borderColor="border-l-amber-500" iconColor="text-amber-500/40" />
         <MetricCard label={t("subs.total_paid")} value={`₹${totalPaid.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-primary" iconColor="text-primary/40" />
       </div>
