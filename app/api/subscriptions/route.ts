@@ -8,7 +8,7 @@ const SUBSCRIPTION_EXEMPT_EMAILS = [DEFAULT_ADMIN_EMAIL, "tanhowa19791@gmail.com
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
-import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification, sendPaymentRejectionAlertEmail } from "@/lib/mail";
+import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification, sendPaymentRejectionAlertEmail, notifyAdminProofSubmitted } from "@/lib/mail";
 import { notifyPaymentRejected } from "@/lib/telegram";
 import { writeLimiter } from "@/lib/rate-limit";
 
@@ -396,6 +396,20 @@ export async function PUT(req: NextRequest) {
 
       if (body.payment_proof_url !== undefined) {
         logContribution(session.userId, "payment_proof_uploaded", "Uploaded payment proof");
+      }
+
+      // Submit for review: reset overdue → pending and notify admins
+      if (body.submit_for_review) {
+        const { data: fullSub } = await supabase
+          .from("subscriptions")
+          .select("status, period, amount, users!subscriptions_user_id_fkey(name)")
+          .eq("id", body.id)
+          .single();
+        if (fullSub?.status === "overdue") {
+          await supabase.from("subscriptions").update({ status: "pending" }).eq("id", body.id);
+        }
+        const memberName = (fullSub?.users as { name?: string } | null)?.name || "Member";
+        notifyAdminProofSubmitted(memberName, fullSub?.period || "", fullSub?.amount || 0).catch(() => {});
       }
 
       return NextResponse.json({ message: "Updated" });

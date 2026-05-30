@@ -520,8 +520,8 @@ export default function SubscriptionsPage() {
     ? Math.floor(parseFloat(detailsForm.amount) / detailsSub.amount) - 1
     : 0;
 
-  async function handleSaveDetails(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSaveDetails(e: React.FormEvent | null, submitForReview = false) {
+    if (e) e.preventDefault();
     if (!detailsSub) return;
     setDetailsSaving(true);
 
@@ -550,11 +550,12 @@ export default function SubscriptionsPage() {
         payment_method: detailsForm.payment_method,
         remarks: finalRemarks,
         ...(detailsForm.amount ? { amount: parseFloat(detailsForm.amount) } : {}),
+        ...(submitForReview ? { submit_for_review: true } : {}),
       }),
     });
 
     if (res.ok) {
-      toast.success("Payment details saved. Admin will verify your payment.");
+      toast.success(submitForReview ? "Submitted for review! Admin will verify your payment." : "Payment details saved.");
       setDetailsSub(null);
       load();
     } else {
@@ -1078,7 +1079,7 @@ export default function SubscriptionsPage() {
                   </Button>
                 </div>
               )}
-              <form onSubmit={handleSaveDetails} className="space-y-4">
+              <form onSubmit={(e) => handleSaveDetails(e, false)} className="space-y-4">
                 <div>
                   <Label>Transaction / Reference ID *</Label>
                   <div className="relative">
@@ -1279,9 +1280,14 @@ export default function SubscriptionsPage() {
                     </div>
                   )}
                 </div>
-                <Button type="submit" disabled={detailsSaving} className="w-full bg-primary hover:bg-primary/90">
-                  {detailsSaving ? "Saving..." : "Save Payment Details"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button type="submit" variant="outline" className="flex-1" disabled={detailsSaving}>
+                    {detailsSaving ? "Saving..." : "Save"}
+                  </Button>
+                  <Button type="button" disabled={detailsSaving} className="flex-1 bg-primary hover:bg-primary/90" onClick={() => handleSaveDetails(null, true)}>
+                    {detailsSaving ? "Submitting..." : "Submit for Review"}
+                  </Button>
+                </div>
               </form>
             </>
           )}

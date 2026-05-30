@@ -391,6 +391,27 @@ export async function notifyAdminNewRegistration(memberName: string, memberEmail
   }
 }
 
+export async function notifyAdminProofSubmitted(memberName: string, period: string, amount: number) {
+  try {
+    const ALERT_EMAILS = ["tanhowaadmin@tanhowa.in", "kannanhorts94@gmail.com", "dhanarj23@gmail.com"];
+    const safeName = escapeHtml(memberName);
+    const safePeriod = escapeHtml(period);
+    const html = wrapEmailTemplate(`
+      <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Payment Proof Submitted</h2>
+      <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+        <strong>${safeName}</strong> has submitted their payment proof for <strong>${safePeriod}</strong>
+        (&#8377;${amount.toLocaleString("en-IN")}) and is requesting verification.
+      </p>
+      <div style="text-align: center;">
+        <a href="https://tanhowa.in/admin/verify-payments" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">Verify Payment</a>
+      </div>
+    `);
+    for (const email of ALERT_EMAILS) {
+      try { await sendEmail(email, `Payment Proof Submitted: ${memberName} — ${period}`, html); } catch { /* continue */ }
+    }
+  } catch { /* silent */ }
+}
+
 export async function sendSubscriptionNotification(to: string, memberName: string, period: string, amount: number, message: string) {
   if (HOLD_MEMBER_EMAILS) return;
   await sendEmail(to, `TANHOWA Subscription Reminder — ${period}`, wrapEmailTemplate(`
