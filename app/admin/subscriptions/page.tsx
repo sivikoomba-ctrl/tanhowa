@@ -1460,7 +1460,7 @@ export default function AdminSubscriptionsPage() {
       {/* Result count */}
       {subscriptions.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Showing {filtered.length} of {subscriptions.length} subscription{subscriptions.length !== 1 ? "s" : ""}
+          Showing {filtered.length} of {filtered.length} subscription{filtered.length !== 1 ? "s" : ""}{filtered.length < subscriptions.length ? ` (${subscriptions.length} loaded)` : ""}
           {filtered.length !== subscriptions.length && (
             <button className="ml-2 text-primary hover:underline" onClick={() => { setFilterStatus("all"); setFilterPeriod("all"); setFilterDistrict("all"); setFilterUploadTime("all"); setSearchQuery(""); }}>
               Clear filters
