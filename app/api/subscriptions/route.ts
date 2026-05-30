@@ -83,15 +83,14 @@ export async function GET(req: NextRequest) {
       if (status && status !== "all") query = query.eq("status", status);
       if (hasProof) query = query.gt("payment_proof_url", "").in("status", ["pending", "overdue"]).not("remarks", "ilike", "Verified by%").not("remarks", "ilike", "Provisionally approved.%").not("remarks", "ilike", "Approved.%");
 
-      const [{ data: subscriptions, count: totalCount, error: subError }, paidRes, pendingRes, overdueRes, rejectedRes, holdRes, proofUploadedRes, totalAmountRes] = await Promise.all([
+      const [{ data: subscriptions, count: totalCount, error: subError }, paidRes, pendingRes, overdueRes, rejectedRes, holdRes, proofUploadedRes] = await Promise.all([
         query,
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "paid"),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "overdue"),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "rejected"),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "hold"),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).gt("payment_proof_url", "").in("status", ["pending", "overdue"]).not("remarks", "ilike", "Verified by%").not("remarks", "ilike", "Provisionally approved.%").not("remarks", "ilike", "Approved.%"),
         supabase.from("subscriptions").select("amount").eq("status", "paid"),
+        supabase.from("subscriptions").select("amount").eq("status", "pending"),
+        supabase.from("subscriptions").select("amount").eq("status", "overdue"),
+        supabase.from("subscriptions").select("amount").eq("status", "rejected"),
+        supabase.from("subscriptions").select("amount").eq("status", "hold"),
+        supabase.from("subscriptions").select("amount").gt("payment_proof_url", "").in("status", ["pending", "overdue"]).not("remarks", "ilike", "Verified by%").not("remarks", "ilike", "Provisionally approved.%").not("remarks", "ilike", "Approved.%"),
       ]);
 
       if (subError) {
@@ -106,29 +105,44 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      const totalCollected = isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet
-        ? visibleSubscriptions
-            .filter((sub) => sub.status === "paid")
-            .reduce((sum, sub) => sum + (sub.amount || 0), 0)
-        : (totalAmountRes.data || []).reduce((sum: number, r: { amount: number }) => sum + (r.amount || 0), 0);
+      const sumOf = (rows: { amount: number }[] | null) => (rows || []).reduce((s, r) => s + (r.amount || 0), 0);
 
-      const stats = isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet
+      const totalCollected = isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet
+        ? visibleSubscriptions.filter((sub) => sub.status === "paid").reduce((sum, sub) => sum + (sub.amount || 0), 0)
+        : sumOf(paidRes.data as { amount: number }[]);
+
+      const isDist = isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet;
+      const dsExclude = (sub: { remarks?: string | null }) => !(sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved.") || sub.remarks.startsWith("Approved.")));
+
+      const stats = isDist
         ? {
-            paid: visibleSubscriptions.filter((sub) => sub.status === "paid").length,
-            pending: visibleSubscriptions.filter((sub) => sub.status === "pending").length,
-            overdue: visibleSubscriptions.filter((sub) => sub.status === "overdue").length,
-            rejected: visibleSubscriptions.filter((sub) => sub.status === "rejected").length,
-            hold: visibleSubscriptions.filter((sub) => sub.status === "hold").length,
-            proofUploaded: visibleSubscriptions.filter((sub) => sub.payment_proof_url && sub.payment_proof_url !== "" && ["pending", "overdue"].includes(sub.status) && !(sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved.") || sub.remarks.startsWith("Approved.")))).length,
+            paid: visibleSubscriptions.filter((s) => s.status === "paid").length,
+            paidAmount: visibleSubscriptions.filter((s) => s.status === "paid").reduce((t, s) => t + (s.amount || 0), 0),
+            pending: visibleSubscriptions.filter((s) => s.status === "pending").length,
+            pendingAmount: visibleSubscriptions.filter((s) => s.status === "pending").reduce((t, s) => t + (s.amount || 0), 0),
+            overdue: visibleSubscriptions.filter((s) => s.status === "overdue").length,
+            overdueAmount: visibleSubscriptions.filter((s) => s.status === "overdue").reduce((t, s) => t + (s.amount || 0), 0),
+            rejected: visibleSubscriptions.filter((s) => s.status === "rejected").length,
+            rejectedAmount: visibleSubscriptions.filter((s) => s.status === "rejected").reduce((t, s) => t + (s.amount || 0), 0),
+            hold: visibleSubscriptions.filter((s) => s.status === "hold").length,
+            holdAmount: visibleSubscriptions.filter((s) => s.status === "hold").reduce((t, s) => t + (s.amount || 0), 0),
+            proofUploaded: visibleSubscriptions.filter((s) => s.payment_proof_url && s.payment_proof_url !== "" && ["pending", "overdue"].includes(s.status) && dsExclude(s)).length,
+            proofUploadedAmount: visibleSubscriptions.filter((s) => s.payment_proof_url && s.payment_proof_url !== "" && ["pending", "overdue"].includes(s.status) && dsExclude(s)).reduce((t, s) => t + (s.amount || 0), 0),
             totalCollected,
           }
         : {
-            paid: paidRes.count || 0,
-            pending: pendingRes.count || 0,
-            overdue: overdueRes.count || 0,
-            rejected: rejectedRes.count || 0,
-            hold: holdRes.count || 0,
-            proofUploaded: proofUploadedRes.count || 0,
+            paid: (paidRes.data || []).length,
+            paidAmount: sumOf(paidRes.data as { amount: number }[]),
+            pending: (pendingRes.data || []).length,
+            pendingAmount: sumOf(pendingRes.data as { amount: number }[]),
+            overdue: (overdueRes.data || []).length,
+            overdueAmount: sumOf(overdueRes.data as { amount: number }[]),
+            rejected: (rejectedRes.data || []).length,
+            rejectedAmount: sumOf(rejectedRes.data as { amount: number }[]),
+            hold: (holdRes.data || []).length,
+            holdAmount: sumOf(holdRes.data as { amount: number }[]),
+            proofUploaded: (proofUploadedRes.data || []).length,
+            proofUploadedAmount: sumOf(proofUploadedRes.data as { amount: number }[]),
             totalCollected,
           };
 

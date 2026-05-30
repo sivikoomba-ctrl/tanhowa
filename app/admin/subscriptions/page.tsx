@@ -68,12 +68,12 @@ interface Subscription {
 }
 
 interface Stats {
-  paid: number;
-  pending: number;
-  overdue: number;
-  rejected: number;
-  hold: number;
-  proofUploaded: number;
+  paid: number; paidAmount: number;
+  pending: number; pendingAmount: number;
+  overdue: number; overdueAmount: number;
+  rejected: number; rejectedAmount: number;
+  hold: number; holdAmount: number;
+  proofUploaded: number; proofUploadedAmount: number;
   totalCollected: number;
 }
 
@@ -89,7 +89,7 @@ const yearOptions = Array.from({ length: 7 }, (_, i) => String(currentYear - 2 +
 
 export default function AdminSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [stats, setStats] = useState<Stats>({ paid: 0, pending: 0, overdue: 0, rejected: 0, hold: 0, proofUploaded: 0, totalCollected: 0 });
+  const [stats, setStats] = useState<Stats>({ paid: 0, paidAmount: 0, pending: 0, pendingAmount: 0, overdue: 0, overdueAmount: 0, rejected: 0, rejectedAmount: 0, hold: 0, holdAmount: 0, proofUploaded: 0, proofUploadedAmount: 0, totalCollected: 0 });
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPeriod, setFilterPeriod] = useState("all");
@@ -1352,14 +1352,14 @@ export default function AdminSubscriptionsPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
         {[
-          { label: "Paid", value: stats.paid, color: "text-green-600", iconColor: "text-green-500", Icon: CheckCircle2, filter: "paid", badge: undefined },
-          { label: "Proof Uploaded", value: stats.proofUploaded, color: "text-blue-600", iconColor: "text-blue-400", Icon: FileCheck, filter: "proof-uploaded", badge: "View all →" },
-          { label: "Pending", value: stats.pending, color: "text-amber-600", iconColor: "text-amber-500", Icon: Clock, filter: "pending", badge: undefined },
-          { label: "Overdue", value: stats.overdue, color: "text-red-600", iconColor: "text-red-500", Icon: AlertTriangle, filter: "overdue", badge: undefined },
-          { label: "On Hold", value: stats.hold, color: "text-purple-600", iconColor: "text-purple-400", Icon: PauseCircle, filter: "hold", badge: undefined },
-          { label: "Rejected", value: stats.rejected, color: "text-rose-700", iconColor: "text-rose-400", Icon: XCircle, filter: "rejected", badge: undefined },
-          { label: "Collected", value: null, amount: stats.totalCollected, color: "text-foreground", iconColor: "text-primary", Icon: IndianRupee, filter: null, badge: undefined },
-        ].map(({ label, value, amount, color, iconColor, Icon, filter, badge }) => (
+          { label: "Paid", value: stats.paid, subAmount: stats.paidAmount, color: "text-green-600", iconColor: "text-green-500", Icon: CheckCircle2, filter: "paid", badge: undefined },
+          { label: "Proof Uploaded", value: stats.proofUploaded, subAmount: stats.proofUploadedAmount, color: "text-blue-600", iconColor: "text-blue-400", Icon: FileCheck, filter: "proof-uploaded", badge: "View all →" },
+          { label: "Pending", value: stats.pending, subAmount: stats.pendingAmount, color: "text-amber-600", iconColor: "text-amber-500", Icon: Clock, filter: "pending", badge: undefined },
+          { label: "Overdue", value: stats.overdue, subAmount: stats.overdueAmount, color: "text-red-600", iconColor: "text-red-500", Icon: AlertTriangle, filter: "overdue", badge: undefined },
+          { label: "On Hold", value: stats.hold, subAmount: stats.holdAmount, color: "text-purple-600", iconColor: "text-purple-400", Icon: PauseCircle, filter: "hold", badge: undefined },
+          { label: "Rejected", value: stats.rejected, subAmount: stats.rejectedAmount, color: "text-rose-700", iconColor: "text-rose-400", Icon: XCircle, filter: "rejected", badge: undefined },
+          { label: "Collected", value: null, subAmount: undefined, amount: stats.totalCollected, color: "text-foreground", iconColor: "text-primary", Icon: IndianRupee, filter: null, badge: undefined },
+        ].map(({ label, value, subAmount, amount, color, iconColor, Icon, filter, badge }) => (
           <Card
             key={label}
             className={filter ? "cursor-pointer hover:border-primary/40 transition-colors" : ""}
@@ -1372,6 +1372,9 @@ export default function AdminSubscriptionsPage() {
                   <p className={`text-lg sm:text-xl font-bold ${color}`}>
                     {amount !== undefined ? `₹${amount.toLocaleString("en-IN")}` : value}
                   </p>
+                  {subAmount !== undefined && subAmount > 0 && (
+                    <p className="text-[10px] text-muted-foreground font-mono mt-0.5">₹{subAmount.toLocaleString("en-IN")}</p>
+                  )}
                   {badge && <p className="text-[10px] text-blue-500 font-medium mt-0.5">{badge}</p>}
                 </div>
                 <Icon className={`w-5 h-5 sm:w-6 sm:h-6 shrink-0 opacity-40 ${iconColor}`} />
