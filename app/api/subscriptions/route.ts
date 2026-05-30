@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
 
       if (period) query = query.eq("period", period);
       if (status && status !== "all") query = query.eq("status", status);
-      if (hasProof) query = query.gt("payment_proof_url", "").in("status", ["pending", "overdue"]);
+      if (hasProof) query = query.gt("payment_proof_url", "").in("status", ["pending", "overdue"]).not("remarks", "ilike", "Verified by%").not("remarks", "ilike", "Provisionally approved.%").not("remarks", "ilike", "Approved.%");
 
       const [{ data: subscriptions, count: totalCount, error: subError }, paidRes, pendingRes, overdueRes, rejectedRes, holdRes, proofUploadedRes, totalAmountRes] = await Promise.all([
         query,
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "overdue"),
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "rejected"),
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "hold"),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).gt("payment_proof_url", "").in("status", ["pending", "overdue"]),
+        supabase.from("subscriptions").select("id", { count: "exact", head: true }).gt("payment_proof_url", "").in("status", ["pending", "overdue"]).not("remarks", "ilike", "Verified by%").not("remarks", "ilike", "Provisionally approved.%").not("remarks", "ilike", "Approved.%"),
         supabase.from("subscriptions").select("amount").eq("status", "paid"),
       ]);
 
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
             overdue: visibleSubscriptions.filter((sub) => sub.status === "overdue").length,
             rejected: visibleSubscriptions.filter((sub) => sub.status === "rejected").length,
             hold: visibleSubscriptions.filter((sub) => sub.status === "hold").length,
-            proofUploaded: visibleSubscriptions.filter((sub) => sub.payment_proof_url && sub.payment_proof_url !== "" && ["pending", "overdue"].includes(sub.status)).length,
+            proofUploaded: visibleSubscriptions.filter((sub) => sub.payment_proof_url && sub.payment_proof_url !== "" && ["pending", "overdue"].includes(sub.status) && !(sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved.") || sub.remarks.startsWith("Approved.")))).length,
             totalCollected,
           }
         : {

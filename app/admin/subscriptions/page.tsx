@@ -547,6 +547,7 @@ export default function AdminSubscriptionsPage() {
           ? sub.status === "pending" || sub.status === "overdue"
           : filterStatus === "proof-uploaded"
             ? !!sub.payment_proof_url && sub.status !== "paid" && sub.status !== "rejected" && sub.status !== "hold"
+              && !(sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved.") || sub.remarks.startsWith("Approved.")))
             : filterStatus === "ds-verified"
               ? !!sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved.") || sub.remarks.startsWith("Approved."))
               : sub.status === filterStatus);
