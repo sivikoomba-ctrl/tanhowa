@@ -1363,7 +1363,15 @@ export default function AdminSubscriptionsPage() {
           <Card
             key={label}
             className={filter ? "cursor-pointer hover:border-primary/40 transition-colors" : ""}
-            onClick={() => filter && setFilterStatus(filterStatus === filter ? "all" : filter)}
+            onClick={() => {
+              if (!filter) return;
+              const next = filterStatus === filter ? "all" : filter;
+              setFilterStatus(next);
+              setFilterPeriod("all");
+              setFilterDistrict("all");
+              setFilterUploadTime("all");
+              setSearchQuery("");
+            }}
           >
             <CardContent className="pt-3 pb-3">
               <div className="flex items-center justify-between gap-1">
