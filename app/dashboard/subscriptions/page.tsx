@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, Save, Calculator, ScanLine } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, Save, Calculator, ScanLine, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -116,6 +116,29 @@ export default function SubscriptionsPage() {
     } finally {
       setExtracting(false);
     }
+  }
+
+  async function handleRemoveProof() {
+    if (!detailsSub) return;
+    setDetailsSaving(true);
+    try {
+      const res = await fetch("/api/subscriptions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: detailsSub.id, payment_proof_url: "" }),
+      });
+      if (res.ok) {
+        toast.success("Proof removed. You can upload a new one.");
+        setDetailsSub({ ...detailsSub, payment_proof_url: null });
+        setDetailsProofSignedUrl(null);
+        load();
+      } else {
+        toast.error("Failed to remove proof");
+      }
+    } catch {
+      toast.error("Failed to remove proof");
+    }
+    setDetailsSaving(false);
   }
 
   function downloadReceipt(sub: Subscription) {
@@ -1064,7 +1087,7 @@ export default function SubscriptionsPage() {
 
       {/* Payment Details Dialog */}
       <Dialog open={!!detailsSub} onOpenChange={(open) => !open && setDetailsSub(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Payment Details</DialogTitle>
           </DialogHeader>
@@ -1076,14 +1099,20 @@ export default function SubscriptionsPage() {
               </p>
               {detailsSub.payment_proof_url && detailsProofSignedUrl && (
                 <div className="space-y-2">
-                  <div className="rounded-lg overflow-hidden border max-h-40">
+                  <div className="rounded-lg overflow-hidden border max-h-48 overflow-y-auto">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={detailsProofSignedUrl} alt="Proof" className="w-full object-contain max-h-40" />
+                    <img src={detailsProofSignedUrl} alt="Proof" className="w-full object-contain" />
                   </div>
-                  <Button type="button" variant="outline" size="sm" className="w-full gap-2" onClick={handleRescan} disabled={extracting}>
-                    <ScanLine size={15} />
-                    {extracting ? "Scanning proof..." : "Re-scan proof for details"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" className="flex-1 gap-2" onClick={handleRescan} disabled={extracting || detailsSaving}>
+                      <ScanLine size={15} />
+                      {extracting ? "Scanning..." : "Re-scan proof"}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="gap-2 text-destructive hover:text-destructive" onClick={handleRemoveProof} disabled={extracting || detailsSaving}>
+                      <Trash2 size={15} />
+                      Remove
+                    </Button>
+                  </div>
                 </div>
               )}
               <form onSubmit={(e) => handleSaveDetails(e, false)} className="space-y-4">
