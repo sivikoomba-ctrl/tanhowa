@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
       const limit = Math.min(parseInt(url.searchParams.get("limit") || "500"), 2000);
       const offset = parseInt(url.searchParams.get("offset") || "0");
       const hasProof = url.searchParams.get("has_proof") === "true";
+      const notPaid = url.searchParams.get("not_paid") === "true";
 
       let query = supabase
         .from("subscriptions")
@@ -81,6 +82,7 @@ export async function GET(req: NextRequest) {
 
       if (period) query = query.eq("period", period);
       if (status && status !== "all") query = query.eq("status", status);
+      if (notPaid) query = query.in("status", ["pending", "overdue"]);
       if (hasProof) query = query.gt("payment_proof_url", "").in("status", ["pending", "overdue"]).not("remarks", "ilike", "Verified by%").not("remarks", "ilike", "Provisionally approved.%").not("remarks", "ilike", "Approved.%");
 
       const [{ data: subscriptions, count: totalCount, error: subError }, paidRes, pendingRes, overdueRes, rejectedRes, holdRes, proofUploadedRes] = await Promise.all([

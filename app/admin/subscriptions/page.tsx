@@ -187,15 +187,17 @@ export default function AdminSubscriptionsPage() {
   }
 
   // Statuses that can be filtered server-side (avoids missing records beyond the page limit)
-  const SERVER_FILTERABLE = ["paid", "pending", "overdue", "rejected", "hold", "proof-uploaded"];
+  const SERVER_FILTERABLE = ["paid", "pending", "overdue", "rejected", "hold", "proof-uploaded", "not-paid"];
 
   function load(statusFilter?: string) {
     setPageLoading(true);
     const isProofFilter = statusFilter === "proof-uploaded";
-    const apiStatus = statusFilter && !isProofFilter && SERVER_FILTERABLE.includes(statusFilter) ? `&status=${statusFilter}` : "";
+    const isNotPaidFilter = statusFilter === "not-paid";
+    const apiStatus = statusFilter && !isProofFilter && !isNotPaidFilter && SERVER_FILTERABLE.includes(statusFilter) ? `&status=${statusFilter}` : "";
     const apiProof = isProofFilter ? "&has_proof=true" : "";
+    const apiNotPaid = isNotPaidFilter ? "&not_paid=true" : "";
     Promise.all([
-      fetch(`/api/subscriptions?limit=2000${apiStatus}${apiProof}`).then((r) => r.json()),
+      fetch(`/api/subscriptions?limit=2000${apiStatus}${apiProof}${apiNotPaid}`).then((r) => r.json()),
       fetch("/api/settings").then((r) => r.json()),
     ])
       .then(([subData, settingsData]) => {
