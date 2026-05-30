@@ -1827,7 +1827,7 @@ export default function AdminSubscriptionsPage() {
                             <span title={p} className="cursor-help flex flex-col items-end gap-0.5">
                               <span>Special Fund</span>
                               <span className="text-[10px] font-normal text-muted-foreground border-b border-dashed border-muted-foreground">
-                                {p.replace(/^For\s+/i, "").replace(/\s+Case\s+\d{4}$/i, "")}
+                                {p.replace(/^For\s+/i, "").replace(/\s+Case\s+(\d{4})$/i, " $1")}
                               </span>
                             </span>
                           )}
