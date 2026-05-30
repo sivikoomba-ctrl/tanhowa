@@ -81,11 +81,14 @@ export async function GET(req: NextRequest) {
       if (period) query = query.eq("period", period);
       if (status && status !== "all") query = query.eq("status", status);
 
-      const [{ data: subscriptions, count: totalCount, error: subError }, paidRes, pendingRes, overdueRes, totalAmountRes] = await Promise.all([
+      const [{ data: subscriptions, count: totalCount, error: subError }, paidRes, pendingRes, overdueRes, rejectedRes, holdRes, proofUploadedRes, totalAmountRes] = await Promise.all([
         query,
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "paid"),
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "overdue"),
+        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "rejected"),
+        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "hold"),
+        supabase.from("subscriptions").select("id", { count: "exact", head: true }).not("payment_proof_url", "is", null).in("status", ["pending", "overdue"]),
         supabase.from("subscriptions").select("amount").eq("status", "paid"),
       ]);
 
@@ -112,12 +115,18 @@ export async function GET(req: NextRequest) {
             paid: visibleSubscriptions.filter((sub) => sub.status === "paid").length,
             pending: visibleSubscriptions.filter((sub) => sub.status === "pending").length,
             overdue: visibleSubscriptions.filter((sub) => sub.status === "overdue").length,
+            rejected: visibleSubscriptions.filter((sub) => sub.status === "rejected").length,
+            hold: visibleSubscriptions.filter((sub) => sub.status === "hold").length,
+            proofUploaded: visibleSubscriptions.filter((sub) => sub.payment_proof_url && ["pending", "overdue"].includes(sub.status)).length,
             totalCollected,
           }
         : {
             paid: paidRes.count || 0,
             pending: pendingRes.count || 0,
             overdue: overdueRes.count || 0,
+            rejected: rejectedRes.count || 0,
+            hold: holdRes.count || 0,
+            proofUploaded: proofUploadedRes.count || 0,
             totalCollected,
           };
 

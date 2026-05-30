@@ -35,6 +35,9 @@ import {
   X,
   ChevronDown,
   FileDown,
+  XCircle,
+  PauseCircle,
+  FileCheck,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { buildCertifiedRemarks } from "@/lib/payment-verification";
@@ -68,6 +71,9 @@ interface Stats {
   paid: number;
   pending: number;
   overdue: number;
+  rejected: number;
+  hold: number;
+  proofUploaded: number;
   totalCollected: number;
 }
 
@@ -83,7 +89,7 @@ const yearOptions = Array.from({ length: 7 }, (_, i) => String(currentYear - 2 +
 
 export default function AdminSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [stats, setStats] = useState<Stats>({ paid: 0, pending: 0, overdue: 0, totalCollected: 0 });
+  const [stats, setStats] = useState<Stats>({ paid: 0, pending: 0, overdue: 0, rejected: 0, hold: 0, proofUploaded: 0, totalCollected: 0 });
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPeriod, setFilterPeriod] = useState("all");
@@ -1341,51 +1347,34 @@ export default function AdminSubscriptionsPage() {
         <TabsContent value="members" className="space-y-6 mt-4">
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-        <Card>
-          <CardContent className="pt-3 sm:pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">Paid</p>
-                <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.paid}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
+        {[
+          { label: "Paid", value: stats.paid, color: "text-green-600", iconColor: "text-green-500", Icon: CheckCircle2, filter: "paid" },
+          { label: "Proof Uploaded", value: stats.proofUploaded, color: "text-blue-600", iconColor: "text-blue-400", Icon: FileCheck, filter: "proof-uploaded" },
+          { label: "Pending", value: stats.pending, color: "text-amber-600", iconColor: "text-amber-500", Icon: Clock, filter: "pending" },
+          { label: "Overdue", value: stats.overdue, color: "text-red-600", iconColor: "text-red-500", Icon: AlertTriangle, filter: "overdue" },
+          { label: "On Hold", value: stats.hold, color: "text-purple-600", iconColor: "text-purple-400", Icon: PauseCircle, filter: "hold" },
+          { label: "Rejected", value: stats.rejected, color: "text-rose-700", iconColor: "text-rose-400", Icon: XCircle, filter: "rejected" },
+          { label: "Collected", value: null, amount: stats.totalCollected, color: "text-foreground", iconColor: "text-primary", Icon: IndianRupee, filter: null },
+        ].map(({ label, value, amount, color, iconColor, Icon, filter }) => (
+          <Card
+            key={label}
+            className={filter ? "cursor-pointer hover:border-primary/40 transition-colors" : ""}
+            onClick={() => filter && setFilterStatus(filterStatus === filter ? "all" : filter)}
+          >
+            <CardContent className="pt-3 pb-3">
+              <div className="flex items-center justify-between gap-1">
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{label}</p>
+                  <p className={`text-lg sm:text-xl font-bold ${color}`}>
+                    {amount !== undefined ? `₹${amount.toLocaleString("en-IN")}` : value}
+                  </p>
+                </div>
+                <Icon className={`w-5 h-5 sm:w-6 sm:h-6 shrink-0 opacity-40 ${iconColor}`} />
               </div>
-              <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3 sm:pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">Pending</p>
-                <p className="text-xl sm:text-2xl font-bold text-amber-600">{stats.pending}</p>
-              </div>
-              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-amber-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3 sm:pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">Overdue</p>
-                <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.overdue}</p>
-              </div>
-              <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3 sm:pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">Collected</p>
-                <p className="text-xl sm:text-2xl font-bold">&#8377;{stats.totalCollected.toLocaleString("en-IN")}</p>
-              </div>
-              <IndianRupee className="w-6 h-6 sm:w-8 sm:h-8 text-primary opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Search & Filter */}
