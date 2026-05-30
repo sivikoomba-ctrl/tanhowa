@@ -1823,7 +1823,14 @@ export default function AdminSubscriptionsPage() {
                       <th className="text-center px-3 sm:px-4 py-3 font-semibold text-xs sm:text-sm">Members</th>
                       {districtPeriods.map((p) => (
                         <th key={p} className="text-right px-3 sm:px-4 py-3 font-semibold text-xs sm:text-sm whitespace-nowrap">
-                          {/^\d{4}$/.test(p) ? p : <span title={p} className="cursor-help border-b border-dashed border-muted-foreground">{p.replace(/^For\s+/i, "").replace(/\s+Case\s+\d{4}$/i, "")}</span>}
+                          {/^\d{4}$/.test(p) ? p : (
+                            <span title={p} className="cursor-help flex flex-col items-end gap-0.5">
+                              <span>Special Fund</span>
+                              <span className="text-[10px] font-normal text-muted-foreground border-b border-dashed border-muted-foreground">
+                                {p.replace(/^For\s+/i, "").replace(/\s+Case\s+\d{4}$/i, "")}
+                              </span>
+                            </span>
+                          )}
                         </th>
                       ))}
                       <th className="text-right px-3 sm:px-4 py-3 font-semibold text-xs sm:text-sm">Total</th>
