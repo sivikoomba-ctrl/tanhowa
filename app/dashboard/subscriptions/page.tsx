@@ -76,6 +76,7 @@ export default function SubscriptionsPage() {
   const [detailsSub, setDetailsSub] = useState<Subscription | null>(null);
   const [detailsForm, setDetailsForm] = useState({ transaction_id: "", payment_method: "", remarks: "", paying_for_others: false, other_members: "", amount: "" });
   const [detailsSaving, setDetailsSaving] = useState(false);
+  const [isNewUpload, setIsNewUpload] = useState(false);
   const [qrZoom, setQrZoom] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [member, setMember] = useState<MemberInfo | null>(null);
@@ -468,7 +469,8 @@ export default function SubscriptionsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success("Payment proof uploaded! Extracting details...");
+        toast.success("Proof uploaded! Enter your transaction ID below and click Submit to notify admin.", { duration: 6000 });
+        setIsNewUpload(true);
         load();
         // Open details dialog for this subscription
         const sub = subscriptions.find((s) => s.id === uploadTargetId);
@@ -600,6 +602,7 @@ export default function SubscriptionsPage() {
   }
 
   function openEditDetails(sub: Subscription) {
+    setIsNewUpload(false);
     setDetailsSub(sub);
     setDetailsProofSignedUrl(null);
     if (sub.payment_proof_url) {
@@ -1317,12 +1320,20 @@ export default function SubscriptionsPage() {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" variant="outline" className="flex-1" disabled={detailsSaving}>
-                    {detailsSaving ? "Saving..." : "Save"}
-                  </Button>
-                  <Button type="button" disabled={detailsSaving} className="flex-1 bg-primary hover:bg-primary/90" onClick={() => handleSaveDetails(null, true)}>
-                    {detailsSaving ? "Submitting..." : "Submit for Review"}
-                  </Button>
+                  {isNewUpload ? (
+                    <Button type="button" disabled={detailsSaving} className="w-full bg-primary hover:bg-primary/90" onClick={() => handleSaveDetails(null, true)}>
+                      {detailsSaving ? "Submitting..." : "Submit for Review"}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button type="submit" variant="outline" className="flex-1" disabled={detailsSaving}>
+                        {detailsSaving ? "Saving..." : "Save Details"}
+                      </Button>
+                      <Button type="button" disabled={detailsSaving} className="flex-1 bg-primary hover:bg-primary/90" onClick={() => handleSaveDetails(null, true)}>
+                        {detailsSaving ? "Submitting..." : "Resubmit for Review"}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </form>
             </>
