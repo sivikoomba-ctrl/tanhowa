@@ -180,10 +180,14 @@ export default function AdminSubscriptionsPage() {
       .finally(() => setDistrictLoading(false));
   }
 
-  function load() {
+  // Statuses that can be filtered server-side (avoids missing records beyond the page limit)
+  const SERVER_FILTERABLE = ["paid", "pending", "overdue", "rejected", "hold"];
+
+  function load(statusFilter?: string) {
     setPageLoading(true);
+    const apiStatus = statusFilter && SERVER_FILTERABLE.includes(statusFilter) ? `&status=${statusFilter}` : "";
     Promise.all([
-      fetch("/api/subscriptions").then((r) => r.json()),
+      fetch(`/api/subscriptions?limit=1000${apiStatus}`).then((r) => r.json()),
       fetch("/api/settings").then((r) => r.json()),
     ])
       .then(([subData, settingsData]) => {
@@ -492,6 +496,20 @@ export default function AdminSubscriptionsPage() {
       }
     }).catch(() => {});
   }, []);
+
+  // Re-fetch from server when switching to a status that requires server-side filtering
+  // (avoids showing 0 results when the relevant records fall beyond the initial page)
+  const prevFilterStatus = useRef(filterStatus);
+  useEffect(() => {
+    if (prevFilterStatus.current === filterStatus) return;
+    prevFilterStatus.current = filterStatus;
+    if (SERVER_FILTERABLE.includes(filterStatus)) {
+      load(filterStatus);
+    } else if (filterStatus === "all") {
+      load(); // reload full set when clearing the filter
+    }
+    // Complex client-side filters (not-paid, proof-uploaded, ds-verified) reuse the loaded set
+  }, [filterStatus]);
 
   const periods = useMemo(() => {
     const set = new Set(subscriptions.map((s) => s.period));
