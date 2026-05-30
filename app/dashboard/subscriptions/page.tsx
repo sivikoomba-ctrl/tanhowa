@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, Save, Calculator } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, Save, Calculator, ScanLine } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -91,6 +91,32 @@ export default function SubscriptionsPage() {
   const duesFileRef = useRef<HTMLInputElement>(null);
   const [duesProofPreview, setDuesProofPreview] = useState<string | null>(null);
   const [detailsProofSignedUrl, setDetailsProofSignedUrl] = useState<string | null>(null);
+
+  async function handleRescan() {
+    if (!detailsProofSignedUrl) return;
+    setExtracting(true);
+    try {
+      const fd = new FormData();
+      fd.append("image_url", detailsProofSignedUrl);
+      const res = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.transaction_id || data.payment_method || data.amount) {
+        setDetailsForm((prev) => ({
+          ...prev,
+          transaction_id: data.transaction_id || prev.transaction_id,
+          payment_method: data.payment_method || prev.payment_method,
+          ...(data.amount ? { amount: String(data.amount) } : {}),
+        }));
+        toast.success("Details extracted from proof.");
+      } else {
+        toast.info("Could not extract details. Please fill in manually.");
+      }
+    } catch {
+      toast.error("Re-scan failed.");
+    } finally {
+      setExtracting(false);
+    }
+  }
 
   function downloadReceipt(sub: Subscription) {
     const doc = new jsPDF();
@@ -1041,9 +1067,15 @@ export default function SubscriptionsPage() {
                 Admin will verify based on these details and your uploaded proof.
               </p>
               {detailsSub.payment_proof_url && detailsProofSignedUrl && (
-                <div className="rounded-lg overflow-hidden border max-h-40">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={detailsProofSignedUrl} alt="Proof" className="w-full object-contain max-h-40" />
+                <div className="space-y-2">
+                  <div className="rounded-lg overflow-hidden border max-h-40">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={detailsProofSignedUrl} alt="Proof" className="w-full object-contain max-h-40" />
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="w-full gap-2" onClick={handleRescan} disabled={extracting}>
+                    <ScanLine size={15} />
+                    {extracting ? "Scanning proof..." : "Re-scan proof for details"}
+                  </Button>
                 </div>
               )}
               <form onSubmit={handleSaveDetails} className="space-y-4">
