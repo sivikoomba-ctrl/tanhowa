@@ -187,13 +187,15 @@ export default function AdminSubscriptionsPage() {
   }
 
   // Statuses that can be filtered server-side (avoids missing records beyond the page limit)
-  const SERVER_FILTERABLE = ["paid", "pending", "overdue", "rejected", "hold"];
+  const SERVER_FILTERABLE = ["paid", "pending", "overdue", "rejected", "hold", "proof-uploaded"];
 
   function load(statusFilter?: string) {
     setPageLoading(true);
-    const apiStatus = statusFilter && SERVER_FILTERABLE.includes(statusFilter) ? `&status=${statusFilter}` : "";
+    const isProofFilter = statusFilter === "proof-uploaded";
+    const apiStatus = statusFilter && !isProofFilter && SERVER_FILTERABLE.includes(statusFilter) ? `&status=${statusFilter}` : "";
+    const apiProof = isProofFilter ? "&has_proof=true" : "";
     Promise.all([
-      fetch(`/api/subscriptions?limit=1000${apiStatus}`).then((r) => r.json()),
+      fetch(`/api/subscriptions?limit=2000${apiStatus}${apiProof}`).then((r) => r.json()),
       fetch("/api/settings").then((r) => r.json()),
     ])
       .then(([subData, settingsData]) => {
@@ -1349,14 +1351,14 @@ export default function AdminSubscriptionsPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
         {[
-          { label: "Paid", value: stats.paid, color: "text-green-600", iconColor: "text-green-500", Icon: CheckCircle2, filter: "paid" },
-          { label: "Proof Uploaded", value: stats.proofUploaded, color: "text-blue-600", iconColor: "text-blue-400", Icon: FileCheck, filter: "proof-uploaded" },
-          { label: "Pending", value: stats.pending, color: "text-amber-600", iconColor: "text-amber-500", Icon: Clock, filter: "pending" },
-          { label: "Overdue", value: stats.overdue, color: "text-red-600", iconColor: "text-red-500", Icon: AlertTriangle, filter: "overdue" },
-          { label: "On Hold", value: stats.hold, color: "text-purple-600", iconColor: "text-purple-400", Icon: PauseCircle, filter: "hold" },
-          { label: "Rejected", value: stats.rejected, color: "text-rose-700", iconColor: "text-rose-400", Icon: XCircle, filter: "rejected" },
-          { label: "Collected", value: null, amount: stats.totalCollected, color: "text-foreground", iconColor: "text-primary", Icon: IndianRupee, filter: null },
-        ].map(({ label, value, amount, color, iconColor, Icon, filter }) => (
+          { label: "Paid", value: stats.paid, color: "text-green-600", iconColor: "text-green-500", Icon: CheckCircle2, filter: "paid", badge: undefined },
+          { label: "Proof Uploaded", value: stats.proofUploaded, color: "text-blue-600", iconColor: "text-blue-400", Icon: FileCheck, filter: "proof-uploaded", badge: "View all →" },
+          { label: "Pending", value: stats.pending, color: "text-amber-600", iconColor: "text-amber-500", Icon: Clock, filter: "pending", badge: undefined },
+          { label: "Overdue", value: stats.overdue, color: "text-red-600", iconColor: "text-red-500", Icon: AlertTriangle, filter: "overdue", badge: undefined },
+          { label: "On Hold", value: stats.hold, color: "text-purple-600", iconColor: "text-purple-400", Icon: PauseCircle, filter: "hold", badge: undefined },
+          { label: "Rejected", value: stats.rejected, color: "text-rose-700", iconColor: "text-rose-400", Icon: XCircle, filter: "rejected", badge: undefined },
+          { label: "Collected", value: null, amount: stats.totalCollected, color: "text-foreground", iconColor: "text-primary", Icon: IndianRupee, filter: null, badge: undefined },
+        ].map(({ label, value, amount, color, iconColor, Icon, filter, badge }) => (
           <Card
             key={label}
             className={filter ? "cursor-pointer hover:border-primary/40 transition-colors" : ""}
@@ -1369,6 +1371,7 @@ export default function AdminSubscriptionsPage() {
                   <p className={`text-lg sm:text-xl font-bold ${color}`}>
                     {amount !== undefined ? `₹${amount.toLocaleString("en-IN")}` : value}
                   </p>
+                  {badge && <p className="text-[10px] text-blue-500 font-medium mt-0.5">{badge}</p>}
                 </div>
                 <Icon className={`w-5 h-5 sm:w-6 sm:h-6 shrink-0 opacity-40 ${iconColor}`} />
               </div>

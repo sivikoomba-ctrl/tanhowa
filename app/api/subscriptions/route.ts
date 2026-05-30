@@ -69,8 +69,9 @@ export async function GET(req: NextRequest) {
       }
 
       // Build query — fetch subscriptions and stats in parallel
-      const limit = Math.min(parseInt(url.searchParams.get("limit") || "500"), 1000);
+      const limit = Math.min(parseInt(url.searchParams.get("limit") || "500"), 2000);
       const offset = parseInt(url.searchParams.get("offset") || "0");
+      const hasProof = url.searchParams.get("has_proof") === "true";
 
       let query = supabase
         .from("subscriptions")
@@ -80,6 +81,7 @@ export async function GET(req: NextRequest) {
 
       if (period) query = query.eq("period", period);
       if (status && status !== "all") query = query.eq("status", status);
+      if (hasProof) query = query.not("payment_proof_url", "is", null).in("status", ["pending", "overdue"]);
 
       const [{ data: subscriptions, count: totalCount, error: subError }, paidRes, pendingRes, overdueRes, rejectedRes, holdRes, proofUploadedRes, totalAmountRes] = await Promise.all([
         query,
