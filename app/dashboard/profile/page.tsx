@@ -16,7 +16,7 @@ import {
   GraduationCap, Globe, Save, Building2, ChevronDown, ChevronUp, Navigation, Bell,
   Download, IdCard,
 } from "lucide-react";
-import { DISTRICT_NAMES, getBlocks, TN_HORTICULTURE_FARMS_DATA, FARM_TYPE_ORDER } from "@/lib/tn-districts";
+import { DISTRICT_NAMES, TN_HORTICULTURE_FARMS_DATA, FARM_TYPE_ORDER, POSTING_LOCATION_GROUPS } from "@/lib/tn-districts";
 import { useT } from "@/lib/i18n";
 import { DateDropdowns } from "@/components/date-dropdowns";
 import type { TranslationKey } from "@/lib/i18n/translations";
@@ -117,7 +117,7 @@ function getProfileCompletion(p: Profile): { percent: number; missing: string[] 
     [!!p.phone, "Phone"],
     [!!p.occupation, "Designation"],
     [!!p.posting_details.regular_district, "District"],
-    [!!p.posting_details.regular_block, "Block"],
+    [!!p.posting_details.regular_block, "Posting location"],
     [!!p.photo_url, "Profile Photo"],
     [!!p.dob, "Date of Birth"],
     [!!p.gender, "Gender"],
@@ -401,10 +401,6 @@ export default function ProfilePage() {
     </div>
   );
 
-  const regularBlocks = getBlocks(profile.posting_details.regular_district);
-  const specialBlocks = getBlocks(profile.posting_details.special_duty_district);
-  const deputedBlocks = getBlocks(profile.posting_details.deputed_district);
-
   const farmGroupsJsx = (
     <>
       <SelectItem value="none">{t("opt.none")}</SelectItem>
@@ -421,6 +417,20 @@ export default function ProfilePage() {
           </SelectGroup>
         );
       })}
+    </>
+  );
+
+  const postingLocationGroupsJsx = (
+    <>
+      <SelectItem value="none">{t("opt.none")}</SelectItem>
+      {POSTING_LOCATION_GROUPS.map((group) => (
+        <SelectGroup key={group.key}>
+          <SelectLabel>{group.label}</SelectLabel>
+          {group.options.map((option) => (
+            <SelectItem key={`${group.key}-${option.value}`} value={option.value}>{option.label}</SelectItem>
+          ))}
+        </SelectGroup>
+      ))}
     </>
   );
 
@@ -912,17 +922,10 @@ export default function ProfilePage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">{t("posting.block")}</Label>
-                      <Select value={profile.posting_details.regular_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_block: val === "none" ? "" : val } })} disabled={!profile.posting_details.regular_district}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_block")} /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{regularBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs text-muted-foreground">{t("posting.farms_if_applicable")}</Label>
-                      <Select value={profile.posting_details.regular_farm || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_farm: val === "none" ? "" : val } })}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_farm")} /></SelectTrigger>
-                        <SelectContent>{farmGroupsJsx}</SelectContent>
+                      <Label className="text-xs text-muted-foreground">{t("posting.location")}</Label>
+                      <Select value={profile.posting_details.regular_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_block: val === "none" ? "" : val, regular_farm: "" } })}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_location")} /></SelectTrigger>
+                        <SelectContent>{postingLocationGroupsJsx}</SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -940,10 +943,10 @@ export default function ProfilePage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">{t("posting.block")}</Label>
-                      <Select value={profile.posting_details.special_duty_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_block: val === "none" ? "" : val } })} disabled={!profile.posting_details.special_duty_district}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_block")} /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{specialBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                      <Label className="text-xs text-muted-foreground">{t("posting.location")}</Label>
+                      <Select value={profile.posting_details.special_duty_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_block: val === "none" ? "" : val } })}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_location")} /></SelectTrigger>
+                        <SelectContent>{postingLocationGroupsJsx}</SelectContent>
                       </Select>
                     </div>
                     <div className="col-span-2">
@@ -986,10 +989,10 @@ export default function ProfilePage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">{t("posting.block")}</Label>
-                      <Select value={profile.posting_details.deputed_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_block: val === "none" ? "" : val } })} disabled={!profile.posting_details.deputed_district}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_block")} /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{deputedBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                      <Label className="text-xs text-muted-foreground">{t("posting.location")}</Label>
+                      <Select value={profile.posting_details.deputed_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_block: val === "none" ? "" : val } })}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_location")} /></SelectTrigger>
+                        <SelectContent>{postingLocationGroupsJsx}</SelectContent>
                       </Select>
                     </div>
                   </div>

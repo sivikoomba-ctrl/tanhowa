@@ -393,14 +393,14 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                     <div>
                       <p className="text-xs font-semibold text-primary">Regular Posting</p>
                       {u.posting_details.regular_district && <p>District: {u.posting_details.regular_district}</p>}
-                      {u.posting_details.regular_block && <p>Block: {u.posting_details.regular_block}</p>}
+                      {u.posting_details.regular_block && <p>Posting: {u.posting_details.regular_block}</p>}
                     </div>
                   )}
                   {(u.posting_details.special_duty_district || u.posting_details.special_duty_block || u.posting_details.special_duty_place) && (
                     <div>
                       <p className="text-xs font-semibold text-accent">Special Duty</p>
                       {u.posting_details.special_duty_district && <p>District: {u.posting_details.special_duty_district}</p>}
-                      {u.posting_details.special_duty_block && <p>Block: {u.posting_details.special_duty_block}</p>}
+                      {u.posting_details.special_duty_block && <p>Posting: {u.posting_details.special_duty_block}</p>}
                       {u.posting_details.special_duty_place && <p>Place: {u.posting_details.special_duty_place}</p>}
                     </div>
                   )}
@@ -408,7 +408,7 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                     <div>
                       <p className="text-xs font-semibold text-secondary">Deputed</p>
                       {u.posting_details.deputed_district && <p>District: {u.posting_details.deputed_district}</p>}
-                      {u.posting_details.deputed_block && <p>Block: {u.posting_details.deputed_block}</p>}
+                      {u.posting_details.deputed_block && <p>Posting: {u.posting_details.deputed_block}</p>}
                     </div>
                   )}
                 </div>

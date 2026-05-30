@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Pencil } from "lucide-react";
 import { DateDropdowns } from "@/components/date-dropdowns";
-import { DISTRICT_NAMES, getBlocks } from "@/lib/tn-districts";
+import { DISTRICT_NAMES, POSTING_LOCATION_GROUPS } from "@/lib/tn-districts";
 
 interface PostingDetails {
   regular_district?: string;
@@ -131,6 +131,20 @@ export default function EditUserDialog({ user, open, onOpenChange, onSave }: Edi
     setEditSaving(false);
   }
 
+  const postingLocationGroups = (
+    <>
+      <SelectItem value="none">Select</SelectItem>
+      {POSTING_LOCATION_GROUPS.map((group) => (
+        <SelectGroup key={group.key}>
+          <SelectLabel>{group.label}</SelectLabel>
+          {group.options.map((option) => (
+            <SelectItem key={`${group.key}-${option.value}`} value={option.value}>{option.label}</SelectItem>
+          ))}
+        </SelectGroup>
+      ))}
+    </>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -197,18 +211,11 @@ export default function EditUserDialog({ user, open, onOpenChange, onSave }: Edi
               </Select>
             </div>
             <div>
-              <Label className="text-sm">Block</Label>
-              {editForm.regular_district && getBlocks(editForm.regular_district).length > 0 ? (
-                <Select value={editForm.regular_block || "none"} onValueChange={(v) => setEditForm({ ...editForm, regular_block: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="Select block" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Select</SelectItem>
-                    {getBlocks(editForm.regular_district).map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input value={editForm.regular_block} onChange={(e) => setEditForm({ ...editForm, regular_block: e.target.value })} />
-              )}
+              <Label className="text-sm">Posting location</Label>
+              <Select value={editForm.regular_block || "none"} onValueChange={(v) => setEditForm({ ...editForm, regular_block: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Select posting location" /></SelectTrigger>
+                <SelectContent>{postingLocationGroups}</SelectContent>
+              </Select>
             </div>
           </div>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Special Duty</p>
@@ -224,18 +231,11 @@ export default function EditUserDialog({ user, open, onOpenChange, onSave }: Edi
               </Select>
             </div>
             <div>
-              <Label className="text-sm">Block</Label>
-              {editForm.special_duty_district && getBlocks(editForm.special_duty_district).length > 0 ? (
-                <Select value={editForm.special_duty_block || "none"} onValueChange={(v) => setEditForm({ ...editForm, special_duty_block: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="Select block" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Select</SelectItem>
-                    {getBlocks(editForm.special_duty_district).map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input value={editForm.special_duty_block} onChange={(e) => setEditForm({ ...editForm, special_duty_block: e.target.value })} />
-              )}
+              <Label className="text-sm">Posting location</Label>
+              <Select value={editForm.special_duty_block || "none"} onValueChange={(v) => setEditForm({ ...editForm, special_duty_block: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Select posting location" /></SelectTrigger>
+                <SelectContent>{postingLocationGroups}</SelectContent>
+              </Select>
             </div>
           </div>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Deputation</p>
@@ -251,18 +251,11 @@ export default function EditUserDialog({ user, open, onOpenChange, onSave }: Edi
               </Select>
             </div>
             <div>
-              <Label className="text-sm">Block</Label>
-              {editForm.deputed_district && getBlocks(editForm.deputed_district).length > 0 ? (
-                <Select value={editForm.deputed_block || "none"} onValueChange={(v) => setEditForm({ ...editForm, deputed_block: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="Select block" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Select</SelectItem>
-                    {getBlocks(editForm.deputed_district).map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input value={editForm.deputed_block} onChange={(e) => setEditForm({ ...editForm, deputed_block: e.target.value })} />
-              )}
+              <Label className="text-sm">Posting location</Label>
+              <Select value={editForm.deputed_block || "none"} onValueChange={(v) => setEditForm({ ...editForm, deputed_block: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Select posting location" /></SelectTrigger>
+                <SelectContent>{postingLocationGroups}</SelectContent>
+              </Select>
             </div>
           </div>
           <div>

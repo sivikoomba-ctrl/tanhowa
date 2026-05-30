@@ -139,7 +139,7 @@ function getMissingFields(u: UserData): string[] {
   if (!u.phone?.trim()) missing.push("Phone Number");
   if (!u.occupation?.trim()) missing.push("Designation");
   if (!u.posting_details?.regular_district) missing.push("District");
-  if (!u.posting_details?.regular_block) missing.push("Block");
+  if (!u.posting_details?.regular_block) missing.push("Posting location");
   if (!u.photo_url) missing.push("Profile Photo");
   if (!u.dob) missing.push("Date of Birth");
   if (!u.social_links?.gender) missing.push("Gender");

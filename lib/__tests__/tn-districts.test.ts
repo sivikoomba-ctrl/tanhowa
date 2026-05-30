@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TN_DISTRICTS } from "@/lib/tn-districts";
+import { POSTING_LOCATION_GROUPS, TN_DISTRICTS } from "@/lib/tn-districts";
 
 describe("TN_DISTRICTS", () => {
   it("has 38 districts", () => {
@@ -23,5 +23,17 @@ describe("TN_DISTRICTS", () => {
         expect(block.trim().length, `empty block in ${district}`).toBeGreaterThan(0);
       }
     }
+  });
+
+  it("provides grouped posting locations for DHQ, blocks, farms, SCN, CCC, and CoE", () => {
+    expect(POSTING_LOCATION_GROUPS.map((group) => group.key)).toEqual(["DHQ", "Block", "Farm", "SCN", "CCC", "CoE"]);
+    expect(POSTING_LOCATION_GROUPS.find((group) => group.key === "DHQ")?.options.map((option) => option.value)).toEqual([
+      "DHQ - HO-Tech",
+      "DHQ - ADH (PM)",
+    ]);
+    expect(POSTING_LOCATION_GROUPS.find((group) => group.key === "Block")?.options.some((option) => option.value === "Natrampalli")).toBe(true);
+    expect(POSTING_LOCATION_GROUPS.find((group) => group.key === "SCN")?.options.length).toBeGreaterThan(0);
+    expect(POSTING_LOCATION_GROUPS.find((group) => group.key === "CCC")?.options.length).toBeGreaterThan(0);
+    expect(POSTING_LOCATION_GROUPS.find((group) => group.key === "CoE")?.options.length).toBeGreaterThan(0);
   });
 });

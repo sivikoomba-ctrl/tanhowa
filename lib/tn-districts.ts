@@ -47,6 +47,17 @@ export function getBlocks(district: string): string[] {
   return TN_DISTRICTS[district] || [];
 }
 
+export interface PostingLocationOption {
+  value: string;
+  label: string;
+}
+
+export interface PostingLocationGroup {
+  key: "DHQ" | "Block" | "Farm" | "SCN" | "CCC" | "CoE";
+  label: string;
+  options: PostingLocationOption[];
+}
+
 // Tamil Nadu State Horticulture facilities — used by the Profile "Farms (if applicable)" dropdown.
 // Source of truth (PDFs in Source/Add/):
 //   - Farms & Park Mail ID & address.pdf  (74 SHFs + 24 Parks & Gardens)
@@ -240,3 +251,46 @@ export const TN_HORTICULTURE_FARMS: string[] = TN_HORTICULTURE_FARMS_DATA.map(f 
 export function getSHFsByDistrict(district: string): SHFarm[] {
   return TN_HORTICULTURE_FARMS_DATA.filter(f => f.district === district && f.type === "SHF");
 }
+
+const allBlockEntries = Object.entries(TN_DISTRICTS).flatMap(([district, blocks]) =>
+  blocks.map((block) => ({ block, district }))
+);
+
+const duplicateBlockNames = new Set(
+  allBlockEntries
+    .map(({ block }) => block)
+    .filter((block, index, blocks) => blocks.indexOf(block) !== index)
+);
+
+export const ALL_TN_BLOCK_OPTIONS: PostingLocationOption[] = allBlockEntries
+  .map(({ block, district }) => ({
+    value: duplicateBlockNames.has(block) ? `${block} â€” ${district}` : block,
+    label: duplicateBlockNames.has(block) ? `${block} â€” ${district}` : block,
+  }))
+  .sort((a, b) => a.label.localeCompare(b.label));
+
+function facilityOptions(type: SHFarmType): PostingLocationOption[] {
+  return TN_HORTICULTURE_FARMS_DATA
+    .filter((f) => f.type === type)
+    .map((f) => {
+      const value = `${f.name} â€” ${f.district}`;
+      return { value, label: value };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+export const POSTING_LOCATION_GROUPS: PostingLocationGroup[] = [
+  {
+    key: "DHQ",
+    label: "DHQ",
+    options: [
+      { value: "DHQ - HO-Tech", label: "HO-Tech" },
+      { value: "DHQ - ADH (PM)", label: "ADH (PM)" },
+    ],
+  },
+  { key: "Block", label: "Block", options: ALL_TN_BLOCK_OPTIONS },
+  { key: "Farm", label: "Farm", options: facilityOptions("SHF") },
+  { key: "SCN", label: "State Coconut Nursery (SCN)", options: facilityOptions("SCN") },
+  { key: "CCC", label: "Coconut Crossing Centre (CCC)", options: facilityOptions("CCC") },
+  { key: "CoE", label: "Centre of Excellence (CoE)", options: facilityOptions("CoE") },
+];
