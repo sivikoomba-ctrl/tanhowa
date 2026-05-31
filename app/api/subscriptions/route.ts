@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
       if (memberUserId && isAdminGet) {
         const { data: memberSubs, error: memberSubError } = await supabase
           .from("subscriptions")
-          .select("id, period, amount, status, due_date, remarks, payment_proof_url, paid_amount, created_at")
+          .select("id, period, amount, status, due_date, remarks, payment_proof_url, paid_amount, created_at, payment_date, payment_time, transaction_id, payment_method, approved_at, approver:users!subscriptions_approved_by_fkey(name)")
           .eq("user_id", memberUserId)
           .order("created_at", { ascending: false });
         if (memberSubError) {

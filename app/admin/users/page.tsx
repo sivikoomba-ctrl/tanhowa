@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Search, Filter, Calendar, Upload, ExternalLink } from "lucide-react";
+import { Search, Filter, Calendar, Upload, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
@@ -73,7 +73,8 @@ export default function AdminUsersPage() {
   const [suspendReason, setSuspendReason] = useState("non_payment");
   const [suspendRemarks, setSuspendRemarks] = useState("");
   const [subSheetUser, setSubSheetUser] = useState<{ id: string; name: string } | null>(null);
-  const [subSheetData, setSubSheetData] = useState<{ id: string; period: string; amount: number; status: string; due_date: string | null; remarks: string | null; paid_amount: number | null; payment_proof_url: string | null }[]>([]);
+  const [subSheetData, setSubSheetData] = useState<{ id: string; period: string; amount: number; status: string; due_date: string | null; remarks: string | null; paid_amount: number | null; payment_proof_url: string | null; payment_date: string | null; payment_time: string | null; transaction_id: string | null; payment_method: string | null; approved_at: string | null; approver: { name: string } | null }[]>([]);
+  const [subSheetExpanded, setSubSheetExpanded] = useState<Set<string>>(new Set());
   const [subSheetLoading, setSubSheetLoading] = useState(false);
   const [subProofUploading, setSubProofUploading] = useState<string | null>(null);
   const [subProofTargetId, setSubProofTargetId] = useState<string | null>(null);
@@ -386,6 +387,7 @@ export default function AdminUsersPage() {
     if (!u) return;
     setSubSheetUser({ id: userId, name: u.name });
     setSubSheetData([]);
+    setSubSheetExpanded(new Set());
     setSubSheetLoading(true);
     fetch(`/api/subscriptions?user_id=${userId}`)
       .then((r) => r.json())
@@ -635,52 +637,84 @@ export default function AdminUsersPage() {
             <p className="text-sm text-muted-foreground text-center py-8">No subscriptions found.</p>
           ) : (
             <div className="space-y-2">
-              {subSheetData.map((s) => (
-                <div key={s.id} className="rounded-lg border px-4 py-3 text-sm space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-semibold truncate">{s.period}</p>
-                      <p className="text-xs text-muted-foreground">
-                        ₹{(s.paid_amount ?? s.amount).toLocaleString("en-IN")}
-                        {s.paid_amount && s.paid_amount !== s.amount && (
-                          <span className="ml-1 text-amber-600">(bill ₹{s.amount.toLocaleString("en-IN")})</span>
+              {subSheetData.map((s) => {
+                const isOpen = subSheetExpanded.has(s.id);
+                const toggle = () => setSubSheetExpanded((prev) => { const n = new Set(prev); isOpen ? n.delete(s.id) : n.add(s.id); return n; });
+                return (
+                  <div key={s.id} className="rounded-lg border text-sm overflow-hidden">
+                    {/* Summary row — click to expand */}
+                    <button className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors" onClick={toggle}>
+                      <div className="min-w-0">
+                        <p className="font-semibold">{s.period}</p>
+                        <p className="text-xs text-muted-foreground">
+                          ₹{(s.paid_amount ?? s.amount).toLocaleString("en-IN")}
+                          {s.paid_amount && s.paid_amount !== s.amount && (
+                            <span className="ml-1 text-amber-600">(bill ₹{s.amount.toLocaleString("en-IN")})</span>
+                          )}
+                          {s.due_date && <span className="ml-2">· Due {new Date(s.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <StatusBadge status={s.status} />
+                        {isOpen ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
+                      </div>
+                    </button>
+
+                    {/* Expanded details */}
+                    {isOpen && (
+                      <div className="border-t px-4 py-3 space-y-3 bg-muted/20">
+                        {/* Remarks */}
+                        {s.remarks && (
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Remarks</p>
+                            <p className="text-xs">{s.remarks}</p>
+                          </div>
                         )}
-                        {s.due_date && <span className="ml-2">· Due {new Date(s.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>}
-                      </p>
-                      {s.remarks && <p className="text-xs text-muted-foreground truncate mt-0.5">{s.remarks}</p>}
-                    </div>
-                    <StatusBadge status={s.status} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      disabled={subProofUploading === s.id}
-                      onClick={() => { setSubProofTargetId(s.id); subProofInputRef.current?.click(); }}
-                    >
-                      <Upload size={12} className="mr-1" />
-                      {subProofUploading === s.id ? "Uploading..." : s.payment_proof_url ? "Re-upload Proof" : "Upload Proof"}
-                    </Button>
-                    {s.payment_proof_url && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs text-primary"
-                        onClick={async () => {
-                          try {
-                            const url = await fetchSignedPaymentProofUrl(s.id, s.payment_proof_url!);
-                            window.open(url, "_blank");
-                          } catch { toast.error("Failed to open proof"); }
-                        }}
-                      >
-                        <ExternalLink size={12} className="mr-1" />
-                        View Proof
-                      </Button>
+
+                        {/* Payment details grid */}
+                        {(s.payment_date || s.payment_method || s.transaction_id || s.approved_at) && (
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                            {s.payment_date && <><span className="text-muted-foreground">Paid on</span><span>{s.payment_date}{s.payment_time ? ` ${s.payment_time}` : ""}</span></>}
+                            {s.payment_method && <><span className="text-muted-foreground">Method</span><span>{s.payment_method}</span></>}
+                            {s.transaction_id && <><span className="text-muted-foreground">Txn ID</span><span className="font-mono break-all">{s.transaction_id}</span></>}
+                            {s.approved_at && <><span className="text-muted-foreground">Approved</span><span>{new Date(s.approved_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}{s.approver ? ` · ${s.approver.name}` : ""}</span></>}
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={subProofUploading === s.id}
+                            onClick={() => { setSubProofTargetId(s.id); subProofInputRef.current?.click(); }}
+                          >
+                            <Upload size={12} className="mr-1" />
+                            {subProofUploading === s.id ? "Uploading..." : s.payment_proof_url ? "Re-upload Proof" : "Upload Proof"}
+                          </Button>
+                          {s.payment_proof_url && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs text-primary"
+                              onClick={async () => {
+                                try {
+                                  const url = await fetchSignedPaymentProofUrl(s.id, s.payment_proof_url!);
+                                  window.open(url, "_blank");
+                                } catch { toast.error("Failed to open proof"); }
+                              }}
+                            >
+                              <ExternalLink size={12} className="mr-1" />
+                              View Proof
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <p className="text-xs text-muted-foreground text-center pt-2">{subSheetData.length} subscription{subSheetData.length !== 1 ? "s" : ""}</p>
             </div>
           )}
