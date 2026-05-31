@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Shield, ShieldX, ShieldCheck, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Send, Clock, Crown, Building2, Pencil, Copy, Users } from "lucide-react";
+import { Check, X, Shield, ShieldX, ShieldCheck, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Send, Clock, Crown, Building2, Pencil, Copy, Users, CreditCard } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -412,6 +412,21 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Subscriptions */}
+            {(tab === "approved" || (tab === "all" && u.status === "approved")) && (
+              <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onAction("view-subscriptions")}
+                  className="text-primary border-primary/30 hover:bg-primary/5"
+                >
+                  <CreditCard size={14} className="mr-1" />
+                  Subscriptions
+                </Button>
               </div>
             )}
 

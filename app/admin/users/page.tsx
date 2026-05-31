@@ -6,10 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Search, Filter, Calendar } from "lucide-react";
+import { StatusBadge } from "@/components/status-badge";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
 import UserCard from "./_components/UserCard";
 import EditUserDialog from "./_components/EditUserDialog";
@@ -68,6 +71,9 @@ export default function AdminUsersPage() {
   const [suspendTarget, setSuspendTarget] = useState<string | null>(null);
   const [suspendReason, setSuspendReason] = useState("non_payment");
   const [suspendRemarks, setSuspendRemarks] = useState("");
+  const [subSheetUser, setSubSheetUser] = useState<{ id: string; name: string } | null>(null);
+  const [subSheetData, setSubSheetData] = useState<{ id: string; period: string; amount: number; status: string; due_date: string | null; remarks: string | null; paid_amount: number | null }[]>([]);
+  const [subSheetLoading, setSubSheetLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/users/me").then(r => r.json()).then(d => { if (d.user?.email) setCallerEmail(d.user.email); }).catch(() => {});
@@ -347,7 +353,24 @@ export default function AdminUsersPage() {
     } catch { toast.error("Failed to suspend member"); }
   }
 
+  function openSubSheet(userId: string) {
+    const u = users.find((u) => u.id === userId);
+    if (!u) return;
+    setSubSheetUser({ id: userId, name: u.name });
+    setSubSheetData([]);
+    setSubSheetLoading(true);
+    fetch(`/api/subscriptions?user_id=${userId}`)
+      .then((r) => r.json())
+      .then((d) => setSubSheetData(d.subscriptions || []))
+      .catch(() => toast.error("Failed to load subscriptions"))
+      .finally(() => setSubSheetLoading(false));
+  }
+
   function handleCardAction(userId: string, action: string, extra?: string) {
+    if (action === "view-subscriptions") {
+      openSubSheet(userId);
+      return;
+    }
     if (action === "delete") {
       handleDelete(userId);
     } else if (action === "suspend") {
@@ -569,6 +592,42 @@ export default function AdminUsersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Subscriptions Sheet */}
+      <Sheet open={!!subSheetUser} onOpenChange={(open) => { if (!open) setSubSheetUser(null); }}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="uppercase">{subSheetUser?.name} — Subscriptions</SheetTitle>
+          </SheetHeader>
+          {subSheetLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)}
+            </div>
+          ) : subSheetData.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No subscriptions found.</p>
+          ) : (
+            <div className="space-y-2">
+              {subSheetData.map((s) => (
+                <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{s.period}</p>
+                    <p className="text-xs text-muted-foreground">
+                      ₹{(s.paid_amount ?? s.amount).toLocaleString("en-IN")}
+                      {s.paid_amount && s.paid_amount !== s.amount && (
+                        <span className="ml-1 text-amber-600">(bill ₹{s.amount.toLocaleString("en-IN")})</span>
+                      )}
+                      {s.due_date && <span className="ml-2">· Due {new Date(s.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>}
+                    </p>
+                    {s.remarks && <p className="text-xs text-muted-foreground truncate mt-0.5">{s.remarks}</p>}
+                  </div>
+                  <StatusBadge status={s.status} />
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground text-center pt-2">{subSheetData.length} subscription{subSheetData.length !== 1 ? "s" : ""}</p>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Photo Zoom Dialog */}
       <Dialog open={!!zoomPhoto} onOpenChange={(open) => !open && setZoomPhoto(null)}>

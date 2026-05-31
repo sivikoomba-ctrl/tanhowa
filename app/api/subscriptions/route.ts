@@ -70,6 +70,20 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      // Member-scoped lookup — admin viewing a single member's full subscription history
+      const memberUserId = url.searchParams.get("user_id");
+      if (memberUserId && isAdminGet) {
+        const { data: memberSubs, error: memberSubError } = await supabase
+          .from("subscriptions")
+          .select("id, period, amount, status, due_date, remarks, payment_proof_url, paid_amount, created_at")
+          .eq("user_id", memberUserId)
+          .order("created_at", { ascending: false });
+        if (memberSubError) {
+          await logError({ type: "api", message: memberSubError.message, path: "/api/subscriptions", method: "GET", status_code: 200, metadata: { context: "member-sub-lookup" } });
+        }
+        return NextResponse.json({ subscriptions: memberSubs || [] });
+      }
+
       // Build query — fetch subscriptions and stats in parallel
       const limit = Math.min(parseInt(url.searchParams.get("limit") || "500"), 2000);
       const offset = parseInt(url.searchParams.get("offset") || "0");
