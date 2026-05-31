@@ -2,7 +2,7 @@
   "name": "TANHOWA - Tamil Nadu Horticultural Officers Welfare Association",
   "short_name": "TANHOWA",
   "description": "Member portal for Tamil Nadu Horticultural Officers Welfare Association",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#fefae0",
   "theme_color": "#2d6a4f",
