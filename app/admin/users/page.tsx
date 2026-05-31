@@ -73,7 +73,7 @@ export default function AdminUsersPage() {
   const [suspendReason, setSuspendReason] = useState("non_payment");
   const [suspendRemarks, setSuspendRemarks] = useState("");
   const [subSheetUser, setSubSheetUser] = useState<{ id: string; name: string } | null>(null);
-  const [subSheetData, setSubSheetData] = useState<{ id: string; period: string; amount: number; status: string; due_date: string | null; remarks: string | null; paid_amount: number | null; payment_proof_url: string | null; payment_date: string | null; payment_time: string | null; transaction_id: string | null; payment_method: string | null; approved_at: string | null; approver: { name: string } | null }[]>([]);
+  const [subSheetData, setSubSheetData] = useState<{ id: string; period: string; amount: number; status: string; due_date: string | null; remarks: string | null; paid_amount: number | null; payment_proof_url: string | null; paid_at: string | null; transaction_id: string | null; payment_method: string | null; approved_at: string | null; approver: { name: string } | null }[]>([]);
   const [subSheetExpanded, setSubSheetExpanded] = useState<Set<string>>(new Set());
   const [subSheetLoading, setSubSheetLoading] = useState(false);
   const [subProofUploading, setSubProofUploading] = useState<string | null>(null);
@@ -672,9 +672,9 @@ export default function AdminUsersPage() {
                         )}
 
                         {/* Payment details grid */}
-                        {(s.payment_date || s.payment_method || s.transaction_id || s.approved_at) && (
+                        {(s.paid_at || s.payment_method || s.transaction_id || s.approved_at) && (
                           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                            {s.payment_date && <><span className="text-muted-foreground">Paid on</span><span>{s.payment_date}{s.payment_time ? ` ${s.payment_time}` : ""}</span></>}
+                            {s.paid_at && <><span className="text-muted-foreground">Paid on</span><span>{new Date(s.paid_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></>}
                             {s.payment_method && <><span className="text-muted-foreground">Method</span><span>{s.payment_method}</span></>}
                             {s.transaction_id && <><span className="text-muted-foreground">Txn ID</span><span className="font-mono break-all">{s.transaction_id}</span></>}
                             {s.approved_at && <><span className="text-muted-foreground">Approved</span><span>{new Date(s.approved_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}{s.approver ? ` · ${s.approver.name}` : ""}</span></>}
