@@ -213,7 +213,21 @@ export async function POST(req: NextRequest) {
         .eq("period", body.period);
 
       const existingIds = new Set((existing || []).map((s: { user_id: string }) => s.user_id));
-      const newUsers = users.filter((u: { id: string }) => !existingIds.has(u.id));
+
+      // For special subscriptions (period starts with "For "), also exclude members
+      // who already have any pending/active special subscription — only one allowed at a time.
+      const isSpecialPeriod = /^special amount$/i.test(body.period || "");
+      let alreadyHasSpecialIds = new Set<string>();
+      if (isSpecialPeriod) {
+        const { data: activeSpecials } = await supabase
+          .from("subscriptions")
+          .select("user_id")
+          .ilike("period", "Special Amount")
+          .in("status", ["pending", "overdue", "hold"]);
+        alreadyHasSpecialIds = new Set((activeSpecials || []).map((s: { user_id: string }) => s.user_id));
+      }
+
+      const newUsers = users.filter((u: { id: string }) => !existingIds.has(u.id) && !alreadyHasSpecialIds.has(u.id));
 
       if (newUsers.length === 0) {
         return NextResponse.json({ error: "All members already have subscriptions for this period" }, { status: 400 });
@@ -328,6 +342,20 @@ export async function POST(req: NextRequest) {
 
       if (existingSub) {
         return NextResponse.json({ error: "A subscription already exists for this member and period" }, { status: 400 });
+      }
+
+      // For special subscriptions, block if member already has any pending/active special amount
+      if (/^special amount$/i.test(body.period || "")) {
+        const { data: existingSpecial } = await supabase
+          .from("subscriptions")
+          .select("id, period")
+          .eq("user_id", body.user_id)
+          .ilike("period", "Special Amount")
+          .in("status", ["pending", "overdue", "hold"])
+          .maybeSingle();
+        if (existingSpecial) {
+          return NextResponse.json({ error: `Member already has a special amount subscription (${existingSpecial.period})` }, { status: 400 });
+        }
       }
 
       const { data, error } = await supabase
