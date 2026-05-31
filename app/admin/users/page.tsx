@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Search, Filter, Calendar, Upload, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Filter, Calendar, Upload, ExternalLink, ChevronDown, ChevronUp, Sparkles, CheckCircle, AlertTriangle } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
@@ -79,6 +79,12 @@ export default function AdminUsersPage() {
   const [subProofUploading, setSubProofUploading] = useState<string | null>(null);
   const [subProofTargetId, setSubProofTargetId] = useState<string | null>(null);
   const subProofInputRef = useRef<HTMLInputElement>(null);
+  const [subExtracting, setSubExtracting] = useState<string | null>(null);
+  const [subExtracted, setSubExtracted] = useState<Record<string, {
+    date: string | null; time: string | null; transaction_id: string | null;
+    payment_method: string | null; amount: number | null; paid_to: string | null;
+    paid_account: string | null; is_tanhowa_payment: boolean;
+  }>>({});
 
   useEffect(() => {
     fetch("/api/users/me").then(r => r.json()).then(d => { if (d.user?.email) setCallerEmail(d.user.email); }).catch(() => {});
@@ -361,25 +367,55 @@ export default function AdminUsersPage() {
   async function handleSubProofUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !subProofTargetId) return;
-    setSubProofUploading(subProofTargetId);
+    const targetId = subProofTargetId;
+    setSubProofUploading(targetId);
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("subscription_id", subProofTargetId);
+    formData.append("subscription_id", targetId);
     try {
       const res = await fetch("/api/upload/payment-proof", { method: "POST", body: formData });
       const data = await res.json();
       if (res.ok) {
-        toast.success("Proof uploaded");
-        setSubSheetData((prev) => prev.map((s) => s.id === subProofTargetId ? { ...s, payment_proof_url: data.payment_proof_url } : s));
+        toast.success("Proof uploaded — running AI extraction…");
+        setSubSheetData((prev) => prev.map((s) => s.id === targetId ? { ...s, payment_proof_url: data.payment_proof_url } : s));
+        setSubProofUploading(null);
+        // Auto-extract immediately using the same file
+        setSubExtracting(targetId);
+        try {
+          const extractForm = new FormData();
+          extractForm.append("file", file);
+          const extractRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: extractForm });
+          const extractData = await extractRes.json();
+          setSubExtracted((prev) => ({ ...prev, [targetId]: extractData }));
+        } catch {
+          toast.error("AI extraction failed");
+        }
+        setSubExtracting(null);
       } else {
         toast.error(data.error || "Upload failed");
+        setSubProofUploading(null);
       }
     } catch {
       toast.error("Upload failed");
+      setSubProofUploading(null);
     }
-    setSubProofUploading(null);
     setSubProofTargetId(null);
     if (subProofInputRef.current) subProofInputRef.current.value = "";
+  }
+
+  async function handleExtractProof(subId: string, proofUrl: string) {
+    setSubExtracting(subId);
+    try {
+      const signedUrl = await fetchSignedPaymentProofUrl(subId, proofUrl);
+      const extractForm = new FormData();
+      extractForm.append("image_url", signedUrl);
+      const res = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: extractForm });
+      const data = await res.json();
+      setSubExtracted((prev) => ({ ...prev, [subId]: data }));
+    } catch {
+      toast.error("AI extraction failed");
+    }
+    setSubExtracting(null);
   }
 
   function openSubSheet(userId: string) {
@@ -682,7 +718,7 @@ export default function AdminUsersPage() {
                         )}
 
                         {/* Actions */}
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="flex items-center flex-wrap gap-2 pt-1">
                           <Button
                             size="sm"
                             variant="outline"
@@ -693,6 +729,18 @@ export default function AdminUsersPage() {
                             <Upload size={12} className="mr-1" />
                             {subProofUploading === s.id ? "Uploading..." : s.payment_proof_url ? "Re-upload Proof" : "Upload Proof"}
                           </Button>
+                          {s.payment_proof_url && !subExtracted[s.id] && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs text-violet-700 border-violet-200 hover:bg-violet-50"
+                              disabled={subExtracting === s.id}
+                              onClick={() => handleExtractProof(s.id, s.payment_proof_url!)}
+                            >
+                              <Sparkles size={12} className="mr-1" />
+                              {subExtracting === s.id ? "Extracting..." : "AI Extract"}
+                            </Button>
+                          )}
                           {s.payment_proof_url && (
                             <Button
                               size="sm"
@@ -710,6 +758,42 @@ export default function AdminUsersPage() {
                             </Button>
                           )}
                         </div>
+
+                        {/* AI extraction result */}
+                        {(subExtracting === s.id || subExtracted[s.id]) && (
+                          <div className={`rounded-lg p-3 text-xs space-y-2 ${
+                            subExtracting === s.id ? "bg-violet-50 border border-violet-200" :
+                            subExtracted[s.id]?.is_tanhowa_payment ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"
+                          }`}>
+                            {subExtracting === s.id ? (
+                              <p className="text-violet-700 animate-pulse flex items-center gap-1.5">
+                                <Sparkles size={11} /> AI is extracting payment details…
+                              </p>
+                            ) : subExtracted[s.id] && (() => {
+                              const ex = subExtracted[s.id];
+                              return (
+                                <>
+                                  <div className="flex items-center gap-1.5 font-medium">
+                                    {ex.is_tanhowa_payment ? (
+                                      <><CheckCircle size={12} className="text-green-600" /><span className="text-green-700">TANHOWA Payment Verified</span></>
+                                    ) : (
+                                      <><AlertTriangle size={12} className="text-amber-600" /><span className="text-amber-700">Payee unclear — verify manually</span></>
+                                    )}
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                    {ex.date && <><span className="text-muted-foreground">Date</span><span>{ex.date}{ex.time ? ` ${ex.time}` : ""}</span></>}
+                                    {ex.transaction_id && <><span className="text-muted-foreground">Txn ID</span><span className="font-mono break-all">{ex.transaction_id}</span></>}
+                                    {ex.payment_method && <><span className="text-muted-foreground">Method</span><span>{ex.payment_method}</span></>}
+                                    {ex.amount != null && <><span className="text-muted-foreground">Amount</span><span>₹{ex.amount.toLocaleString("en-IN")}</span></>}
+                                    {ex.paid_to && <><span className="text-muted-foreground">Paid To</span><span>{ex.paid_to}</span></>}
+                                    {ex.paid_account && <><span className="text-muted-foreground">Account</span><span className="font-mono">{ex.paid_account}</span></>}
+                                  </div>
+                                  <button className="text-muted-foreground underline-offset-2 hover:underline" onClick={() => setSubExtracted(prev => { const n = {...prev}; delete n[s.id]; return n; })}>Clear</button>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -720,7 +804,7 @@ export default function AdminUsersPage() {
           )}
         </SheetContent>
       </Sheet>
-      <input ref={subProofInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleSubProofUpload} />
+      <input ref={subProofInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleSubProofUpload} />
 
       {/* Photo Zoom Dialog */}
       <Dialog open={!!zoomPhoto} onOpenChange={(open) => !open && setZoomPhoto(null)}>
