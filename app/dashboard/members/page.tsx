@@ -391,7 +391,7 @@ export default function MembersPage() {
                                 <p className="text-xs font-semibold text-accent">Special Duty</p>
                                 {m.posting_details.special_duty_district && <p>{m.posting_details.special_duty_district}</p>}
                                 {m.posting_details.special_duty_block && <p>{m.posting_details.special_duty_block}</p>}
-                                {m.posting_details.special_duty_place && <p>{m.posting_details.special_duty_place}</p>}
+                                {m.posting_details.special_duty_place && m.posting_details.special_duty_place.toLowerCase() !== "nil" && <p>{m.posting_details.special_duty_place}</p>}
                               </div>
                             )}
                             {(m.posting_details?.deputed_district || m.posting_details?.deputed_block) && (

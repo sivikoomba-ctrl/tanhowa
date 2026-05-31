@@ -440,6 +440,30 @@ export default function ProfilePage() {
 
   const designation = profile.occupation === "Others" ? profile.occupation_other : profile.occupation;
 
+  const pd = profile.posting_details;
+  const postingType: "special_duty" | "deputed" | "" =
+    pd.special_duty_district || pd.special_duty_place || pd.special_designation
+      ? "special_duty"
+      : pd.deputed_district
+      ? "deputed"
+      : "";
+
+  function selectPostingType(type: "special_duty" | "deputed" | "") {
+    setProfile(prev => {
+      if (!prev) return prev;
+      const p = { ...prev.posting_details };
+      if (type === "special_duty") {
+        p.deputed_district = ""; p.deputed_block = "";
+      } else if (type === "deputed") {
+        p.special_duty_district = ""; p.special_duty_block = ""; p.special_duty_place = ""; p.special_designation = ""; p.special_farm = "";
+      } else {
+        p.special_duty_district = ""; p.special_duty_block = ""; p.special_duty_place = ""; p.special_designation = ""; p.special_farm = "";
+        p.deputed_district = ""; p.deputed_block = "";
+      }
+      return { ...prev, posting_details: p };
+    });
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">{t("profile.my_profile")}</h1>
@@ -931,72 +955,109 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Special Duty */}
-                <div className="rounded-xl border-l-4 border-l-accent bg-accent/[0.02] p-4 space-y-3">
-                  <p className="text-xs font-semibold text-accent uppercase tracking-wider">{t("posting.special")}</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">{t("posting.district")}</Label>
-                      <Select value={profile.posting_details.special_duty_district || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_district: val === "none" ? "" : val, special_duty_block: "" } })}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_district")} /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">{t("posting.location")}</Label>
-                      <Select value={profile.posting_details.special_duty_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_block: val === "none" ? "" : val } })}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_location")} /></SelectTrigger>
-                        <SelectContent>{postingLocationGroupsJsx}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs text-muted-foreground">{t("posting.place")}</Label>
-                      <Input value={profile.posting_details.special_duty_place} onChange={(e) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_duty_place: e.target.value } })} placeholder={t("ph.place_name")} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">{t("posting.special_designation")}</Label>
-                      <Select value={profile.posting_details.special_designation || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_designation: val === "none" ? "" : val, special_farm: "" } })}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("ph.designation")} /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">{t("opt.none")}</SelectItem>
-                          <SelectItem value="HO Tech (State Scheme)">{t("opt.ho_tech_state")}</SelectItem>
-                          <SelectItem value="HO Tech (GOI)">{t("opt.ho_tech_goi")}</SelectItem>
-                          <SelectItem value="Farm Manager">{t("opt.farm_manager")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {profile.posting_details.special_designation === "Farm Manager" && (
+                {/* Special Duty / Deputed — mutually exclusive */}
+                {(() => {
+                  return (
+                    <div className="space-y-3">
                       <div>
-                        <Label className="text-xs text-muted-foreground">{t("posting.farm")}</Label>
-                        <Select value={profile.posting_details.special_farm || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, special_farm: val === "none" ? "" : val } })}>
-                          <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_farm")} /></SelectTrigger>
-                          <SelectContent>{farmGroupsJsx}</SelectContent>
-                        </Select>
+                        <Label className="text-xs text-muted-foreground block mb-2">Additional Posting (choose one if applicable)</Label>
+                        <div className="flex gap-2">
+                          {([
+                            { value: "" as const, label: "None" },
+                            { value: "special_duty" as const, label: t("posting.special").replace(" (if applicable)", "") },
+                            { value: "deputed" as const, label: t("posting.deputed").replace(" (if applicable)", "") },
+                          ] as const).map(({ value, label }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => selectPostingType(value)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                                postingType === value
+                                  ? value === "special_duty"
+                                    ? "bg-accent text-white border-accent"
+                                    : value === "deputed"
+                                    ? "bg-secondary text-white border-secondary"
+                                    : "bg-primary text-white border-primary"
+                                  : "bg-background border-border text-muted-foreground hover:border-primary/50"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
 
-                {/* Deputed */}
-                <div className="rounded-xl border-l-4 border-l-secondary bg-secondary/[0.02] p-4 space-y-3">
-                  <p className="text-xs font-semibold text-secondary uppercase tracking-wider">{t("posting.deputed")}</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">{t("posting.district")}</Label>
-                      <Select value={profile.posting_details.deputed_district || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_district: val === "none" ? "" : val, deputed_block: "" } })}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_district")} /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                      </Select>
+                      {postingType === "special_duty" && (
+                        <div className="rounded-xl border-l-4 border-l-accent bg-accent/[0.02] p-4 space-y-3">
+                          <p className="text-xs font-semibold text-accent uppercase tracking-wider">{t("posting.special")}</p>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">{t("posting.district")}</Label>
+                              <Select value={pd.special_duty_district || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...pd, special_duty_district: val === "none" ? "" : val, special_duty_block: "" } })}>
+                                <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_district")} /></SelectTrigger>
+                                <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">{t("posting.location")}</Label>
+                              <Select value={pd.special_duty_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...pd, special_duty_block: val === "none" ? "" : val } })}>
+                                <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_location")} /></SelectTrigger>
+                                <SelectContent>{postingLocationGroupsJsx}</SelectContent>
+                              </Select>
+                            </div>
+                            <div className="col-span-2">
+                              <Label className="text-xs text-muted-foreground">{t("posting.place")}</Label>
+                              <Input value={pd.special_duty_place} onChange={(e) => setProfile({ ...profile, posting_details: { ...pd, special_duty_place: e.target.value } })} placeholder={t("ph.place_name")} className="mt-1" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">{t("posting.special_designation")}</Label>
+                              <Select value={pd.special_designation || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...pd, special_designation: val === "none" ? "" : val, special_farm: "" } })}>
+                                <SelectTrigger className="mt-1"><SelectValue placeholder={t("ph.designation")} /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">{t("opt.none")}</SelectItem>
+                                  <SelectItem value="HO Tech (State Scheme)">{t("opt.ho_tech_state")}</SelectItem>
+                                  <SelectItem value="HO Tech (GOI)">{t("opt.ho_tech_goi")}</SelectItem>
+                                  <SelectItem value="Farm Manager">{t("opt.farm_manager")}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {pd.special_designation === "Farm Manager" && (
+                              <div>
+                                <Label className="text-xs text-muted-foreground">{t("posting.farm")}</Label>
+                                <Select value={pd.special_farm || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...pd, special_farm: val === "none" ? "" : val } })}>
+                                  <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_farm")} /></SelectTrigger>
+                                  <SelectContent>{farmGroupsJsx}</SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {postingType === "deputed" && (
+                        <div className="rounded-xl border-l-4 border-l-secondary bg-secondary/[0.02] p-4 space-y-3">
+                          <p className="text-xs font-semibold text-secondary uppercase tracking-wider">{t("posting.deputed")}</p>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">{t("posting.district")}</Label>
+                              <Select value={pd.deputed_district || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...pd, deputed_district: val === "none" ? "" : val, deputed_block: "" } })}>
+                                <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_district")} /></SelectTrigger>
+                                <SelectContent><SelectItem value="none">{t("opt.none")}</SelectItem>{DISTRICT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">{t("posting.location")}</Label>
+                              <Select value={pd.deputed_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...pd, deputed_block: val === "none" ? "" : val } })}>
+                                <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_location")} /></SelectTrigger>
+                                <SelectContent>{postingLocationGroupsJsx}</SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">{t("posting.location")}</Label>
-                      <Select value={profile.posting_details.deputed_block || "none"} onValueChange={(val) => setProfile({ ...profile, posting_details: { ...profile.posting_details, deputed_block: val === "none" ? "" : val } })}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_location")} /></SelectTrigger>
-                        <SelectContent>{postingLocationGroupsJsx}</SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             )}
           </CardContent>

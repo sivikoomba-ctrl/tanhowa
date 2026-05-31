@@ -401,7 +401,7 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                       <p className="text-xs font-semibold text-accent">Special Duty</p>
                       {u.posting_details.special_duty_district && <p>District: {u.posting_details.special_duty_district}</p>}
                       {u.posting_details.special_duty_block && <p>Posting: {u.posting_details.special_duty_block}</p>}
-                      {u.posting_details.special_duty_place && <p>Place: {u.posting_details.special_duty_place}</p>}
+                      {u.posting_details.special_duty_place && u.posting_details.special_duty_place.toLowerCase() !== "nil" && <p>Place: {u.posting_details.special_duty_place}</p>}
                     </div>
                   )}
                   {(u.posting_details.deputed_district || u.posting_details.deputed_block) && (
