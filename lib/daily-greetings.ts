@@ -289,7 +289,7 @@ export async function triggerDailyGreetings() {
         published: true,
       });
 
-      // Personal email + Telegram (each gets a unique wish)
+      // Personal email + Telegram only to the birthday person (no broadcast to all members)
       for (const b of birthdayMembers) {
         const placeHtml = b.placeLine ? `<p style="font-size:13px;color:#777;margin:0 0 12px">${b.placeLine}</p>` : "";
         const avatar = circleAvatarHtml(b.displayName, b.photoUrl, 96);
@@ -309,18 +309,6 @@ export async function triggerDailyGreetings() {
           await sleep(100);
         }
       }
-
-      // Broadcast — list members with avatar + designation/place + unique wish
-      const namesHtml = birthdayMembers
-        .map((b) => {
-          const avatar = circleAvatarHtml(b.displayName, b.photoUrl, 40);
-          const placeHtml = b.placeLine ? `<div style="font-size:12px;color:#777;margin:2px 0 0 52px">${b.placeLine}</div>` : "";
-          return `<li style="margin:14px 0;font-size:14px;list-style:none">${avatar}<span style="margin-left:8px;vertical-align:middle">🎂 <strong>${b.displayName}</strong></span>${placeHtml}<div style="font-size:13px;color:#444;margin:4px 0 0 52px;line-height:1.6">${b.wish}</div></li>`;
-        })
-        .join("");
-      const bcastHtml = `<div style="padding:16px"><div style="text-align:center"><div style="font-size:40px;margin-bottom:12px">🎉🎂🌸</div><h2 style="color:#2d6a4f;font-size:20px;margin:0 0 12px">Birthday Celebration${plural} Today!</h2><p style="font-size:14px;color:#555;margin:0 0 16px">Let us wish our fellow member${plural} a very happy birthday:</p></div><ul style="padding:0;margin:0">${namesHtml}</ul></div>`;
-      const namesStr = birthdayMembers.map((b) => b.displayName).join(", ");
-      await sendIndividually(fromEmail, allEmails,`🎂 Birthday Celebration${plural} Today! - ${namesStr}`, wrapEmail(bcastHtml));
     }
 
     // ==================== FESTIVALS ====================
