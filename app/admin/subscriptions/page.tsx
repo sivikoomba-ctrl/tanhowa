@@ -160,7 +160,6 @@ export default function AdminSubscriptionsPage() {
 
   // Page loading
   const [pageLoading, setPageLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [adminInfo, setAdminInfo] = useState<{ name: string; designation: string; district: string; isSuperAdmin: boolean; isFinanceTeam: boolean }>({ name: "", designation: "", district: "", isSuperAdmin: false, isFinanceTeam: false });
 
   // Reject dialog
@@ -208,19 +207,6 @@ export default function AdminSubscriptionsPage() {
       })
       .catch(() => toast.error("Failed to load subscriptions"))
       .finally(() => setPageLoading(false));
-  }
-
-  function syncMembers() {
-    setSyncing(true);
-    fetch("/api/subscriptions?sync=true")
-      .then((r) => r.json())
-      .then((d) => {
-        setSubscriptions(d.subscriptions || []);
-        if (d.stats) setStats(d.stats);
-        toast.success("Members synced");
-      })
-      .catch(() => toast.error("Sync failed"))
-      .finally(() => setSyncing(false));
   }
 
   function loadPastMembers() {
@@ -1002,10 +988,6 @@ export default function AdminSubscriptionsPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={syncMembers} disabled={syncing}>
-            <Users size={16} className="mr-1" />
-            {syncing ? "Syncing..." : "Sync Members"}
-          </Button>
           <Button
             variant="outline"
             onClick={() => {

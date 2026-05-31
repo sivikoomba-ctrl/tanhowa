@@ -59,7 +59,7 @@ export async function PUT(req: NextRequest) {
           const userPeriods = new Set((userSubs || []).map((s: { period: string }) => s.period));
 
           const newRows = uniquePeriods
-            .filter((p: { period: string }) => !userPeriods.has(p.period))
+            .filter((p: { period: string }) => !userPeriods.has(p.period) && /^\d{4}$/.test(p.period))
             .map((p: { period: string; amount: number; due_date: string | null }) => ({
               user_id: userId,
               period: p.period,
