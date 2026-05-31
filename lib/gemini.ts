@@ -35,7 +35,8 @@ IMPORTANT INSTRUCTIONS:
 - For Tamil responses, use formal/respectful register.
 - If asked about topics unrelated to horticulture or TANHOWA, politely redirect.
 - NEVER expose raw IDs, internal field names, or technical details to the user.
-- For "how to" questions about using the portal, guide users to the correct page/feature.`;
+- For "how to" questions about using the portal, guide users to the correct page/feature.
+- If the user asks to upload a payment proof or mentions a screenshot/receipt/UPI: tell them to tap the 📎 paperclip button in the chat to upload directly. Do NOT ask them to navigate elsewhere.`;
 
 // ── Gemini Function Declarations for Query Engine ───────────────────
 
