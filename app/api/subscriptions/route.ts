@@ -42,7 +42,9 @@ export async function GET(req: NextRequest) {
           if (allMembers && allSubs && allSubs.length > 0) {
             const periodMap = new Map<string, { amount: number; due_date: string | null }>();
             for (const s of allSubs) {
-              if (!periodMap.has(s.period)) {
+              // Only auto-sync annual periods (year strings like "2025", "2026").
+              // Special/one-off periods must be created explicitly by admins.
+              if (!periodMap.has(s.period) && /^\d{4}$/.test(s.period)) {
                 periodMap.set(s.period, { amount: s.amount, due_date: s.due_date });
               }
             }
