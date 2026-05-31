@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,8 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Search, Filter, Calendar } from "lucide-react";
+import { Search, Filter, Calendar, Upload, ExternalLink } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
+import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
 import UserCard from "./_components/UserCard";
 import EditUserDialog from "./_components/EditUserDialog";
@@ -72,8 +73,11 @@ export default function AdminUsersPage() {
   const [suspendReason, setSuspendReason] = useState("non_payment");
   const [suspendRemarks, setSuspendRemarks] = useState("");
   const [subSheetUser, setSubSheetUser] = useState<{ id: string; name: string } | null>(null);
-  const [subSheetData, setSubSheetData] = useState<{ id: string; period: string; amount: number; status: string; due_date: string | null; remarks: string | null; paid_amount: number | null }[]>([]);
+  const [subSheetData, setSubSheetData] = useState<{ id: string; period: string; amount: number; status: string; due_date: string | null; remarks: string | null; paid_amount: number | null; payment_proof_url: string | null }[]>([]);
   const [subSheetLoading, setSubSheetLoading] = useState(false);
+  const [subProofUploading, setSubProofUploading] = useState<string | null>(null);
+  const [subProofTargetId, setSubProofTargetId] = useState<string | null>(null);
+  const subProofInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/users/me").then(r => r.json()).then(d => { if (d.user?.email) setCallerEmail(d.user.email); }).catch(() => {});
@@ -353,6 +357,30 @@ export default function AdminUsersPage() {
     } catch { toast.error("Failed to suspend member"); }
   }
 
+  async function handleSubProofUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !subProofTargetId) return;
+    setSubProofUploading(subProofTargetId);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("subscription_id", subProofTargetId);
+    try {
+      const res = await fetch("/api/upload/payment-proof", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Proof uploaded");
+        setSubSheetData((prev) => prev.map((s) => s.id === subProofTargetId ? { ...s, payment_proof_url: data.payment_proof_url } : s));
+      } else {
+        toast.error(data.error || "Upload failed");
+      }
+    } catch {
+      toast.error("Upload failed");
+    }
+    setSubProofUploading(null);
+    setSubProofTargetId(null);
+    if (subProofInputRef.current) subProofInputRef.current.value = "";
+  }
+
   function openSubSheet(userId: string) {
     const u = users.find((u) => u.id === userId);
     if (!u) return;
@@ -601,26 +629,56 @@ export default function AdminUsersPage() {
           </SheetHeader>
           {subSheetLoading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)}
+              {[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}
             </div>
           ) : subSheetData.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No subscriptions found.</p>
           ) : (
             <div className="space-y-2">
               {subSheetData.map((s) => (
-                <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm">
-                  <div className="min-w-0">
-                    <p className="font-semibold truncate">{s.period}</p>
-                    <p className="text-xs text-muted-foreground">
-                      ₹{(s.paid_amount ?? s.amount).toLocaleString("en-IN")}
-                      {s.paid_amount && s.paid_amount !== s.amount && (
-                        <span className="ml-1 text-amber-600">(bill ₹{s.amount.toLocaleString("en-IN")})</span>
-                      )}
-                      {s.due_date && <span className="ml-2">· Due {new Date(s.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>}
-                    </p>
-                    {s.remarks && <p className="text-xs text-muted-foreground truncate mt-0.5">{s.remarks}</p>}
+                <div key={s.id} className="rounded-lg border px-4 py-3 text-sm space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">{s.period}</p>
+                      <p className="text-xs text-muted-foreground">
+                        ₹{(s.paid_amount ?? s.amount).toLocaleString("en-IN")}
+                        {s.paid_amount && s.paid_amount !== s.amount && (
+                          <span className="ml-1 text-amber-600">(bill ₹{s.amount.toLocaleString("en-IN")})</span>
+                        )}
+                        {s.due_date && <span className="ml-2">· Due {new Date(s.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>}
+                      </p>
+                      {s.remarks && <p className="text-xs text-muted-foreground truncate mt-0.5">{s.remarks}</p>}
+                    </div>
+                    <StatusBadge status={s.status} />
                   </div>
-                  <StatusBadge status={s.status} />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={subProofUploading === s.id}
+                      onClick={() => { setSubProofTargetId(s.id); subProofInputRef.current?.click(); }}
+                    >
+                      <Upload size={12} className="mr-1" />
+                      {subProofUploading === s.id ? "Uploading..." : s.payment_proof_url ? "Re-upload Proof" : "Upload Proof"}
+                    </Button>
+                    {s.payment_proof_url && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-primary"
+                        onClick={async () => {
+                          try {
+                            const url = await fetchSignedPaymentProofUrl(s.id, s.payment_proof_url!);
+                            window.open(url, "_blank");
+                          } catch { toast.error("Failed to open proof"); }
+                        }}
+                      >
+                        <ExternalLink size={12} className="mr-1" />
+                        View Proof
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
               <p className="text-xs text-muted-foreground text-center pt-2">{subSheetData.length} subscription{subSheetData.length !== 1 ? "s" : ""}</p>
@@ -628,6 +686,7 @@ export default function AdminUsersPage() {
           )}
         </SheetContent>
       </Sheet>
+      <input ref={subProofInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleSubProofUpload} />
 
       {/* Photo Zoom Dialog */}
       <Dialog open={!!zoomPhoto} onOpenChange={(open) => !open && setZoomPhoto(null)}>
