@@ -37,18 +37,18 @@ function pickWish(seed: string): string {
   return BIRTHDAY_WISHES[hash % BIRTHDAY_WISHES.length];
 }
 
-const FESTIVALS: Record<string, { name: string; emoji: string; greeting: string; message: string; announcementOnly?: boolean }> = {
+const FESTIVALS: Record<string, { name: string; emoji: string; greeting: string; message: string }> = {
   "01-01": { name: "New Year", emoji: "🎊🥳", greeting: "Happy New Year!", message: "Wishing all TANHOWA members a prosperous and fruitful New Year! May this year bring growth, happiness, and success in all our endeavors." },
   "01-14": { name: "Pongal", emoji: "🌾☀️🐄", greeting: "Happy Pongal!", message: "Iniya Pongal Nalvazhthukkal! May this harvest festival bring abundance, joy, and prosperity to you and your family. Thai Pirandhal Vazhi Pirakkum!" },
   "01-15": { name: "Mattu Pongal", emoji: "🐄🌸", greeting: "Happy Mattu Pongal!", message: "Happy Mattu Pongal! Let us honor the cattle and nature that sustain our agriculture and horticulture." },
   "01-26": { name: "Republic Day", emoji: "🇮🇳🏛️", greeting: "Happy Republic Day!", message: "Jai Hind! Wishing all members a proud Republic Day. Let us continue serving our nation through horticulture and agriculture." },
   "04-14": { name: "Tamil New Year (Puthandu)", emoji: "🌺🎉🌴", greeting: "Puthandu Vazhthukkal!", message: "Iniya Tamil Puthandu Nalvazhthukkal! Happy Tamil New Year to all TANHOWA members. May this year bring you bountiful harvests and joy!" },
   "05-01": { name: "May Day", emoji: "✊🌿", greeting: "Happy May Day!", message: "Saluting the dedication of all workers. May Day wishes to every hardworking horticultural officer!" },
-  "06-02": { name: "Tamil Nadu Formation Day", emoji: "🌺🏛️", greeting: "Tamil Nadu Formation Day!", message: "Celebrating the legacy and spirit of Tamil Nadu. As horticultural officers, we are proud to serve this great state and its farming communities. Vanakam Tamil Nadu!", announcementOnly: true },
-  "06-05": { name: "World Environment Day", emoji: "🌍🌱", greeting: "Happy World Environment Day!", message: "On World Environment Day, let us reaffirm our commitment to protecting nature and nurturing our environment. As horticultural officers, we are on the front lines of building a greener tomorrow.", announcementOnly: true },
-  "06-21": { name: "International Yoga Day", emoji: "🧘🌿", greeting: "Happy International Yoga Day!", message: "Wishing all TANHOWA members a healthy and mindful International Yoga Day. Let us embrace wellness in body and mind as we continue our service to farmers and horticulture.", announcementOnly: true },
-  "07-01": { name: "National Doctors Day", emoji: "🩺❤️", greeting: "Happy National Doctors Day!", message: "Grateful tribute to all doctors and health workers on this special day. Your service to our nation is invaluable. TANHOWA salutes your dedication and compassion.", announcementOnly: true },
-  "08-09": { name: "Quit India Day / National Handloom Day", emoji: "🇮🇳🏺", greeting: "Quit India Day & National Handloom Day!", message: "On this historic day, we honour the courage of freedom fighters who launched the Quit India Movement in 1942. We also celebrate India's rich handloom heritage and the weavers who keep our traditions alive.", announcementOnly: true },
+  "06-02": { name: "Tamil Nadu Formation Day", emoji: "🌺🏛️", greeting: "Tamil Nadu Formation Day!", message: "Celebrating the legacy and spirit of Tamil Nadu. As horticultural officers, we are proud to serve this great state and its farming communities. Vanakam Tamil Nadu!" },
+  "06-05": { name: "World Environment Day", emoji: "🌍🌱", greeting: "Happy World Environment Day!", message: "On World Environment Day, let us reaffirm our commitment to protecting nature and nurturing our environment. As horticultural officers, we are on the front lines of building a greener tomorrow." },
+  "06-21": { name: "International Yoga Day", emoji: "🧘🌿", greeting: "Happy International Yoga Day!", message: "Wishing all TANHOWA members a healthy and mindful International Yoga Day. Let us embrace wellness in body and mind as we continue our service to farmers and horticulture." },
+  "07-01": { name: "National Doctors Day", emoji: "🩺❤️", greeting: "Happy National Doctors Day!", message: "Grateful tribute to all doctors and health workers on this special day. Your service to our nation is invaluable. TANHOWA salutes your dedication and compassion." },
+  "08-09": { name: "Quit India Day / National Handloom Day", emoji: "🇮🇳🏺", greeting: "Quit India Day & National Handloom Day!", message: "On this historic day, we honour the courage of freedom fighters who launched the Quit India Movement in 1942. We also celebrate India's rich handloom heritage and the weavers who keep our traditions alive." },
   "08-15": { name: "Independence Day", emoji: "🇮🇳🕊️", greeting: "Happy Independence Day!", message: "Jai Hind! Happy Independence Day! Let us renew our commitment to building a greener, self-reliant India." },
   "09-05": { name: "Teachers' Day", emoji: "📚🙏", greeting: "Happy Teachers' Day!", message: "Honoring all the teachers and mentors who shaped us. Happy Teachers' Day to TANHOWA members who also teach and guide!" },
   "10-02": { name: "Gandhi Jayanti", emoji: "🕊️🌸", greeting: "Gandhi Jayanti Wishes!", message: "Remembering Mahatma Gandhi on his birth anniversary. Let us follow the path of truth, non-violence, and service to the nation." },
@@ -81,20 +81,6 @@ async function sendDirectEmail(from: string, to: string, subject: string, html: 
       }),
     });
   } catch { /* silent */ }
-}
-
-// Send a broadcast as individual one-to-one emails with throttling.
-// Prior implementation BCCed in batches of 40, which Gmail flagged as
-// `4.7.28 unusual rate of mail` and rate-limited the whole tanhowa.in
-// domain — knocking out OTP delivery for hours after each blast.
-// 250ms spacing → ~4 sends/sec, well under bulk-sender thresholds.
-async function sendIndividually(from: string, emails: string[], subject: string, html: string) {
-  const token = process.env.ZEPTOMAIL_TOKEN;
-  if (!token || emails.length === 0) return;
-  for (const email of emails) {
-    await sendDirectEmail(from, email, subject, html);
-    await sleep(250);
-  }
 }
 
 async function sendTelegram(chatId: string, text: string) {
@@ -203,14 +189,6 @@ export async function triggerDailyGreetings() {
 
     const fromEmail = process.env.ZEPTOMAIL_FROM_EMAIL || "tanhowaadmin@tanhowa.in";
     const dateStr = now.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
-
-    // Get all member emails
-    const { data: allUsers } = await supabase
-      .from("users")
-      .select("email")
-      .eq("status", "approved")
-      .neq("email", "tanhowa19791@gmail.com");
-    const allEmails = (allUsers || []).map((u: { email: string }) => u.email).filter(Boolean);
 
     // Get admin ID
     const { data: adminUser } = await supabase
@@ -327,23 +305,6 @@ export async function triggerDailyGreetings() {
         published: true,
       });
 
-      if (!festival.announcementOnly) {
-        const festHtml = `<div style="text-align:center;padding:20px"><div style="font-size:48px;margin-bottom:16px">${festival.emoji}</div><h2 style="color:#2d6a4f;font-size:24px;margin:0 0 12px">${festival.greeting}</h2><p style="font-size:14px;color:#555;line-height:1.7;max-width:400px;margin:0 auto 20px">${festival.message}</p><div style="background:#f0f8f0;border-radius:8px;padding:16px;margin:16px 0"><p style="color:#2d6a4f;font-weight:600;margin:0">Warm wishes from TANHOWA Family</p></div></div>`;
-        await sendIndividually(fromEmail, allEmails, `${festival.emoji} ${festival.greeting} - TANHOWA`, wrapEmail(festHtml));
-
-        // Telegram broadcast
-        const { data: tgUsers } = await supabase
-          .from("users")
-          .select("telegram_chat_id")
-          .eq("status", "approved")
-          .not("telegram_chat_id", "is", null);
-        for (const u of tgUsers || []) {
-          if (u.telegram_chat_id) {
-            await sendTelegram(u.telegram_chat_id, `${festival.emoji} <b>${festival.greeting}</b>\n\n${festival.message}\n\n<i>- TANHOWA Family</i> 🌿`);
-            await sleep(100);
-          }
-        }
-      }
     }
   } catch (error) {
     // Surface failures so /admin/error-logs flags them. The atomic claim row
