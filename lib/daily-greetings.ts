@@ -272,6 +272,23 @@ export async function triggerDailyGreetings() {
     }
 
     if (birthdayMembers.length > 0) {
+      const plural = birthdayMembers.length > 1 ? "s" : "";
+
+      // Announcement first — so it's created even if email/Telegram sending times out.
+      const namesList = birthdayMembers
+        .map((b) => {
+          const photoMd = isTrustedPhotoUrl(b.photoUrl) ? `![${b.displayName}](${b.photoUrl}) ` : "";
+          const place = b.placeLine ? `\n   ${b.placeLine}` : "";
+          return `${photoMd}🎂 **${b.displayName}**${place}\n   "${b.wish}"`;
+        })
+        .join("\n\n");
+      await supabase.from("announcements").insert({
+        title: `Birthday Wishes - ${dateStr}`,
+        content: `Wishing a very happy birthday to our fellow member${plural}!\n\n${namesList}\n\n🌸🎉\n\n- TANHOWA Family`,
+        author_id: adminId,
+        published: true,
+      });
+
       // Personal email + Telegram (each gets a unique wish)
       for (const b of birthdayMembers) {
         const placeHtml = b.placeLine ? `<p style="font-size:13px;color:#777;margin:0 0 12px">${b.placeLine}</p>` : "";
@@ -294,7 +311,6 @@ export async function triggerDailyGreetings() {
       }
 
       // Broadcast — list members with avatar + designation/place + unique wish
-      const plural = birthdayMembers.length > 1 ? "s" : "";
       const namesHtml = birthdayMembers
         .map((b) => {
           const avatar = circleAvatarHtml(b.displayName, b.photoUrl, 40);
@@ -305,27 +321,19 @@ export async function triggerDailyGreetings() {
       const bcastHtml = `<div style="padding:16px"><div style="text-align:center"><div style="font-size:40px;margin-bottom:12px">🎉🎂🌸</div><h2 style="color:#2d6a4f;font-size:20px;margin:0 0 12px">Birthday Celebration${plural} Today!</h2><p style="font-size:14px;color:#555;margin:0 0 16px">Let us wish our fellow member${plural} a very happy birthday:</p></div><ul style="padding:0;margin:0">${namesHtml}</ul></div>`;
       const namesStr = birthdayMembers.map((b) => b.displayName).join(", ");
       await sendIndividually(fromEmail, allEmails,`🎂 Birthday Celebration${plural} Today! - ${namesStr}`, wrapEmail(bcastHtml));
-
-      // Announcement — embeds ![Name](photo_url) markdown which the dashboard
-      // announcements renderer turns into a small circular inline avatar.
-      const namesList = birthdayMembers
-        .map((b) => {
-          const photoMd = isTrustedPhotoUrl(b.photoUrl) ? `![${b.displayName}](${b.photoUrl}) ` : "";
-          const place = b.placeLine ? `\n   ${b.placeLine}` : "";
-          return `${photoMd}🎂 **${b.displayName}**${place}\n   "${b.wish}"`;
-        })
-        .join("\n\n");
-      await supabase.from("announcements").insert({
-        title: `Birthday Wishes - ${dateStr}`,
-        content: `Wishing a very happy birthday to our fellow member${plural}!\n\n${namesList}\n\n🌸🎉\n\n- TANHOWA Family`,
-        author_id: adminId,
-        published: true,
-      });
     }
 
     // ==================== FESTIVALS ====================
     const festival = FESTIVALS[mmdd];
     if (festival) {
+      // Announcement first — before email/Telegram in case function times out.
+      await supabase.from("announcements").insert({
+        title: `${festival.emoji} ${festival.greeting}`,
+        content: `${festival.message}\n\nWarm wishes from TANHOWA Family!\n\n🌿 Growing Together, Nurturing Tomorrow 🌿`,
+        author_id: adminId,
+        published: true,
+      });
+
       const festHtml = `<div style="text-align:center;padding:20px"><div style="font-size:48px;margin-bottom:16px">${festival.emoji}</div><h2 style="color:#2d6a4f;font-size:24px;margin:0 0 12px">${festival.greeting}</h2><p style="font-size:14px;color:#555;line-height:1.7;max-width:400px;margin:0 auto 20px">${festival.message}</p><div style="background:#f0f8f0;border-radius:8px;padding:16px;margin:16px 0"><p style="color:#2d6a4f;font-weight:600;margin:0">Warm wishes from TANHOWA Family</p></div></div>`;
       await sendIndividually(fromEmail, allEmails,`${festival.emoji} ${festival.greeting} - TANHOWA`, wrapEmail(festHtml));
 
@@ -341,14 +349,6 @@ export async function triggerDailyGreetings() {
           await sleep(100);
         }
       }
-
-      // Announcement
-      await supabase.from("announcements").insert({
-        title: `${festival.emoji} ${festival.greeting}`,
-        content: `${festival.message}\n\nWarm wishes from TANHOWA Family!\n\n🌿 Growing Together, Nurturing Tomorrow 🌿`,
-        author_id: adminId,
-        published: true,
-      });
     }
   } catch (error) {
     // Surface failures so /admin/error-logs flags them. The atomic claim row
