@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -173,6 +173,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
 
   const [loading, setLoading] = useState(true);
+  const prevPathnameRef = useRef<string | null>(null);
 
   useEffect(() => {
     fetch("/api/users/me")
@@ -277,6 +278,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }).catch(() => {});
     }
   }, [router]);
+
+  // Re-check missing fields after leaving the profile page (picks up photo/field saves)
+  useEffect(() => {
+    if (prevPathnameRef.current === "/dashboard/profile" && pathname !== "/dashboard/profile") {
+      fetch("/api/users/me")
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+          if (data?.user && data.user.role !== "admin" && data.user.role !== "super_admin") {
+            setUser(data.user);
+            const missing = getMissingFields(data.user);
+            if (missing.length > 0) {
+              setMissingFields(missing);
+              setShowIncomplete(true);
+            } else {
+              setShowIncomplete(false);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+    prevPathnameRef.current = pathname;
+  }, [pathname]);
 
   // Poll notifications every 60 seconds
   useEffect(() => {
