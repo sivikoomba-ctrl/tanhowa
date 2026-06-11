@@ -936,143 +936,141 @@ export default function SubscriptionsPage() {
             return (
               <Card key={sub.id}>
                 <CardContent className="pt-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <Icon className={`w-5 h-5 ${sub.status === "paid" ? "text-green-600" : sub.status === "overdue" || sub.status === "rejected" ? "text-red-600" : sub.status === "hold" ? "text-orange-600" : "text-amber-600"}`} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold">{sub.period}</h3>
-                          <Badge variant="outline" className={config.color}>
-                            {config.label}
-                          </Badge>
-                          {sub.period.toLowerCase().startsWith("volunteer") && (
-                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">
-                              {t("subs.voluntary")}
-                            </Badge>
-                          )}
-                          {hasProof && sub.status !== "paid" && (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-[10px]">
-                              {t("subs.proof_uploaded")}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-sm font-medium">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
-                          {sub.paid_amount && sub.paid_amount > (sub.amount || 0) && (
-                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
-                              +&#8377;{(sub.paid_amount - (sub.amount || 0)).toLocaleString("en-IN")} extra
-                            </Badge>
-                          )}
-                          {sub.due_date && (
-                            <span className="text-xs text-muted-foreground">Due: {formatDate(sub.due_date)}</span>
-                          )}
-                        </div>
-                        {sub.transaction_id && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Transaction ID: {sub.transaction_id}</p>
-                        )}
-                        {sub.payment_method && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Payment Method: {sub.payment_method}</p>
-                        )}
-                        {sub.paid_at && sub.status === "paid" && (
-                          <p className="text-xs text-green-600 mt-0.5">
-                            Paid on {formatDateTime(sub.paid_at)}
-                          </p>
-                        )}
-                        {hasProof && (
-                          <button
-                            onClick={() => viewProof(sub)}
-                            className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
-                          >
-                            <ImageIcon size={12} />
-                            {t("subs.view_payment_proof")}
-                          </button>
-                        )}
-                        {sub.remarks && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Note: {sub.remarks}</p>
-                        )}
-                      </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <Icon className={`w-5 h-5 ${sub.status === "paid" ? "text-green-600" : sub.status === "overdue" || sub.status === "rejected" ? "text-red-600" : sub.status === "hold" ? "text-orange-600" : "text-amber-600"}`} />
                     </div>
-                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      {(sub.status === "pending" || sub.status === "overdue") && (
-                        <>
-                          {!hasProof && upiId && (
-                            <a
-                              href={`upi://pay?pa=${upiId}&pn=TANHOWA&am=${sub.amount}&cu=INR&tn=TANHOWA+${encodeURIComponent(sub.period)}`}
-                              className="inline-flex items-center gap-1 h-8 text-xs px-3 rounded-md border border-green-300 text-green-700 bg-white hover:bg-green-50 shrink-0"
-                            >
-                              <IndianRupee size={12} />
-                              Pay via UPI
-                            </a>
-                          )}
-                          <Button
-                            size="sm"
-                            className={`h-8 text-xs ${!hasProof ? "bg-primary hover:bg-primary/90" : ""}`}
-                            variant={hasProof ? "outline" : "default"}
-                            onClick={() => triggerUpload(sub.id)}
-                            disabled={isUploading}
-                          >
-                            {isUploading ? t("subs.uploading") : (
-                              <>
-                                <Upload size={12} className="mr-1" />
-                                {hasProof ? t("subs.re_upload") : t("subs.upload_proof")}
-                              </>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold">{sub.period}</h3>
+                        <Badge variant="outline" className={config.color}>
+                          {config.label}
+                        </Badge>
+                        {sub.period.toLowerCase().startsWith("volunteer") && (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">
+                            {t("subs.voluntary")}
+                          </Badge>
+                        )}
+                        {hasProof && sub.status !== "paid" && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-[10px]">
+                            {t("subs.proof_uploaded")}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-sm font-medium">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
+                        {sub.paid_amount && sub.paid_amount > (sub.amount || 0) && (
+                          <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
+                            +&#8377;{(sub.paid_amount - (sub.amount || 0)).toLocaleString("en-IN")} extra
+                          </Badge>
+                        )}
+                        {sub.due_date && (
+                          <span className="text-xs text-muted-foreground">Due: {formatDate(sub.due_date)}</span>
+                        )}
+                      </div>
+                      {sub.transaction_id && (
+                        <p className="text-xs text-muted-foreground mt-0.5">Transaction ID: {sub.transaction_id}</p>
+                      )}
+                      {sub.payment_method && (
+                        <p className="text-xs text-muted-foreground mt-0.5">Payment Method: {sub.payment_method}</p>
+                      )}
+                      {sub.paid_at && sub.status === "paid" && (
+                        <p className="text-xs text-green-600 mt-0.5">
+                          Paid on {formatDateTime(sub.paid_at)}
+                        </p>
+                      )}
+                      {hasProof && (
+                        <button
+                          onClick={() => viewProof(sub)}
+                          className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                        >
+                          <ImageIcon size={12} />
+                          {t("subs.view_payment_proof")}
+                        </button>
+                      )}
+                      {sub.remarks && (
+                        <p className="text-xs text-muted-foreground mt-0.5">Note: {sub.remarks}</p>
+                      )}
+
+                      {/* Action buttons — full-width row below content */}
+                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        {(sub.status === "pending" || sub.status === "overdue") && (
+                          <>
+                            {!hasProof && upiId && (
+                              <a
+                                href={`upi://pay?pa=${upiId}&pn=TANHOWA&am=${sub.amount}&cu=INR&tn=TANHOWA+${encodeURIComponent(sub.period)}`}
+                                className="inline-flex items-center gap-1 h-8 text-xs px-3 rounded-md border border-green-300 text-green-700 bg-white hover:bg-green-50"
+                              >
+                                <IndianRupee size={12} />
+                                Pay via UPI
+                              </a>
                             )}
-                          </Button>
-                          {hasProof && (
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs text-primary"
-                              onClick={() => openEditDetails(sub)}
+                              className={`h-8 text-xs ${!hasProof ? "bg-primary hover:bg-primary/90" : ""}`}
+                              variant={hasProof ? "outline" : "default"}
+                              onClick={() => triggerUpload(sub.id)}
+                              disabled={isUploading}
                             >
-                              <Edit2 size={12} className="mr-1" />
-                              {t("subs.edit_details")}
+                              {isUploading ? t("subs.uploading") : (
+                                <>
+                                  <Upload size={12} className="mr-1" />
+                                  {hasProof ? t("subs.re_upload") : t("subs.upload_proof")}
+                                </>
+                              )}
                             </Button>
-                          )}
-                        </>
-                      )}
-                      {sub.status === "paid" && (
-                        <>
-                          {hasProof && (
+                            {hasProof && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-xs text-primary"
+                                onClick={() => openEditDetails(sub)}
+                              >
+                                <Edit2 size={12} className="mr-1" />
+                                {t("subs.edit_details")}
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {sub.status === "paid" && (
+                          <>
+                            {hasProof && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs"
+                                onClick={() => viewProof(sub)}
+                              >
+                                <Eye size={12} className="mr-1" />
+                                {t("subs.view_proof")}
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-8 text-xs"
-                              onClick={() => viewProof(sub)}
+                              className="h-8 text-xs text-green-700"
+                              onClick={() => downloadReceipt(sub)}
                             >
-                              <Eye size={12} className="mr-1" />
-                              {t("subs.view_proof")}
+                              <FileDown size={12} className="mr-1" />
+                              {t("subs.receipt")}
                             </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs text-green-700"
-                            onClick={() => downloadReceipt(sub)}
-                          >
-                            <FileDown size={12} className="mr-1" />
-                            {t("subs.receipt")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs text-green-700"
-                            onClick={() => emailReceipt(sub)}
-                            disabled={emailingSub === sub.id}
-                          >
-                            <Mail size={12} className="mr-1" />
-                            {emailingSub === sub.id ? t("subs.sending") : t("subs.email_receipt")}
-                          </Button>
-                        </>
-                      )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs text-green-700"
+                              onClick={() => emailReceipt(sub)}
+                              disabled={emailingSub === sub.id}
+                            >
+                              <Mail size={12} className="mr-1" />
+                              {emailingSub === sub.id ? t("subs.sending") : t("subs.email_receipt")}
+                            </Button>
+                            <span className="ml-auto text-[10px] text-green-600 flex items-center gap-1">
+                              <Leaf size={10} />Save a print, Save a Tree.
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    {sub.status === "paid" && (
-                      <p className="text-[10px] text-green-600 mt-1 flex items-center gap-1">
-                        <Leaf size={10} />Save a print, Save a Tree.
-                      </p>
-                    )}
                   </div>
                 </CardContent>
               </Card>
