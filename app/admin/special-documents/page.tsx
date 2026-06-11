@@ -8,18 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Plus, Trash2, FileText, Download, Search, FolderOpen, File,
-  FileImage, FileSpreadsheet, Pencil, Lock, Eye,
+  FileImage, FileSpreadsheet, Pencil, Lock, Eye, Folder as FolderIcon,
+  FolderPlus, ChevronLeft, Inbox,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
-const CATEGORIES = [
-  "General", "Legal", "Finance", "HR", "Contracts", "Reports",
-  "Correspondence", "Policies", "Minutes", "Confidential", "Other",
-];
+const UNFILED = "unfiled";
 
 function getFileIcon(type: string | null) {
   if (!type) return File;
@@ -36,11 +34,19 @@ function formatFileSize(bytes: number | null): string {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
+interface VaultFolder {
+  id: string;
+  name: string;
+  doc_count: number;
+  created_at: string;
+}
+
 interface AdminDoc {
   id: string;
   title: string;
   description: string | null;
   category: string;
+  folder_id: string | null;
   file_url: string;
   file_name: string | null;
   file_type: string | null;
@@ -50,39 +56,67 @@ interface AdminDoc {
 
 export default function SpecialDocumentsPage() {
   const [docs, setDocs] = useState<AdminDoc[]>([]);
+  const [folders, setFolders] = useState<VaultFolder[]>([]);
+  const [unfiledCount, setUnfiledCount] = useState(0);
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [editDoc, setEditDoc] = useState<AdminDoc | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", category: "General", file: null as File | null });
+  const [form, setForm] = useState({ title: "", description: "", folderId: UNFILED, file: null as File | null });
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [renameFolder, setRenameFolder] = useState<VaultFolder | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   function load() {
-    fetch("/api/admin-documents")
-      .then((r) => r.json())
-      .then((d) => setDocs(d.documents || []))
+    Promise.all([
+      fetch("/api/admin-documents").then((r) => r.json()),
+      fetch("/api/admin-documents/folders").then((r) => r.json()),
+    ])
+      .then(([d, f]) => {
+        setDocs(d.documents || []);
+        setFolders(f.folders || []);
+        setUnfiledCount(f.unfiled_count || 0);
+      })
       .catch(() => toast.error("Failed to load documents"))
       .finally(() => setLoaded(true));
   }
 
   useEffect(() => { load(); }, []);
 
-  const filtered = useMemo(() => {
-    return docs.filter((d) => {
-      const matchSearch = !search ||
-        d.title.toLowerCase().includes(search.toLowerCase()) ||
-        d.description?.toLowerCase().includes(search.toLowerCase()) ||
-        d.file_name?.toLowerCase().includes(search.toLowerCase());
-      const matchCat = categoryFilter === "all" || d.category === categoryFilter;
-      return matchSearch && matchCat;
-    });
-  }, [docs, search, categoryFilter]);
+  const folderMap = useMemo(() => new Map(folders.map((f) => [f.id, f.name])), [folders]);
 
-  const categories = useMemo(() => {
-    const cats = new Set(docs.map((d) => d.category));
-    return Array.from(cats).sort();
-  }, [docs]);
+  const searching = search.trim().length > 0;
+
+  const visibleDocs = useMemo(() => {
+    let list = docs;
+    if (!searching && activeFolder) {
+      list = activeFolder === UNFILED
+        ? docs.filter((d) => !d.folder_id)
+        : docs.filter((d) => d.folder_id === activeFolder);
+    } else if (searching) {
+      const q = search.toLowerCase();
+      list = docs.filter((d) =>
+        d.title.toLowerCase().includes(q) ||
+        d.description?.toLowerCase().includes(q) ||
+        d.file_name?.toLowerCase().includes(q)
+      );
+      if (activeFolder) {
+        list = activeFolder === UNFILED
+          ? list.filter((d) => !d.folder_id)
+          : list.filter((d) => d.folder_id === activeFolder);
+      }
+    }
+    return list;
+  }, [docs, activeFolder, search, searching]);
+
+  const activeFolderName = activeFolder === UNFILED ? "Unfiled" : (activeFolder ? folderMap.get(activeFolder) : null);
+
+  function openUpload() {
+    setForm({ title: "", description: "", folderId: activeFolder || UNFILED, file: null });
+    setUploadOpen(true);
+  }
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
@@ -93,13 +127,12 @@ export default function SpecialDocumentsPage() {
     const formData = new FormData();
     formData.append("title", form.title);
     formData.append("description", form.description);
-    formData.append("category", form.category);
+    if (form.folderId !== UNFILED) formData.append("folder_id", form.folderId);
     formData.append("file", form.file);
 
     const res = await fetch("/api/admin-documents", { method: "POST", body: formData });
     if (res.ok) {
       toast.success("Document uploaded");
-      setForm({ title: "", description: "", category: "General", file: null });
       setUploadOpen(false);
       load();
     } else {
@@ -114,7 +147,12 @@ export default function SpecialDocumentsPage() {
     const res = await fetch("/api/admin-documents", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editDoc.id, title: editDoc.title, description: editDoc.description, category: editDoc.category }),
+      body: JSON.stringify({
+        id: editDoc.id,
+        title: editDoc.title,
+        description: editDoc.description,
+        folder_id: editDoc.folder_id,
+      }),
     });
     if (res.ok) {
       toast.success("Updated");
@@ -134,129 +172,254 @@ export default function SpecialDocumentsPage() {
     }
   }
 
+  async function handleCreateFolder(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newFolderName.trim()) return;
+    const res = await fetch("/api/admin-documents/folders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newFolderName }),
+    });
+    if (res.ok) {
+      toast.success("Folder created");
+      setNewFolderName("");
+      setNewFolderOpen(false);
+      load();
+    } else {
+      const err = await res.json().catch(() => null);
+      toast.error(err?.error || "Failed to create folder");
+    }
+  }
+
+  async function handleRenameFolder() {
+    if (!renameFolder || !renameFolder.name.trim()) return;
+    const res = await fetch("/api/admin-documents/folders", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: renameFolder.id, name: renameFolder.name }),
+    });
+    if (res.ok) {
+      toast.success("Folder renamed");
+      setRenameFolder(null);
+      load();
+    } else {
+      const err = await res.json().catch(() => null);
+      toast.error(err?.error || "Rename failed");
+    }
+  }
+
+  async function handleDeleteFolder(f: VaultFolder) {
+    const msg = f.doc_count > 0
+      ? `Delete folder "${f.name}"? Its ${f.doc_count} document(s) will move to Unfiled.`
+      : `Delete empty folder "${f.name}"?`;
+    if (!confirm(msg)) return;
+    const res = await fetch(`/api/admin-documents/folders?id=${f.id}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success("Folder deleted");
+      if (activeFolder === f.id) setActiveFolder(null);
+      load();
+    } else {
+      toast.error("Delete failed");
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">Special Document Vault</h1>
+            {activeFolder && !searching && (
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 -ml-2" onClick={() => setActiveFolder(null)}>
+                <ChevronLeft size={18} />
+              </Button>
+            )}
+            <h1 className="text-2xl font-bold">
+              {activeFolderName && !searching ? activeFolderName : "Special Document Vault"}
+            </h1>
             <Badge variant="outline" className="text-xs gap-1"><Lock size={10} />Private</Badge>
           </div>
-          <p className="text-sm text-muted-foreground mt-0.5">{docs.length} documents — visible only to you</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {activeFolderName && !searching
+              ? `${visibleDocs.length} document(s) in this folder`
+              : `${docs.length} documents in ${folders.length} folders — visible only to you`}
+          </p>
         </div>
-        <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
-              <Plus size={16} className="mr-1" />Upload
+        <div className="flex gap-2">
+          {!activeFolder && (
+            <Button variant="outline" onClick={() => setNewFolderOpen(true)}>
+              <FolderPlus size={16} className="mr-1" />New Folder
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Upload Private Document</DialogTitle></DialogHeader>
-            <form onSubmit={handleUpload} className="space-y-4">
-              <div>
-                <Label>Title *</Label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Document title" required className="mt-1" />
-              </div>
-              <div>
-                <Label>Category</Label>
-                <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Description</Label>
-                <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional notes..." rows={2} className="mt-1" />
-              </div>
-              <div>
-                <Label>File *</Label>
-                <Input type="file" onChange={(e) => setForm({ ...form, file: e.target.files?.[0] || null })} className="mt-1" required />
-              </div>
-              <Button type="submit" disabled={uploading} className="w-full bg-primary hover:bg-primary/90">
-                {uploading ? "Uploading..." : "Upload Document"}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+          )}
+          <Button className="bg-primary hover:bg-primary/90" onClick={openUpload}>
+            <Plus size={16} className="mr-1" />Upload
+          </Button>
+        </div>
       </div>
 
-      {/* Search & Filter */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search documents..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder={activeFolderName ? `Search in ${activeFolderName}...` : "Search all documents..."}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
 
-      {/* Documents */}
-      {filtered.length === 0 && loaded ? (
-        <Card>
-          <CardContent className="pt-8 pb-8 text-center">
-            <FolderOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground">
-              {docs.length === 0 ? "No documents yet. Upload your first private document." : "No documents match your search."}
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((doc) => {
-            const Icon = getFileIcon(doc.file_type);
-            return (
-              <Card key={doc.id} className="hover:shadow-sm transition-shadow">
-                <CardContent className="pt-3 pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Icon className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-medium text-sm truncate">{doc.title}</h3>
-                        <Badge variant="outline" className="text-[10px] py-0">{doc.category}</Badge>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                        {doc.file_name && <span className="truncate max-w-[200px]">{doc.file_name}</span>}
-                        {doc.file_size && <span>{formatFileSize(doc.file_size)}</span>}
-                        <span>{formatDate(doc.created_at)}</span>
-                      </div>
-                      {doc.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{doc.description}</p>}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild>
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"><Eye size={14} /></a>
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild>
-                        <a href={doc.file_url} download={doc.file_name || "document"}><Download size={14} /></a>
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditDoc(doc)}>
-                        <Pencil size={14} />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => handleDelete(doc.id)}>
-                        <Trash2 size={14} />
-                      </Button>
-                    </div>
+      {/* Folder grid (landing) */}
+      {!activeFolder && !searching && loaded && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {folders.map((f) => (
+            <Card key={f.id} className="hover:shadow-md transition-shadow cursor-pointer group" onClick={() => setActiveFolder(f.id)}>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-start justify-between">
+                  <FolderIcon className="w-8 h-8 text-amber-500 fill-amber-100" />
+                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); setRenameFolder({ ...f }); }}>
+                      <Pencil size={12} />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f); }}>
+                      <Trash2 size={12} />
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+                <p className="font-medium text-sm mt-2 truncate">{f.name}</p>
+                <p className="text-xs text-muted-foreground">{f.doc_count} document(s)</p>
+              </CardContent>
+            </Card>
+          ))}
+          <Card className="hover:shadow-md transition-shadow cursor-pointer border-dashed" onClick={() => setActiveFolder(UNFILED)}>
+            <CardContent className="pt-4 pb-4">
+              <Inbox className="w-8 h-8 text-muted-foreground" />
+              <p className="font-medium text-sm mt-2">Unfiled</p>
+              <p className="text-xs text-muted-foreground">{unfiledCount} document(s)</p>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {/* Edit Dialog */}
+      {/* Document list (inside a folder, or searching) */}
+      {(activeFolder || searching) && (
+        visibleDocs.length === 0 && loaded ? (
+          <Card>
+            <CardContent className="pt-8 pb-8 text-center">
+              <FolderOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground">
+                {searching ? "No documents match your search." : "This folder is empty."}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {visibleDocs.map((doc) => {
+              const Icon = getFileIcon(doc.file_type);
+              return (
+                <Card key={doc.id} className="hover:shadow-sm transition-shadow">
+                  <CardContent className="pt-3 pb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-medium text-sm truncate">{doc.title}</h3>
+                          {searching && (
+                            <Badge variant="outline" className="text-[10px] py-0 gap-1">
+                              <FolderIcon size={8} />
+                              {doc.folder_id ? folderMap.get(doc.folder_id) || "?" : "Unfiled"}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          {doc.file_name && <span className="truncate max-w-[200px]">{doc.file_name}</span>}
+                          {doc.file_size && <span>{formatFileSize(doc.file_size)}</span>}
+                          <span>{formatDate(doc.created_at)}</span>
+                        </div>
+                        {doc.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{doc.description}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild>
+                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer"><Eye size={14} /></a>
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild>
+                          <a href={doc.file_url} download={doc.file_name || "document"}><Download size={14} /></a>
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditDoc(doc)}>
+                          <Pencil size={14} />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => handleDelete(doc.id)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Upload Private Document</DialogTitle></DialogHeader>
+          <form onSubmit={handleUpload} className="space-y-4">
+            <div>
+              <Label>Title *</Label>
+              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Document title" required className="mt-1" />
+            </div>
+            <div>
+              <Label>Folder</Label>
+              <Select value={form.folderId} onValueChange={(v) => setForm({ ...form, folderId: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNFILED}>Unfiled</SelectItem>
+                  {folders.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional notes..." rows={2} className="mt-1" />
+            </div>
+            <div>
+              <Label>File *</Label>
+              <Input type="file" onChange={(e) => setForm({ ...form, file: e.target.files?.[0] || null })} className="mt-1" required />
+            </div>
+            <Button type="submit" disabled={uploading} className="w-full bg-primary hover:bg-primary/90">
+              {uploading ? "Uploading..." : "Upload Document"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Folder Dialog */}
+      <Dialog open={newFolderOpen} onOpenChange={setNewFolderOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>New Folder</DialogTitle></DialogHeader>
+          <form onSubmit={handleCreateFolder} className="space-y-4">
+            <Input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="Folder name" autoFocus required />
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90">Create Folder</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Folder Dialog */}
+      <Dialog open={!!renameFolder} onOpenChange={(v) => !v && setRenameFolder(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Rename Folder</DialogTitle></DialogHeader>
+          {renameFolder && (
+            <div className="space-y-4">
+              <Input value={renameFolder.name} onChange={(e) => setRenameFolder({ ...renameFolder, name: e.target.value })} autoFocus />
+              <Button onClick={handleRenameFolder} className="w-full bg-primary hover:bg-primary/90">Save</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Document Dialog */}
       <Dialog open={!!editDoc} onOpenChange={(v) => !v && setEditDoc(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Edit Document</DialogTitle></DialogHeader>
@@ -267,11 +430,15 @@ export default function SpecialDocumentsPage() {
                 <Input value={editDoc.title} onChange={(e) => setEditDoc({ ...editDoc, title: e.target.value })} className="mt-1" />
               </div>
               <div>
-                <Label>Category</Label>
-                <Select value={editDoc.category} onValueChange={(v) => setEditDoc({ ...editDoc, category: v })}>
+                <Label>Folder</Label>
+                <Select
+                  value={editDoc.folder_id || UNFILED}
+                  onValueChange={(v) => setEditDoc({ ...editDoc, folder_id: v === UNFILED ? null : v })}
+                >
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    <SelectItem value={UNFILED}>Unfiled</SelectItem>
+                    {folders.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
     const title = formData.get("title") as string;
     const description = (formData.get("description") as string) || "";
     const category = (formData.get("category") as string) || "General";
+    const folderId = (formData.get("folder_id") as string) || null;
     const file = formData.get("file") as File | null;
 
     if (!title?.trim()) {
@@ -80,6 +81,7 @@ export async function POST(req: NextRequest) {
         title: title.trim(),
         description: description.trim() || null,
         category,
+        folder_id: folderId,
         file_url: urlData.publicUrl,
         file_name: file.name,
         file_type: file.type,
@@ -110,13 +112,14 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, title, description, category } = body;
+    const { id, title, description, category, folder_id } = body;
     if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
     if (category !== undefined) updates.category = category;
+    if (folder_id !== undefined) updates.folder_id = folder_id;
 
     const supabase = getServiceClient();
     const { error } = await supabase.from("admin_documents").update(updates).eq("id", id).eq("created_by", session.userId);
