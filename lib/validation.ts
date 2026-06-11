@@ -6,11 +6,21 @@ const nonEmptyString = trimmedString.min(1, "Required");
 const safeString = trimmedString.max(5000); // Prevent huge payloads
 const uuidSchema = z.string().uuid();
 
-// Grievances / Suggestions
+// Grievances / Suggestions / Service Requests (shared table + route)
 export const grievanceCreateSchema = z.object({
   subject: nonEmptyString.max(500),
   description: safeString.max(10000),
-  category: z.enum(["General", "Administrative", "Technical", "Others", "Suggestion"]),
+  category: z.enum([
+    // Grievance categories
+    "Personal", "District-All", "District-Specific", "Technical",
+    // Legacy grievance categories (older clients / cached PWA)
+    "General", "Administrative", "Others",
+    // Suggestions
+    "Suggestion",
+    // Service requests
+    "Transfer", "Training", "Legal Help", "Certificate", "Letter/Recommendation", "Welfare", "IT Support", "Other Service",
+  ]),
+  priority: z.enum(["low", "medium", "high"]).optional(),
 });
 
 export const grievanceUpdateSchema = z.object({

@@ -31,9 +31,16 @@ export async function GET(req: NextRequest) {
 
     const supabase = getServiceClient();
 
+    const info = await getOfficialInfo(session.userId);
+    const grievanceAccess = info.role === "super_admin" || info.official_type === "state";
+    const adminRole = info.role === "admin" || info.role === "super_admin";
+    // District admins see their own district's grievances (inner join needed
+    // so the submitter-district filter can apply)
+    const districtScope = type === "grievance" && !grievanceAccess && info.official_type === "district" && !!info.district;
+
     let query = supabase
       .from("grievances")
-      .select("*, users(name)", { count: "exact" })
+      .select(districtScope ? "*, users!inner(name, posting_details)" : "*, users(name)", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -46,14 +53,12 @@ export async function GET(req: NextRequest) {
       query = query.neq("category", "Suggestion").not("category", "in", `(${SERVICE_REQUEST_CATEGORIES.join(",")})`);
     }
 
-    const info = await getOfficialInfo(session.userId);
-    const grievanceAccess = info.role === "super_admin" || info.official_type === "state";
-    const adminRole = info.role === "admin" || info.role === "super_admin";
-
     if (type === "grievance") {
-      // State officials + super admin see all grievances; everyone else
-      // (members and district admins) sees only their own submissions
-      if (!grievanceAccess) {
+      // State officials + super admin: all; district admins: own district;
+      // members: own submissions only
+      if (districtScope) {
+        query = query.eq("users.posting_details->>regular_district", info.district!);
+      } else if (!grievanceAccess) {
         query = query.eq("submitted_by", session.userId);
       }
       if (status && status !== "all") {
@@ -115,6 +120,7 @@ export async function POST(req: NextRequest) {
         subject: v.data.subject,
         description: v.data.description,
         category: v.data.category,
+        ...(v.data.priority ? { priority: v.data.priority } : {}),
         submitted_by: session.userId,
       })
       .select()
@@ -157,13 +163,25 @@ export async function PUT(req: NextRequest) {
 
     const supabase = getServiceClient();
 
-    // Grievance rows: state officials + super admin. Other rows: any admin.
-    const { data: target } = await supabase.from("grievances").select("category").eq("id", v.data.id).single();
+    // Grievance rows: state officials + super admin, or district admins for
+    // their own district's submitters. Other rows: any admin.
+    const { data: target } = await supabase
+      .from("grievances")
+      .select("category, users:submitted_by(posting_details)")
+      .eq("id", v.data.id)
+      .single();
     if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const info = await getOfficialInfo(session.userId);
-    const allowed = isGrievanceCategory(target.category)
-      ? info.role === "super_admin" || info.official_type === "state"
-      : info.role === "admin" || info.role === "super_admin";
+    let allowed: boolean;
+    if (isGrievanceCategory(target.category)) {
+      allowed = info.role === "super_admin" || info.official_type === "state";
+      if (!allowed && info.official_type === "district" && info.district) {
+        const pd = (target.users as unknown as { posting_details?: { regular_district?: string } } | null)?.posting_details;
+        allowed = pd?.regular_district === info.district;
+      }
+    } else {
+      allowed = info.role === "admin" || info.role === "super_admin";
+    }
     if (!allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

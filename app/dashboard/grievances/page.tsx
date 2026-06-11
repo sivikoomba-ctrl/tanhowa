@@ -17,7 +17,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
 import { useT, useLang } from "@/lib/i18n";
 
-const categories = ["General", "Administrative", "Technical", "Others"];
+const categories = ["Personal", "District-All", "District-Specific", "Technical"];
 
 interface Grievance {
   id: string;

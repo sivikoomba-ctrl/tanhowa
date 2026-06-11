@@ -163,8 +163,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isAdmin) return null;
 
-  // Grievances: state officials + super admin only
-  const grievanceAccess = user?.role === "super_admin" || user?.official_type === "state";
+  // Grievances: state officials + super admin (all), district admins (own district)
+  const grievanceAccess = user?.role === "super_admin" || user?.official_type === "state" || user?.official_type === "district";
   const feedbackItems = [
     { href: "/admin/suggestions", labelKey: "nav.suggestions" as const, icon: Lightbulb },
     { href: "/admin/service-requests", labelKey: "nav.service_requests" as const, icon: TicketCheck },
