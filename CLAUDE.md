@@ -1,4 +1,6 @@
-# TANHOWA - Codebase Guide
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -149,7 +151,9 @@ One-line index. For column-level detail, jump to the matching feature section be
 | `announcements` | News/announcements |
 | `events` | Calendar events |
 | `documents` | Uploaded files (`visibility` = "all" / "selected") |
-| `grievances` | Suggestions (category="Suggestion") and grievances (others) (see Suggestions & Grievances) |
+| `grievances` | Suggestions, service requests, and grievances split by category; `ticket_no` + `district` snapshot columns (see Suggestions, Grievances & Service Requests) |
+| `ticket_counters` | Atomic per-prefix-per-year counters for GRV/SUG/SRQ ticket numbers |
+| `admin_document_folders` | Folders for the owner-only Document Vault; `admin_documents.folder_id` FK (ON DELETE SET NULL → Unfiled) |
 | `subscriptions` | Member payment tracking (see Payment Group Linking + Special Subscriptions) |
 | `document_access` | Per-member document access (junction for `visibility="selected"`) |
 | `error_logs` | Application error tracking |
@@ -245,6 +249,28 @@ Custom horticulture theme using oklch colors defined in `app/globals.css`:
 - **Background images:** Subtle horticulture photos at 3-6% opacity on dashboard, admin, verify, onboarding, and pending pages
 - **Landing page:** Bento mosaic grid layout with horticulture domain images flanking a centered login card
 - **No dark mode** — light theme only
+
+### Card action button layout
+
+Action buttons on cards (admin and member pages) must go **below** the content, not in a side column. The `flex items-start justify-between` + `flex flex-col shrink-0` side-column pattern squeezes content to a few characters wide on narrow screens.
+
+Correct pattern:
+```tsx
+<div>
+  {/* content — full width */}
+  <div className="flex items-start gap-3">
+    {/* avatar/icon */}
+    <div className="flex-1 min-w-0">...</div>
+  </div>
+  {/* buttons — below content, wrap naturally */}
+  <div className="flex flex-wrap gap-2 mt-3">
+    <Button>Action 1</Button>
+    <Button>Action 2</Button>
+  </div>
+</div>
+```
+
+Never use `shrink-0` on a button container next to flexible content. Applied across `admin/subscriptions`, `admin/resolutions`, `dashboard/subscriptions`.
 
 ### shadcn/ui components in use
 `button`, `input`, `card`, `dialog`, `table`, `badge`, `tabs`, `avatar`, `dropdown-menu`, `separator`, `sheet`, `textarea`, `label`, `select`, `sonner`, `chart`
@@ -484,13 +510,24 @@ API routes use fire-and-forget async IIFE to send notifications without blocking
 ### Domain Note
 `tanhowa.in` returns 307 redirect to `www.tanhowa.in`. Telegram doesn't follow redirects, so always use `https://www.tanhowa.in/api/telegram/webhook` as the webhook URL.
 
-## Suggestions & Grievances (Split)
+## Suggestions, Grievances & Service Requests (Shared Table)
 
-Previously a single page, now split into two:
+Three features share the `grievances` table and `/api/grievances` route, split by category:
 - **Suggestions** — `/dashboard/suggestions`, `/admin/suggestions` (category = "Suggestion")
-- **Grievances** — `/dashboard/grievances`, `/admin/grievances` (category ≠ "Suggestion")
+- **Service Requests** — `/dashboard/service-requests`, `/admin/service-requests` (category in the 8-item service list)
+- **Grievances** — `/dashboard/grievances`, `/admin/grievances` (every other category: Personal, District-All, District-Specific, Technical + legacy General/Administrative/Others)
 
-Both use the same `grievances` table and `/api/grievances` route. The API accepts `?type=suggestion|grievance` to filter. Sidebar shows Lightbulb icon for Suggestions, MessageSquareWarning for Grievances.
+**`lib/grievances.ts` is the single source of truth** for the category lists, `isGrievanceCategory()`, and `hasGrievanceAccess()`. The validation enum (`lib/validation.ts`), the route, and `reports/overview` all import it. The SQL trigger in `supabase/ticket_numbers.sql` mirrors the list — keep in sync when adding a category.
+
+**Grievance access model** (suggestions/service-requests are plain admin-moderated):
+- State officials + super_admin: see and work all grievances
+- District admins (`official_type=district`): their district only, via the **`grievances.district` snapshot column** (set by DB trigger at insert from the submitter's `posting_details.regular_district`, so later profile edits don't move rows). No district set → API returns 403 "Set your district in your profile..."
+- Members: own submissions only; the dashboard page shows an amber notice explaining who can see their grievances
+- Single-row mutations go through `canActOnGrievance()` in the route (PUT and DELETE share it)
+
+**API params:** `?type=suggestion|service-request|grievance`, `?status=`, `?mine=1` (always own-submissions — the three dashboard tracker pages pass it so officials don't see others' rows on their personal pages), `?lang=ta`.
+
+**Ticket numbers:** `GRV-2026-0001` / `SUG-` / `SRQ-`, year-scoped (IST), assigned by a `BEFORE INSERT` trigger using the atomic `ticket_counters` table (`supabase/ticket_numbers.sql`, year fix in `supabase/grievance_district_fixes.sql`). Shown as a monospace badge on all six member/admin cards; submit toasts quote it.
 
 ## Officials System
 
@@ -1078,7 +1115,7 @@ Four admin pages restricted to the owner (`tanhowa19791@gmail.com`). All four fo
 | Page | API | Storage | Purpose |
 |------|-----|---------|---------|
 | `/admin/special-tasks` | `/api/admin-tasks` | `admin_tasks` table | Private parallel task tracker (3 types: `internal`, `assigned`, `checklist`). Same priority/status vocabulary as the public `todos` system but lives in its own table so owner work doesn't pollute member-visible lists. |
-| `/admin/special-documents` | `/api/admin-documents` | `admin_documents` table + private storage bucket | Document vault for confidential files (Legal, Finance, HR, Contracts, Reports, Correspondence, Policies, Minutes, Confidential, Other). Hidden from regular members and admins. |
+| `/admin/special-documents` | `/api/admin-documents` + `/api/admin-documents/folders` | `admin_documents` + `admin_document_folders` tables + private storage bucket | Document vault for confidential files, organized in user-created folders (folder-card landing grid → drill into doc list; "Unfiled" for folder_id NULL; deleting a folder unfiles its docs). The old category dropdown is retired from the UI — `category` is a legacy column, new uploads store NULL. Hidden from regular members and admins. |
 | `/admin/district-dues` | `/api/district-dues` | Reads `subscriptions` + writes `amount_paid` + `additional_money` per member | District-grouped dues calculator: shows pending across 2025, 2026, UATT case for every member, with inline edit of `amount_paid` / `additional_money`. Replaces an external spreadsheet that was previously emailed around. |
 | `/admin/settings` | `/api/settings` | `site_settings` key/value table | Branding, payee bank details, payment QR upload (`/api/upload/qr-code`), contact info, feature toggles. Free-form key/value editor — be careful, no schema validation. |
 
