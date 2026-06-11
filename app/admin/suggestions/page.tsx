@@ -41,6 +41,7 @@ function getDaysPending(createdAt: string, status: string): { days: number; labe
 
 interface Suggestion {
   id: string;
+  ticket_no: string | null;
   subject: string;
   description: string;
   category: string;
@@ -145,6 +146,7 @@ export default function AdminSuggestionsPage() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
+                              {g.ticket_no && <Badge variant="secondary" className="text-xs font-mono">{g.ticket_no}</Badge>}
                               <h3 className="font-medium text-sm">{g.subject}</h3>
                               <Badge variant={statusColors[g.status] as "default" | "secondary" | "outline" | "destructive"} className="text-xs">
                                 {statusOptions.find((s) => s.value === g.status)?.label || g.status}

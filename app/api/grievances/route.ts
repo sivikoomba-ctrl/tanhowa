@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin, getDbRole } from "@/lib/auth";
+import { getSession, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
@@ -9,6 +9,12 @@ import { validate, grievanceCreateSchema, grievanceUpdateSchema } from "@/lib/va
 import { writeLimiter } from "@/lib/rate-limit";
 
 const SERVICE_REQUEST_CATEGORIES = ["Transfer", "Training", "Legal Help", "Certificate", "Letter/Recommendation", "Welfare", "IT Support", "Other Service"];
+
+// Grievances (everything that isn't a suggestion or service request) are
+// visible and workable only to state officials and the super admin.
+function isGrievanceCategory(category: string | null): boolean {
+  return category !== "Suggestion" && !SERVICE_REQUEST_CATEGORIES.includes(category || "");
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -40,10 +46,26 @@ export async function GET(req: NextRequest) {
       query = query.neq("category", "Suggestion").not("category", "in", `(${SERVICE_REQUEST_CATEGORIES.join(",")})`);
     }
 
-    const dbRole = await getDbRole(session.userId);
-    if (dbRole === "admin" || dbRole === "super_admin") {
+    const info = await getOfficialInfo(session.userId);
+    const grievanceAccess = info.role === "super_admin" || info.official_type === "state";
+    const adminRole = info.role === "admin" || info.role === "super_admin";
+
+    if (type === "grievance") {
+      // State officials + super admin see all grievances; everyone else
+      // (members and district admins) sees only their own submissions
+      if (!grievanceAccess) {
+        query = query.eq("submitted_by", session.userId);
+      }
       if (status && status !== "all") {
         query = query.eq("status", status);
+      }
+    } else if (adminRole) {
+      if (status && status !== "all") {
+        query = query.eq("status", status);
+      }
+      // Untyped admin queries: district admins don't see others' grievances
+      if (!type && !grievanceAccess) {
+        query = query.or(`submitted_by.eq.${session.userId},category.eq.Suggestion,category.in.(${SERVICE_REQUEST_CATEGORIES.join(",")})`);
       }
     } else {
       query = query.eq("submitted_by", session.userId);
@@ -119,8 +141,8 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !(await isAdmin(session))) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const ip = req.headers.get("x-forwarded-for") || "unknown";
@@ -134,6 +156,17 @@ export async function PUT(req: NextRequest) {
     if (!v.success) return NextResponse.json({ error: v.error }, { status: 400 });
 
     const supabase = getServiceClient();
+
+    // Grievance rows: state officials + super admin. Other rows: any admin.
+    const { data: target } = await supabase.from("grievances").select("category").eq("id", v.data.id).single();
+    if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const info = await getOfficialInfo(session.userId);
+    const allowed = isGrievanceCategory(target.category)
+      ? info.role === "super_admin" || info.official_type === "state"
+      : info.role === "admin" || info.role === "super_admin";
+    if (!allowed) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const updates: Record<string, string> = { updated_at: new Date().toISOString() };
     if (v.data.status) updates.status = v.data.status;
@@ -169,8 +202,8 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !(await isAdmin(session))) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const ip = req.headers.get("x-forwarded-for") || "unknown";
@@ -183,6 +216,18 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
     const supabase = getServiceClient();
+
+    // Grievance rows: state officials + super admin. Other rows: any admin.
+    const { data: target } = await supabase.from("grievances").select("category").eq("id", id).single();
+    if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const info = await getOfficialInfo(session.userId);
+    const allowed = isGrievanceCategory(target.category)
+      ? info.role === "super_admin" || info.official_type === "state"
+      : info.role === "admin" || info.role === "super_admin";
+    if (!allowed) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     await supabase.from("grievances").delete().eq("id", id);
     logAudit(session.userId, "grievance_deleted", "grievance", id);
 

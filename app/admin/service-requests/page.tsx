@@ -41,6 +41,7 @@ function getDaysPending(createdAt: string, status: string): { days: number; labe
 
 interface ServiceRequest {
   id: string;
+  ticket_no: string | null;
   subject: string;
   description: string;
   category: string;
@@ -146,6 +147,7 @@ export default function AdminServiceRequestsPage() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
+                              {r.ticket_no && <Badge variant="secondary" className="text-xs font-mono">{r.ticket_no}</Badge>}
                               <h3 className="font-medium text-sm">{r.subject}</h3>
                               <Badge variant={statusColors[r.status] as "default" | "secondary" | "outline" | "destructive"} className="text-xs">
                                 {statusOptions.find((s) => s.value === r.status)?.label || r.status}

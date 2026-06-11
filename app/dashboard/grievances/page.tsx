@@ -21,6 +21,7 @@ const categories = ["General", "Administrative", "Technical", "Others"];
 
 interface Grievance {
   id: string;
+  ticket_no: string | null;
   subject: string;
   description: string;
   category: string;
@@ -36,12 +37,23 @@ export default function GrievancesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const t = useT();
   const { lang } = useLang();
 
+  useEffect(() => {
+    fetch("/api/users/me")
+      .then((r) => r.json())
+      .then((d) => {
+        const u = d.user;
+        setHasAccess(!!u && (u.role === "super_admin" || u.official_type === "state"));
+      })
+      .catch(() => setHasAccess(false));
+  }, []);
+
   function load() {
     fetch(`/api/grievances?type=grievance${lang === "ta" ? "&lang=ta" : ""}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : { grievances: [] }))
       .then((d) => setGrievances(d.grievances || []))
       .catch(() => toast.error("Failed to load grievances"))
       .finally(() => setLoaded(true));
@@ -66,7 +78,9 @@ export default function GrievancesPage() {
       body: JSON.stringify(form),
     });
     if (res.ok) {
-      toast.success("Grievance submitted successfully");
+      const data = await res.json().catch(() => null);
+      const ticket = data?.grievance?.ticket_no;
+      toast.success(ticket ? `${t("grievance.submitted_success")} — ${t("misc.ticket_no")}: ${ticket}` : t("grievance.submitted_success"));
       setForm({ subject: "", description: "", category: "" });
       setDialogOpen(false);
       load();
@@ -109,6 +123,17 @@ export default function GrievancesPage() {
         </Dialog>
       </div>
 
+      {/* Notice: grievances are handled by state officials only */}
+      {hasAccess === false && (
+        <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <MessageSquareWarning className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">{t("grievance.restricted_title")}</p>
+            <p className="text-xs text-amber-700 mt-0.5">{t("grievance.restricted_desc")}</p>
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard label={t("misc.total")} value={stats.total} icon={MessageSquareWarning} loading={!loaded} borderColor="border-l-primary" iconColor="text-primary/40" />
@@ -130,6 +155,7 @@ export default function GrievancesPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
+                      {g.ticket_no && <Badge variant="secondary" className="text-xs font-mono">{g.ticket_no}</Badge>}
                       <h3 className="font-medium text-sm">{g.subject}</h3>
                       <StatusBadge status={g.status} />
                     </div>

@@ -163,10 +163,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isAdmin) return null;
 
+  // Grievances: state officials + super admin only
+  const grievanceAccess = user?.role === "super_admin" || user?.official_type === "state";
   const feedbackItems = [
     { href: "/admin/suggestions", labelKey: "nav.suggestions" as const, icon: Lightbulb },
     { href: "/admin/service-requests", labelKey: "nav.service_requests" as const, icon: TicketCheck },
-    { href: "/admin/grievances", labelKey: "nav.grievances" as const, icon: MessageSquareWarning },
+    ...(grievanceAccess ? [{ href: "/admin/grievances", labelKey: "nav.grievances" as const, icon: MessageSquareWarning }] : []),
   ];
   const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);
 

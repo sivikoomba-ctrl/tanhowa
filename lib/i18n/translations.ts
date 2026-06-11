@@ -219,6 +219,7 @@ const translations = {
 
   // Misc
   "misc.total": { en: "Total", ta: "மொத்தம்" },
+  "misc.ticket_no": { en: "Ticket No", ta: "சீட்டு எண்" },
   "misc.showing": { en: "Showing", ta: "காண்பிக்கிறது" },
   "misc.of": { en: "of", ta: "இல்" },
   "misc.per_page": { en: "per page", ta: "பக்கத்திற்கு" },
@@ -559,6 +560,8 @@ const translations = {
   "grievance.no_grievances": { en: "No grievances submitted yet", ta: "இதுவரை குறைகள் எதுவும் சமர்ப்பிக்கப்படவில்லை" },
   "grievance.get_started": { en: "Submit a grievance to get started", ta: "தொடங்க ஒரு குறையை சமர்ப்பிக்கவும்" },
   "grievance.admin_remarks": { en: "Admin Remarks", ta: "நிர்வாகி கருத்துகள்" },
+  "grievance.restricted_title": { en: "Grievances are handled by State Officials", ta: "குறைகள் மாநில நிர்வாகிகளால் கையாளப்படுகின்றன" },
+  "grievance.restricted_desc": { en: "Your grievances are visible only to you and the State Officials who handle them. You can submit a grievance and track its status here.", ta: "உங்கள் குறைகள் உங்களுக்கும், அவற்றைக் கையாளும் மாநில நிர்வாகிகளுக்கும் மட்டுமே தெரியும். இங்கே குறையைச் சமர்ப்பித்து அதன் நிலையைக் கண்காணிக்கலாம்." },
 
   // Suggestions page
   "suggestion.title": { en: "Suggestions", ta: "பரிந்துரைகள்" },

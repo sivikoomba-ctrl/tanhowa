@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Lightbulb, Plus, CheckCircle2, Clock } from "lucide-react";
@@ -17,6 +18,7 @@ import { useT, useLang } from "@/lib/i18n";
 
 interface Suggestion {
   id: string;
+  ticket_no: string | null;
   subject: string;
   description: string;
   category: string;
@@ -61,7 +63,9 @@ export default function SuggestionsPage() {
       body: JSON.stringify({ ...form, category: "Suggestion" }),
     });
     if (res.ok) {
-      toast.success("Suggestion submitted");
+      const data = await res.json().catch(() => null);
+      const ticket = data?.grievance?.ticket_no;
+      toast.success(ticket ? `Suggestion submitted — ${t("misc.ticket_no")}: ${ticket}` : "Suggestion submitted");
       setForm({ subject: "", description: "" });
       setDialogOpen(false);
       load();
@@ -117,6 +121,7 @@ export default function SuggestionsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
+                      {g.ticket_no && <Badge variant="secondary" className="text-xs font-mono">{g.ticket_no}</Badge>}
                       <h3 className="font-medium text-sm">{g.subject}</h3>
                       <StatusBadge status={g.status} />
                     </div>

@@ -35,6 +35,7 @@ const PRIORITY_OPTIONS = [
 
 interface ServiceRequest {
   id: string;
+  ticket_no: string | null;
   subject: string;
   description: string;
   category: string;
@@ -82,7 +83,9 @@ export default function ServiceRequestsPage() {
       body: JSON.stringify({ ...form, priority: form.priority }),
     });
     if (res.ok) {
-      toast.success(t("sr.submitted"));
+      const data = await res.json().catch(() => null);
+      const ticket = data?.grievance?.ticket_no;
+      toast.success(ticket ? `${t("sr.submitted")} — ${t("misc.ticket_no")}: ${ticket}` : t("sr.submitted"));
       setForm({ subject: "", description: "", category: "Transfer", priority: "medium" });
       setDialogOpen(false);
       load();
@@ -176,6 +179,7 @@ export default function ServiceRequestsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
+                      {r.ticket_no && <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary font-mono">{r.ticket_no}</span>}
                       <h3 className="font-medium text-sm">{r.subject}</h3>
                       <StatusBadge status={r.status} />
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{r.category}</span>
