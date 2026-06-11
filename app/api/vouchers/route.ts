@@ -166,6 +166,8 @@ export async function PUT(req: NextRequest) {
         }
       }
       if (body.remarks !== undefined) updates.remarks = body.remarks;
+      if (body.receipt_url !== undefined) updates.receipt_url = body.receipt_url;
+      if (body.payment_proof_url !== undefined) updates.payment_proof_url = body.payment_proof_url;
     } else {
       // Officials can only update their own pending vouchers
       if (body.title !== undefined) updates.title = body.title;

@@ -75,6 +75,11 @@ export default function AdminVouchersPage() {
   const scanInputRef = useRef<HTMLInputElement>(null);
   const scanPaymentInputRef = useRef<HTMLInputElement>(null);
 
+  // Receipt upload
+  const [uploadingReceiptFor, setUploadingReceiptFor] = useState<string | null>(null);
+  const [uploadTarget, setUploadTarget] = useState<{ id: string; type: "receipt" | "payment_proof" } | null>(null);
+  const adminReceiptUploadRef = useRef<HTMLInputElement>(null);
+
   // Bulk selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [, setBulkLoading] = useState(false);
@@ -299,6 +304,31 @@ export default function AdminVouchersPage() {
     });
     if (res.ok) {
       toast.success("Remarks saved");
+    }
+  }
+
+  async function handleAdminReceiptUpload(file: File) {
+    if (!uploadTarget) return;
+    const { id, type } = uploadTarget;
+    setUploadingReceiptFor(id);
+    try {
+      const url = await uploadFile(file);
+      if (!url) { toast.error("Upload failed"); return; }
+      const field = type === "receipt" ? "receipt_url" : "payment_proof_url";
+      const res = await fetch("/api/vouchers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, [field]: url }),
+      });
+      if (res.ok) {
+        toast.success(type === "receipt" ? "Receipt attached" : "Payment proof attached");
+        load();
+      } else {
+        toast.error("Failed to attach file");
+      }
+    } finally {
+      setUploadingReceiptFor(null);
+      setUploadTarget(null);
     }
   }
 
@@ -820,15 +850,33 @@ export default function AdminVouchersPage() {
                                 {v.submitter?.name && <span className="text-xs text-muted-foreground uppercase">by {v.submitter.name}</span>}
                                 <span className="text-xs text-muted-foreground">{formatDate(v.created_at)}</span>
                               </div>
-                              <div className="flex items-center gap-3 mt-1">
-                                {v.receipt_url && (
+                              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                {v.receipt_url ? (
                                   <button onClick={() => setPreviewUrl(v.receipt_url)} className="flex items-center gap-1 text-xs text-primary hover:underline">
                                     <Eye size={12} /> View receipt
                                   </button>
+                                ) : (
+                                  <button
+                                    disabled={uploadingReceiptFor === v.id}
+                                    onClick={() => { setUploadTarget({ id: v.id, type: "receipt" }); adminReceiptUploadRef.current?.click(); }}
+                                    className="flex items-center gap-1 text-xs text-amber-600 hover:underline disabled:opacity-50"
+                                  >
+                                    {uploadingReceiptFor === v.id ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                                    Upload receipt
+                                  </button>
                                 )}
-                                {v.payment_proof_url && (
+                                {v.payment_proof_url ? (
                                   <button onClick={() => setPreviewUrl(v.payment_proof_url)} className="flex items-center gap-1 text-xs text-primary hover:underline">
                                     <Eye size={12} /> View payment proof
+                                  </button>
+                                ) : (
+                                  <button
+                                    disabled={uploadingReceiptFor === v.id}
+                                    onClick={() => { setUploadTarget({ id: v.id, type: "payment_proof" }); adminReceiptUploadRef.current?.click(); }}
+                                    className="flex items-center gap-1 text-xs text-muted-foreground hover:underline disabled:opacity-50"
+                                  >
+                                    {uploadingReceiptFor === v.id ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                                    Upload proof
                                   </button>
                                 )}
                               </div>
@@ -879,6 +927,15 @@ export default function AdminVouchersPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Admin receipt/proof upload — shared input */}
+      <input
+        ref={adminReceiptUploadRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAdminReceiptUpload(f); e.target.value = ""; }}
+      />
 
       {/* Receipt Preview Dialog */}
       <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
