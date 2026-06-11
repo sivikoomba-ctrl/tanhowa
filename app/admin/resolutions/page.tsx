@@ -168,7 +168,7 @@ export default function AdminResolutionsPage() {
                 return (
                   <Card key={r.id}>
                     <CardContent className="pt-4">
-                      <div className="flex items-start justify-between gap-3">
+                      <div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <h3 className="font-semibold">{r.title}</h3>
@@ -213,7 +213,7 @@ export default function AdminResolutionsPage() {
                           </div>
                         </div>
 
-                        <div className="flex flex-col gap-2 shrink-0">
+                        <div className="flex flex-wrap gap-2 mt-3">
                           {r.status === "submitted" && (
                             <>
                               <Button size="sm" onClick={() => openRemarksDialog(r.id, "approve")} className="bg-primary hover:bg-primary/90">

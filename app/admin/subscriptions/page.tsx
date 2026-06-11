@@ -1478,7 +1478,8 @@ export default function AdminSubscriptionsPage() {
             return (
               <Card key={sub.id} className={sub.status === "paid" ? "opacity-75" : hasProof && sub.status !== "paid" ? "border-blue-200 bg-blue-50/30" : ""}>
                 <CardContent className="pt-4">
-                  <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-medium text-sm truncate uppercase">{sub.users?.name || "Unknown"}</h3>
@@ -1573,7 +1574,9 @@ export default function AdminSubscriptionsPage() {
                         );
                       })()}
                     </div>
-                    <div className="flex flex-wrap sm:flex-col items-end gap-1.5 shrink-0">
+                    </div>
+                    {/* Action buttons — full-width row */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-3">
                       {hasProof && (
                         <Button
                           size="sm"
