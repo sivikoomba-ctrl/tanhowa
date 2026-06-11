@@ -177,8 +177,6 @@ export async function PUT(req: NextRequest) {
       if (body.vendor_name !== undefined) updates.vendor_name = body.vendor_name;
       if (body.expense_date !== undefined) updates.expense_date = body.expense_date;
       if (body.category !== undefined) updates.category = body.category;
-      if (body.receipt_url !== undefined) updates.receipt_url = body.receipt_url;
-      if (body.payment_proof_url !== undefined) updates.payment_proof_url = body.payment_proof_url;
       if (body.payment_method !== undefined) updates.payment_method = body.payment_method;
       if (body.payment_transaction_id !== undefined) updates.payment_transaction_id = body.payment_transaction_id;
       if (body.payment_date !== undefined) updates.payment_date = body.payment_date;
