@@ -8,12 +8,26 @@ import { translateContent, getTranslations } from "@/lib/translate-content";
 import { validate, grievanceCreateSchema, grievanceUpdateSchema } from "@/lib/validation";
 import { writeLimiter } from "@/lib/rate-limit";
 
-const SERVICE_REQUEST_CATEGORIES = ["Transfer", "Training", "Legal Help", "Certificate", "Letter/Recommendation", "Welfare", "IT Support", "Other Service"];
+import { SERVICE_REQUEST_CATEGORIES, isGrievanceCategory, hasGrievanceAccess } from "@/lib/grievances";
 
-// Grievances (everything that isn't a suggestion or service request) are
-// visible and workable only to state officials and the super admin.
-function isGrievanceCategory(category: string | null): boolean {
-  return category !== "Suggestion" && !SERVICE_REQUEST_CATEGORIES.includes(category || "");
+// Authorization for mutating a single row. Grievance rows: state officials +
+// super admin, or district admins when the row's district snapshot matches
+// theirs. Suggestion/service-request rows: any admin.
+async function canActOnGrievance(
+  supabase: ReturnType<typeof getServiceClient>,
+  id: string,
+  userId: string
+): Promise<{ ok: boolean; status: number; error?: string }> {
+  const [{ data: target }, info] = await Promise.all([
+    supabase.from("grievances").select("category, district").eq("id", id).single(),
+    getOfficialInfo(userId),
+  ]);
+  if (!target) return { ok: false, status: 404, error: "Not found" };
+  const allowed = isGrievanceCategory(target.category)
+    ? hasGrievanceAccess(info) ||
+      (info.official_type === "district" && !!info.district && target.district === info.district)
+    : info.role === "admin" || info.role === "super_admin";
+  return allowed ? { ok: true, status: 200 } : { ok: false, status: 403, error: "Forbidden" };
 }
 
 export async function GET(req: NextRequest) {
@@ -29,18 +43,19 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "100"), 200);
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
+    // mine=1: caller explicitly wants only their own submissions (dashboard
+    // personal trackers), regardless of any admin/official scope they hold
+    const mine = url.searchParams.get("mine") === "1";
+
     const supabase = getServiceClient();
 
     const info = await getOfficialInfo(session.userId);
-    const grievanceAccess = info.role === "super_admin" || info.official_type === "state";
+    const grievanceAccess = hasGrievanceAccess(info);
     const adminRole = info.role === "admin" || info.role === "super_admin";
-    // District admins see their own district's grievances (inner join needed
-    // so the submitter-district filter can apply)
-    const districtScope = type === "grievance" && !grievanceAccess && info.official_type === "district" && !!info.district;
 
     let query = supabase
       .from("grievances")
-      .select(districtScope ? "*, users!inner(name, posting_details)" : "*, users(name)", { count: "exact" })
+      .select("*, users(name)", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -48,27 +63,35 @@ export async function GET(req: NextRequest) {
     if (type === "suggestion") {
       query = query.eq("category", "Suggestion");
     } else if (type === "service-request") {
-      query = query.in("category", SERVICE_REQUEST_CATEGORIES);
+      query = query.in("category", [...SERVICE_REQUEST_CATEGORIES]);
     } else if (type === "grievance") {
       query = query.neq("category", "Suggestion").not("category", "in", `(${SERVICE_REQUEST_CATEGORIES.join(",")})`);
     }
 
-    if (type === "grievance") {
-      // State officials + super admin: all; district admins: own district;
-      // members: own submissions only
-      if (districtScope) {
-        query = query.eq("users.posting_details->>regular_district", info.district!);
-      } else if (!grievanceAccess) {
-        query = query.eq("submitted_by", session.userId);
-      }
-      if (status && status !== "all") {
-        query = query.eq("status", status);
+    if (status && status !== "all") {
+      query = query.eq("status", status);
+    }
+
+    if (mine) {
+      query = query.eq("submitted_by", session.userId);
+    } else if (type === "grievance") {
+      // State officials + super admin: all; district admins: their district
+      // (snapshot column); everyone else: own submissions only
+      if (!grievanceAccess) {
+        if (info.official_type === "district") {
+          if (!info.district) {
+            return NextResponse.json(
+              { error: "Set your district in your profile to view district grievances" },
+              { status: 403 }
+            );
+          }
+          query = query.eq("district", info.district);
+        } else {
+          query = query.eq("submitted_by", session.userId);
+        }
       }
     } else if (adminRole) {
-      if (status && status !== "all") {
-        query = query.eq("status", status);
-      }
-      // Untyped admin queries: district admins don't see others' grievances
+      // Untyped admin queries: non-state admins don't see others' grievances
       if (!type && !grievanceAccess) {
         query = query.or(`submitted_by.eq.${session.userId},category.eq.Suggestion,category.in.(${SERVICE_REQUEST_CATEGORIES.join(",")})`);
       }
@@ -132,7 +155,7 @@ export async function POST(req: NextRequest) {
     }
 
     const actionType = v.data.category === "Suggestion" ? "suggestion_submitted"
-      : SERVICE_REQUEST_CATEGORIES.includes(v.data.category) ? "service_request_submitted"
+      : !isGrievanceCategory(v.data.category) ? "service_request_submitted"
       : "grievance_submitted";
     logContribution(session.userId, actionType, "Submitted: " + v.data.subject);
 
@@ -163,27 +186,9 @@ export async function PUT(req: NextRequest) {
 
     const supabase = getServiceClient();
 
-    // Grievance rows: state officials + super admin, or district admins for
-    // their own district's submitters. Other rows: any admin.
-    const { data: target } = await supabase
-      .from("grievances")
-      .select("category, users:submitted_by(posting_details)")
-      .eq("id", v.data.id)
-      .single();
-    if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const info = await getOfficialInfo(session.userId);
-    let allowed: boolean;
-    if (isGrievanceCategory(target.category)) {
-      allowed = info.role === "super_admin" || info.official_type === "state";
-      if (!allowed && info.official_type === "district" && info.district) {
-        const pd = (target.users as unknown as { posting_details?: { regular_district?: string } } | null)?.posting_details;
-        allowed = pd?.regular_district === info.district;
-      }
-    } else {
-      allowed = info.role === "admin" || info.role === "super_admin";
-    }
-    if (!allowed) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const auth = await canActOnGrievance(supabase, v.data.id, session.userId);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const updates: Record<string, string> = { updated_at: new Date().toISOString() };
@@ -235,15 +240,9 @@ export async function DELETE(req: NextRequest) {
 
     const supabase = getServiceClient();
 
-    // Grievance rows: state officials + super admin. Other rows: any admin.
-    const { data: target } = await supabase.from("grievances").select("category").eq("id", id).single();
-    if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const info = await getOfficialInfo(session.userId);
-    const allowed = isGrievanceCategory(target.category)
-      ? info.role === "super_admin" || info.official_type === "state"
-      : info.role === "admin" || info.role === "super_admin";
-    if (!allowed) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const auth = await canActOnGrievance(supabase, id, session.userId);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     await supabase.from("grievances").delete().eq("id", id);

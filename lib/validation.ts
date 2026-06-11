@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SERVICE_REQUEST_CATEGORIES, GRIEVANCE_CATEGORIES, LEGACY_GRIEVANCE_CATEGORIES } from "@/lib/grievances";
 
 // Reusable primitives
 const trimmedString = z.string().trim();
@@ -11,14 +12,10 @@ export const grievanceCreateSchema = z.object({
   subject: nonEmptyString.max(500),
   description: safeString.max(10000),
   category: z.enum([
-    // Grievance categories
-    "Personal", "District-All", "District-Specific", "Technical",
-    // Legacy grievance categories (older clients / cached PWA)
-    "General", "Administrative", "Others",
-    // Suggestions
+    ...GRIEVANCE_CATEGORIES,
+    ...LEGACY_GRIEVANCE_CATEGORIES,
     "Suggestion",
-    // Service requests
-    "Transfer", "Training", "Legal Help", "Certificate", "Letter/Recommendation", "Welfare", "IT Support", "Other Service",
+    ...SERVICE_REQUEST_CATEGORIES,
   ]),
   priority: z.enum(["low", "medium", "high"]).optional(),
 });

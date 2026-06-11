@@ -17,13 +17,14 @@ export async function GET() {
     }
 
     const supabase = getServiceClient();
-    const [{ data: folders, error }, { data: docs }] = await Promise.all([
+    const [{ data: folders, error }, { data: docs, error: docsError }] = await Promise.all([
       supabase.from("admin_document_folders").select("*").eq("created_by", session.userId).order("name"),
       supabase.from("admin_documents").select("folder_id").eq("created_by", session.userId),
     ]);
 
-    if (error) {
-      await logError({ type: "api", message: error.message, path: "/api/admin-documents/folders", method: "GET", status_code: 500 });
+    if (error || docsError) {
+      const message = error?.message || docsError?.message || "Unknown error";
+      await logError({ type: "api", message, path: "/api/admin-documents/folders", method: "GET", status_code: 500 });
       return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
     }
 

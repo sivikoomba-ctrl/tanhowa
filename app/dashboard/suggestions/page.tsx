@@ -38,7 +38,7 @@ export default function SuggestionsPage() {
   const { lang } = useLang();
 
   function load() {
-    fetch(`/api/grievances?type=suggestion${lang === "ta" ? "&lang=ta" : ""}`)
+    fetch(`/api/grievances?type=suggestion&mine=1${lang === "ta" ? "&lang=ta" : ""}`)
       .then((r) => r.json())
       .then((d) => setSuggestions(d.grievances || []))
       .catch(() => toast.error("Failed to load suggestions"))

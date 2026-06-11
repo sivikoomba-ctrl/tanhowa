@@ -52,7 +52,7 @@ export default function GrievancesPage() {
   }, []);
 
   function load() {
-    fetch(`/api/grievances?type=grievance${lang === "ta" ? "&lang=ta" : ""}`)
+    fetch(`/api/grievances?type=grievance&mine=1${lang === "ta" ? "&lang=ta" : ""}`)
       .then((r) => (r.ok ? r.json() : { grievances: [] }))
       .then((d) => setGrievances(d.grievances || []))
       .catch(() => toast.error("Failed to load grievances"))

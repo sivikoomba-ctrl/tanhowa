@@ -56,7 +56,7 @@ export default function ServiceRequestsPage() {
   const { lang } = useLang();
 
   function load() {
-    fetch(`/api/grievances?type=service-request${lang === "ta" ? "&lang=ta" : ""}`)
+    fetch(`/api/grievances?type=service-request&mine=1${lang === "ta" ? "&lang=ta" : ""}`)
       .then((r) => r.json())
       .then((d) => setRequests(d.grievances || []))
       .catch(() => toast.error(t("sr.load_failed")))

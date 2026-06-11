@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { isGrievanceCategory, hasGrievanceAccess } from "@/lib/grievances";
 
 export async function GET() {
   try {
@@ -36,7 +37,7 @@ export async function GET() {
       // Tasks by status
       supabase.from("todos").select("status"),
       // Grievances/suggestions
-      supabase.from("grievances").select("id, category, status", { count: "exact" }),
+      supabase.from("grievances").select("id, category, status, district", { count: "exact" }),
       // Contributions this month
       supabase.from("contributions").select("id, estimated_minutes", { count: "exact" })
         .gte("created_at", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
@@ -77,10 +78,18 @@ export async function GET() {
     const completedTasks = taskBreakdown["completed"] || 0;
     const taskCompletionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-    // Grievance stats
+    // Grievance stats — grievance-kind rows scoped to the caller's access
+    // (state/super: all; district admin: own district; others: none),
+    // matching what /admin/grievances will actually show them
     const grievances = grievancesRes.data || [];
     const suggestions = grievances.filter(g => g.category === "Suggestion");
-    const grievanceOnly = grievances.filter(g => g.category !== "Suggestion");
+    const info = await getOfficialInfo(session.userId);
+    let grievanceOnly = grievances.filter(g => isGrievanceCategory(g.category));
+    if (!hasGrievanceAccess(info)) {
+      grievanceOnly = info.official_type === "district" && info.district
+        ? grievanceOnly.filter(g => g.district === info.district)
+        : [];
+    }
     const resolvedGrievances = grievanceOnly.filter(g => g.status === "resolved").length;
     const grievanceResolutionRate = grievanceOnly.length > 0 ? Math.round((resolvedGrievances / grievanceOnly.length) * 100) : 0;
 

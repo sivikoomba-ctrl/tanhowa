@@ -63,9 +63,13 @@ export default function AdminGrievancesPage() {
   const load = useCallback(() => {
     const langParam = previewLang === "ta" ? "&lang=ta" : "";
     fetch(`/api/grievances?type=grievance&status=${tab}${langParam}`)
-      .then((r) => r.json())
-      .then((d) => setGrievances(d.grievances || []))
-      .catch(() => toast.error("Failed to load grievances"));
+      .then(async (r) => {
+        const d = await r.json().catch(() => null);
+        if (!r.ok) throw new Error(d?.error || "Failed to load grievances");
+        return d;
+      })
+      .then((d) => setGrievances(d?.grievances || []))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load grievances"));
   }, [tab, previewLang]);
 
   useEffect(() => {
@@ -81,6 +85,9 @@ export default function AdminGrievancesPage() {
     if (res.ok) {
       toast.success(`Status updated to ${status.replace("_", " ")}`);
       load();
+    } else {
+      const d = await res.json().catch(() => null);
+      toast.error(d?.error || "Update failed");
     }
   }
 
@@ -93,6 +100,9 @@ export default function AdminGrievancesPage() {
     if (res.ok) {
       toast.success(`Priority set to ${priority}`);
       load();
+    } else {
+      const d = await res.json().catch(() => null);
+      toast.error(d?.error || "Update failed");
     }
   }
 
@@ -105,6 +115,9 @@ export default function AdminGrievancesPage() {
     if (res.ok) {
       toast.success("Remarks saved");
       load();
+    } else {
+      const d = await res.json().catch(() => null);
+      toast.error(d?.error || "Failed to save remarks");
     }
   }
 
@@ -114,6 +127,9 @@ export default function AdminGrievancesPage() {
     if (res.ok) {
       toast.success("Deleted");
       load();
+    } else {
+      const d = await res.json().catch(() => null);
+      toast.error(d?.error || "Delete failed");
     }
   }
 

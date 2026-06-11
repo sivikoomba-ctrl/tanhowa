@@ -46,7 +46,10 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const title = formData.get("title") as string;
     const description = (formData.get("description") as string) || "";
-    const category = (formData.get("category") as string) || "General";
+    // null, not "General": folders replaced categories, and the one-time
+    // category->folder migration in admin_document_folders.sql must not
+    // re-file new Unfiled docs if it is ever re-run
+    const category = (formData.get("category") as string) || null;
     const folderId = (formData.get("folder_id") as string) || null;
     const file = formData.get("file") as File | null;
 

@@ -228,18 +228,20 @@ export default function SpecialDocumentsPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2">
-            {activeFolder && !searching && (
+            {activeFolder && (
               <Button size="sm" variant="ghost" className="h-8 w-8 p-0 -ml-2" onClick={() => setActiveFolder(null)}>
                 <ChevronLeft size={18} />
               </Button>
             )}
             <h1 className="text-2xl font-bold">
-              {activeFolderName && !searching ? activeFolderName : "Special Document Vault"}
+              {activeFolderName || "Special Document Vault"}
             </h1>
             <Badge variant="outline" className="text-xs gap-1"><Lock size={10} />Private</Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {activeFolderName && !searching
+            {searching
+              ? `${visibleDocs.length} match(es)${activeFolderName ? ` in ${activeFolderName}` : ""}`
+              : activeFolderName
               ? `${visibleDocs.length} document(s) in this folder`
               : `${docs.length} documents in ${folders.length} folders — visible only to you`}
           </p>
