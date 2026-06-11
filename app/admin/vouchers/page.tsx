@@ -253,7 +253,7 @@ export default function AdminVouchersPage() {
       }
       const data = await res.json();
       if (data.date == null && data.transaction_id == null && data.amount == null && data.paid_to == null) {
-        toast.error("Could not read payment details from this image.");
+        toast.error("Could not read payment details. Upload a clear UPI or bank transfer screenshot.");
         return;
       }
       const updates = { ...createForm };

@@ -252,7 +252,7 @@ export default function VouchersPage() {
       // The endpoint returns nulls for unrecognised images rather than an
       // explicit error code, so detect "nothing extracted" and bail.
       if (data.date == null && data.transaction_id == null && data.amount == null && data.paid_to == null) {
-        toast.error("Could not read payment details from this image.");
+        toast.error("Could not read payment details. Upload a clear UPI or bank transfer screenshot.");
         return;
       }
       const updates = { ...form };

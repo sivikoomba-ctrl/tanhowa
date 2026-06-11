@@ -81,10 +81,14 @@ Rules:
     ]);
 
     const text = result.response.text().trim();
-    // Extract JSON from the response (handle markdown code blocks)
-    const jsonMatch = text.match(/\{[^}]+\}/);
+    // Extract JSON: strip markdown code fences first, then find the object
+    let jsonSource = text;
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (fenceMatch) jsonSource = fenceMatch[1];
+    // Use [\s\S]* so the match spans lines and tolerates } inside string values
+    const jsonMatch = jsonSource.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return NextResponse.json({ date: null, time: null });
+      return NextResponse.json({ date: null, time: null, transaction_id: null, payment_method: null, amount: null, paid_to: null, paid_account: null, is_tanhowa_payment: false });
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
