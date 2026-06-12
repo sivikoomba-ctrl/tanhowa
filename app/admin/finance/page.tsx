@@ -192,7 +192,15 @@ export default function FinancePage() {
       const data = await res.json();
       if (res.ok) {
         setUnsettledVouchers(data.unsettledVouchers || []);
-        setUnlinkedCheques(data.unlinkedCheques || []);
+        // Cheque-number order (numeric when possible, no-number entries last)
+        setUnlinkedCheques(((data.unlinkedCheques || []) as ChequeEntry[]).sort((a, b) => {
+          if (!a.cheque_no) return b.cheque_no ? 1 : 0;
+          if (!b.cheque_no) return -1;
+          const na = Number(a.cheque_no);
+          const nb = Number(b.cheque_no);
+          if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+          return a.cheque_no.localeCompare(b.cheque_no, undefined, { numeric: true });
+        }));
         setMatches(data.matches || []);
       } else {
         toast.error(data.error || "Failed to load settlement data");
