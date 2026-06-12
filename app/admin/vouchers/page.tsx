@@ -42,6 +42,7 @@ interface Voucher {
   submitter?: { id: string; name: string; email: string; phone: string; official_type: string | null } | null;
   approver?: { name: string } | null;
   approved_at: string | null;
+  settlement?: { cheque_no: string | null; status: string } | null;
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -499,6 +500,7 @@ export default function AdminVouchersPage() {
     if (v.category) expenseRows.push(["Category", v.category]);
     if (v.invoice_number) expenseRows.push(["Invoice No.", v.invoice_number]);
     if (v.expense_event) expenseRows.push(["Expense Event", v.expense_event]);
+    if (v.settlement) expenseRows.push(["Settled By", `Cheque ${v.settlement.cheque_no ? "#" + v.settlement.cheque_no : ""} (${v.settlement.status})`]);
     if (v.vendor_name) expenseRows.push(["Vendor / Payee", v.vendor_name]);
     if (v.expense_date) {
       expenseRows.push(["Expense Date", new Date(v.expense_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })]);
@@ -879,6 +881,17 @@ export default function AdminVouchersPage() {
                                 )}
                                 {v.invoice_number && <span className="text-xs text-muted-foreground">Invoice: {v.invoice_number}</span>}
                                 {v.expense_event && <span className="text-xs text-muted-foreground">Event: {v.expense_event}</span>}
+                                {v.status === "approved" && (
+                                  v.settlement ? (
+                                    <Badge variant="outline" className="text-[10px] py-0 bg-green-50 text-green-700 border-green-300">
+                                      Settled{v.settlement.cheque_no ? ` - Cheque #${v.settlement.cheque_no}` : ""} ({v.settlement.status})
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] py-0 bg-amber-50 text-amber-700 border-amber-300">
+                                      Unsettled
+                                    </Badge>
+                                  )
+                                )}
                                 {v.vendor_name && <span className="text-xs text-muted-foreground">Vendor: {v.vendor_name}</span>}
                               </div>
                               {v.expense_date && <p className="text-xs text-muted-foreground mt-0.5">Expense date: {formatDate(v.expense_date)}</p>}

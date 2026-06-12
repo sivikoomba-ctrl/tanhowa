@@ -56,11 +56,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch vouchers" }, { status: 500 });
     }
 
+    // Settlement: active cheque entries (issued/cleared) linked to these vouchers
+    const ids = (vouchers || []).map((v) => v.id);
+    const settlementMap = new Map<string, { cheque_no: string | null; status: string }>();
+    if (ids.length > 0) {
+      const { data: cheques } = await supabase
+        .from("finance_entries")
+        .select("voucher_id, cheque_no, status")
+        .in("voucher_id", ids)
+        .in("status", ["issued", "cleared"]);
+      for (const c of cheques || []) {
+        if (c.voucher_id) settlementMap.set(c.voucher_id, { cheque_no: c.cheque_no, status: c.status });
+      }
+    }
+
     const resolved = await Promise.all(
       (vouchers || []).map(async (v) => ({
         ...v,
         receipt_url: v.receipt_url ? await resolveDocumentUrl(supabase, v.receipt_url) : null,
         payment_proof_url: v.payment_proof_url ? await resolveDocumentUrl(supabase, v.payment_proof_url) : null,
+        settlement: settlementMap.get(v.id) || null,
       }))
     );
 

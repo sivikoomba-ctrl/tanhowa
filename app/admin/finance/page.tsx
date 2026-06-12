@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/metric-card";
@@ -56,6 +57,29 @@ interface LedgerEntry {
   status?: string;
   entry_type?: string;
   voucher_id?: string | null;
+}
+
+interface MatchVoucher {
+  id: string;
+  title: string;
+  amount: number;
+  paid_to: string;
+  vendor_name: string;
+  expense_date: string | null;
+  expense_event: string;
+  approved_at: string | null;
+  submitter?: { name: string } | null;
+}
+
+interface ChequeEntry {
+  id: string;
+  entry_date: string;
+  amount: number;
+  cheque_no: string | null;
+  payee: string;
+  status: string;
+  voucher_id: string | null;
+  remarks: string | null;
 }
 
 const CHEQUE_STATUS_STYLES: Record<string, string> = {
@@ -117,6 +141,13 @@ export default function FinancePage() {
   const [vouchers, setVouchers] = useState<{ id: string; title: string; amount: number; paid_to: string; vendor_name: string }[]>([]);
   const [manageEntry, setManageEntry] = useState<LedgerEntry | null>(null);
 
+  // Settlement (cheque <-> voucher matching)
+  const [view, setView] = useState("ledger");
+  const [unsettledVouchers, setUnsettledVouchers] = useState<MatchVoucher[]>([]);
+  const [unlinkedCheques, setUnlinkedCheques] = useState<ChequeEntry[]>([]);
+  const [matches, setMatches] = useState<{ entry: ChequeEntry; voucher: MatchVoucher | null }[]>([]);
+  const [loadingMatching, setLoadingMatching] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -143,6 +174,60 @@ export default function FinancePage() {
   }, [year]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  const loadMatching = useCallback(async () => {
+    setLoadingMatching(true);
+    try {
+      const res = await fetch("/api/finance?matching=1");
+      const data = await res.json();
+      if (res.ok) {
+        setUnsettledVouchers(data.unsettledVouchers || []);
+        setUnlinkedCheques(data.unlinkedCheques || []);
+        setMatches(data.matches || []);
+      } else {
+        toast.error(data.error || "Failed to load settlement data");
+      }
+    } catch {
+      toast.error("Failed to load settlement data");
+    } finally {
+      setLoadingMatching(false);
+    }
+  }, []);
+
+  useEffect(() => { if (view === "settlement") loadMatching(); }, [view, loadMatching]);
+
+  async function linkCheque(chequeId: string, voucherId: string | null) {
+    const res = await fetch("/api/finance", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: chequeId, voucher_id: voucherId }),
+    });
+    if (res.ok) {
+      toast.success(voucherId ? "Cheque linked to voucher" : "Cheque unlinked");
+      loadMatching();
+      loadData();
+    } else {
+      const d = await res.json().catch(() => null);
+      toast.error(d?.error || "Failed to update link");
+    }
+  }
+
+  // Auto-suggestions: exact amount match; high confidence when payee matches vendor/paid_to
+  const suggestions = unlinkedCheques
+    .filter((c) => c.status === "issued" || c.status === "cleared")
+    .flatMap((c) => {
+      const norm = (s: string) => (s || "").toLowerCase().trim();
+      return unsettledVouchers
+        .filter((v) => Math.abs(v.amount - c.amount) < 0.01)
+        .map((v) => {
+          const payee = norm(c.payee);
+          const targets = [norm(v.paid_to), norm(v.vendor_name)].filter(Boolean);
+          const high = targets.some((t) => t.includes(payee) || payee.includes(t));
+          return { cheque: c, voucher: v, high };
+        });
+    })
+    .sort((a, b) => Number(b.high) - Number(a.high))
+    .slice(0, 10);
 
   // Filtered ledger
   const filtered = ledger.filter((e) => {
@@ -419,6 +504,14 @@ export default function FinancePage() {
         </div>
       </div>
 
+      <Tabs value={view} onValueChange={setView}>
+        <TabsList>
+          <TabsTrigger value="ledger">Ledger</TabsTrigger>
+          <TabsTrigger value="settlement">Cheque Settlement</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ledger" className="space-y-6 mt-4">
+
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard label="Total Collections" value={`Rs.${totalCredits.toLocaleString("en-IN")}`} subtitle={totalDebits > 0 ? `Cheques out: Rs.${totalDebits.toLocaleString("en-IN")} - Net: Rs.${netBalance.toLocaleString("en-IN")}` : undefined} icon={IndianRupee} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-red-600" />
@@ -622,6 +715,141 @@ export default function FinancePage() {
           )}
         </CardContent>
       </Card>
+
+        </TabsContent>
+
+        <TabsContent value="settlement" className="space-y-6 mt-4">
+          {loadingMatching ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              {/* Summary strip */}
+              <div className="grid grid-cols-3 gap-4">
+                <MetricCard label="Unsettled Vouchers" value={unsettledVouchers.length} subtitle={`Rs.${unsettledVouchers.reduce((s, v) => s + v.amount, 0).toLocaleString("en-IN")}`} icon={FileText} borderColor="border-l-amber-500" iconColor="text-amber-500/40" subtitleColor="text-amber-600" />
+                <MetricCard label="Unlinked Cheques" value={unlinkedCheques.length} subtitle={`Rs.${unlinkedCheques.reduce((s, c) => s + c.amount, 0).toLocaleString("en-IN")}`} icon={Banknote} borderColor="border-l-red-500" iconColor="text-red-500/40" subtitleColor="text-red-600" />
+                <MetricCard label="Matched Pairs" value={matches.length} subtitle={`Rs.${matches.reduce((s, m) => s + m.entry.amount, 0).toLocaleString("en-IN")}`} icon={Link2} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
+              </div>
+
+              {/* Suggestions */}
+              {suggestions.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold">Suggested Matches (same amount)</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-2">
+                    {suggestions.map(({ cheque, voucher, high }) => (
+                      <div key={`${cheque.id}-${voucher.id}`} className="flex flex-wrap items-center justify-between gap-2 py-2 border-b last:border-0">
+                        <div className="text-xs">
+                          <span className="font-medium">Cheque {cheque.cheque_no ? `#${cheque.cheque_no}` : "(no number)"}</span>
+                          <span className="text-muted-foreground"> - {cheque.payee} - Rs.{cheque.amount.toLocaleString("en-IN")}</span>
+                          <span className="mx-1.5 text-muted-foreground">&rarr;</span>
+                          <span className="font-medium">{voucher.title}</span>
+                          {voucher.submitter?.name && <span className="text-muted-foreground"> ({voucher.submitter.name})</span>}
+                          {high && <Badge variant="outline" className="ml-1.5 text-[9px] bg-green-50 text-green-700 border-green-300">payee match</Badge>}
+                        </div>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => linkCheque(cheque.id, voucher.id)}>
+                          <Link2 size={12} className="mr-1" /> Link
+                        </Button>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Unsettled vouchers */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold text-amber-700">Unsettled Approved Vouchers ({unsettledVouchers.length})</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-2 max-h-96 overflow-y-auto">
+                    {unsettledVouchers.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">All approved vouchers are settled</p>
+                    ) : unsettledVouchers.map((v) => (
+                      <div key={v.id} className="py-2 border-b last:border-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium">{v.title}</span>
+                          <span className="text-xs font-semibold text-amber-700">Rs.{v.amount.toLocaleString("en-IN")}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {v.submitter?.name}{v.paid_to || v.vendor_name ? ` - to ${v.paid_to || v.vendor_name}` : ""}{v.approved_at ? ` - approved ${new Date(v.approved_at).toLocaleDateString("en-IN")}` : ""}
+                        </p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Unlinked cheques with link picker */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold text-red-700">Unlinked Cheques ({unlinkedCheques.length})</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-2 max-h-96 overflow-y-auto">
+                    {unlinkedCheques.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">Every cheque is linked to a voucher</p>
+                    ) : unlinkedCheques.map((c) => (
+                      <div key={c.id} className="py-2 border-b last:border-0 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium">
+                            Cheque {c.cheque_no ? `#${c.cheque_no}` : "(no number)"} - {c.payee}
+                            <Badge variant="outline" className={`ml-1.5 text-[9px] ${CHEQUE_STATUS_STYLES[c.status] || ""}`}>{c.status.toUpperCase()}</Badge>
+                          </span>
+                          <span className="text-xs font-semibold text-red-600">Rs.{c.amount.toLocaleString("en-IN")}</span>
+                        </div>
+                        <Select value="" onValueChange={(v) => linkCheque(c.id, v)}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="Link to voucher..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {unsettledVouchers.map((v) => (
+                              <SelectItem key={v.id} value={v.id}>{v.title} - Rs.{v.amount.toLocaleString("en-IN")}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Matched pairs */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold text-green-700">Matched Pairs ({matches.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-2">
+                  {matches.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No cheques linked to vouchers yet</p>
+                  ) : matches.map(({ entry, voucher }) => (
+                    <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 py-2 border-b last:border-0">
+                      <div className="text-xs">
+                        <span className="font-medium">Cheque {entry.cheque_no ? `#${entry.cheque_no}` : "(no number)"}</span>
+                        <Badge variant="outline" className={`ml-1.5 text-[9px] ${CHEQUE_STATUS_STYLES[entry.status] || ""}`}>{entry.status.toUpperCase()}</Badge>
+                        <span className="mx-1.5 text-muted-foreground">&rarr;</span>
+                        {voucher ? (
+                          <>
+                            <span className="font-medium">{voucher.title}</span>
+                            {voucher.submitter?.name && <span className="text-muted-foreground"> ({voucher.submitter.name})</span>}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground italic">voucher no longer approved/available</span>
+                        )}
+                        <span className="ml-1.5 font-semibold">Rs.{entry.amount.toLocaleString("en-IN")}</span>
+                      </div>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => linkCheque(entry.id, null)}>
+                        Unlink
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
+
       {/* Cheque Issued dialog */}
       <Dialog open={chequeOpen} onOpenChange={setChequeOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">

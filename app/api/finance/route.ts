@@ -32,6 +32,38 @@ export async function GET(req: NextRequest) {
     const hasFullAccess = admin || isStateOfficial || isDistrictOfficial;
 
     const url = new URL(req.url);
+
+    // Cheque <-> voucher settlement view (all-time, finance team only)
+    if (url.searchParams.get("matching") === "1") {
+      if (!(await canManageEntries(session))) {
+        return NextResponse.json({ error: "Finance team access required" }, { status: 403 });
+      }
+      const supabaseM = getServiceClient();
+      const [vouchersRes, entriesRes] = await Promise.all([
+        supabaseM
+          .from("expense_vouchers")
+          .select("id, title, amount, paid_to, vendor_name, expense_date, expense_event, approved_at, submitter:submitted_by(name)")
+          .eq("status", "approved")
+          .order("approved_at", { ascending: false }),
+        supabaseM.from("finance_entries").select("*").order("entry_date", { ascending: false }),
+      ]);
+      const vouchers = vouchersRes.data || [];
+      const entries = entriesRes.data || [];
+
+      const activelySettled = new Set(
+        entries.filter((fe) => fe.voucher_id && ACTIVE_DEBIT_STATUSES.has(fe.status)).map((fe) => fe.voucher_id)
+      );
+      const voucherMap = new Map(vouchers.map((v) => [v.id, v]));
+
+      return NextResponse.json({
+        unsettledVouchers: vouchers.filter((v) => !activelySettled.has(v.id)),
+        unlinkedCheques: entries.filter((fe) => !fe.voucher_id),
+        matches: entries
+          .filter((fe) => fe.voucher_id)
+          .map((fe) => ({ entry: fe, voucher: voucherMap.get(fe.voucher_id) || null })),
+      });
+    }
+
     const year = url.searchParams.get("year") || "2026-27";
 
     // Financial year: April 1 to March 31
@@ -307,6 +339,24 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getServiceClient();
+
+    // A voucher can only be settled by one active cheque
+    if (body.voucher_id) {
+      const { data: existing } = await supabase
+        .from("finance_entries")
+        .select("id, cheque_no")
+        .eq("voucher_id", body.voucher_id)
+        .in("status", ["issued", "cleared"])
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        return NextResponse.json(
+          { error: `This voucher is already settled by cheque ${existing.cheque_no ? "#" + existing.cheque_no : "(no number)"}` },
+          { status: 409 }
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from("finance_entries")
       .insert({
@@ -361,6 +411,28 @@ export async function PUT(req: NextRequest) {
     if (body.remarks !== undefined) updates.remarks = body.remarks;
 
     const supabase = getServiceClient();
+
+    // Link/unlink a voucher — a voucher can only be settled by one active cheque
+    if (body.voucher_id !== undefined) {
+      if (body.voucher_id) {
+        const { data: existing } = await supabase
+          .from("finance_entries")
+          .select("id, cheque_no")
+          .eq("voucher_id", body.voucher_id)
+          .neq("id", body.id)
+          .in("status", ["issued", "cleared"])
+          .limit(1)
+          .maybeSingle();
+        if (existing) {
+          return NextResponse.json(
+            { error: `This voucher is already settled by cheque ${existing.cheque_no ? "#" + existing.cheque_no : "(no number)"}` },
+            { status: 409 }
+          );
+        }
+      }
+      updates.voucher_id = body.voucher_id || null;
+    }
+
     const { error } = await supabase.from("finance_entries").update(updates).eq("id", body.id);
 
     if (error) {
