@@ -37,6 +37,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# disposable scratch scripts + generated artifacts
+/.tmp/
+/supabase/.temp/
+/scripts/openapi.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
