@@ -433,6 +433,115 @@ export default function FinancePage() {
     }
   }
 
+  // Unlinked cheques PDF export
+  async function exportUnlinkedPDF() {
+    if (unlinkedCheques.length === 0) return;
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("TANHOWA Finance - Unlinked Cheques", 105, 15, { align: "center" });
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Cheques not yet linked to an expense voucher | Generated: ${new Date().toLocaleDateString("en-IN")}`, 105, 22, { align: "center" });
+
+      const activeTotal = unlinkedCheques.reduce((sum, c) => sum + (c.status === "issued" || c.status === "cleared" ? c.amount : 0), 0);
+
+      autoTable(doc, {
+        startY: 30,
+        head: [["#", "Date", "Cheque #", "Payee", "Amount (Rs.)", "Status", "Remarks"]],
+        body: unlinkedCheques.map((c, i) => [
+          i + 1,
+          new Date(c.entry_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+          c.cheque_no || "-",
+          c.payee,
+          c.amount.toLocaleString("en-IN"),
+          c.status.toUpperCase(),
+          c.remarks || "-",
+        ]),
+        foot: [["", "", "", "Total (active)", activeTotal.toLocaleString("en-IN"), "", ""]],
+        theme: "grid",
+        headStyles: { fillColor: [45, 106, 79], fontSize: 8 },
+        bodyStyles: { fontSize: 8 },
+        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold", fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 10 }, 4: { halign: "right" as const } },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        didParseCell: (data: any) => {
+          if (data.section === "body") {
+            const status = unlinkedCheques[data.row.index]?.status;
+            if (status === "cancelled" || status === "bounced") {
+              data.cell.styles.textColor = [150, 150, 150];
+            }
+          }
+        },
+        didDrawPage: (data: { pageNumber: number }) => {
+          doc.setFontSize(7);
+          doc.setTextColor(150);
+          doc.text(`Page ${data.pageNumber}`, 196, 290, { align: "right" });
+        },
+      });
+
+      doc.save(`TANHOWA-Unlinked-Cheques-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success("PDF downloaded");
+    } catch {
+      toast.error("Failed to generate PDF");
+    }
+  }
+
+  // Unsettled vouchers PDF export
+  async function exportUnsettledVouchersPDF() {
+    if (unsettledVouchers.length === 0) return;
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("TANHOWA Finance - Unsettled Approved Vouchers", 105, 15, { align: "center" });
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Approved expense vouchers awaiting cheque settlement | Generated: ${new Date().toLocaleDateString("en-IN")}`, 105, 22, { align: "center" });
+
+      const total = unsettledVouchers.reduce((sum, v) => sum + v.amount, 0);
+
+      autoTable(doc, {
+        startY: 30,
+        head: [["#", "Approved", "Voucher", "Submitted By", "Paid To / Vendor", "Event", "Amount (Rs.)"]],
+        body: unsettledVouchers.map((v, i) => [
+          i + 1,
+          v.approved_at ? new Date(v.approved_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-",
+          v.title,
+          v.submitter?.name || "-",
+          v.paid_to || v.vendor_name || "-",
+          v.expense_event || "-",
+          v.amount.toLocaleString("en-IN"),
+        ]),
+        foot: [["", "", "", "", "", "Total", total.toLocaleString("en-IN")]],
+        theme: "grid",
+        headStyles: { fillColor: [45, 106, 79], fontSize: 8 },
+        bodyStyles: { fontSize: 8 },
+        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold", fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 10 }, 6: { halign: "right" as const } },
+        didDrawPage: (data: { pageNumber: number }) => {
+          doc.setFontSize(7);
+          doc.setTextColor(150);
+          doc.text(`Page ${data.pageNumber}`, 196, 290, { align: "right" });
+        },
+      });
+
+      doc.save(`TANHOWA-Unsettled-Vouchers-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success("PDF downloaded");
+    } catch {
+      toast.error("Failed to generate PDF");
+    }
+  }
+
   // Districts list for filter
   const districts = [...new Set(ledger.map((e) => e.district))].sort();
   const periods = [...new Set(ledger.map((e) => e.period))].sort();
@@ -882,7 +991,13 @@ export default function FinancePage() {
                 {/* Unsettled vouchers */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold text-amber-700">Unsettled Approved Vouchers ({unsettledVouchers.length})</CardTitle>
+                    <div className="flex items-center justify-between gap-2">
+                      <CardTitle className="text-sm font-semibold text-amber-700">Unsettled Approved Vouchers ({unsettledVouchers.length})</CardTitle>
+                      <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={exportUnsettledVouchersPDF} disabled={unsettledVouchers.length === 0}>
+                        <Download size={12} />
+                        PDF
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="pt-0 space-y-2 max-h-96 overflow-y-auto">
                     {unsettledVouchers.length === 0 ? (
@@ -904,7 +1019,13 @@ export default function FinancePage() {
                 {/* Unlinked cheques with link picker */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold text-red-700">Unlinked Cheques ({unlinkedCheques.length})</CardTitle>
+                    <div className="flex items-center justify-between gap-2">
+                      <CardTitle className="text-sm font-semibold text-red-700">Unlinked Cheques ({unlinkedCheques.length})</CardTitle>
+                      <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={exportUnlinkedPDF} disabled={unlinkedCheques.length === 0}>
+                        <Download size={12} />
+                        PDF
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="pt-0 space-y-2 max-h-96 overflow-y-auto">
                     {unlinkedCheques.length === 0 ? (
