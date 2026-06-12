@@ -95,6 +95,55 @@ export async function POST(req: NextRequest) {
     if (!v.success) return NextResponse.json({ error: v.error }, { status: 400 });
 
     const supabase = getServiceClient();
+
+    // Duplicate guards — rejected vouchers are excluded so a corrected
+    // resubmission after rejection still goes through
+    const submitterId = v.data.submitted_by || session.userId;
+    const txnId = (v.data.payment_transaction_id || "").trim();
+    const invoiceNo = (v.data.invoice_number || "").trim();
+    const vendor = (v.data.vendor_name || "").trim();
+
+    let sameVoucherQuery = supabase
+      .from("expense_vouchers")
+      .select("id, status")
+      .eq("submitted_by", submitterId)
+      .eq("title", v.data.title)
+      .eq("amount", v.data.amount)
+      .neq("status", "rejected")
+      .limit(1);
+    sameVoucherQuery = v.data.expense_date
+      ? sameVoucherQuery.eq("expense_date", v.data.expense_date)
+      : sameVoucherQuery.is("expense_date", null);
+
+    const [dupTxn, dupInvoice, dupSame] = await Promise.all([
+      txnId
+        ? supabase.from("expense_vouchers").select("id, title, status").eq("payment_transaction_id", txnId).neq("status", "rejected").limit(1).maybeSingle()
+        : Promise.resolve({ data: null }),
+      invoiceNo && vendor
+        ? supabase.from("expense_vouchers").select("id, title, status").eq("invoice_number", invoiceNo).eq("vendor_name", vendor).neq("status", "rejected").limit(1).maybeSingle()
+        : Promise.resolve({ data: null }),
+      sameVoucherQuery.maybeSingle(),
+    ]);
+
+    if (dupTxn.data) {
+      return NextResponse.json(
+        { error: `Duplicate: payment transaction ID "${txnId}" is already used by voucher "${dupTxn.data.title}" (${dupTxn.data.status}).` },
+        { status: 409 }
+      );
+    }
+    if (dupInvoice.data) {
+      return NextResponse.json(
+        { error: `Duplicate: invoice "${invoiceNo}" from "${vendor}" is already claimed by voucher "${dupInvoice.data.title}" (${dupInvoice.data.status}).` },
+        { status: 409 }
+      );
+    }
+    if (dupSame.data) {
+      return NextResponse.json(
+        { error: "Duplicate: you already have a voucher with this exact title, amount and expense date." },
+        { status: 409 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("expense_vouchers")
       .insert({
