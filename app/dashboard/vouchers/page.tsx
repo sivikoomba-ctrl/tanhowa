@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Receipt, Plus, Upload, Eye, Trash2, IndianRupee, CheckCircle2, Clock, XCircle, ScanLine, Loader2 } from "lucide-react";
+import { Receipt, Plus, Upload, Eye, Trash2, IndianRupee, CheckCircle2, Clock, XCircle, ScanLine, Loader2, Pencil } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 
@@ -67,6 +67,12 @@ export default function VouchersPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const paymentFileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [editVoucher, setEditVoucher] = useState<Voucher | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", expense_event: "", category: "",
+    payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanningPayment, setScanningPayment] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
@@ -165,6 +171,58 @@ export default function VouchersPage() {
       toast.error(data.error || "Failed to submit");
     }
     setSubmitting(false);
+  }
+
+  function openEdit(v: Voucher) {
+    setEditForm({
+      title: v.title || "",
+      amount: v.amount != null ? String(v.amount) : "",
+      description: v.description || "",
+      invoice_number: v.invoice_number || "",
+      vendor_name: v.vendor_name || "",
+      expense_date: (v.expense_date || "").slice(0, 10),
+      expense_event: v.expense_event || "",
+      category: v.category || "",
+      payment_method: v.payment_method || "",
+      payment_transaction_id: v.payment_transaction_id || "",
+      payment_date: (v.payment_date || "").slice(0, 10),
+      paid_to: v.paid_to || "",
+    });
+    setEditVoucher(v);
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editVoucher) return;
+    setSavingEdit(true);
+    const res = await fetch("/api/vouchers", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: editVoucher.id,
+        title: editForm.title,
+        amount: parseFloat(editForm.amount) || 0,
+        description: editForm.description,
+        invoice_number: editForm.invoice_number,
+        vendor_name: editForm.vendor_name,
+        expense_date: editForm.expense_date || null,
+        expense_event: editForm.expense_event,
+        category: editForm.category,
+        payment_method: editForm.payment_method,
+        payment_transaction_id: editForm.payment_transaction_id,
+        payment_date: editForm.payment_date || null,
+        paid_to: editForm.paid_to,
+      }),
+    });
+    if (res.ok) {
+      toast.success("Voucher updated");
+      setEditVoucher(null);
+      load();
+    } else {
+      const data = await res.json().catch(() => null);
+      toast.error(data?.error || "Failed to update");
+    }
+    setSavingEdit(false);
   }
 
   async function handleDelete(id: string) {
@@ -537,9 +595,14 @@ export default function VouchersPage() {
                       </div>
                     </div>
                     {v.status === "pending" && (
-                      <Button size="sm" variant="ghost" className="text-destructive h-8 w-8 p-0 shrink-0" onClick={() => handleDelete(v.id)}>
-                        <Trash2 size={14} />
-                      </Button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(v)}>
+                          <Pencil size={14} />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-destructive h-8 w-8 p-0" onClick={() => handleDelete(v.id)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -548,6 +611,87 @@ export default function VouchersPage() {
           })}
         </div>
       )}
+
+      {/* Edit Voucher Dialog (own pending vouchers only) */}
+      <Dialog open={!!editVoucher} onOpenChange={(open) => !open && setEditVoucher(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Voucher</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <Label>Expense Title *</Label>
+              <Input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} required />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Amount (&#8377;) *</Label>
+                <Input type="number" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} required />
+              </div>
+              <div>
+                <Label>Category</Label>
+                <Select value={editForm.category} onValueChange={(val) => setEditForm({ ...editForm, category: val })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {expenseCategories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Invoice Number</Label>
+                <Input value={editForm.invoice_number} onChange={(e) => setEditForm({ ...editForm, invoice_number: e.target.value })} />
+              </div>
+              <div>
+                <Label>Vendor / Payee</Label>
+                <Input value={editForm.vendor_name} onChange={(e) => setEditForm({ ...editForm, vendor_name: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Date of Expense</Label>
+                <Input type="date" value={editForm.expense_date} onChange={(e) => setEditForm({ ...editForm, expense_date: e.target.value })} />
+              </div>
+              <div>
+                <Label>Expense Event</Label>
+                <Input value={editForm.expense_event} onChange={(e) => setEditForm({ ...editForm, expense_event: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Payment Method</Label>
+                <Input value={editForm.payment_method} onChange={(e) => setEditForm({ ...editForm, payment_method: e.target.value })} />
+              </div>
+              <div>
+                <Label>Transaction ID</Label>
+                <Input value={editForm.payment_transaction_id} onChange={(e) => setEditForm({ ...editForm, payment_transaction_id: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Payment Date</Label>
+                <Input type="date" value={editForm.payment_date} onChange={(e) => setEditForm({ ...editForm, payment_date: e.target.value })} />
+              </div>
+              <div>
+                <Label>Paid To</Label>
+                <Input value={editForm.paid_to} onChange={(e) => setEditForm({ ...editForm, paid_to: e.target.value })} />
+              </div>
+            </div>
+            <Button type="submit" disabled={savingEdit} className="w-full bg-primary hover:bg-primary/90">
+              {savingEdit ? "Saving..." : "Save Changes"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Receipt Preview Dialog */}
       <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
