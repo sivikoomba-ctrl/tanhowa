@@ -104,7 +104,7 @@ const navItems = [
   { href: "/dashboard/calendar", labelKey: "nav.calendar" as const, icon: CalendarDays },
   { href: "/dashboard/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
   { href: "/dashboard/polls", labelKey: "nav.polls" as const, icon: BarChart3 },
-  { href: "/dashboard/logo-vote", labelKey: "nav.logo_vote" as const, icon: Flower2 },
+  { href: "/dashboard/elections", labelKey: "nav.elections" as const, icon: Vote, electionsOnly: true },
   { href: "/dashboard/documents", labelKey: "nav.documents" as const, icon: FileText },
   { href: "/dashboard/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
   { href: "/dashboard/payment-status", labelKey: "nav.payment_status" as const, icon: IndianRupee },
@@ -417,6 +417,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           if ("superAdminOnly" in item && item.superAdminOnly && user?.role !== "super_admin") return false;
           if ("officialOnly" in item && item.officialOnly && !(user?.official_type === "state" || user?.official_type === "district" || user?.role === "admin" || user?.role === "super_admin")) return false;
           if ("projectHOnly" in item && item.projectHOnly && !isProjectH) return false;
+          if ("electionsOnly" in item && item.electionsOnly && !(user?.role === "super_admin" || user?.email === "sivikoomba@gmail.com")) return false;
           return true;
         }).map((item) => {
           const isActive = pathname === item.href;

@@ -17,6 +17,7 @@ const translations = {
   "nav.resolutions": { en: "e-Resolutions", ta: "மின் தீர்மானங்கள்" },
   "nav.polls": { en: "Polls", ta: "கருத்துக்கணிப்பு" },
   "nav.logo_vote": { en: "Logo Vote", ta: "லோகோ வாக்கெடுப்பு" },
+  "nav.elections": { en: "TANHOWA Election", ta: "TANHOWA தேர்தல்" },
   "nav.documents": { en: "Document Vault", ta: "ஆவண காப்பகம்" },
   "nav.subscriptions": { en: "Subscriptions", ta: "சந்தா" },
   "nav.vouchers": { en: "Expense Vouchers", ta: "செலவு ரசீதுகள்" },

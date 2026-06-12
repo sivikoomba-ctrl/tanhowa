@@ -183,7 +183,10 @@ export async function GET(req: NextRequest) {
         entry.actions[row.action] = (entry.actions[row.action] || 0) + 1;
       }
 
-      const leaderboard = Array.from(userMap.values()).sort((a, b) => b.total_minutes - a.total_minutes);
+      const EXCLUDED_EMAILS = ["tanhowaadmin@tanhowa.in"];
+      const leaderboard = Array.from(userMap.values())
+        .filter((u) => !EXCLUDED_EMAILS.includes(u.email))
+        .sort((a, b) => b.total_minutes - a.total_minutes);
 
       return NextResponse.json({ leaderboard, total: data?.length || 0 });
     } else {
