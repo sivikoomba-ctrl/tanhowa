@@ -155,12 +155,13 @@ One-line index. For column-level detail, jump to the matching feature section be
 | `ticket_counters` | Atomic per-prefix-per-year counters for GRV/SUG/SRQ ticket numbers |
 | `admin_document_folders` | Folders for the owner-only Document Vault; `admin_documents.folder_id` FK (ON DELETE SET NULL → Unfiled) |
 | `subscriptions` | Member payment tracking (see Payment Group Linking + Special Subscriptions) |
-| `document_access` | Per-member document access (junction for `visibility="selected"`) |
+| `document_access` | Per-member/per-team document access (junction rows carry `user_id` or `team_id`; used by `visibility="specific"` and `visibility="team"` — both the Add Document and Manage Access dialogs support teams) |
 | `error_logs` | Application error tracking |
 | `site_settings` | Key-value site config (also holds atomic-claim cron locks) |
 | `teams` / `team_members` | Member teams (see Team Lead Role) |
 | `todos` / `todo_notes` / `todo_attachments` / `todo_vouchers` / `todo_time_entries` | Task management (see Task Management System) |
 | `expense_vouchers` | Standalone expense claims for officials (see Expense Vouchers) |
+| `finance_entries` | Manual ledger debits — cheques issued, with lifecycle status (see Finance) |
 | `resolutions` / `resolution_votes` | e-Resolutions voting (see e-Resolutions) |
 | `contributions` | Auto-logged portal actions (see Contributions Tracking) |
 | `audit_logs` | Admin action audit trail |
@@ -557,7 +558,7 @@ District Secretaries (DS) and District Joint Secretaries (DJS) can approve/rejec
 
 Standalone expense claims not tied to tasks. Table: `expense_vouchers`.
 
-**Fields:** title, amount, description, invoice_number, vendor_name, expense_date, category, receipt_url, status (pending/approved/rejected), remarks, **payment_proof_url, payment_method, payment_transaction_id, payment_date, paid_to** (schema: `supabase/voucher_payment_proof_schema.sql`)
+**Fields:** title, amount, description, invoice_number, vendor_name, expense_date, **expense_event** (free-text event the expense belongs to, `supabase/voucher_expense_event.sql`), category, receipt_url, status (pending/approved/rejected), remarks, **payment_proof_url, payment_method, payment_transaction_id, payment_date, paid_to** (schema: `supabase/voucher_payment_proof_schema.sql`)
 
 **Categories:** Travel, Printing, Food & Refreshments, Stationery, Communication, Venue & Hall, Transport, Miscellaneous
 
@@ -567,6 +568,9 @@ Standalone expense claims not tied to tasks. Table: `expense_vouchers`.
 - **AI Bill Scan:** "Scan Bill" button uploads receipt image to `/api/ai-tools/expense-ocr` (Gemini vision). Auto-fills vendor_name, amount, invoice_number, category, expense_date, description from extracted line items.
 - **AI Payment Proof Scan:** "Scan Payment" button uploads UPI/bank screenshot to `/api/upload/payment-proof/extract-date` (the same Gemini extractor used by subscriptions). Auto-fills payment_method, payment_transaction_id, payment_date, paid_to. **Either bill or payment proof is sufficient — both are optional, and either can be attached without the other.** If the bill amount and payment amount differ by more than ₹0.5, a non-blocking amber mismatch warning appears. The scanned payment amount only populates `amount` when no bill amount has been scanned and the field is empty (never overwrites a bill-scanned amount).
 - **Voucher PDF (admin):** includes Payment Method, Transaction ID, Payment Date, Paid To rows when present, alongside the existing bill fields. Generated via jspdf at `/admin/vouchers`.
+- **Duplicate guards (POST, 409):** reused payment transaction ID (any submitter), same invoice number + vendor, or exact repeat (same submitter + title + amount + expense date). Rejected vouchers are excluded so a corrected resubmission works.
+- **Field-level PUT authorization:** finance team + super admin can edit ALL content fields on any voucher (pencil edit dialog on the admin cards, works post-approval); submitters can edit content fields only on their own pending vouchers and can never change `receipt_url`/`payment_proof_url` (receipt-substitution fix).
+- **Cheque settlement:** approved vouchers can be linked from a `finance_entries` cheque (see Finance section).
 
 ## e-Resolutions (Voting System)
 
@@ -610,14 +614,17 @@ Table: `contributions`. Auto-logs portal actions with estimated time for each me
 
 ## Finance (Bank Reconciliation)
 
-Auto-generated financial ledger from paid subscriptions, grouped by financial year (April-March).
+Financial ledger grouped by financial year (April-March). Credits are auto-derived from paid subscriptions; **debits are manual `finance_entries` rows** (first type: cheque issued).
 
-- **Admin page:** `/admin/finance` — full ledger with member names, district/period/monthly summaries, filters, PDF export
+- **Admin page:** `/admin/finance` — full ledger with member names, district/period/monthly summaries, filters, PDF/Excel export, **"Cheque Issued" button**
 - **Member page:** `/dashboard/finance` — abstract summary only (totals, monthly collections with progress bars, by-period breakdown). No member names or transaction details.
 - **API:** `GET /api/finance?year=2025-26` — role-based response:
-  - Admins, state officials, DS/DJS → full ledger with `abstract: false`
-  - Regular members → summary only with `abstract: true`
-- **PDF export:** Landscape PDF with transaction ledger + period & district summary tables (admin only)
+  - Admins, state officials → full ledger (`abstract: false`) including debit rows
+  - DS/DJS → district-scoped credits only (no association-level debits)
+  - Regular members → summary only with `abstract: true` (+ `totalDebits`, `netBalance`)
+- **Cheque entries** (`finance_entries` table, `supabase/finance_entries.sql`): entry_date, amount, cheque_no, payee, optional `voucher_id` FK (picker pre-fills amount/payee from an approved voucher), lifecycle status `issued → cleared | cancelled | bounced`. Cancelled/bounced rows stay in the ledger (struck-through) but stop reducing the balance. POST/PUT/DELETE on `/api/finance` are finance-team + super-admin only, audit-logged. Clicking a debit row opens the manage dialog (status buttons + delete).
+- **Running balance** = credits − active debits; response carries `totalCredits`, `totalDebits`, `netBalance`.
+- **PDF export:** Landscape PDF with Credit/Debit/Balance columns (debit rows tinted red with status) + period & district summary tables (admin only)
 
 ## Special Subscriptions
 
