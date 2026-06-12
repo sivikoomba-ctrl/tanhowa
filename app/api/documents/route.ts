@@ -4,8 +4,10 @@ import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
-import { resolveDocumentUrl } from "@/lib/document-urls";
+import { createInternalDocumentSignedUrl, isAllowedDocumentReference, isInternalDocumentPath, resolveDocumentUrl } from "@/lib/document-urls";
 import { getGemini } from "@/lib/gemini";
+
+const SUMMARIZABLE_DOCUMENT_TYPES = new Set(["pdf", "jpg", "jpeg", "png", "webp", "application/pdf", "image/jpeg", "image/png", "image/webp"]);
 
 export async function GET(req: NextRequest) {
   try {
@@ -130,6 +132,11 @@ export async function POST(req: NextRequest) {
     if (!title) {
       return NextResponse.json({ error: "Document title is required" }, { status: 400 });
     }
+    const fileUrl = typeof body.file_url === "string" ? body.file_url.trim() : "";
+    if (!fileUrl || !isAllowedDocumentReference(fileUrl)) {
+      return NextResponse.json({ error: "Invalid document URL" }, { status: 400 });
+    }
+    const fileType = typeof body.file_type === "string" ? body.file_type.trim().toLowerCase() : "";
 
     const supabase = getServiceClient();
     const role = await getDbRole(session.userId);
@@ -141,8 +148,8 @@ export async function POST(req: NextRequest) {
       .insert({
         title,
         description: (body.description || "").trim(),
-        file_url: body.file_url,
-        file_type: body.file_type,
+        file_url: fileUrl,
+        file_type: fileType,
         category: body.category || "",
         uploaded_by: session.userId,
         approved: role === "admin" || role === "super_admin",
@@ -156,8 +163,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to upload document" }, { status: 500 });
     }
 
-    // If specific access selected, insert user and/or team access rows
-    if (visibility === "specific") {
+    // If specific/team access selected, insert user and/or team access rows
+    if (visibility === "specific" || visibility === "team") {
       const rows: { document_id: string; user_id?: string; team_id?: string }[] = [];
       if (Array.isArray(body.assigned_users)) {
         for (const userId of body.assigned_users) rows.push({ document_id: data.id, user_id: userId });
@@ -172,10 +179,12 @@ export async function POST(req: NextRequest) {
     logAudit(session.userId, "document_uploaded", "document", data.id);
 
     // Auto-summarize document (fire-and-forget)
-    if (body.file_url && (body.file_type === "application/pdf" || body.file_type?.startsWith("image/"))) {
+    if (isInternalDocumentPath(fileUrl) && SUMMARIZABLE_DOCUMENT_TYPES.has(fileType)) {
       (async () => {
         try {
-          const fileRes = await fetch(body.file_url);
+          const signedUrl = await createInternalDocumentSignedUrl(supabase, fileUrl);
+          if (!signedUrl) return;
+          const fileRes = await fetch(signedUrl);
           if (!fileRes.ok) return;
           const buffer = Buffer.from(await fileRes.arrayBuffer());
           if (buffer.length > 10 * 1024 * 1024) return; // Skip files > 10MB
@@ -183,7 +192,7 @@ export async function POST(req: NextRequest) {
           const genAI = getGemini();
           const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
           const result = await model.generateContent([
-            { inlineData: { data: buffer.toString("base64"), mimeType: body.file_type } },
+            { inlineData: { data: buffer.toString("base64"), mimeType: fileType.startsWith("image/") || fileType === "application/pdf" ? fileType : fileType === "pdf" ? "application/pdf" : `image/${fileType === "jpg" ? "jpeg" : fileType}` } },
             { text: "Summarize this document in 2-3 sentences. Focus on the main purpose, key details, and any action items. If in Tamil, summarize in both Tamil and English. Be concise." },
           ]);
           const summary = result.response.text().trim();
@@ -249,7 +258,13 @@ export async function PUT(req: NextRequest) {
     if (body.visibility !== undefined) update.visibility = body.visibility;
     if (body.title !== undefined) update.title = body.title;
     if (body.description !== undefined) update.description = body.description;
-    if (body.file_url !== undefined) update.file_url = body.file_url;
+    if (body.file_url !== undefined) {
+      const fileUrl = typeof body.file_url === "string" ? body.file_url.trim() : "";
+      if (!fileUrl || !isAllowedDocumentReference(fileUrl)) {
+        return NextResponse.json({ error: "Invalid document URL" }, { status: 400 });
+      }
+      update.file_url = fileUrl;
+    }
 
     if (Object.keys(update).length > 0) {
       const { error } = await supabase

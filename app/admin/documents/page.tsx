@@ -72,6 +72,7 @@ export default function AdminDocumentsPage() {
   const [tab, setTab] = useState("pending");
   const [form, setForm] = useState({ title: "", description: "", file_url: "", file_type: "", category: "", visibility: "all" });
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [accessDialogOpen, setAccessDialogOpen] = useState(false);
   const [accessDocId, setAccessDocId] = useState<string | null>(null);
@@ -165,6 +166,11 @@ export default function AdminDocumentsPage() {
       setLoading(false);
       return;
     }
+    if (form.visibility === "team" && selectedTeams.length === 0) {
+      toast.error("Please select at least one team");
+      setLoading(false);
+      return;
+    }
 
     const res = await fetch("/api/documents", {
       method: "POST",
@@ -174,6 +180,7 @@ export default function AdminDocumentsPage() {
         file_url: fileUrl,
         file_type: fileType,
         assigned_users: form.visibility === "specific" ? selectedMembers : [],
+        assigned_teams: form.visibility === "team" ? selectedTeams : [],
       }),
     });
 
@@ -181,6 +188,7 @@ export default function AdminDocumentsPage() {
       toast.success("Document added (auto-approved)");
       setForm({ title: "", description: "", file_url: "", file_type: "", category: "", visibility: "all" });
       setSelectedMembers([]);
+      setSelectedTeams([]);
       setSelectedFile(null);
       setMemberSearch("");
       setDialogOpen(false);
@@ -328,7 +336,7 @@ export default function AdminDocumentsPage() {
               {/* Visibility */}
               <div>
                 <Label>Who can see this?</Label>
-                <div className="flex gap-2 mt-1">
+                <div className="flex gap-2 mt-1 flex-wrap">
                   <Button
                     type="button"
                     variant={form.visibility === "all" ? "default" : "outline"}
@@ -344,13 +352,49 @@ export default function AdminDocumentsPage() {
                     variant={form.visibility === "specific" ? "default" : "outline"}
                     size="sm"
                     className="flex-1"
-                    onClick={() => setForm({ ...form, visibility: "specific" })}
+                    onClick={() => { setForm({ ...form, visibility: "specific" }); setSelectedTeams([]); }}
                   >
                     <Users size={14} className="mr-1" />
                     Specific Members
                   </Button>
+                  <Button
+                    type="button"
+                    variant={form.visibility === "team" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => { setForm({ ...form, visibility: "team" }); setSelectedMembers([]); }}
+                  >
+                    <UsersRound size={14} className="mr-1" />
+                    Specific Team
+                  </Button>
                 </div>
               </div>
+
+              {form.visibility === "team" && (
+                <div>
+                  <Label>Select Teams ({selectedTeams.length} selected)</Label>
+                  <div className="mt-2 max-h-40 overflow-y-auto border rounded-lg divide-y">
+                    {teams.map((t) => (
+                      <label
+                        key={t.id}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedTeams.includes(t.id)}
+                          onChange={() => toggleMember(selectedTeams, setSelectedTeams, t.id)}
+                          className="rounded"
+                        />
+                        <UsersRound size={14} className="text-muted-foreground shrink-0" />
+                        <span className="font-medium">{t.name}</span>
+                      </label>
+                    ))}
+                    {teams.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-3">No teams found</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {form.visibility === "specific" && (
                 <div>
@@ -675,6 +719,11 @@ export default function AdminDocumentsPage() {
                               <Badge variant="secondary" className="text-xs">
                                 <UserCheck size={10} className="mr-1" />
                                 {doc.assigned_users?.length || 0} member{(doc.assigned_users?.length || 0) !== 1 ? "s" : ""}
+                              </Badge>
+                            ) : doc.visibility === "team" ? (
+                              <Badge variant="secondary" className="text-xs">
+                                <UsersRound size={10} className="mr-1" />
+                                {(doc.assigned_teams || []).map((tid) => teams.find((t) => t.id === tid)?.name || "Team").join(", ") || "Team"}
                               </Badge>
                             ) : (
                               <Badge variant="secondary" className="text-xs">
