@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-
-const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+import { getJwtSecretKey } from "@/lib/jwt-secret";
 
 // API routes that pending/rejected/suspended users CAN access
 const ALLOWED_FOR_ALL = [
@@ -24,7 +23,7 @@ export async function middleware(req: NextRequest) {
   if (!token) return NextResponse.next(); // Let individual routes handle 401
 
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, getJwtSecretKey());
     const status = (payload as { status?: string }).status;
 
     // Block pending/rejected/suspended users from data APIs

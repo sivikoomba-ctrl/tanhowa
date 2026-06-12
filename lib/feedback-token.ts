@@ -5,14 +5,13 @@
  * and they'll need a fresh nudge email.
  */
 import { SignJWT } from "jose";
-
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || "change-me");
+import { getJwtSecretKey } from "@/lib/jwt-secret";
 
 export async function createFeedbackToken(userId: string): Promise<string> {
   return await new SignJWT({ userId, purpose: "feedback" })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("30d")
-    .sign(secret);
+    .sign(getJwtSecretKey());
 }
 
 export function buildFeedbackLink(baseUrl: string, token: string): string {

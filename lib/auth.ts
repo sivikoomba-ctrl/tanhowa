@@ -1,8 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { getServiceClient } from "@/lib/supabase";
-
-const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+import { getJwtSecretKey } from "@/lib/jwt-secret";
 
 // Default admin email — always auto-approved as admin on login
 export const DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in";
@@ -48,7 +47,7 @@ export async function createSession(payload: SessionPayload) {
   const token = await new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
-    .sign(secret);
+    .sign(getJwtSecretKey());
 
   const cookieStore = await cookies();
   cookieStore.set("session", token, {
@@ -68,7 +67,7 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, getJwtSecretKey());
     return payload as unknown as SessionPayload;
   } catch {
     return null;

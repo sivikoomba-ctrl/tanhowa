@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { logError } from "@/lib/error-logger";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { createFeedbackToken, buildFeedbackLink } from "@/lib/feedback-token";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 const SITE_BASE = "https://www.tanhowa.in";
 
@@ -39,8 +40,11 @@ function sleep(ms: number) {
  * Runs once per day via Vercel Cron or manual trigger.
  * Uses site_settings key "inactive_nudge_last_run" to prevent duplicate runs.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const unauthorized = requireCronAuth(req);
+    if (unauthorized) return unauthorized;
+
     const supabase = getServiceClient();
 
     // Check last run (once per day)

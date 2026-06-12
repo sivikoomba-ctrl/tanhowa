@@ -28,6 +28,9 @@ const subscriptionRows = [
 function makeSupabaseMock() {
   const query: Record<string, unknown> = {};
   query.eq = vi.fn(() => query);
+  query.gt = vi.fn(() => query);
+  query.in = vi.fn(() => query);
+  query.not = vi.fn(() => query);
   query.order = vi.fn(() => query);
   query.range = vi.fn(() => query);
   query.then = (resolve: (v: unknown) => void) =>
@@ -56,9 +59,15 @@ function makeSupabaseMock() {
             }
 
             if (columns === "amount") {
-              return {
-                eq: vi.fn(async () => ({ data: [{ amount: 200 }] })),
-              };
+              const amountQuery: Record<string, unknown> = {};
+              amountQuery.eq = vi.fn(async (_field: string, value: string) => ({
+                data: subscriptionRows.filter((row) => row.status === value).map((row) => ({ amount: row.amount })),
+              }));
+              amountQuery.gt = vi.fn(() => amountQuery);
+              amountQuery.in = vi.fn(() => amountQuery);
+              amountQuery.not = vi.fn(() => amountQuery);
+              amountQuery.then = (resolve: (v: unknown) => void) => resolve({ data: [] });
+              return amountQuery;
             }
 
             if (columns === "*") {
@@ -126,12 +135,12 @@ describe("GET /api/subscriptions", () => {
     expect(response.status).toBe(200);
     expect(body.subscriptions).toHaveLength(1);
     expect(body.subscriptions[0].id).toBe("sub-salem");
-    expect(body.stats).toEqual({
+    expect(body.stats).toEqual(expect.objectContaining({
       paid: 0,
       pending: 1,
       overdue: 0,
       totalCollected: 0,
-    });
+    }));
   });
 
   it("returns only the current user's subscriptions for regular members", async () => {

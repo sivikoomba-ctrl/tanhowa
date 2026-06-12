@@ -1,9 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { notifyNewAnnouncement } from "@/lib/mail";
+import { requireCronAuth } from "@/lib/cron-auth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const unauthorized = requireCronAuth(req);
+    if (unauthorized) return unauthorized;
+
     const supabase = getServiceClient();
     const now = new Date().toISOString();
 

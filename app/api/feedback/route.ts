@@ -10,12 +10,12 @@ import { getSession } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase";
 import { logError } from "@/lib/error-logger";
 import { writeLimiter } from "@/lib/rate-limit";
+import { getJwtSecretKey } from "@/lib/jwt-secret";
 
 const VALID_SOURCES = new Set(["widget", "re_engagement", "inactive_email"]);
 const MAX_COMMENT = 4000;
 const MAX_REASON = 80;
 const MAX_PAGE_URL = 500;
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || "change-me");
 
 interface FeedbackTokenPayload {
   userId: string;
@@ -25,7 +25,7 @@ interface FeedbackTokenPayload {
 
 async function verifyFeedbackToken(token: string): Promise<FeedbackTokenPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, getJwtSecretKey());
     if ((payload as { purpose?: string }).purpose !== "feedback") return null;
     if (typeof (payload as { userId?: string }).userId !== "string") return null;
     return payload as unknown as FeedbackTokenPayload;
