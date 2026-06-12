@@ -22,6 +22,7 @@ interface Voucher {
   amount: number;
   description: string;
   invoice_number: string;
+  expense_event: string;
   vendor_name: string;
   expense_date: string | null;
   category: string;
@@ -50,7 +51,7 @@ export default function VouchersPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
-    title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "",
+    title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", expense_event: "", category: "",
     payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
   });
   // scannedBillAmount is the bill amount as captured by Scan Bill. We compare
@@ -136,6 +137,7 @@ export default function VouchersPage() {
         invoice_number: form.invoice_number,
         vendor_name: form.vendor_name,
         expense_date: form.expense_date || null,
+        expense_event: form.expense_event,
         category: form.category,
         receipt_url: receiptUrl,
         payment_proof_url: paymentProofUrl,
@@ -149,7 +151,7 @@ export default function VouchersPage() {
     if (res.ok) {
       toast.success("Voucher submitted");
       setForm({
-        title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "",
+        title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", expense_event: "", category: "",
         payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
       });
       setReceiptFile(null);
@@ -372,6 +374,10 @@ export default function VouchersPage() {
                 <Input type="date" value={form.expense_date} onChange={(e) => setForm({ ...form, expense_date: e.target.value })} />
               </div>
               <div>
+                <Label>Expense Event</Label>
+                <Input value={form.expense_event} onChange={(e) => setForm({ ...form, expense_event: e.target.value })} placeholder="e.g. Annual District Meeting 2026" />
+              </div>
+              <div>
                 <Label>Description</Label>
                 <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Details about the expense" rows={2} />
               </div>
@@ -491,6 +497,7 @@ export default function VouchersPage() {
                             {v.amount?.toLocaleString("en-IN") || 0}
                           </span>
                           {v.invoice_number && <span className="text-xs text-muted-foreground">Invoice: {v.invoice_number}</span>}
+                          {v.expense_event && <span className="text-xs text-muted-foreground">Event: {v.expense_event}</span>}
                           {v.vendor_name && <span className="text-xs text-muted-foreground">Vendor: {v.vendor_name}</span>}
                         </div>
                         {v.expense_date && <p className="text-xs text-muted-foreground mt-0.5">Expense date: {formatDate(v.expense_date)}</p>}

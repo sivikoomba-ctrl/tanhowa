@@ -25,6 +25,7 @@ interface Voucher {
   amount: number;
   description: string;
   invoice_number: string;
+  expense_event: string;
   vendor_name: string;
   expense_date: string | null;
   category: string;
@@ -59,7 +60,7 @@ export default function AdminVouchersPage() {
   // Create voucher
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
-    title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "",
+    title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", expense_event: "", category: "",
     payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
   });
   const [createFile, setCreateFile] = useState<File | null>(null);
@@ -156,6 +157,7 @@ export default function AdminVouchersPage() {
         amount: parseFloat(createForm.amount) || 0,
         description: createForm.description,
         invoice_number: createForm.invoice_number,
+        expense_event: createForm.expense_event,
         vendor_name: createForm.vendor_name,
         expense_date: createForm.expense_date || null,
         category: createForm.category,
@@ -173,7 +175,7 @@ export default function AdminVouchersPage() {
       toast.success("Voucher created");
       setCreateOpen(false);
       setCreateForm({
-        title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", category: "",
+        title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", expense_event: "", category: "",
         payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
       });
       setCreateFile(null);
@@ -459,6 +461,7 @@ export default function AdminVouchersPage() {
     ];
     if (v.category) expenseRows.push(["Category", v.category]);
     if (v.invoice_number) expenseRows.push(["Invoice No.", v.invoice_number]);
+    if (v.expense_event) expenseRows.push(["Expense Event", v.expense_event]);
     if (v.vendor_name) expenseRows.push(["Vendor / Payee", v.vendor_name]);
     if (v.expense_date) {
       expenseRows.push(["Expense Date", new Date(v.expense_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })]);
@@ -684,6 +687,10 @@ export default function AdminVouchersPage() {
                 <Input type="date" value={createForm.expense_date} onChange={(e) => setCreateForm({ ...createForm, expense_date: e.target.value })} />
               </div>
               <div>
+                <Label>Expense Event</Label>
+                <Input value={createForm.expense_event} onChange={(e) => setCreateForm({ ...createForm, expense_event: e.target.value })} placeholder="e.g. Annual District Meeting 2026" />
+              </div>
+              <div>
                 <Label>Description</Label>
                 <Textarea value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} placeholder="Details about the expense" rows={2} />
               </div>
@@ -834,6 +841,7 @@ export default function AdminVouchersPage() {
                                   <span className="text-xs text-red-600 flex items-center gap-0.5">No receipt</span>
                                 )}
                                 {v.invoice_number && <span className="text-xs text-muted-foreground">Invoice: {v.invoice_number}</span>}
+                                {v.expense_event && <span className="text-xs text-muted-foreground">Event: {v.expense_event}</span>}
                                 {v.vendor_name && <span className="text-xs text-muted-foreground">Vendor: {v.vendor_name}</span>}
                               </div>
                               {v.expense_date && <p className="text-xs text-muted-foreground mt-0.5">Expense date: {formatDate(v.expense_date)}</p>}

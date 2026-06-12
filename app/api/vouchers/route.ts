@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
         invoice_number: v.data.invoice_number || "",
         vendor_name: v.data.vendor_name || "",
         expense_date: v.data.expense_date || null,
+        expense_event: v.data.expense_event || "",
         category: v.data.category || "",
         receipt_url: v.data.receipt_url || null,
         payment_proof_url: v.data.payment_proof_url || null,
@@ -225,6 +226,7 @@ export async function PUT(req: NextRequest) {
       if (body.invoice_number !== undefined) updates.invoice_number = body.invoice_number;
       if (body.vendor_name !== undefined) updates.vendor_name = body.vendor_name;
       if (body.expense_date !== undefined) updates.expense_date = body.expense_date;
+      if (body.expense_event !== undefined) updates.expense_event = body.expense_event;
       if (body.category !== undefined) updates.category = body.category;
       if (body.payment_method !== undefined) updates.payment_method = body.payment_method;
       if (body.payment_transaction_id !== undefined) updates.payment_transaction_id = body.payment_transaction_id;

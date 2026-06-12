@@ -115,6 +115,7 @@ export const voucherCreateSchema = z.object({
   invoice_number: safeString.max(200).optional(),
   vendor_name: safeString.max(500).optional(),
   expense_date: z.string().optional().nullable(),
+  expense_event: safeString.max(500).optional(),
   category: z.enum(["Travel", "Printing", "Food & Refreshments", "Stationery", "Communication", "Venue & Hall", "Transport", "Miscellaneous"]).optional(),
   receipt_url: z.string().max(1000).optional().nullable(),
   // Payment-proof fields (optional) — extracted from a payment screenshot
