@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail, ScanLine, Loader2 } from "lucide-react";
+import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail, ScanLine, Loader2, Pencil } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate } from "@/lib/utils";
 import { FinanceOtpGate } from "@/components/finance-otp-gate";
@@ -76,6 +76,10 @@ export default function AdminVouchersPage() {
   const scanInputRef = useRef<HTMLInputElement>(null);
   const scanPaymentInputRef = useRef<HTMLInputElement>(null);
 
+  // Edit voucher
+  const [editVoucher, setEditVoucher] = useState<Voucher | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
   // Receipt upload
   const [uploadingReceiptFor, setUploadingReceiptFor] = useState<string | null>(null);
   const [uploadTarget, setUploadTarget] = useState<{ id: string; type: "receipt" | "payment_proof" } | null>(null);
@@ -122,6 +126,39 @@ export default function AdminVouchersPage() {
     const uploadData = await uploadRes.json();
     if (uploadRes.ok) return uploadData.url || uploadData.file_url;
     return null;
+  }
+
+  async function handleEditSave() {
+    if (!editVoucher) return;
+    setSavingEdit(true);
+    const res = await fetch("/api/vouchers", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: editVoucher.id,
+        title: editVoucher.title,
+        amount: editVoucher.amount,
+        description: editVoucher.description,
+        invoice_number: editVoucher.invoice_number,
+        vendor_name: editVoucher.vendor_name,
+        expense_date: editVoucher.expense_date || null,
+        expense_event: editVoucher.expense_event,
+        category: editVoucher.category,
+        payment_method: editVoucher.payment_method,
+        payment_transaction_id: editVoucher.payment_transaction_id,
+        payment_date: editVoucher.payment_date || null,
+        paid_to: editVoucher.paid_to,
+      }),
+    });
+    if (res.ok) {
+      toast.success("Voucher updated");
+      setEditVoucher(null);
+      load();
+    } else {
+      const data = await res.json().catch(() => null);
+      toast.error(data?.error || "Update failed");
+    }
+    setSavingEdit(false);
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -901,6 +938,9 @@ export default function AdminVouchersPage() {
                                 </Button>
                               </>
                             )}
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Edit voucher" onClick={() => setEditVoucher({ ...v })}>
+                              <Pencil size={14} />
+                            </Button>
                             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Download PDF" onClick={() => downloadVoucherPdf(v)}>
                               <Download size={14} />
                             </Button>
@@ -944,6 +984,85 @@ export default function AdminVouchersPage() {
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAdminReceiptUpload(f); e.target.value = ""; }}
       />
+
+      {/* Edit Voucher Dialog */}
+      <Dialog open={!!editVoucher} onOpenChange={(v) => !v && setEditVoucher(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Edit Voucher</DialogTitle></DialogHeader>
+          {editVoucher && (
+            <div className="space-y-4">
+              <div>
+                <Label>Expense Title *</Label>
+                <Input value={editVoucher.title} onChange={(e) => setEditVoucher({ ...editVoucher, title: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Amount (₹) *</Label>
+                  <Input type="number" min="1" step="0.01" value={editVoucher.amount} onChange={(e) => setEditVoucher({ ...editVoucher, amount: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <Label>Category</Label>
+                  <Select value={editVoucher.category || ""} onValueChange={(val) => setEditVoucher({ ...editVoucher, category: val })}>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent>
+                      {expenseCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Invoice Number</Label>
+                  <Input value={editVoucher.invoice_number || ""} onChange={(e) => setEditVoucher({ ...editVoucher, invoice_number: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Vendor / Payee</Label>
+                  <Input value={editVoucher.vendor_name || ""} onChange={(e) => setEditVoucher({ ...editVoucher, vendor_name: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Date of Expense</Label>
+                  <Input type="date" value={editVoucher.expense_date || ""} onChange={(e) => setEditVoucher({ ...editVoucher, expense_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Expense Event</Label>
+                  <Input value={editVoucher.expense_event || ""} onChange={(e) => setEditVoucher({ ...editVoucher, expense_event: e.target.value })} placeholder="e.g. Annual District Meeting 2026" />
+                </div>
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Textarea value={editVoucher.description || ""} onChange={(e) => setEditVoucher({ ...editVoucher, description: e.target.value })} rows={2} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Payment Method</Label>
+                  <Input value={editVoucher.payment_method || ""} onChange={(e) => setEditVoucher({ ...editVoucher, payment_method: e.target.value })} placeholder="e.g. Google Pay (UPI)" />
+                </div>
+                <div>
+                  <Label>Transaction ID</Label>
+                  <Input value={editVoucher.payment_transaction_id || ""} onChange={(e) => setEditVoucher({ ...editVoucher, payment_transaction_id: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Payment Date</Label>
+                  <Input type="date" value={editVoucher.payment_date || ""} onChange={(e) => setEditVoucher({ ...editVoucher, payment_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Paid To</Label>
+                  <Input value={editVoucher.paid_to || ""} onChange={(e) => setEditVoucher({ ...editVoucher, paid_to: e.target.value })} />
+                </div>
+              </div>
+              <Button onClick={handleEditSave} disabled={savingEdit || !editVoucher.title.trim() || editVoucher.amount <= 0} className="w-full bg-primary hover:bg-primary/90">
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Receipt Preview Dialog */}
       <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>

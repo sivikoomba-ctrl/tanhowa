@@ -218,6 +218,19 @@ export async function PUT(req: NextRequest) {
       if (body.remarks !== undefined) updates.remarks = body.remarks;
       if (body.receipt_url !== undefined) updates.receipt_url = body.receipt_url;
       if (body.payment_proof_url !== undefined) updates.payment_proof_url = body.payment_proof_url;
+      // Finance team / super admin can also correct voucher content fields
+      if (body.title !== undefined) updates.title = body.title;
+      if (body.amount !== undefined) updates.amount = body.amount;
+      if (body.description !== undefined) updates.description = body.description;
+      if (body.invoice_number !== undefined) updates.invoice_number = body.invoice_number;
+      if (body.vendor_name !== undefined) updates.vendor_name = body.vendor_name;
+      if (body.expense_date !== undefined) updates.expense_date = body.expense_date;
+      if (body.expense_event !== undefined) updates.expense_event = body.expense_event;
+      if (body.category !== undefined) updates.category = body.category;
+      if (body.payment_method !== undefined) updates.payment_method = body.payment_method;
+      if (body.payment_transaction_id !== undefined) updates.payment_transaction_id = body.payment_transaction_id;
+      if (body.payment_date !== undefined) updates.payment_date = body.payment_date;
+      if (body.paid_to !== undefined) updates.paid_to = body.paid_to;
     } else {
       // Officials can only update their own pending vouchers
       if (body.title !== undefined) updates.title = body.title;
