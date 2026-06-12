@@ -72,6 +72,7 @@ const adminNavItems = [
   { href: "/admin/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
   { href: "/admin/polls", labelKey: "nav.polls" as const, icon: PieChart },
   { href: "/admin/logo-vote", labelKey: "nav.logo_vote" as const, icon: Flower2 },
+  { href: "/admin/elections", labelKey: "nav.elections" as const, icon: Vote },
   { href: "/admin/todos", labelKey: "nav.todos" as const, icon: ListTodo },
   { href: "/admin/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt },
   { href: "/admin/contributions", labelKey: "nav.contributions" as const, icon: Award },
@@ -178,6 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {adminNavItems.filter((item) => {
           const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks", "/admin/logo-vote", "/admin/pest-training"];
           if (superAdminOnly.includes(item.href)) return user?.role === "super_admin";
+          if (item.href === "/admin/elections") return user?.role === "super_admin" || user?.email === "sivikoomba@gmail.com";
           if (item.href === "/admin/special-documents") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/analytics") return user?.email === "tanhowa19791@gmail.com" || user?.email === "tanhowaadmin@tanhowa.in";
           if (item.href === "/admin/engagement") return user?.email === "tanhowa19791@gmail.com";
