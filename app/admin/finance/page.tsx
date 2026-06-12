@@ -28,6 +28,7 @@ import {
   Banknote,
   Trash2,
   ScanLine,
+  Pencil,
 } from "lucide-react";
 import { FinanceOtpGate } from "@/components/finance-otp-gate";
 
@@ -140,7 +141,7 @@ export default function FinancePage() {
     amount: "", cheque_no: "", payee: "", voucher_id: "", remarks: "",
   });
   const [vouchers, setVouchers] = useState<{ id: string; title: string; amount: number; paid_to: string; vendor_name: string }[]>([]);
-  const [manageEntry, setManageEntry] = useState<LedgerEntry | null>(null);
+  const [manageEntry, setManageEntry] = useState<{ id: string; status?: string } | null>(null);
   const [editForm, setEditForm] = useState({ entry_date: "", amount: "", cheque_no: "", payee: "", remarks: "" });
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -351,7 +352,18 @@ export default function FinancePage() {
       payee: e.member_name || "",
       remarks: e.remarks || "",
     });
-    setManageEntry(e);
+    setManageEntry({ id: e.id, status: e.status });
+  }
+
+  function openManageCheque(c: ChequeEntry) {
+    setEditForm({
+      entry_date: (c.entry_date || "").slice(0, 10),
+      amount: c.amount ? String(c.amount) : "",
+      cheque_no: c.cheque_no || "",
+      payee: c.payee || "",
+      remarks: c.remarks || "",
+    });
+    setManageEntry({ id: c.id, status: c.status });
   }
 
   async function saveEntryEdits(ev: React.FormEvent) {
@@ -374,6 +386,7 @@ export default function FinancePage() {
       toast.success("Entry updated");
       setManageEntry(null);
       loadData();
+      if (view === "settlement") loadMatching();
     } else {
       const d = await res.json().catch(() => null);
       toast.error(d?.error || "Update failed");
@@ -391,6 +404,7 @@ export default function FinancePage() {
       toast.success(`Marked ${status}`);
       setManageEntry(null);
       loadData();
+      if (view === "settlement") loadMatching();
     } else {
       const d = await res.json().catch(() => null);
       toast.error(d?.error || "Update failed");
@@ -404,6 +418,7 @@ export default function FinancePage() {
       toast.success("Entry deleted");
       setManageEntry(null);
       loadData();
+      if (view === "settlement") loadMatching();
     } else {
       const d = await res.json().catch(() => null);
       toast.error(d?.error || "Delete failed");
@@ -893,7 +908,12 @@ export default function FinancePage() {
                             Cheque {c.cheque_no ? `#${c.cheque_no}` : "(no number)"} - {c.payee}
                             <Badge variant="outline" className={`ml-1.5 text-[9px] ${CHEQUE_STATUS_STYLES[c.status] || ""}`}>{c.status.toUpperCase()}</Badge>
                           </span>
-                          <span className="text-xs font-semibold text-red-600">Rs.{c.amount.toLocaleString("en-IN")}</span>
+                          <span className="flex items-center gap-1">
+                            <span className="text-xs font-semibold text-red-600">Rs.{c.amount.toLocaleString("en-IN")}</span>
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openManageCheque(c)}>
+                              <Pencil size={12} />
+                            </Button>
+                          </span>
                         </div>
                         <Select value="" onValueChange={(v) => linkCheque(c.id, v)}>
                           <SelectTrigger className="h-7 text-xs">
@@ -935,9 +955,14 @@ export default function FinancePage() {
                         )}
                         <span className="ml-1.5 font-semibold">Rs.{entry.amount.toLocaleString("en-IN")}</span>
                       </div>
-                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => linkCheque(entry.id, null)}>
-                        Unlink
-                      </Button>
+                      <span className="flex items-center gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openManageCheque(entry)}>
+                          <Pencil size={12} />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => linkCheque(entry.id, null)}>
+                          Unlink
+                        </Button>
+                      </span>
                     </div>
                   ))}
                 </CardContent>
