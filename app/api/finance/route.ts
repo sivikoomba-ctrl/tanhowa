@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isAdmin, getOfficialInfo } from "@/lib/auth";
+import { getSession, isAdmin, isSuperAdmin, isFinanceTeamMember, getOfficialInfo, type SessionPayload } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { logAudit } from "@/lib/audit-log";
+
+// Statuses that affect the running balance (cancelled/bounced cheques don't)
+const ACTIVE_DEBIT_STATUSES = new Set(["issued", "cleared"]);
+
+async function canManageEntries(session: SessionPayload): Promise<boolean> {
+  return (await isSuperAdmin(session)) || (await isFinanceTeamMember(session.userId));
+}
 
 /**
  * GET /api/finance?year=2025-26
@@ -85,6 +93,10 @@ export async function GET(req: NextRequest) {
       remarks: string;
       payment_group_id: string | null;
       linked_members: { name: string; period: string; amount: number; district: string }[];
+      entry_kind?: "credit" | "debit";
+      status?: string;
+      entry_type?: string;
+      voucher_id?: string | null;
     }
 
     const rawEntries: RawLedgerEntry[] = [];
@@ -163,13 +175,55 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Sort by date and compute running balance
+    // Manual debit entries (cheques issued etc.) — association-level, so not
+    // shown in the district-scoped DS/DJS view
+    let totalDebits = 0;
+    if (!isDistrictOfficial || admin || isStateOfficial) {
+      const { data: entries } = await supabase
+        .from("finance_entries")
+        .select("*")
+        .gte("entry_date", `${startYear}-04-01`)
+        .lte("entry_date", `${startYear + 1}-03-31`)
+        .order("entry_date", { ascending: true });
+
+      for (const fe of entries || []) {
+        const active = ACTIVE_DEBIT_STATUSES.has(fe.status);
+        if (active) totalDebits += fe.amount || 0;
+        rawEntries.push({
+          id: fe.id,
+          date: fe.entry_date,
+          description: fe.cheque_no ? `Cheque #${fe.cheque_no} - ${fe.payee}` : `${fe.entry_type} - ${fe.payee}`,
+          member_name: fe.payee,
+          member_phone: "",
+          district: "-",
+          period: "-",
+          credit: 0,
+          debit: fe.amount || 0,
+          balance: 0,
+          payment_method: "Cheque",
+          transaction_id: fe.cheque_no || "",
+          remarks: fe.remarks || "",
+          payment_group_id: null,
+          linked_members: [],
+          entry_kind: "debit",
+          status: fe.status,
+          entry_type: fe.entry_type,
+          voucher_id: fe.voucher_id,
+        });
+      }
+    }
+
+    // Sort by date and compute running balance (cancelled/bounced debits excluded)
     rawEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     let runningBalance = 0;
     const ledger = rawEntries.map((entry) => {
       runningBalance += entry.credit;
+      if (entry.entry_kind === "debit" && ACTIVE_DEBIT_STATUSES.has(entry.status || "")) {
+        runningBalance -= entry.debit;
+      }
       return { ...entry, balance: runningBalance };
     });
+    const totalCreditsAll = rawEntries.reduce((sum, e) => sum + e.credit, 0);
 
     // Summaries use individual subscriptions (not consolidated ledger) for accurate counts
     const byPeriod: Record<string, { count: number; total: number }> = {};
@@ -206,7 +260,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         year,
         abstract: true,
-        totalCredits: runningBalance,
+        totalCredits: totalCreditsAll,
+        totalDebits,
+        netBalance: runningBalance,
         totalSubscriptions: allSubs.length,
         totalBankEntries: ledger.length,
         byPeriod: summaryByPeriod,
@@ -220,7 +276,9 @@ export async function GET(req: NextRequest) {
       year,
       abstract: false,
       ledger,
-      totalCredits: runningBalance,
+      totalCredits: totalCreditsAll,
+      totalDebits,
+      netBalance: runningBalance,
       totalSubscriptions: allSubs.length,
       totalBankEntries: ledger.length,
       byPeriod: summaryByPeriod,
@@ -231,5 +289,114 @@ export async function GET(req: NextRequest) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/finance", method: "GET", status_code: 500 });
     return NextResponse.json({ error: "Failed to fetch finance data" }, { status: 500 });
+  }
+}
+
+// POST /api/finance — record a manual debit entry (cheque issued)
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session || !(await canManageEntries(session))) {
+      return NextResponse.json({ error: "Finance team access required" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const amount = Number(body.amount);
+    if (!body.entry_date || !body.payee?.trim() || !amount || amount <= 0) {
+      return NextResponse.json({ error: "Date, payee and a positive amount are required" }, { status: 400 });
+    }
+
+    const supabase = getServiceClient();
+    const { data, error } = await supabase
+      .from("finance_entries")
+      .insert({
+        entry_date: body.entry_date,
+        entry_type: body.entry_type || "cheque_issued",
+        amount,
+        cheque_no: (body.cheque_no || "").trim() || null,
+        payee: body.payee.trim(),
+        voucher_id: body.voucher_id || null,
+        remarks: (body.remarks || "").trim() || null,
+        created_by: session.userId,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      await logError({ type: "api", message: error.message, path: "/api/finance", method: "POST", status_code: 500 });
+      return NextResponse.json({ error: "Failed to save entry" }, { status: 500 });
+    }
+
+    logAudit(session.userId, "finance_entry_created", "finance_entry", data.id, { amount, payee: data.payee, cheque_no: data.cheque_no });
+    return NextResponse.json({ entry: data });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await logError({ type: "api", message: msg, path: "/api/finance", method: "POST", status_code: 500 });
+    return NextResponse.json({ error: "Failed to save entry" }, { status: 500 });
+  }
+}
+
+// PUT /api/finance — update a debit entry (status changes: cleared/bounced/cancelled)
+export async function PUT(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session || !(await canManageEntries(session))) {
+      return NextResponse.json({ error: "Finance team access required" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    if (!body.id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (body.status !== undefined) {
+      if (!["issued", "cleared", "cancelled", "bounced"].includes(body.status)) {
+        return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+      }
+      updates.status = body.status;
+    }
+    if (body.entry_date !== undefined) updates.entry_date = body.entry_date;
+    if (body.amount !== undefined) updates.amount = Number(body.amount);
+    if (body.cheque_no !== undefined) updates.cheque_no = body.cheque_no;
+    if (body.payee !== undefined) updates.payee = body.payee;
+    if (body.remarks !== undefined) updates.remarks = body.remarks;
+
+    const supabase = getServiceClient();
+    const { error } = await supabase.from("finance_entries").update(updates).eq("id", body.id);
+
+    if (error) {
+      return NextResponse.json({ error: "Update failed" }, { status: 500 });
+    }
+    logAudit(session.userId, "finance_entry_updated", "finance_entry", body.id, { status: body.status });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await logError({ type: "api", message: msg, path: "/api/finance", method: "PUT", status_code: 500 });
+    return NextResponse.json({ error: "Update failed" }, { status: 500 });
+  }
+}
+
+// DELETE /api/finance?id= — remove a debit entry
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session || !(await canManageEntries(session))) {
+      return NextResponse.json({ error: "Finance team access required" }, { status: 403 });
+    }
+
+    const url = new URL(req.url);
+    const id = url.searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+
+    const supabase = getServiceClient();
+    const { error } = await supabase.from("finance_entries").delete().eq("id", id);
+    if (error) {
+      return NextResponse.json({ error: "Delete failed" }, { status: 500 });
+    }
+    logAudit(session.userId, "finance_entry_deleted", "finance_entry", id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await logError({ type: "api", message: msg, path: "/api/finance", method: "DELETE", status_code: 500 });
+    return NextResponse.json({ error: "Delete failed" }, { status: 500 });
   }
 }

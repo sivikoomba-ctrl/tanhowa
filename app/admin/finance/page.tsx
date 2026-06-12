@@ -5,7 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
@@ -21,6 +24,8 @@ import {
   ChevronDown,
   ChevronRight,
   Link2,
+  Banknote,
+  Trash2,
 } from "lucide-react";
 import { FinanceOtpGate } from "@/components/finance-otp-gate";
 
@@ -47,7 +52,18 @@ interface LedgerEntry {
   remarks: string;
   payment_group_id: string | null;
   linked_members: LinkedMember[];
+  entry_kind?: "credit" | "debit";
+  status?: string;
+  entry_type?: string;
+  voucher_id?: string | null;
 }
+
+const CHEQUE_STATUS_STYLES: Record<string, string> = {
+  issued: "bg-amber-100 text-amber-700 border-amber-300",
+  cleared: "bg-green-100 text-green-700 border-green-300",
+  cancelled: "bg-gray-100 text-gray-600 border-gray-300",
+  bounced: "bg-red-100 text-red-700 border-red-300",
+};
 
 interface PeriodSummary {
   period: string;
@@ -88,6 +104,18 @@ export default function FinancePage() {
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [exporting, setExporting] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [totalDebits, setTotalDebits] = useState(0);
+  const [netBalance, setNetBalance] = useState(0);
+
+  // Cheque issued dialog
+  const [chequeOpen, setChequeOpen] = useState(false);
+  const [savingCheque, setSavingCheque] = useState(false);
+  const [chequeForm, setChequeForm] = useState({
+    entry_date: new Date().toISOString().slice(0, 10),
+    amount: "", cheque_no: "", payee: "", voucher_id: "", remarks: "",
+  });
+  const [vouchers, setVouchers] = useState<{ id: string; title: string; amount: number; paid_to: string; vendor_name: string }[]>([]);
+  const [manageEntry, setManageEntry] = useState<LedgerEntry | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -102,6 +130,8 @@ export default function FinancePage() {
         setByPeriod(data.byPeriod || []);
         setByDistrict(data.byDistrict || []);
         setByMonth(data.byMonth || []);
+        setTotalDebits(data.totalDebits || 0);
+        setNetBalance(data.netBalance ?? data.totalCredits ?? 0);
       } else {
         toast.error(data.error || "Failed to load");
       }
@@ -134,6 +164,73 @@ export default function FinancePage() {
   }
 
   const filteredTotal = filtered.reduce((sum, e) => sum + e.credit, 0);
+  const filteredDebits = filtered.reduce((sum, e) => sum + (e.entry_kind === "debit" && (e.status === "issued" || e.status === "cleared") ? e.debit : 0), 0);
+
+  function openChequeDialog() {
+    setChequeForm({ entry_date: new Date().toISOString().slice(0, 10), amount: "", cheque_no: "", payee: "", voucher_id: "", remarks: "" });
+    setChequeOpen(true);
+    if (vouchers.length === 0) {
+      fetch("/api/vouchers?status=approved")
+        .then((r) => (r.ok ? r.json() : { vouchers: [] }))
+        .then((d) => setVouchers(d.vouchers || []))
+        .catch(() => {});
+    }
+  }
+
+  async function saveCheque(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingCheque(true);
+    const res = await fetch("/api/finance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        entry_date: chequeForm.entry_date,
+        amount: parseFloat(chequeForm.amount) || 0,
+        cheque_no: chequeForm.cheque_no,
+        payee: chequeForm.payee,
+        voucher_id: chequeForm.voucher_id || null,
+        remarks: chequeForm.remarks,
+      }),
+    });
+    if (res.ok) {
+      toast.success("Cheque entry recorded");
+      setChequeOpen(false);
+      loadData();
+    } else {
+      const d = await res.json().catch(() => null);
+      toast.error(d?.error || "Failed to save");
+    }
+    setSavingCheque(false);
+  }
+
+  async function updateEntryStatus(id: string, status: string) {
+    const res = await fetch("/api/finance", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    if (res.ok) {
+      toast.success(`Marked ${status}`);
+      setManageEntry(null);
+      loadData();
+    } else {
+      const d = await res.json().catch(() => null);
+      toast.error(d?.error || "Update failed");
+    }
+  }
+
+  async function deleteEntry(id: string) {
+    if (!confirm("Delete this cheque entry permanently?")) return;
+    const res = await fetch(`/api/finance?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success("Entry deleted");
+      setManageEntry(null);
+      loadData();
+    } else {
+      const d = await res.json().catch(() => null);
+      toast.error(d?.error || "Delete failed");
+    }
+  }
 
   // Districts list for filter
   const districts = [...new Set(ledger.map((e) => e.district))].sort();
@@ -159,28 +256,31 @@ export default function FinancePage() {
       // Summary
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`Total Collections: Rs.${totalCredits.toLocaleString("en-IN")} | Subscriptions: ${totalSubscriptions} | Bank Entries: ${totalBankEntries}`, 148, 30, { align: "center" });
+      doc.text(`Collections: Rs.${totalCredits.toLocaleString("en-IN")} | Cheques Out: Rs.${totalDebits.toLocaleString("en-IN")} | Net: Rs.${netBalance.toLocaleString("en-IN")} | Subscriptions: ${totalSubscriptions} | Bank Entries: ${totalBankEntries}`, 148, 30, { align: "center" });
 
       // Ledger table — expand grouped payments into main + detail rows
-      const pdfRows: { cells: (string | number)[]; isDetail?: boolean }[] = [];
+      const pdfRows: { cells: (string | number)[]; isDetail?: boolean; isDebit?: boolean }[] = [];
       filtered.forEach((e, i) => {
         const isGrouped = e.linked_members && e.linked_members.length > 1;
+        const isDebit = e.entry_kind === "debit";
         pdfRows.push({
           cells: [
             i + 1,
             new Date(e.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
-            isGrouped ? `${e.member_name} [${e.linked_members.length} subs]` : e.member_name,
+            isGrouped ? `${e.member_name} [${e.linked_members.length} subs]` : isDebit ? `${e.member_name}${e.status ? ` [${e.status.toUpperCase()}]` : ""}` : e.member_name,
             e.district,
             e.period,
-            e.credit.toLocaleString("en-IN"),
+            e.credit ? e.credit.toLocaleString("en-IN") : "-",
+            e.debit ? e.debit.toLocaleString("en-IN") : "-",
             e.balance.toLocaleString("en-IN"),
             e.transaction_id || "-",
           ],
+          isDebit,
         });
         if (isGrouped) {
           e.linked_members.forEach((m) => {
             pdfRows.push({
-              cells: ["", "", `    ${m.name}`, m.district, m.period, m.amount.toLocaleString("en-IN"), "", ""],
+              cells: ["", "", `    ${m.name}`, m.district, m.period, m.amount.toLocaleString("en-IN"), "", "", ""],
               isDetail: true,
             });
           });
@@ -189,7 +289,7 @@ export default function FinancePage() {
 
       autoTable(doc, {
         startY: 36,
-        head: [["#", "Date", "Member", "District", "Period", "Credit (Rs.)", "Balance (Rs.)", "Txn ID"]],
+        head: [["#", "Date", "Member / Payee", "District", "Period", "Credit (Rs.)", "Debit (Rs.)", "Balance (Rs.)", "Txn / Cheque"]],
         body: pdfRows.map((r) => r.cells),
         theme: "grid",
         headStyles: { fillColor: [45, 106, 79], fontSize: 8 },
@@ -198,6 +298,7 @@ export default function FinancePage() {
           0: { cellWidth: 10 },
           5: { halign: "right" as const },
           6: { halign: "right" as const },
+          7: { halign: "right" as const },
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         didParseCell: (data: any) => {
@@ -205,6 +306,10 @@ export default function FinancePage() {
             data.cell.styles.fillColor = [235, 245, 255];
             data.cell.styles.textColor = [30, 64, 175];
             data.cell.styles.fontStyle = "normal";
+          }
+          if (data.section === "body" && pdfRows[data.row.index]?.isDebit) {
+            data.cell.styles.fillColor = [253, 240, 240];
+            data.cell.styles.textColor = [150, 40, 40];
           }
         },
         didDrawPage: (data: { pageNumber: number }) => {
@@ -289,6 +394,10 @@ export default function FinancePage() {
               ))}
             </SelectContent>
           </Select>
+          <Button className="gap-1.5 bg-primary hover:bg-primary/90" onClick={openChequeDialog}>
+            <Banknote size={14} />
+            Cheque Issued
+          </Button>
           <Button variant="outline" className="gap-1.5" onClick={exportPDF} disabled={exporting || ledger.length === 0}>
             {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             Export PDF
@@ -297,7 +406,7 @@ export default function FinancePage() {
             if (ledger.length === 0) return;
             import("@/lib/export-xlsx").then(({ downloadXlsx }) => {
               const sheets = [
-                { name: "Ledger", data: filtered.map((e) => ({ Date: e.date, Member: e.member_name, Phone: e.member_phone, District: e.district, Period: e.period, Credit: e.credit, "Payment Method": e.payment_method, "Transaction ID": e.transaction_id, Remarks: e.remarks })) },
+                { name: "Ledger", data: filtered.map((e) => ({ Date: e.date, "Member / Payee": e.member_name, Phone: e.member_phone, District: e.district, Period: e.period, Credit: e.credit, Debit: e.debit, Status: e.entry_kind === "debit" ? (e.status || "") : "", "Payment Method": e.payment_method, "Txn / Cheque": e.transaction_id, Remarks: e.remarks })) },
                 { name: "By Period", data: byPeriod.map((p) => ({ Period: p.period, Count: p.count, Total: p.total })) },
                 { name: "By District", data: byDistrict.map((d) => ({ District: d.district, Count: d.count, Total: d.total })) },
               ];
@@ -312,7 +421,7 @@ export default function FinancePage() {
 
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="Total Collections" value={`Rs.${totalCredits.toLocaleString("en-IN")}`} icon={IndianRupee} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
+        <MetricCard label="Total Collections" value={`Rs.${totalCredits.toLocaleString("en-IN")}`} subtitle={totalDebits > 0 ? `Cheques out: Rs.${totalDebits.toLocaleString("en-IN")} - Net: Rs.${netBalance.toLocaleString("en-IN")}` : undefined} icon={IndianRupee} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-red-600" />
         <MetricCard label="Subscriptions" value={totalSubscriptions} subtitle={totalBankEntries !== totalSubscriptions ? `${totalBankEntries} bank entries` : undefined} icon={FileText} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
         <MetricCard label="Districts" value={districts.length} icon={MapPin} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
         <MetricCard label="Periods" value={periods.length} icon={Calendar} borderColor="border-l-amber-500" iconColor="text-amber-500/40" subtitleColor="text-amber-600" />
@@ -434,21 +543,29 @@ export default function FinancePage() {
                     <th className="text-left py-2 px-2 font-semibold">District</th>
                     <th className="text-left py-2 px-2 font-semibold">Period</th>
                     <th className="text-right py-2 px-2 font-semibold">Credit (Rs.)</th>
+                    <th className="text-right py-2 px-2 font-semibold">Debit (Rs.)</th>
                     <th className="text-right py-2 px-2 font-semibold">Balance (Rs.)</th>
-                    <th className="text-left py-2 px-2 font-semibold">Txn ID</th>
+                    <th className="text-left py-2 px-2 font-semibold">Txn / Cheque</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((e, i) => {
                     const isGrouped = e.linked_members && e.linked_members.length > 1;
                     const isExpanded = expandedGroups.has(e.id);
+                    const isDebit = e.entry_kind === "debit";
+                    const inactive = isDebit && (e.status === "cancelled" || e.status === "bounced");
                     return (
                       <>
-                        <tr key={e.id} className={`border-b hover:bg-muted/30 transition-colors ${isGrouped ? "cursor-pointer" : ""}`} onClick={() => isGrouped && toggleGroup(e.id)}>
+                        <tr
+                          key={e.id}
+                          className={`border-b hover:bg-muted/30 transition-colors ${isGrouped || isDebit ? "cursor-pointer" : ""} ${isDebit ? "bg-red-50/40" : ""}`}
+                          onClick={() => (isGrouped ? toggleGroup(e.id) : isDebit ? setManageEntry(e) : undefined)}
+                        >
                           <td className="py-2 px-2">
                             {isGrouped && (
                               isExpanded ? <ChevronDown size={12} className="text-blue-600" /> : <ChevronRight size={12} className="text-blue-600" />
                             )}
+                            {isDebit && <Banknote size={12} className="text-red-500" />}
                           </td>
                           <td className="py-2 px-2 text-muted-foreground">{i + 1}</td>
                           <td className="py-2 px-2 whitespace-nowrap">{new Date(e.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
@@ -460,10 +577,16 @@ export default function FinancePage() {
                                 <Link2 size={8} className="mr-0.5" />{e.linked_members.length} subs
                               </Badge>
                             )}
+                            {isDebit && e.status && (
+                              <Badge variant="outline" className={`ml-1.5 text-[9px] ${CHEQUE_STATUS_STYLES[e.status] || ""}`}>
+                                {e.status.toUpperCase()}
+                              </Badge>
+                            )}
                           </td>
                           <td className="py-2 px-2">{e.district}</td>
                           <td className="py-2 px-2">{e.period}</td>
-                          <td className="py-2 px-2 text-right font-medium text-green-700">{e.credit.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-2 text-right font-medium text-green-700">{e.credit ? e.credit.toLocaleString("en-IN") : "-"}</td>
+                          <td className={`py-2 px-2 text-right font-medium text-red-600 ${inactive ? "line-through opacity-60" : ""}`}>{e.debit ? e.debit.toLocaleString("en-IN") : "-"}</td>
                           <td className="py-2 px-2 text-right font-medium">{e.balance.toLocaleString("en-IN")}</td>
                           <td className="py-2 px-2 text-muted-foreground">{e.transaction_id || "-"}</td>
                         </tr>
@@ -478,7 +601,7 @@ export default function FinancePage() {
                             <td className="py-1.5 px-2 text-blue-700">{m.district}</td>
                             <td className="py-1.5 px-2 text-blue-700">{m.period}</td>
                             <td className="py-1.5 px-2 text-right text-blue-700">Rs.{m.amount.toLocaleString("en-IN")}</td>
-                            <td colSpan={2}></td>
+                            <td colSpan={3}></td>
                           </tr>
                         ))}
                       </>
@@ -489,7 +612,9 @@ export default function FinancePage() {
                   <tr className="border-t-2 bg-muted/50">
                     <td colSpan={6} className="py-2 px-2 font-semibold text-right">Total:</td>
                     <td className="py-2 px-2 text-right font-bold text-green-700">Rs.{filteredTotal.toLocaleString("en-IN")}</td>
-                    <td colSpan={2}></td>
+                    <td className="py-2 px-2 text-right font-bold text-red-600">{filteredDebits > 0 ? `Rs.${filteredDebits.toLocaleString("en-IN")}` : "-"}</td>
+                    <td className="py-2 px-2 text-right font-bold">Rs.{(filteredTotal - filteredDebits).toLocaleString("en-IN")}</td>
+                    <td></td>
                   </tr>
                 </tfoot>
               </table>
@@ -497,6 +622,103 @@ export default function FinancePage() {
           )}
         </CardContent>
       </Card>
+      {/* Cheque Issued dialog */}
+      <Dialog open={chequeOpen} onOpenChange={setChequeOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Record Cheque Issued</DialogTitle></DialogHeader>
+          <form onSubmit={saveCheque} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Date *</Label>
+                <Input type="date" value={chequeForm.entry_date} onChange={(e) => setChequeForm({ ...chequeForm, entry_date: e.target.value })} required className="mt-1" />
+              </div>
+              <div>
+                <Label>Amount (Rs.) *</Label>
+                <Input type="number" min="1" step="0.01" value={chequeForm.amount} onChange={(e) => setChequeForm({ ...chequeForm, amount: e.target.value })} required className="mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Cheque Number</Label>
+                <Input value={chequeForm.cheque_no} onChange={(e) => setChequeForm({ ...chequeForm, cheque_no: e.target.value })} placeholder="e.g. 123456" className="mt-1" />
+              </div>
+              <div>
+                <Label>Payee *</Label>
+                <Input value={chequeForm.payee} onChange={(e) => setChequeForm({ ...chequeForm, payee: e.target.value })} placeholder="Who the cheque is made out to" required className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label>Linked Voucher (optional)</Label>
+              <Select
+                value={chequeForm.voucher_id || "none"}
+                onValueChange={(v) => {
+                  const voucher = vouchers.find((x) => x.id === v);
+                  setChequeForm({
+                    ...chequeForm,
+                    voucher_id: v === "none" ? "" : v,
+                    amount: chequeForm.amount || (voucher ? String(voucher.amount) : chequeForm.amount),
+                    payee: chequeForm.payee || voucher?.paid_to || voucher?.vendor_name || chequeForm.payee,
+                  });
+                }}
+              >
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {vouchers.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>{v.title} - Rs.{v.amount.toLocaleString("en-IN")}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Selecting an approved voucher pre-fills amount and payee</p>
+            </div>
+            <div>
+              <Label>Remarks</Label>
+              <Textarea value={chequeForm.remarks} onChange={(e) => setChequeForm({ ...chequeForm, remarks: e.target.value })} rows={2} className="mt-1" />
+            </div>
+            <Button type="submit" disabled={savingCheque} className="w-full bg-primary hover:bg-primary/90">
+              {savingCheque ? "Saving..." : "Record Cheque"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage cheque entry dialog */}
+      <Dialog open={!!manageEntry} onOpenChange={(v) => !v && setManageEntry(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Manage Cheque Entry</DialogTitle></DialogHeader>
+          {manageEntry && (
+            <div className="space-y-4">
+              <div className="text-sm space-y-1">
+                <p><span className="text-muted-foreground">Payee:</span> <span className="font-medium">{manageEntry.member_name}</span></p>
+                <p><span className="text-muted-foreground">Amount:</span> <span className="font-medium text-red-600">Rs.{manageEntry.debit.toLocaleString("en-IN")}</span></p>
+                {manageEntry.transaction_id && <p><span className="text-muted-foreground">Cheque #:</span> {manageEntry.transaction_id}</p>}
+                <p><span className="text-muted-foreground">Status:</span> <Badge variant="outline" className={`text-[10px] ${CHEQUE_STATUS_STYLES[manageEntry.status || "issued"] || ""}`}>{(manageEntry.status || "issued").toUpperCase()}</Badge></p>
+                {manageEntry.remarks && <p><span className="text-muted-foreground">Remarks:</span> {manageEntry.remarks}</p>}
+              </div>
+              <div>
+                <Label>Update Status</Label>
+                <div className="flex gap-2 mt-1 flex-wrap">
+                  {["issued", "cleared", "bounced", "cancelled"].map((s) => (
+                    <Button
+                      key={s}
+                      size="sm"
+                      variant={manageEntry.status === s ? "default" : "outline"}
+                      disabled={manageEntry.status === s}
+                      onClick={() => updateEntryStatus(manageEntry.id, s)}
+                    >
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">Cancelled / bounced cheques stay in the ledger but no longer reduce the balance</p>
+              </div>
+              <Button variant="ghost" className="w-full text-destructive hover:text-destructive" onClick={() => deleteEntry(manageEntry.id)}>
+                <Trash2 size={14} className="mr-1" /> Delete entry
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
     </FinanceOtpGate>
   );
