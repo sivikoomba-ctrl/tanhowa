@@ -333,6 +333,62 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+
+    // Bulk insert (cheque page scan) — { entries: [{ entry_date, cheque_no, payee, amount, remarks }] }
+    if (Array.isArray(body.entries)) {
+      const supabaseB = getServiceClient();
+      const rows = [];
+      const errors: string[] = [];
+      for (const [i, e] of (body.entries as Record<string, unknown>[]).entries()) {
+        const amt = Number(e.amount);
+        const payee = String(e.payee || "").trim();
+        if (!e.entry_date || !payee || !amt || amt <= 0) {
+          errors.push(`Row ${i + 1}: date, payee and a positive amount are required`);
+          continue;
+        }
+        rows.push({
+          entry_date: e.entry_date,
+          entry_type: "cheque_issued",
+          amount: amt,
+          cheque_no: String(e.cheque_no || "").trim() || null,
+          payee,
+          remarks: String(e.remarks || "").trim() || null,
+          created_by: session.userId,
+        });
+      }
+      if (errors.length) {
+        return NextResponse.json({ error: errors.join("; ") }, { status: 400 });
+      }
+      if (rows.length === 0) {
+        return NextResponse.json({ error: "No valid entries to add" }, { status: 400 });
+      }
+
+      // Skip cheque numbers that already exist (re-scanned page)
+      const chequeNos = rows.map((r) => r.cheque_no).filter(Boolean) as string[];
+      let skipped: string[] = [];
+      let toInsert = rows;
+      if (chequeNos.length) {
+        const { data: existing } = await supabaseB
+          .from("finance_entries")
+          .select("cheque_no")
+          .in("cheque_no", chequeNos);
+        const existingNos = new Set((existing || []).map((r) => r.cheque_no));
+        skipped = chequeNos.filter((n) => existingNos.has(n));
+        toInsert = rows.filter((r) => !r.cheque_no || !existingNos.has(r.cheque_no));
+      }
+      if (toInsert.length === 0) {
+        return NextResponse.json({ error: `All cheque numbers already recorded (${skipped.join(", ")})` }, { status: 409 });
+      }
+
+      const { data: inserted, error: bulkError } = await supabaseB.from("finance_entries").insert(toInsert).select("id");
+      if (bulkError) {
+        await logError({ type: "api", message: bulkError.message, path: "/api/finance", method: "POST", status_code: 500 });
+        return NextResponse.json({ error: "Failed to save entries" }, { status: 500 });
+      }
+      logAudit(session.userId, "finance_entries_bulk_created", "finance_entry", inserted?.[0]?.id || "", { count: toInsert.length, skipped });
+      return NextResponse.json({ inserted: toInsert.length, skipped });
+    }
+
     const amount = Number(body.amount);
     if (!body.entry_date || !body.payee?.trim() || !amount || amount <= 0) {
       return NextResponse.json({ error: "Date, payee and a positive amount are required" }, { status: 400 });
@@ -405,10 +461,22 @@ export async function PUT(req: NextRequest) {
       updates.status = body.status;
     }
     if (body.entry_date !== undefined) updates.entry_date = body.entry_date;
-    if (body.amount !== undefined) updates.amount = Number(body.amount);
-    if (body.cheque_no !== undefined) updates.cheque_no = body.cheque_no;
-    if (body.payee !== undefined) updates.payee = body.payee;
-    if (body.remarks !== undefined) updates.remarks = body.remarks;
+    if (body.amount !== undefined) {
+      const amount = Number(body.amount);
+      if (!amount || amount <= 0) {
+        return NextResponse.json({ error: "Amount must be positive" }, { status: 400 });
+      }
+      updates.amount = amount;
+    }
+    if (body.cheque_no !== undefined) updates.cheque_no = String(body.cheque_no || "").trim() || null;
+    if (body.payee !== undefined) {
+      const payee = String(body.payee || "").trim();
+      if (!payee) {
+        return NextResponse.json({ error: "Payee is required" }, { status: 400 });
+      }
+      updates.payee = payee;
+    }
+    if (body.remarks !== undefined) updates.remarks = String(body.remarks || "").trim() || null;
 
     const supabase = getServiceClient();
 

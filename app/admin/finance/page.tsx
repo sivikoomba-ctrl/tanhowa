@@ -27,6 +27,7 @@ import {
   Link2,
   Banknote,
   Trash2,
+  ScanLine,
 } from "lucide-react";
 import { FinanceOtpGate } from "@/components/finance-otp-gate";
 
@@ -140,6 +141,14 @@ export default function FinancePage() {
   });
   const [vouchers, setVouchers] = useState<{ id: string; title: string; amount: number; paid_to: string; vendor_name: string }[]>([]);
   const [manageEntry, setManageEntry] = useState<LedgerEntry | null>(null);
+  const [editForm, setEditForm] = useState({ entry_date: "", amount: "", cheque_no: "", payee: "", remarks: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Cheque page scan (bulk entry)
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanRows, setScanRows] = useState<{ entry_date: string; cheque_no: string; payee: string; amount: string; remarks: string }[]>([]);
+  const [savingScan, setSavingScan] = useState(false);
 
   // Settlement (cheque <-> voucher matching)
   const [view, setView] = useState("ledger");
@@ -286,6 +295,90 @@ export default function FinancePage() {
       toast.error(d?.error || "Failed to save");
     }
     setSavingCheque(false);
+  }
+
+  async function handleScanFile(file: File) {
+    setScanning(true);
+    setScanRows([]);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/finance/scan", { method: "POST", body: fd });
+    const d = await res.json().catch(() => null);
+    if (res.ok && d?.entries?.length) {
+      interface ScannedEntry { entry_date: string; cheque_no: string; payee: string; amount: number | null; remarks: string }
+      setScanRows((d.entries as ScannedEntry[]).map((e) => ({
+        entry_date: e.entry_date || new Date().toISOString().slice(0, 10),
+        cheque_no: e.cheque_no || "",
+        payee: e.payee || "",
+        amount: e.amount ? String(e.amount) : "",
+        remarks: e.remarks || "",
+      })));
+      toast.success(`Found ${d.entries.length} cheque entr${d.entries.length === 1 ? "y" : "ies"} — review before adding`);
+    } else {
+      toast.error(d?.error || "No cheque entries found in the image");
+    }
+    setScanning(false);
+  }
+
+  function updateScanRow(i: number, field: string, value: string) {
+    setScanRows((rows) => rows.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
+  }
+
+  async function saveScanRows() {
+    setSavingScan(true);
+    const res = await fetch("/api/finance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entries: scanRows.map((r) => ({ ...r, amount: parseFloat(r.amount) || 0 })) }),
+    });
+    const d = await res.json().catch(() => null);
+    if (res.ok) {
+      toast.success(`${d.inserted} entr${d.inserted === 1 ? "y" : "ies"} added${d.skipped?.length ? `, ${d.skipped.length} duplicate cheque number(s) skipped` : ""}`);
+      setScanOpen(false);
+      setScanRows([]);
+      loadData();
+    } else {
+      toast.error(d?.error || "Failed to save entries");
+    }
+    setSavingScan(false);
+  }
+
+  function openManageEntry(e: LedgerEntry) {
+    setEditForm({
+      entry_date: (e.date || "").slice(0, 10),
+      amount: e.debit ? String(e.debit) : "",
+      cheque_no: e.transaction_id || "",
+      payee: e.member_name || "",
+      remarks: e.remarks || "",
+    });
+    setManageEntry(e);
+  }
+
+  async function saveEntryEdits(ev: React.FormEvent) {
+    ev.preventDefault();
+    if (!manageEntry) return;
+    setSavingEdit(true);
+    const res = await fetch("/api/finance", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: manageEntry.id,
+        entry_date: editForm.entry_date,
+        amount: parseFloat(editForm.amount) || 0,
+        cheque_no: editForm.cheque_no,
+        payee: editForm.payee,
+        remarks: editForm.remarks,
+      }),
+    });
+    if (res.ok) {
+      toast.success("Entry updated");
+      setManageEntry(null);
+      loadData();
+    } else {
+      const d = await res.json().catch(() => null);
+      toast.error(d?.error || "Update failed");
+    }
+    setSavingEdit(false);
   }
 
   async function updateEntryStatus(id: string, status: string) {
@@ -483,6 +576,10 @@ export default function FinancePage() {
             <Banknote size={14} />
             Cheque Issued
           </Button>
+          <Button variant="outline" className="gap-1.5" onClick={() => setScanOpen(true)}>
+            <ScanLine size={14} />
+            Scan Cheque Page
+          </Button>
           <Button variant="outline" className="gap-1.5" onClick={exportPDF} disabled={exporting || ledger.length === 0}>
             {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             Export PDF
@@ -652,7 +749,7 @@ export default function FinancePage() {
                         <tr
                           key={e.id}
                           className={`border-b hover:bg-muted/30 transition-colors ${isGrouped || isDebit ? "cursor-pointer" : ""} ${isDebit ? "bg-red-50/40" : ""}`}
-                          onClick={() => (isGrouped ? toggleGroup(e.id) : isDebit ? setManageEntry(e) : undefined)}
+                          onClick={() => (isGrouped ? toggleGroup(e.id) : isDebit ? openManageEntry(e) : undefined)}
                         >
                           <td className="py-2 px-2">
                             {isGrouped && (
@@ -910,19 +1007,93 @@ export default function FinancePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Scan cheque page (bulk entry) dialog */}
+      <Dialog open={scanOpen} onOpenChange={(v) => { setScanOpen(v); if (!v) setScanRows([]); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Scan Cheque Page (Bulk Entry)</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Cheque book counterfoil / register page image</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                className="mt-1"
+                disabled={scanning}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleScanFile(f); }}
+              />
+              <p className="text-xs text-muted-foreground mt-1">AI reads every cheque on the page — review and correct the rows before adding. Duplicate cheque numbers are skipped automatically.</p>
+            </div>
+            {scanning && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 size={16} className="animate-spin" /> Reading cheque entries...
+              </div>
+            )}
+            {scanRows.length > 0 && (
+              <div className="space-y-2">
+                <div className="hidden md:grid md:grid-cols-[120px_100px_1fr_100px_1fr_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
+                  <span>Date</span><span>Cheque #</span><span>Payee</span><span>Amount</span><span>Remarks</span><span />
+                </div>
+                {scanRows.map((r, i) => (
+                  <div key={i} className="grid grid-cols-2 md:grid-cols-[120px_100px_1fr_100px_1fr_32px] gap-2 items-center border rounded-md p-2 md:border-0 md:p-0">
+                    <Input type="date" value={r.entry_date} onChange={(e) => updateScanRow(i, "entry_date", e.target.value)} className="h-8 text-xs" />
+                    <Input value={r.cheque_no} placeholder="Cheque #" onChange={(e) => updateScanRow(i, "cheque_no", e.target.value)} className="h-8 text-xs" />
+                    <Input value={r.payee} placeholder="Payee" onChange={(e) => updateScanRow(i, "payee", e.target.value)} className="h-8 text-xs" />
+                    <Input type="number" min="1" step="0.01" value={r.amount} placeholder="Rs." onChange={(e) => updateScanRow(i, "amount", e.target.value)} className="h-8 text-xs" />
+                    <Input value={r.remarks} placeholder="Remarks" onChange={(e) => updateScanRow(i, "remarks", e.target.value)} className="h-8 text-xs" />
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setScanRows((rows) => rows.filter((_, idx) => idx !== i))}>
+                      <Trash2 size={13} />
+                    </Button>
+                  </div>
+                ))}
+                <Button className="w-full" onClick={saveScanRows} disabled={savingScan}>
+                  {savingScan && <Loader2 size={14} className="animate-spin mr-1" />}
+                  Add {scanRows.length} Entr{scanRows.length === 1 ? "y" : "ies"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Manage cheque entry dialog */}
       <Dialog open={!!manageEntry} onOpenChange={(v) => !v && setManageEntry(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Manage Cheque Entry</DialogTitle></DialogHeader>
           {manageEntry && (
             <div className="space-y-4">
-              <div className="text-sm space-y-1">
-                <p><span className="text-muted-foreground">Payee:</span> <span className="font-medium">{manageEntry.member_name}</span></p>
-                <p><span className="text-muted-foreground">Amount:</span> <span className="font-medium text-red-600">Rs.{manageEntry.debit.toLocaleString("en-IN")}</span></p>
-                {manageEntry.transaction_id && <p><span className="text-muted-foreground">Cheque #:</span> {manageEntry.transaction_id}</p>}
-                <p><span className="text-muted-foreground">Status:</span> <Badge variant="outline" className={`text-[10px] ${CHEQUE_STATUS_STYLES[manageEntry.status || "issued"] || ""}`}>{(manageEntry.status || "issued").toUpperCase()}</Badge></p>
-                {manageEntry.remarks && <p><span className="text-muted-foreground">Remarks:</span> {manageEntry.remarks}</p>}
-              </div>
+              <p className="text-sm">
+                <span className="text-muted-foreground">Status:</span>{" "}
+                <Badge variant="outline" className={`text-[10px] ${CHEQUE_STATUS_STYLES[manageEntry.status || "issued"] || ""}`}>{(manageEntry.status || "issued").toUpperCase()}</Badge>
+              </p>
+              <form onSubmit={saveEntryEdits} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Date</Label>
+                    <Input type="date" value={editForm.entry_date} onChange={(e) => setEditForm({ ...editForm, entry_date: e.target.value })} required className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Amount (Rs.)</Label>
+                    <Input type="number" min="1" step="0.01" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} required className="mt-1" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Cheque Number</Label>
+                    <Input value={editForm.cheque_no} onChange={(e) => setEditForm({ ...editForm, cheque_no: e.target.value })} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Payee</Label>
+                    <Input value={editForm.payee} onChange={(e) => setEditForm({ ...editForm, payee: e.target.value })} required className="mt-1" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Remarks</Label>
+                  <Textarea value={editForm.remarks} onChange={(e) => setEditForm({ ...editForm, remarks: e.target.value })} rows={2} className="mt-1" />
+                </div>
+                <Button type="submit" size="sm" className="w-full" disabled={savingEdit}>
+                  {savingEdit ? "Saving..." : "Save Changes"}
+                </Button>
+              </form>
               <div>
                 <Label>Update Status</Label>
                 <div className="flex gap-2 mt-1 flex-wrap">
