@@ -22,6 +22,8 @@ const docCategories = [
   "Form / Application",
   "Government G.O.s",
   "Legal",
+  "Financial",
+  "UATT2.0 Association Letters",
   "Others",
 ];
 
