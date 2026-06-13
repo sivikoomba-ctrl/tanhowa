@@ -193,7 +193,8 @@ export async function PUT(req: NextRequest) {
     // ID card, directory, emails, chatbot greeting.
     const TITLE_MAP: Record<string, string> = {
       MR: "Mr.", MRS: "Mrs.", MISS: "Miss.", MS: "Ms.", DR: "Dr.", PROF: "Prof.",
-      ER: "Er.", THIRU: "Mr.", TMT: "Mrs.", SELVI: "Miss.", SHRI: "Mr.", SMT: "Mrs.", SRI: "Mr.",
+      ER: "Er.", THIRU: "Mr.", TMT: "Mrs.", SELVI: "Miss.", SMT: "Mrs.",
+      // "Sri"/"Shri" excluded — name components (e.g. "Srividhya") far more often than honorifics.
     };
     let cleanName = name;
     const nameParts = name.split(/\s+/);

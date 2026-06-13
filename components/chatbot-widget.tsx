@@ -26,8 +26,9 @@ interface Message {
 
 // Leading honorifics to drop so the greeting uses the real first name, not "Mr."
 const HONORIFICS = new Set([
-  "mr", "mrs", "ms", "miss", "dr", "prof", "er", "shri", "smt", "sri",
+  "mr", "mrs", "ms", "miss", "dr", "prof", "er", "smt",
   "thiru", "tmt", "selvi", "thirumathi", "திரு", "திருமதி", "செல்வி", "மருத்துவர்",
+  // "sri"/"shri" excluded — name components (e.g. "Srividhya") more often than honorifics.
 ]);
 
 function firstName(full?: string): string {
