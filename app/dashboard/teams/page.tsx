@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { UsersRound, X, Users, MapPin, Phone, Mail, Crown, Scale, Star, Shield } from "lucide-react";
+import { UsersRound, X, Users, MapPin, Phone, Mail, Crown, Scale, Star, Shield, MessageCircle } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { useT } from "@/lib/i18n";
@@ -32,7 +32,14 @@ interface Team {
   name: string;
   description: string;
   icon: string;
+  whatsapp_link?: string | null;
   members: TeamMember[];
+}
+
+// Normalize a WhatsApp group/chat link so a bare "chat.whatsapp.com/xxx" still opens
+function waHref(link: string): string {
+  const v = (link || "").trim();
+  return /^https?:\/\//i.test(v) ? v : `https://${v}`;
 }
 
 export default function TeamsPage() {
@@ -176,6 +183,17 @@ export default function TeamsPage() {
 
       {currentTeam?.description && (
         <p className="text-sm text-muted-foreground">{currentTeam.description}</p>
+      )}
+
+      {currentTeam?.whatsapp_link && (
+        <a
+          href={waHref(currentTeam.whatsapp_link)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 transition-colors w-fit"
+        >
+          <MessageCircle size={16} /> Join WhatsApp Group
+        </a>
       )}
 
       {/* Team Members Grid */}

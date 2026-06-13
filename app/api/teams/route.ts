@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
         icon: body.icon || "",
         sort_order: body.sort_order || 0,
         is_private: !!body.is_private,
+        whatsapp_link: (body.whatsapp_link || "").trim() || null,
         created_by: session.userId,
       })
       .select()
@@ -153,6 +154,7 @@ export async function PUT(req: NextRequest) {
     if (body.icon !== undefined) updates.icon = body.icon;
     if (body.sort_order !== undefined) updates.sort_order = body.sort_order;
     if (body.is_private !== undefined) updates.is_private = !!body.is_private;
+    if (body.whatsapp_link !== undefined) updates.whatsapp_link = (body.whatsapp_link || "").trim() || null;
 
     const { error } = await supabase
       .from("teams")
