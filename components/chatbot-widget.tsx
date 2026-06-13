@@ -109,6 +109,7 @@ export default function ChatbotWidget() {
   const [uploadTargetSub, setUploadTargetSub] = useState<Sub | null>(null);
   const [uploading, setUploading] = useState(false);
   const greeted = useRef(false);
+  const autoOpened = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const proofInputRef = useRef<HTMLInputElement>(null);
@@ -159,6 +160,17 @@ export default function ChatbotWidget() {
 
     setMessages([{ role: "bot", text }]);
   }, [open, allowed, userName, pendingSubs]);
+
+  // Auto-open once when an approved user enters the site — unless they've
+  // already dismissed it this session (so it doesn't re-pop on every nav).
+  useEffect(() => {
+    if (autoOpened.current || allowed !== true) return;
+    autoOpened.current = true;
+    try {
+      if (sessionStorage.getItem("tanhowa-assistant-dismissed") === "1") return;
+    } catch { /* sessionStorage unavailable — open anyway */ }
+    setOpen(true);
+  }, [allowed]);
 
   const addBotMessage = useCallback((text: string, extra?: Partial<Message>) => {
     setMessages((prev) => [...prev, { role: "bot", text, ...extra }]);
@@ -263,7 +275,11 @@ export default function ChatbotWidget() {
     await sendMessage(input);
   }
 
-  function handleClose() { setOpen(false); }
+  function handleClose() {
+    setOpen(false);
+    // Remember dismissal so the assistant doesn't auto-reopen this session.
+    try { sessionStorage.setItem("tanhowa-assistant-dismissed", "1"); } catch { /* ignore */ }
+  }
   function handleReset() { setMessages([]); setInput(""); setShowQuickQueries(false); greeted.current = false; }
 
   return (
