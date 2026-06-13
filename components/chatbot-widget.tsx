@@ -10,6 +10,7 @@ import {
   Sparkles, RotateCcw, Paperclip, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import { useT } from "@/lib/i18n";
+import { usePathname } from "next/navigation";
 
 interface Sub {
   id: string;
@@ -114,8 +115,14 @@ export default function ChatbotWidget() {
   const inputRef = useRef<HTMLInputElement>(null);
   const proofInputRef = useRef<HTMLInputElement>(null);
   const t = useT();
+  const pathname = usePathname();
+  // The assistant is a member feature tied to personal portal data — only mount
+  // it inside the authenticated app, never on the public landing / auth pages
+  // (otherwise it shows the last user's data after logout). See logout bug fix.
+  const onAppRoute = !!pathname && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin"));
 
   useEffect(() => {
+    if (!onAppRoute) { setAllowed(false); return; }
     fetch("/api/users/me")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
@@ -135,7 +142,7 @@ export default function ChatbotWidget() {
         setPendingSubs(subs);
       })
       .catch(() => {});
-  }, []);
+  }, [onAppRoute]);
 
   // Auto-greet once when chat opens
   useEffect(() => {
@@ -268,7 +275,7 @@ export default function ChatbotWidget() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
 
-  if (allowed !== true) return null;
+  if (allowed !== true || !onAppRoute) return null;
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
