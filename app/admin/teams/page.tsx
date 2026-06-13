@@ -303,11 +303,21 @@ export default function AdminTeamsPage() {
                     )}
                   </CardTitle>
                   <div className="flex items-center gap-2">
-                    {team.whatsapp_link && (
-                      <Button asChild variant="ghost" size="icon" className="text-green-600 hover:text-green-700">
+                    {team.whatsapp_link ? (
+                      <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5 h-8 shadow-sm">
                         <a href={waHref(team.whatsapp_link)} target="_blank" rel="noopener noreferrer" title="Open WhatsApp group">
-                          <MessageCircle size={16} />
+                          <MessageCircle size={15} /> WhatsApp
                         </a>
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEdit(team)}
+                        className="border-green-400 text-green-700 hover:bg-green-50 gap-1.5 h-8"
+                        title="Add a WhatsApp group link for this team"
+                      >
+                        <MessageCircle size={15} /> Add WhatsApp
                       </Button>
                     )}
                     <Button variant="ghost" size="icon" onClick={() => openEdit(team)}>
