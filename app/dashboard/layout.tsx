@@ -106,9 +106,6 @@ const navItems = [
   { href: "/dashboard/calendar", labelKey: "nav.calendar" as const, icon: CalendarDays },
   { href: "/dashboard/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
   { href: "/dashboard/polls", labelKey: "nav.polls" as const, icon: BarChart3 },
-  { href: "/dashboard/elections", labelKey: "nav.elections" as const, icon: Vote, electionsOnly: true },
-  { href: "/dashboard/nominate", labelKey: "nav.nominate" as const, icon: ClipboardCheck },
-  { href: "/dashboard/polling", labelKey: "nav.polling" as const, icon: TrendingUp },
   { href: "/dashboard/documents", labelKey: "nav.documents" as const, icon: FileText },
   { href: "/dashboard/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
   { href: "/dashboard/payment-status", labelKey: "nav.payment_status" as const, icon: IndianRupee },
@@ -405,6 +402,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     pathname === "/dashboard/suggestions" || pathname === "/dashboard/grievances" || pathname === "/dashboard/service-requests"
   );
 
+  const [electionsOpen, setElectionsOpen] = useState(
+    pathname === "/dashboard/elections" || pathname === "/dashboard/nominate" || pathname === "/dashboard/polling"
+  );
+
   const t = useT();
 
   function NavLinks({ onItemClick }: { onItemClick?: () => void }) {
@@ -414,6 +415,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       { href: "/dashboard/grievances", labelKey: "nav.grievances" as const, icon: MessageSquareWarning },
     ];
     const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);
+
+    const electionItems = [
+      { href: "/dashboard/elections", labelKey: "nav.elections" as const, icon: Vote, electionsOnly: true },
+      { href: "/dashboard/nominate", labelKey: "nav.nominate" as const, icon: ClipboardCheck },
+      { href: "/dashboard/polling", labelKey: "nav.polling" as const, icon: TrendingUp },
+    ].filter((item) => {
+      if ("electionsOnly" in item && item.electionsOnly && !(user?.role === "super_admin" || user?.official_type === "state" || user?.email === "sivikoomba@gmail.com")) return false;
+      return true;
+    });
+    const isElectionsActive = electionItems.some((i) => pathname === i.href);
 
     return (
       <>
@@ -425,6 +436,58 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return true;
         }).map((item) => {
           const isActive = pathname === item.href;
+          // Insert Elections group (Election / Nomination / Polling) before Document Vault
+          if (item.href === "/dashboard/documents" && electionItems.length > 0) {
+            return (
+              <div key="elections-group">
+                {/* Elections collapsible */}
+                <button
+                  onClick={() => setElectionsOpen(!electionsOpen)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isElectionsActive && !electionsOpen
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  }`}
+                >
+                  <Vote size={18} />
+                  <span className="flex-1 text-left">{t("nav.elections_group")}</span>
+                  <ChevronDown size={14} className={`transition-transform ${electionsOpen ? "rotate-180" : ""}`} />
+                </button>
+                {electionsOpen && (
+                  <div className="ml-4 space-y-0.5 mt-0.5">
+                    {electionItems.map((ei) => (
+                      <Link
+                        key={ei.href}
+                        href={ei.href}
+                        onClick={onItemClick}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          pathname === ei.href
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                        }`}
+                      >
+                        <ei.icon size={16} />
+                        {t(ei.labelKey)}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {/* Document Vault (the current item) */}
+                <Link
+                  href={item.href}
+                  onClick={onItemClick}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  }`}
+                >
+                  <item.icon size={18} />
+                  {t(item.labelKey)}
+                </Link>
+              </div>
+            );
+          }
           // Insert Feedback group after Document Vault
           if (item.href === "/dashboard/subscriptions") {
             return (

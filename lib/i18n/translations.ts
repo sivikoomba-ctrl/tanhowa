@@ -17,6 +17,7 @@ const translations = {
   "nav.resolutions": { en: "e-Resolutions", ta: "மின் தீர்மானங்கள்" },
   "nav.polls": { en: "Polls", ta: "கருத்துக்கணிப்பு" },
   "nav.logo_vote": { en: "Logo Vote", ta: "லோகோ வாக்கெடுப்பு" },
+  "nav.elections_group": { en: "Elections", ta: "தேர்தல்" },
   "nav.elections": { en: "TANHOWA Election", ta: "TANHOWA தேர்தல்" },
   "nav.nominate": { en: "Election Nomination", ta: "தேர்தல் வேட்புமனு" },
   "nav.polling": { en: "Polling Dashboard", ta: "வாக்குப்பதிவு டாஷ்போர்டு" },
