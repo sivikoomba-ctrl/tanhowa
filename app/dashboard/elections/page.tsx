@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
 import { toast } from "sonner";
-import { Vote, Plus, Trash2, UserPlus, Lock, MapPin } from "lucide-react";
+import { Vote, Plus, Trash2, UserPlus, Lock, MapPin, Check } from "lucide-react";
 
 // Titles that require a district (one post per district)
 const DISTRICT_SCOPED_TITLES = ["District Secretary", "District Joint Secretary"];
@@ -30,6 +30,13 @@ interface Candidate {
   statement: string | null;
   status: string;
   created_at: string;
+}
+
+interface MemberLite {
+  id: string;
+  name: string;
+  occupation: string | null;
+  posting_details: { regular_district?: string } | null;
 }
 
 interface ElectionPost {
@@ -81,7 +88,50 @@ export default function ElectionsPage() {
   const [candName, setCandName] = useState("");
   const [candDistrict, setCandDistrict] = useState("");
   const [candStatement, setCandStatement] = useState("");
+  const [candUserId, setCandUserId] = useState<string | null>(null);
+  const [memberResults, setMemberResults] = useState<MemberLite[]>([]);
+  const [memberSearching, setMemberSearching] = useState(false);
+  const [showMemberMenu, setShowMemberMenu] = useState(false);
   const [saving, setSaving] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetCandidateForm = () => {
+    setCandName("");
+    setCandDistrict("");
+    setCandStatement("");
+    setCandUserId(null);
+    setMemberResults([]);
+    setShowMemberMenu(false);
+  };
+
+  const onCandNameChange = (value: string) => {
+    setCandName(value);
+    setCandUserId(null); // editing detaches any linked member
+    setShowMemberMenu(true);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    const q = value.trim();
+    if (q.length < 2) { setMemberResults([]); return; }
+    searchTimer.current = setTimeout(async () => {
+      try {
+        setMemberSearching(true);
+        const res = await fetch(`/api/users?status=approved&search=${encodeURIComponent(q)}&limit=8`);
+        const d = await res.json();
+        setMemberResults(d.users || []);
+      } catch {
+        setMemberResults([]);
+      } finally {
+        setMemberSearching(false);
+      }
+    }, 250);
+  };
+
+  const selectMember = (m: MemberLite) => {
+    setCandName(m.name || "");
+    setCandUserId(m.id);
+    if (m.posting_details?.regular_district) setCandDistrict(m.posting_details.regular_district);
+    setMemberResults([]);
+    setShowMemberMenu(false);
+  };
 
   const load = async () => {
     try {
@@ -169,15 +219,14 @@ export default function ElectionsPage() {
           name: candName,
           district: candDistrict,
           statement: candStatement,
+          user_id: candUserId,
         }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Failed to add candidate");
       toast.success("Candidate added");
       setCandidateDialogPost(null);
-      setCandName("");
-      setCandDistrict("");
-      setCandStatement("");
+      resetCandidateForm();
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to add candidate");
@@ -362,15 +411,47 @@ export default function ElectionsPage() {
       )}
 
       {/* Add candidate dialog */}
-      <Dialog open={!!candidateDialogPost} onOpenChange={(o) => { if (!o) setCandidateDialogPost(null); }}>
+      <Dialog open={!!candidateDialogPost} onOpenChange={(o) => { if (!o) { setCandidateDialogPost(null); resetCandidateForm(); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Candidate — {candidateDialogPost?.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <Label>Name *</Label>
-              <Input value={candName} onChange={(e) => setCandName(e.target.value)} placeholder="Candidate full name" />
+              <Input
+                value={candName}
+                onChange={(e) => onCandNameChange(e.target.value)}
+                onFocus={() => { if (memberResults.length) setShowMemberMenu(true); }}
+                placeholder="Type to search members…"
+                autoComplete="off"
+              />
+              {candUserId && (
+                <p className="text-xs text-green-700 flex items-center gap-1">
+                  <Check size={12} /> Linked to member profile
+                </p>
+              )}
+              {showMemberMenu && (memberSearching || memberResults.length > 0 || candName.trim().length >= 2) && (
+                <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-56 overflow-auto rounded-xl border bg-popover shadow-md">
+                  {memberSearching && <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>}
+                  {memberResults.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => selectMember(m)}
+                      className="w-full text-left px-3 py-2 hover:bg-muted/60 border-b last:border-b-0"
+                    >
+                      <p className="text-sm font-medium truncate">{m.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {[m.occupation, m.posting_details?.regular_district].filter(Boolean).join(" • ")}
+                      </p>
+                    </button>
+                  ))}
+                  {!memberSearching && memberResults.length === 0 && candName.trim().length >= 2 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No members found — you can still type a free-text name.</div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>District</Label>
