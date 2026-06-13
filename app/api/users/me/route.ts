@@ -188,6 +188,23 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    // Strip a leading honorific from the stored name (keep it in social_links.title
+    // instead) so the name field holds the real name everywhere it's displayed —
+    // ID card, directory, emails, chatbot greeting.
+    const TITLE_MAP: Record<string, string> = {
+      MR: "Mr.", MRS: "Mrs.", MISS: "Miss.", MS: "Ms.", DR: "Dr.", PROF: "Prof.",
+      ER: "Er.", THIRU: "Mr.", TMT: "Mrs.", SELVI: "Miss.", SHRI: "Mr.", SMT: "Mrs.", SRI: "Mr.",
+    };
+    let cleanName = name;
+    const nameParts = name.split(/\s+/);
+    if (nameParts.length > 1) {
+      const head = nameParts[0].replace(/\.$/, "");
+      if (TITLE_MAP[head]) {
+        if (!finalSocialLinks.title) finalSocialLinks.title = TITLE_MAP[head];
+        cleanName = nameParts.slice(1).join(" ");
+      }
+    }
+
     // Check if this is a first-time onboarding (pending user with no name yet)
     const { data: currentUser } = await supabase
       .from("users")
@@ -215,7 +232,7 @@ export async function PUT(req: NextRequest) {
     );
 
     const updateData: Record<string, unknown> = {
-      name,
+      name: cleanName,
       phone,
       address: body.address || "",
       office_address: body.office_address || "",
@@ -243,7 +260,7 @@ export async function PUT(req: NextRequest) {
 
     // Notify admins when a new member completes onboarding
     if (isFirstOnboarding) {
-      notifyAdminNewRegistration(name, session.email).catch(() => {});
+      notifyAdminNewRegistration(cleanName, session.email).catch(() => {});
     }
 
     logContribution(session.userId, "profile_updated", "Updated profile");

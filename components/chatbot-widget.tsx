@@ -24,6 +24,21 @@ interface Message {
   subSelect?: Sub[]; // renders inline subscription selection buttons
 }
 
+// Leading honorifics to drop so the greeting uses the real first name, not "Mr."
+const HONORIFICS = new Set([
+  "mr", "mrs", "ms", "miss", "dr", "prof", "er", "shri", "smt", "sri",
+  "thiru", "tmt", "selvi", "thirumathi", "திரு", "திருமதி", "செல்வி", "மருத்துவர்",
+]);
+
+function firstName(full?: string): string {
+  if (!full) return "";
+  const parts = full.trim().split(/\s+/);
+  while (parts.length && HONORIFICS.has(parts[0].replace(/\.$/, "").toLowerCase())) {
+    parts.shift();
+  }
+  return parts[0] || "";
+}
+
 const QUICK_QUERIES = [
   { icon: Megaphone, key: "chat.q_announcements", fallback: "What are the latest announcements?" },
   { icon: CalendarDays, key: "chat.q_events", fallback: "Any upcoming events?" },
@@ -104,7 +119,7 @@ export default function ChatbotWidget() {
       .then((data) => {
         if (!data?.user || data.user.status !== "approved") { setAllowed(false); return; }
         const u = data.user;
-        setUserName(u.name?.split(" ")[0] || u.name || "");
+        setUserName(firstName(u.name));
         setAllowed(true);
       })
       .catch(() => setAllowed(false));
