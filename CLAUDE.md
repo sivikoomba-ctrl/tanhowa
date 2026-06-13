@@ -22,7 +22,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 
 **Member features:** [Member Dashboard Widgets](#member-dashboard-home-widgets) · [Suggestions & Grievances](#suggestions--grievances-split) · [Polls](#polls) · [Wishlist / IDEA BOARD](#wishlist--idea-board) · [Logo Vote](#logo-vote) · [Elections](#elections-posts-nominations--polling) · [Direct Messages](#direct-messages) · [Group Chat](#group-chat) · [Calendar & iCal](#calendar--ical-export) · [Event RSVP](#event-rsvp) · [Announcement Read Tracking](#announcement-read-tracking) · [Achievements / Badges](#achievements--badges) · [Contributions Tracking](#contributions-tracking) · [Member Directory Sorting](#member-directory-sorting) · [Digital Member ID Card](#digital-member-id-card) · [Profile Completeness](#profile-completeness) · [Mandatory Profile Completion](#mandatory-profile-completion) · [Location Sharing](#location-sharing--nearby-members) · [Trainings System](#trainings-system) · [TANHOWA History Timeline](#tanhowa-history-timeline) · [Member Feedback Loop](#member-feedback-loop--ai-pulse-super-admin-only) · [Service Requests](#service-requests) · [Volunteer Invites](#volunteer-invites)
 
-**Subscriptions / Finance / Tasks:** [Subscription Auto-Sync](#subscription-auto-sync) · [Special Subscriptions](#special-subscriptions) · [Payment Group Linking](#payment-group-linking) · [Payment Status Transparency](#payment-status-transparency) · [Finance (Bank Reconciliation)](#finance-bank-reconciliation) · [Expense Vouchers](#expense-vouchers-officials-only) · [Task Management](#task-management-system) · [e-Resolutions](#e-resolutions-voting-system) · [Reports & Analytics](#reports--analytics-adminreports) · [District Benchmark](#district-benchmark) · [Engagement Analytics](#engagement-analytics)
+**Subscriptions / Finance / Tasks:** [Subscription Auto-Sync](#subscription-auto-sync) · [Special Subscriptions](#special-subscriptions) · [Payment Group Linking](#payment-group-linking) · [Payment Status Transparency](#payment-status-transparency) · [District Roster](#district-roster-admin) · [Finance (Bank Reconciliation)](#finance-bank-reconciliation) · [Expense Vouchers](#expense-vouchers-officials-only) · [Task Management](#task-management-system) · [e-Resolutions](#e-resolutions-voting-system) · [Reports & Analytics](#reports--analytics-adminreports) · [District Benchmark](#district-benchmark) · [Engagement Analytics](#engagement-analytics)
 
 **Roles & private spaces:** [Officials System](#officials-system) · [Team Lead & Legal Advisor](#team-lead-role--legal-advisor) · [Private Teams & Project H](#private-teams--project-h) · [Letters & Forms](#letters--forms-superadminonly) · [Why-Ministry Position Paper](#why-ministry-position-paper-super-admin-only) · [Owner-Only Admin Tools](#owner-only-admin-tools) · [Account Suspension](#account-suspension) · [Content Scheduling](#content-scheduling)
 
@@ -184,6 +184,7 @@ One-line index. For column-level detail, jump to the matching feature section be
 | `feedback` / `feedback_prompts_shown` | Member feedback loop (see Member Feedback Loop) |
 | `logo_concepts` / `logo_votes` / `logo_comments` | New-logo selection vote (see Logo Vote) |
 | `election_posts` / `election_candidates` / `election_votes` | Office-bearer elections: district-scoped posts, nominations, secret-ballot voting (see Elections) |
+| `roster_entries` | Manual (non-registered) officer entries merged with approved users in the admin District Roster (see District Roster) |
 | `admin_tasks` | Owner-only private task list (see Owner-Only Admin Tools) |
 | `admin_documents` | Owner-only private document vault (see Owner-Only Admin Tools) |
 
@@ -352,6 +353,8 @@ Birthday + festival greetings system. Triggered by `/api/cron/daily-greetings` (
 
 On profile save (`PUT /api/users/me`), `detectGender()` auto-detects gender from 130+ common Tamil/Indian female first names + suffix matching (LAKSHMI, DEVI, SELVI, MATHI, VALLI, AMMAL, RANI, PRIYA, NAYAKI). Also sets title (Mr./Mrs.) when not already set. Does not override existing gender.
 
+**Honorific stripping (same route):** after gender detection, a leading honorific is stripped from the stored `name` and moved into `social_links.title` (`TITLE_MAP`: MR/MRS/MISS/MS/DR/PROF/ER/THIRU/TMT/SELVI/SMT — note **Sri/Shri are deliberately excluded** since they're name components like "Srividhya", not titles). This keeps `name` clean everywhere it's shown (ID card, directory, emails, chatbot). Gender detection still runs on the pre-strip name because it keys off the title prefix. The chatbot greeting applies the same logic read-side via its own `firstName()` helper. Existing rows were one-time backfilled by `scripts/strip-honorific-names.mjs` (dry-run default, `--execute` to apply).
+
 ## AI Tools (`/dashboard/ai-tools`)
 
 7 agriculture-focused AI utilities for field officers, accessible from the dashboard sidebar (Sparkles icon).
@@ -395,7 +398,7 @@ AI-powered chatbot with live portal data access via Gemini function calling.
 - `lib/gemini.ts` — `SYSTEM_PROMPT`, `QUERY_TOOLS` (13 FunctionDeclarationsTool definitions with SchemaType params), `getGemini()` singleton
 - `lib/query-engine.ts` — `executeQuery()` dispatcher that maps function names to Supabase queries, 13 data-retrieval functions
 - `app/api/chat/route.ts` — POST endpoint with function-calling loop (max 3 rounds), rate limited 20/min per IP
-- `components/chatbot-widget.tsx` — Floating chat UI with 9 quick-query buttons, role-gated access (super_admin, state officials, whitelisted emails)
+- `components/chatbot-widget.tsx` — Floating chat UI with 9 quick-query buttons. **Open to all approved members** (not role-gated). It is mounted once in the root layout (`app/layout.tsx`) but **only renders/fetches on `/dashboard` and `/admin` routes** (gated via `usePathname()` → `onAppRoute`) — never on the public landing/auth pages, so it can't leak the previous member's session data after logout. **Auto-opens once** when a member enters the app; clicking ✕ sets `sessionStorage["tanhowa-assistant-dismissed"]` so it won't re-pop that session (the floating bubble stays for manual reopen). The greeting uses a honorific-stripped first name via the local `firstName()` helper.
 
 **13 Query Functions:**
 
@@ -929,6 +932,15 @@ Full TANHOWA office-bearer election system. Tables: `election_posts`, `election_
 - **Member self-nomination:** `/dashboard/nominate` + `/api/elections/nominate` (GET eligible open posts + own nominations, POST submit, DELETE withdraw). Only `nominations_open` posts appear; DS/DJS restricted to the member's own `regular_district`; name/district pulled from profile; lands as a candidate with `status=nominated` for official approval. One active nomination per post (409 on dupe). Visible to all approved members (ungated nav `nav.nominate`).
 - **Polling dashboard:** `/dashboard/polling` + `/api/elections/vote` (GET dashboard, POST cast/change, DELETE retract). Shows `voting_open` + `closed` posts. **Secret ballot:** `election_votes` stores `voter_id` only to enforce `UNIQUE(post_id, voter_id)` and surface the caller's own selection — the API never returns who voted for whom, only tallies. **District-scoped:** members vote only in their own district's DS/DJS post (others are watch-only). **Live for everyone:** tallies + turnout (`votes / eligible`, eligible = approved members overall or per-district) refresh every 15 s; closed posts highlight the winner. Only `status=approved` candidates appear on the ballot.
 
+## District Roster (admin)
+
+Admin-only consolidated roster at `/admin/roster` + `/api/roster` (all handlers `isAdmin`-gated). Table: `roster_entries` (schema `supabase/roster_entries_schema.sql`).
+
+- **Two sources merged:** every approved user (`source: "registered"`, from `/api/users?status=approved`) plus manual `roster_entries` rows (`source: "manual"`, for non-registered officers). Manual rows show a "Manual" badge and can be deleted; registered rows cannot.
+- **Grouped by district**, members within a district sorted by designation rank (Additional Director → Joint → Deputy → Assistant → HO → Retd → other) via the page's local `rank()`, then block. Search + district filter apply to both sources.
+- **Add Member** writes a manual `roster_entries` row (name + district required; designation/block/phone/email optional), audit-logged `roster_add` / `roster_delete`.
+- **Export:** "Print" opens a clean grouped print view in a new window (browser dialog → print or Save-as-PDF, Unicode-safe via system fonts); "Save PDF" downloads a landscape jsPDF (`autoTable` per district). Both honor the active search + district filter. Names are Latin-script so jsPDF is safe; the Print path covers any Tamil.
+
 ## Payment Status Transparency
 
 All logged-in members can view district-wise subscription payment status at `/dashboard/payment-status`.
@@ -962,6 +974,7 @@ ADDH (1) → JDH (2) → DDH (3) → ADH (4) → HO (5) → Retd (6) → Others 
 ## Team Lead Role & Legal Advisor
 
 - **Team Lead:** `team_members.role` column supports "lead" designation. Admin teams page has Crown toggle per member. Leads shown first with amber highlight and Crown icon on both admin and member teams pages. API payload uses `members_with_roles: [{ user_id, role }]`.
+- **WhatsApp group link:** `teams.whatsapp_link` (TEXT, schema `supabase/teams_whatsapp_schema.sql`) — optional per-team WhatsApp group invite URL, set in the admin create/edit dialog. Bare links are auto-prefixed with `https://` (`waHref()`). Admin card shows a solid green "WhatsApp" button when set / outlined "Add WhatsApp" when not; the member teams page shows a "Join WhatsApp Group" button. Accepted by `POST`/`PUT /api/teams`; `GET` returns it via `select("*")`.
 - **Legal Advisor:** Hardcoded card on `/dashboard/teams` (not from DB). Shows Thiru. S. Rajendiran (Advocate, B.Com., B.L.) with photo, address, phones, email. Photo at Supabase `avatars/legal-advisor-rajendiran.jpeg`. Appears below all team cards and also when no teams exist.
 
 ## Private Teams & Project H
