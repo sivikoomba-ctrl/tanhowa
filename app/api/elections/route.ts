@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isSuperAdmin, type SessionPayload } from "@/lib/auth";
+import { getSession, isSuperAdmin, getOfficialType, type SessionPayload } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 const ALLOWED_EMAILS = ["sivikoomba@gmail.com"];
@@ -9,7 +9,8 @@ const CANDIDATE_STATUSES = ["nominated", "approved", "withdrawn"];
 
 async function hasElectionAccess(session: SessionPayload) {
   if (ALLOWED_EMAILS.includes(session.email)) return true;
-  return isSuperAdmin(session);
+  if (await isSuperAdmin(session)) return true;
+  return (await getOfficialType(session.userId)) === "state";
 }
 
 export async function GET() {
@@ -21,7 +22,7 @@ export async function GET() {
     const supabase = getServiceClient();
     const { data, error } = await supabase
       .from("election_posts")
-      .select("id, title, description, display_order, status, created_at, candidates:election_candidates(id, post_id, user_id, name, district, statement, status, created_at)")
+      .select("id, title, description, district, display_order, status, created_at, candidates:election_candidates(id, post_id, user_id, name, district, statement, status, created_at)")
       .order("display_order", { ascending: true });
 
     if (error) {
@@ -58,15 +59,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Default: create a post
-    const { title, description, display_order } = body;
+    const { title, description, district, display_order } = body;
     if (!title?.trim()) return NextResponse.json({ error: "Title is required" }, { status: 400 });
     const { data, error } = await supabase
       .from("election_posts")
-      .insert({ title: title.trim(), description: description || null, display_order: display_order ?? 0 })
+      .insert({ title: title.trim(), description: description || null, district: district?.trim() || null, display_order: display_order ?? 0 })
       .select()
       .single();
     if (error) {
-      if (error.code === "23505") return NextResponse.json({ error: "A post with this title already exists" }, { status: 409 });
+      if (error.code === "23505") return NextResponse.json({ error: "A post with this title already exists for that district" }, { status: 409 });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     return NextResponse.json({ post: data });
@@ -104,6 +105,7 @@ export async function PUT(req: NextRequest) {
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (body.title !== undefined) updates.title = String(body.title).trim();
     if (body.description !== undefined) updates.description = body.description || null;
+    if (body.district !== undefined) updates.district = body.district?.trim() || null;
     if (body.display_order !== undefined) updates.display_order = body.display_order;
     if (body.status !== undefined) {
       if (!POST_STATUSES.includes(body.status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });

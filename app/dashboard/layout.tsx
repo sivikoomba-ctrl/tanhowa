@@ -417,7 +417,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           if ("superAdminOnly" in item && item.superAdminOnly && user?.role !== "super_admin") return false;
           if ("officialOnly" in item && item.officialOnly && !(user?.official_type === "state" || user?.official_type === "district" || user?.role === "admin" || user?.role === "super_admin")) return false;
           if ("projectHOnly" in item && item.projectHOnly && !isProjectH) return false;
-          if ("electionsOnly" in item && item.electionsOnly && !(user?.role === "super_admin" || user?.email === "sivikoomba@gmail.com")) return false;
+          if ("electionsOnly" in item && item.electionsOnly && !(user?.role === "super_admin" || user?.official_type === "state" || user?.email === "sivikoomba@gmail.com")) return false;
           return true;
         }).map((item) => {
           const isActive = pathname === item.href;

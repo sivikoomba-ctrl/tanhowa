@@ -14,8 +14,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/empty-state";
+import { DISTRICT_NAMES } from "@/lib/tn-districts";
 import { toast } from "sonner";
-import { Vote, Plus, Trash2, UserPlus, Lock } from "lucide-react";
+import { Vote, Plus, Trash2, UserPlus, Lock, MapPin } from "lucide-react";
+
+// Titles that require a district (one post per district)
+const DISTRICT_SCOPED_TITLES = ["District Secretary", "District Joint Secretary"];
 
 interface Candidate {
   id: string;
@@ -32,6 +36,7 @@ interface ElectionPost {
   id: string;
   title: string;
   description: string | null;
+  district: string | null;
   display_order: number;
   status: string;
   created_at: string;
@@ -67,6 +72,9 @@ export default function ElectionsPage() {
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [postTitle, setPostTitle] = useState("");
   const [postDescription, setPostDescription] = useState("");
+  const [postDistrict, setPostDistrict] = useState("");
+
+  const titleNeedsDistrict = DISTRICT_SCOPED_TITLES.includes(postTitle.trim());
 
   // Add-candidate dialog
   const [candidateDialogPost, setCandidateDialogPost] = useState<ElectionPost | null>(null);
@@ -96,12 +104,13 @@ export default function ElectionsPage() {
 
   const createPost = async () => {
     if (!postTitle.trim()) return toast.error("Title is required");
+    if (titleNeedsDistrict && !postDistrict) return toast.error("Select a district for this post");
     setSaving(true);
     try {
       const res = await fetch("/api/elections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: postTitle, description: postDescription, display_order: posts.length + 1 }),
+        body: JSON.stringify({ title: postTitle, description: postDescription, district: titleNeedsDistrict ? postDistrict : null, display_order: posts.length + 1 }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Failed to create post");
@@ -109,6 +118,7 @@ export default function ElectionsPage() {
       setPostDialogOpen(false);
       setPostTitle("");
       setPostDescription("");
+      setPostDistrict("");
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to create post");
@@ -233,6 +243,24 @@ export default function ElectionsPage() {
                 <Label>Post Title *</Label>
                 <Input value={postTitle} onChange={(e) => setPostTitle(e.target.value)} placeholder="e.g. District Secretary" />
               </div>
+              {titleNeedsDistrict && (
+                <div className="space-y-2">
+                  <Label>District *</Label>
+                  <Select value={postDistrict} onValueChange={setPostDistrict}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select district" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DISTRICT_NAMES.map((d) => (
+                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    This title needs a district — each district has its own {postTitle.trim()} post.
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Description</Label>
                 <Textarea value={postDescription} onChange={(e) => setPostDescription(e.target.value)} placeholder="Role description, eligibility, tenure..." rows={3} />
@@ -262,6 +290,11 @@ export default function ElectionsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold">{post.title}</h3>
+                      {post.district && (
+                        <Badge variant="outline" className="text-xs bg-secondary/10 text-secondary-foreground border-secondary/30">
+                          <MapPin size={11} className="mr-0.5" /> {post.district}
+                        </Badge>
+                      )}
                       <Badge variant="outline" className={`text-xs ${POST_STATUS_COLORS[post.status] || ""}`}>
                         {POST_STATUS_LABELS[post.status] || post.status}
                       </Badge>

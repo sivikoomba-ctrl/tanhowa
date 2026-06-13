@@ -179,7 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {adminNavItems.filter((item) => {
           const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks", "/admin/logo-vote", "/admin/pest-training"];
           if (superAdminOnly.includes(item.href)) return user?.role === "super_admin";
-          if (item.href === "/admin/elections") return user?.role === "super_admin" || user?.email === "sivikoomba@gmail.com";
+          if (item.href === "/admin/elections") return user?.role === "super_admin" || user?.official_type === "state" || user?.email === "sivikoomba@gmail.com";
           if (item.href === "/admin/special-documents") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/analytics") return user?.email === "tanhowa19791@gmail.com" || user?.email === "tanhowaadmin@tanhowa.in";
           if (item.href === "/admin/engagement") return user?.email === "tanhowa19791@gmail.com";
