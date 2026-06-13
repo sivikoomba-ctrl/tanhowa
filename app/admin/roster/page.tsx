@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Search, Trash2, UserPlus } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus, Printer, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -178,6 +180,92 @@ export default function AdminRosterPage() {
     }
   };
 
+  const downloadPdf = () => {
+    if (groups.length === 0) { toast.error("Nothing to export"); return; }
+    const doc = new jsPDF({ orientation: "landscape" });
+    const pageH = doc.internal.pageSize.getHeight();
+    const today = new Date().toLocaleDateString();
+    const filterLabel = districtFilter === "all" ? "All districts" : districtFilter;
+    doc.setFontSize(14);
+    doc.text("TANHOWA - District Roster", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`${totalApproved} registered | ${totalManual} manual | Filter: ${filterLabel} | Generated: ${today}`, 14, 21);
+
+    let startY = 30;
+    for (const [district, list] of groups) {
+      if (startY > pageH - 30) { doc.addPage(); startY = 20; }
+      doc.setFontSize(12);
+      doc.text(`${district} (${list.length})`, 14, startY);
+      autoTable(doc, {
+        startY: startY + 2,
+        head: [["S.No", "Name", "Designation", "Place of Posting", "Mobile", "Email"]],
+        body: list.map((r, i) => [
+          String(i + 1),
+          r.name,
+          r.designation || "-",
+          r.district + (r.block ? ` / ${r.block}` : ""),
+          r.phone || "-",
+          r.email || "-",
+        ]),
+        headStyles: { fillColor: [45, 106, 79], fontSize: 8 },
+        styles: { fontSize: 8 },
+        margin: { left: 14, right: 14 },
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      startY = ((doc as any).lastAutoTable?.finalY || startY + 30) + 10;
+    }
+    doc.save(`TANHOWA_District_Roster_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const printRoster = () => {
+    if (groups.length === 0) { toast.error("Nothing to print"); return; }
+    const today = new Date().toLocaleDateString();
+    const filterLabel = districtFilter === "all" ? "All districts" : districtFilter;
+    const esc = (s: string) =>
+      (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c));
+    const sections = groups
+      .map(([district, list]) => `
+        <h2>${esc(district)} <span class="count">(${list.length})</span></h2>
+        <table>
+          <thead><tr><th>S.No</th><th>Name</th><th>Designation</th><th>Place of Posting</th><th>Mobile</th><th>Email</th></tr></thead>
+          <tbody>
+            ${list.map((r, i) => `<tr>
+              <td>${i + 1}</td>
+              <td>${esc(r.name)}</td>
+              <td>${esc(r.designation) || "—"}</td>
+              <td>${esc(r.district)}${r.block ? " / " + esc(r.block) : ""}</td>
+              <td>${esc(r.phone) || "—"}</td>
+              <td>${esc(r.email) || "—"}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>`)
+      .join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>TANHOWA District Roster</title>
+      <style>
+        * { font-family: Arial, "Noto Sans Tamil", sans-serif; }
+        body { margin: 24px; color: #1a1a1a; }
+        h1 { font-size: 18px; margin: 0 0 4px; color: #2d6a4f; }
+        .meta { font-size: 12px; color: #555; margin-bottom: 16px; }
+        h2 { font-size: 14px; margin: 18px 0 6px; color: #2d6a4f; page-break-after: avoid; }
+        .count { color: #888; font-weight: normal; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; page-break-inside: auto; }
+        th, td { border: 1px solid #ddd; padding: 5px 7px; font-size: 11px; text-align: left; }
+        thead th { background: #2d6a4f; color: #fff; }
+        tbody tr:nth-child(even) { background: #f6f6f6; }
+        tr { page-break-inside: avoid; }
+      </style></head>
+      <body>
+        <h1>TANHOWA — District Roster</h1>
+        <div class="meta">${totalApproved} registered · ${totalManual} manual · Filter: ${esc(filterLabel)} · Generated: ${today}</div>
+        ${sections}
+        <script>window.onload = function () { window.print(); }</script>
+      </body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) { toast.error("Allow pop-ups to print the roster"); return; }
+    w.document.write(html);
+    w.document.close();
+  };
+
   const blocks = form.district ? getBlocks(form.district) : [];
   const totalApproved = approved.length;
   const totalManual = manual.length;
@@ -191,9 +279,17 @@ export default function AdminRosterPage() {
             {totalApproved} registered · {totalManual} manual · grouped by district
           </p>
         </div>
-        <Button onClick={() => setAddOpen(true)} className="gap-2">
-          <UserPlus size={16} /> Add Member
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={printRoster} className="gap-2" disabled={loading || groups.length === 0}>
+            <Printer size={16} /> Print
+          </Button>
+          <Button variant="outline" onClick={downloadPdf} className="gap-2" disabled={loading || groups.length === 0}>
+            <FileDown size={16} /> Save PDF
+          </Button>
+          <Button onClick={() => setAddOpen(true)} className="gap-2">
+            <UserPlus size={16} /> Add Member
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
