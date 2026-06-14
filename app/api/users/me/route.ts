@@ -119,6 +119,18 @@ function detectGender(fullName: string, existingGender?: string): string | null 
   return null;
 }
 
+// Mask an email for user-facing messages: "bhuvani02@yahoo.com" -> "b•••@yahoo.com"
+function maskEmail(email?: string): string {
+  if (!email || !email.includes("@")) return "another account";
+  const [local, domain] = email.split("@");
+  return `${local[0]}•••@${domain}`;
+}
+
+function phoneTakenMessage(existingEmail?: string): string {
+  const who = existingEmail ? ` (${maskEmail(existingEmail)})` : "";
+  return `This mobile number is already registered to another account${who}. Each member can have only one account — please sign in with that account, or contact TANHOWA admin if you need help.`;
+}
+
 export async function PUT(req: NextRequest) {
   try {
     const session = await getSession();
@@ -149,19 +161,23 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Designation is required" }, { status: 400 });
     }
 
-    // Duplicate phone check (exclude current user, and exempt super_admin / sivikoomba)
+    // Duplicate phone check — one account per person, keyed on mobile number.
+    // Backed by the partial unique index `users_phone_unique` (DB-level guarantee);
+    // this pre-check just returns a friendly message before the write. The shared
+    // owner/admin pair is exempt (same person runs both), matching the index predicate.
     const PHONE_CHECK_EXEMPT_EMAILS = ["tanhowaadmin@tanhowa.in", "sivikoomba@gmail.com"];
     if (!PHONE_CHECK_EXEMPT_EMAILS.includes(session.email)) {
       const { data: existingPhone } = await supabase
         .from("users")
-        .select("id")
+        .select("id, email")
         .eq("phone", phone)
         .neq("id", session.userId)
+        .neq("status", "rejected")
         .limit(1)
         .maybeSingle();
 
       if (existingPhone) {
-        return NextResponse.json({ error: "This phone number is already registered with another account" }, { status: 400 });
+        return NextResponse.json({ error: phoneTakenMessage(existingPhone.email) }, { status: 409 });
       }
     }
 
@@ -255,6 +271,11 @@ export async function PUT(req: NextRequest) {
       .eq("id", session.userId);
 
     if (error) {
+      // Unique-violation on the phone index — a duplicate slipped past the pre-check
+      // (race / format edge). Return the same friendly message instead of a raw 500.
+      if ((error as { code?: string }).code === "23505" && /phone/i.test(error.message || "")) {
+        return NextResponse.json({ error: phoneTakenMessage() }, { status: 409 });
+      }
       await logError({ type: "api", message: error.message, path: "/api/users/me", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: error.message || "Failed to update profile" }, { status: 500 });
     }
