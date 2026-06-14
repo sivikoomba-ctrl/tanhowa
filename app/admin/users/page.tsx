@@ -56,7 +56,7 @@ const PAGE_SIZE = 30;
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
-  const [tab, setTab] = useState("pending");
+  const [tab, setTab] = useState("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [search, setSearch] = useState("");
