@@ -1234,6 +1234,7 @@ Vercel Cron-triggered endpoints (defined in `vercel.json`). All require `Authori
 | `/api/cron/daily-greetings` | `30 1 * * *` | 07:00 | Birthday + festival greetings (see Daily Greetings section above for the lambda-killed fire-and-forget bug) |
 | `/api/cron/inactive-nudge` | `30 2 * * *` | 08:00 | Email + Telegram nudge to members inactive 30+ days. Both channels include a "Tell us what would bring you back" link (30-day signed JWT minted via `lib/feedback-token.ts`) → public `/feedback?t=...` form → writes to `feedback` table with source `inactive_email`. |
 | `/api/cron/stuck-tasks` | `0 4 * * *` | 09:30 | Flags silent (no notes 3+ days) / past-due / timebox-exceeded tasks. Per-committer DM + admin digest. |
+| `/api/cron/duplicate-scan` | `30 3 * * 1` | Mon 09:00 | Safety net for one-account-per-person. Phone-dupes are blocked by the `users_phone_unique` index; this flags same-name accounts sharing a strong signal (same DOB / district / phone, or incomplete+complete) and emails a digest to admins only when found. Different-district same-name pairs are treated as distinct people (ignored). |
 | `/api/cron/publish-scheduled` | Periodic | — | Auto-publishes scheduled announcements/events past their `scheduled_at` time |
 
 The three task crons (daily-briefing, task-reminder, stuck-tasks) overlap by design — they cover different signals. **Consolidation deferred until adoption data is available** (audit scheduled 2026-05-15). Don't preemptively merge them.

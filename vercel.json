@@ -5,6 +5,7 @@
     { "path": "/api/cron/task-reminder", "schedule": "30 0 * * *" },
     { "path": "/api/cron/daily-greetings", "schedule": "30 1 * * *" },
     { "path": "/api/cron/inactive-nudge", "schedule": "30 2 * * *" },
-    { "path": "/api/cron/stuck-tasks", "schedule": "0 4 * * *" }
+    { "path": "/api/cron/stuck-tasks", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/duplicate-scan", "schedule": "30 3 * * 1" }
   ]
 }
