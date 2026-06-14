@@ -83,7 +83,15 @@ export default function VouchersPage() {
     fetch("/api/users/me")
       .then((r) => r.json())
       .then((d) => {
-        if (d.user?.official_type === "state" || d.user?.official_type === "district") {
+        // Match the nav gating (layout.tsx) and the API's isAdminOrOfficial():
+        // officials AND admins/super_admins can submit. Otherwise admins see the
+        // Vouchers nav link but hit the "officials only" dead-end screen.
+        if (
+          d.user?.official_type === "state" ||
+          d.user?.official_type === "district" ||
+          d.user?.role === "admin" ||
+          d.user?.role === "super_admin"
+        ) {
           setIsOfficial(true);
         }
       })
