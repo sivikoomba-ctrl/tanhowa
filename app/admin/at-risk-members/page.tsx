@@ -41,6 +41,7 @@ interface AtRiskMember {
   district: string | null;
   hasTelegram: boolean;
   hasEmail: boolean;
+  emailBounced: boolean;
   lastNudgedAt: string | null;
   onCooldown: boolean;
 }
@@ -282,6 +283,11 @@ export default function AtRiskMembersPage() {
                           {u.onCooldown && (
                             <Badge variant="outline" className="text-[10px] text-muted-foreground">
                               nudged {fmtDate(u.lastNudgedAt)}
+                            </Badge>
+                          )}
+                          {u.emailBounced && (
+                            <Badge variant="outline" className="text-[10px] text-red-600 border-red-300">
+                              email bounced
                             </Badge>
                           )}
                         </div>

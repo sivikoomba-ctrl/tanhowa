@@ -20,6 +20,7 @@ interface Row {
   telegram_chat_id: string | null;
   status: string;
   last_inactive_nudge_at: string | null;
+  email_status: string | null;
 }
 
 /**
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     const supabase = getServiceClient();
     const { data, error } = await supabase
       .from("users")
-      .select("id, name, email, telegram_chat_id, status, last_inactive_nudge_at")
+      .select("id, name, email, telegram_chat_id, status, last_inactive_nudge_at, email_status")
       .in("id", ids);
     if (error) throw new Error(error.message);
 
@@ -70,7 +71,9 @@ export async function POST(req: NextRequest) {
         skippedCooldown++;
         continue;
       }
-      if (!u.email && !u.telegram_chat_id) {
+      // A bounced/complained address is not a usable channel.
+      const emailUsable = !!u.email && (u.email_status ?? "active") === "active";
+      if (!emailUsable && !u.telegram_chat_id) {
         skippedNoChannel++;
         continue;
       }

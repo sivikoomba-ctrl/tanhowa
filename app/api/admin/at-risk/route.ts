@@ -21,6 +21,7 @@ interface UserRow {
   telegram_chat_id: string | null;
   created_at: string | null;
   posting_details: { regular_district?: string } | null;
+  email_status: string | null;
 }
 
 /**
@@ -42,7 +43,7 @@ export async function GET() {
     const supabase = getServiceClient();
     const { data, error } = await supabase
       .from("users")
-      .select("id, name, email, last_active_at, login_count, last_inactive_nudge_at, telegram_chat_id, created_at, posting_details")
+      .select("id, name, email, last_active_at, login_count, last_inactive_nudge_at, telegram_chat_id, created_at, posting_details, email_status")
       .eq("status", "approved");
     if (error) throw new Error(error.message);
 
@@ -66,6 +67,7 @@ export async function GET() {
         const band = classify(u);
         if (!band) return null;
         const lastActiveMs = u.last_active_at ? new Date(u.last_active_at).getTime() : null;
+        const emailDeliverable = !!u.email && (u.email_status ?? "active") === "active";
         return {
           id: u.id,
           name: u.name || "",
@@ -76,7 +78,8 @@ export async function GET() {
           loginCount: u.login_count || 0,
           district: (u.posting_details?.regular_district || "").trim() || null,
           hasTelegram: !!u.telegram_chat_id,
-          hasEmail: !!u.email,
+          hasEmail: emailDeliverable,
+          emailBounced: !!u.email && (u.email_status ?? "active") !== "active",
           lastNudgedAt: u.last_inactive_nudge_at,
           onCooldown: !!(u.last_inactive_nudge_at && u.last_inactive_nudge_at > cooldownCutoff),
         };

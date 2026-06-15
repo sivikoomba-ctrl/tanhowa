@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     // who have NOT already been nudged within the last 15 days.
     const { data: inactive } = await supabase
       .from("users")
-      .select("id, name, email, telegram_chat_id, last_active_at, login_count, last_inactive_nudge_at")
+      .select("id, name, email, telegram_chat_id, last_active_at, login_count, last_inactive_nudge_at, email_status")
       .eq("status", "approved")
       .or(`last_active_at.is.null,last_active_at.lt.${thirtyDaysAgo}`)
       .neq("email", "tanhowa19791@gmail.com")

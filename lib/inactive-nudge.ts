@@ -23,6 +23,8 @@ export interface NudgeableUser {
   name: string | null;
   email: string | null;
   telegram_chat_id: string | null;
+  /** When not "active" (bounced/complained), the email channel is skipped. */
+  email_status?: string | null;
 }
 
 function nudgeEmailHtml(safeName: string, feedbackLink: string): string {
@@ -87,7 +89,8 @@ export async function nudgeMember(supabase: any, user: NudgeableUser): Promise<N
   }
 
   let emailed = false;
-  if (user.email && feedbackLink) {
+  const emailDeliverable = (user.email_status ?? "active") === "active";
+  if (user.email && feedbackLink && emailDeliverable) {
     emailed = await sendInactiveNudgeEmail(user.email, firstName, feedbackLink);
   }
 
