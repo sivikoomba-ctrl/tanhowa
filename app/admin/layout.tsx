@@ -8,6 +8,7 @@ import {
   Flower2,
   LayoutDashboard,
   Users,
+  UserMinus,
   Megaphone,
   Calendar,
   FileText,
@@ -88,6 +89,7 @@ const adminNavItems = [
   { href: "/admin/special-documents", labelKey: "nav.special_documents" as const, icon: FileText },
   { href: "/admin/analytics", labelKey: "nav.analytics" as const, icon: Activity },
   { href: "/admin/engagement", labelKey: "nav.engagement" as const, icon: TrendingUp },
+  { href: "/admin/at-risk-members", labelKey: "nav.at_risk" as const, icon: UserMinus },
   { href: "/admin/why-ministry", labelKey: "nav.why_ministry" as const, icon: Sprout },
   { href: "/admin/history", labelKey: "nav.history" as const, icon: HistoryIcon },
   { href: "/admin/feedback-pulse", labelKey: "nav.feedback_pulse" as const, icon: MessageCircle },
@@ -183,6 +185,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           if (item.href === "/admin/special-documents") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/analytics") return user?.email === "tanhowa19791@gmail.com" || user?.email === "tanhowaadmin@tanhowa.in";
           if (item.href === "/admin/engagement") return user?.email === "tanhowa19791@gmail.com";
+          if (item.href === "/admin/at-risk-members") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/why-ministry") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/history") return user?.role === "admin" || user?.role === "super_admin";
           if (item.href === "/admin/feedback-pulse") return user?.email === "tanhowa19791@gmail.com";

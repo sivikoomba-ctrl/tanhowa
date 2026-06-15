@@ -56,6 +56,7 @@ const translations = {
   "nav.settings": { en: "Settings", ta: "அமைப்புகள்" },
   "nav.district_benchmark": { en: "District Benchmark", ta: "மாவட்ட ஒப்பீடு" },
   "nav.engagement": { en: "Engagement", ta: "ஈடுபாடு" },
+  "nav.at_risk": { en: "At-Risk Members", ta: "ஆபத்தில் உள்ள உறுப்பினர்கள்" },
   "nav.why_ministry": { en: "Why Ministry", ta: "ஏன் அமைச்சகம்" },
   "nav.history": { en: "History", ta: "வரலாறு" },
   "nav.telegram": { en: "Telegram", ta: "டெலிகிராம்" },
