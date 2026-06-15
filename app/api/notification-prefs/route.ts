@@ -3,7 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
-const DEFAULT_PREFS = { email: true, telegram: true, in_app: true };
+const DEFAULT_PREFS = { email: true, telegram: true, in_app: true, weekly_digest: true };
 
 /**
  * GET /api/notification-prefs — Get current user's notification preferences
@@ -46,6 +46,7 @@ export async function PUT(req: NextRequest) {
       email: body.email !== undefined ? !!body.email : true,
       telegram: body.telegram !== undefined ? !!body.telegram : true,
       in_app: body.in_app !== undefined ? !!body.in_app : true,
+      weekly_digest: body.weekly_digest !== undefined ? !!body.weekly_digest : true,
     };
 
     const supabase = getServiceClient();

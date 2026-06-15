@@ -264,6 +264,39 @@ export async function sendBroadcastEmail(subject: string, bodyHtml: string) {
   }
 }
 
+/** Exposes the master member-email kill-switch so callers (e.g. the weekly
+ *  digest cron / its admin status page) can report whether sends are live. */
+export function memberEmailsOnHold(): boolean {
+  return HOLD_MEMBER_EMAILS;
+}
+
+/**
+ * Throttled one-to-one send to an explicit recipient list (same anti-Gmail-bulk
+ * pattern as sendBroadcastEmail — never BCC). Respects HOLD_MEMBER_EMAILS unless
+ * `ignoreHold` is set (used by the owner-only digest preview, which sends only
+ * to the owner). Returns delivery counts.
+ */
+export async function sendToRecipients(
+  emails: string[],
+  subject: string,
+  bodyHtml: string,
+  opts: { ignoreHold?: boolean } = {}
+): Promise<{ sent: number; failed: number }> {
+  if (HOLD_MEMBER_EMAILS && !opts.ignoreHold) return { sent: 0, failed: 0 };
+  const html = wrapEmailTemplate(bodyHtml);
+  let sent = 0, failed = 0;
+  for (const addr of emails) {
+    try {
+      await sendEmail(addr, subject, html);
+      sent++;
+    } catch {
+      failed++;
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return { sent, failed };
+}
+
 function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }

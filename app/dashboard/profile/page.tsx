@@ -281,7 +281,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [locationSharing, setLocationSharing] = useState(false);
-  const [notifPrefs, setNotifPrefs] = useState({ email: true, telegram: true, in_app: true });
+  const [notifPrefs, setNotifPrefs] = useState({ email: true, telegram: true, in_app: true, weekly_digest: true });
   const [notifSaving, setNotifSaving] = useState(false);
   const [locationToggling, setLocationToggling] = useState(false);
   const [showPhotoZoom, setShowPhotoZoom] = useState(false);
@@ -1199,6 +1199,7 @@ export default function ProfilePage() {
               { key: "email" as const, labelKey: "notif.email_label" as const, descKey: "notif.email_desc" as const },
               { key: "telegram" as const, labelKey: "notif.telegram_label" as const, descKey: "notif.telegram_desc" as const },
               { key: "in_app" as const, labelKey: "notif.in_app_label" as const, descKey: "notif.in_app_desc" as const },
+              { key: "weekly_digest" as const, labelKey: "notif.digest_label" as const, descKey: "notif.digest_desc" as const },
             ].map((item) => (
               <div key={item.key} className="flex items-center justify-between py-2">
                 <div>
