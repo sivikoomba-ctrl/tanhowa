@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
 
 Read these before writing code that touches email, PDFs, audit logs, translations, or DB writes from Python.
 
-- **User photo:** DB column is `photo_url`, not `avatar_url`. Always use `photo_url` in TypeScript interfaces and code that reads user records.
+- **User photo:** DB column is `photo_url`, not `avatar_url`. Always use `photo_url` in TypeScript interfaces and code that reads user records. **`photo_url` is often an empty string `''`, not NULL** (~204 of 618 approved members) — `photo_url IS NOT NULL` filters do NOT exclude these. Use `photo_url <> ''` (PostgREST `photo_url=neq.`) when you mean "has a real photo". Also, many `photo_url`s are **Google default monogram avatars** (`lh3.googleusercontent.com/a/ACg8oc…` — a colored letter, not a real face); real Google photos share the same URL prefix, so you cannot tell them apart by URL — only by inspecting the image (the AI photo scorer does this). See Profile Photo Review & Lock.
 - **`GET /api/subscriptions?me=true`** — forces user-scoped results even for admins. The member dashboard always appends `?me=true`; the admin panel omits it to receive all members' data.
 - **jsPDF does NOT support emoji/Unicode.** Only ASCII and standard latin characters work. Emoji renders as garbled text (e.g., "Ø<ß?"). Use plain text in all PDF generation (`jspdf` + `jspdf-autotable`). For Tamil PDFs, use `window.print()` with a print-only stylesheet (browser fonts handle Tamil).
 - **Error Logs:** Both UI sidebar and API (`/api/error-logs`) are restricted to `super_admin` only. Regular admins cannot access error logs.
@@ -1036,6 +1036,16 @@ Four collection channels in, one owner-only summary out at `/admin/feedback-puls
 **AI pulse:** Gemini 2.5-flash. Combines all `feedback` rows + grievances + ideas from last 30 days into a compact list, asks for `themes` (up to 6), `highlights` (tagged praise/complaint/request, up to 8), and `recommended_actions` (up to 5). Generic advice is explicitly forbidden in the prompt — wants concrete feature-specific suggestions. Cache + 1-hour TTL avoids re-running on every page load.
 
 **Mandatory profile-completion gate is unaffected** — the modal is mounted alongside the gate but only fires when daysInactive >= 14, after the gate clears.
+
+## Profile Photo Review & Lock
+
+Moderation + lock workflow for member profile photos. Restricted to **super-admin / state officials** (same authority that can lock). Schema: `supabase/photo_review_schema.sql` adds to `users`: `photo_status` (`pending|approved|rejected`, default `pending`), `photo_locked` (bool), `photo_reviewed_by`/`photo_reviewed_at`/`photo_review_note`, `photo_quality` (JSONB AI verdict).
+
+- **Admin page:** `/admin/photo-review` — thumbnail grid with AI verdict chip (`good|borderline|poor` + score + issues), tabs (Pending/Rejected/Approved/All) with counts + search. **Approve → locks** the photo; **Reject** keeps the photo but flags it and emails the member a polite re-upload request (option 1b — photo is NOT cleared); **Unlock** re-opens it for member changes.
+- **API:** `/api/admin/photo-review` (GET list + counts, PUT `approve|reject|lock|unlock`). Gated via `hasPhotoReviewAccess` (super_admin or `official_type==='state'`), audit-logged (`photo_approve|photo_reject|…`).
+- **Lock enforcement:** `POST /api/upload/avatar` blocks a member from replacing their own photo when `photo_locked` is true, UNLESS the caller is super_admin/state. **Any successful re-upload resets review state** (`photo_status='pending'`, `photo_locked=false`, clears reviewed_*/quality) — a fresh photo needs fresh review.
+- **Email:** `sendPhotoRejectionEmail(to, name, reason?)` in `lib/mail.ts` — bypasses `HOLD_MEMBER_EMAILS` (human/official-initiated, one-to-one).
+- **AI scorer:** `tools/review_photos.py` — Gemini 2.5-flash via **REST** (not the SDK — grpc/cygrpc is blocked by an Application Control policy on the dev box, so the `google-generativeai` package can't import; call `generativelanguage.googleapis.com/.../generateContent` with `requests` instead). Dry-run by default (no writes/emails); `--execute` writes `photo_quality` to every photo and **auto-rejects only `verdict==poor`** (sets `rejected`, keeps photo, emails throttled at 0.3s; test accounts `tanhowa19791@gmail.com`/`tanhowaadmin@tanhowa.in` excluded). Flags: `--limit N`, `--rescore`, `--no-email`, `--score-only`. Skips empty `photo_url`. The verdict's `score` (not the loosely-applied `issues` labels — Gemini over-tags `not_a_portrait`) drives good/borderline/poor.
 
 ## Mandatory Profile Completion
 
