@@ -10,6 +10,7 @@ import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
 import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification, sendPaymentRejectionAlertEmail, notifyAdminProofSubmitted } from "@/lib/mail";
 import { notifyPaymentRejected } from "@/lib/telegram";
+import { sendWhatsAppTemplate } from "@/lib/whatsapp";
 import { writeLimiter } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
@@ -641,12 +642,12 @@ export async function PUT(req: NextRequest) {
       try {
         const { data: sub } = await supabase
           .from("subscriptions")
-          .select("period, amount, paid_at, approved_at, payment_method, transaction_id, user_id, users!subscriptions_user_id_fkey(name, email, phone)")
+          .select("period, amount, paid_at, approved_at, payment_method, transaction_id, user_id, users!subscriptions_user_id_fkey(name, email, phone, notification_prefs)")
           .eq("id", body.id)
           .single();
 
         if (sub?.users) {
-          const user = sub.users as unknown as { name: string; email: string; phone?: string };
+          const user = sub.users as unknown as { name: string; email: string; phone?: string; notification_prefs?: { whatsapp?: boolean } | null };
           await sendSubscriptionApprovedEmail(
             user.email,
             user.name || "Member",
@@ -662,6 +663,16 @@ export async function PUT(req: NextRequest) {
           );
           // Broadcast to all members
           notifyPaymentVerified(user.name || "Member", sub.period);
+          // WhatsApp payment confirmation — only if the member opted in (no-op
+          // until the Cloud API env vars + approved "payment_confirmed" template
+          // exist). Template body params: {{1}} name, {{2}} period, {{3}} amount.
+          if (user.notification_prefs?.whatsapp) {
+            sendWhatsAppTemplate(user.phone, "payment_confirmed", [
+              user.name || "Member",
+              String(sub.period),
+              `Rs. ${(sub.amount || 0).toLocaleString("en-IN")}`,
+            ]).catch(() => {});
+          }
         }
       } catch (emailErr) {
         // Log but don't fail the request — approval is already done

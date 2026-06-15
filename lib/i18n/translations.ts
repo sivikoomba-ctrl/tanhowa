@@ -801,6 +801,8 @@ const translations = {
   "notif.in_app_desc": { en: "Bell icon alerts within the portal", ta: "போர்ட்டலில் மணி ஐகான் எச்சரிக்கைகள்" },
   "notif.digest_label": { en: "Weekly Digest", ta: "வாராந்திர சுருக்கம்" },
   "notif.digest_desc": { en: "One weekly email with the latest announcements & events", ta: "சமீபத்திய அறிவிப்புகள் & நிகழ்வுகளுடன் வாரம் ஒரு மின்னஞ்சல்" },
+  "notif.whatsapp_label": { en: "WhatsApp Alerts", ta: "வாட்ஸ்அப் எச்சரிக்கைகள்" },
+  "notif.whatsapp_desc": { en: "Dues reminders & payment confirmations on WhatsApp", ta: "வாட்ஸ்அப்பில் நிலுவை நினைவூட்டல்கள் & கட்டண உறுதிப்படுத்தல்கள்" },
   "notif.choose": { en: "Choose how you want to receive notifications", ta: "அறிவிப்புகளை எவ்வாறு பெற விரும்புகிறீர்கள் என்பதைத் தேர்வு செய்யுங்கள்" },
   "notif.on": { en: "On", ta: "இயக்கு" },
   "notif.off": { en: "Off", ta: "நிறுத்து" },
