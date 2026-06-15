@@ -140,7 +140,7 @@ export function ExpensesTab() {
         body: byCategory.map((c) => [c.category, c.count, c.approved, c.pending, c.rejected, c.approvedAmount.toLocaleString("en-IN"), c.pendingAmount.toLocaleString("en-IN")]),
         foot: [["Total", t.count, t.approved, t.pending, t.rejected, t.approvedAmount.toLocaleString("en-IN"), t.pendingAmount.toLocaleString("en-IN")]],
         theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, footStyles, bodyStyles: { fontSize: 10, overflow: "ellipsize" }, columnStyles: { 0: { cellWidth: 50 }, 1: { halign: "center" }, 2: { halign: "center" }, 3: { halign: "center" }, 4: { halign: "center" }, 5: { halign: "right" }, 6: { halign: "right" } }, margin: { left: 14 },
-        didParseCell: (d) => { if (d.section !== "foot") return; if (d.column.index >= 5) d.cell.styles.halign = "right"; else if (d.column.index >= 1) d.cell.styles.halign = "center"; },
+        didParseCell: (d) => { const right = d.column.index >= 5; if (d.section === "head") { if (d.column.index === 0) d.cell.styles.halign = "left"; else if (right) d.cell.styles.halign = "right"; return; } if (d.section === "foot") { if (right) d.cell.styles.halign = "right"; else if (d.column.index >= 1) d.cell.styles.halign = "center"; } },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
@@ -152,7 +152,7 @@ export function ExpensesTab() {
         body: byOfficial.map((o) => [o.name, o.official_type === "state" ? "State" : "District", o.count, o.approved, o.pending, o.rejected, o.approvedAmount.toLocaleString("en-IN")]),
         foot: [["Total", "", t.count, t.approved, t.pending, t.rejected, t.approvedAmount.toLocaleString("en-IN")]],
         theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, footStyles, bodyStyles: { fontSize: 10, overflow: "ellipsize" }, columnStyles: { 0: { cellWidth: 50 }, 2: { halign: "center" }, 3: { halign: "center" }, 4: { halign: "center" }, 5: { halign: "center" }, 6: { halign: "right" } }, margin: { left: 14 },
-        didParseCell: (d) => { if (d.section !== "foot") return; if (d.column.index === 6) d.cell.styles.halign = "right"; else if (d.column.index >= 2) d.cell.styles.halign = "center"; },
+        didParseCell: (d) => { const right = d.column.index === 6; if (d.section === "head") { if (d.column.index === 0) d.cell.styles.halign = "left"; else if (right) d.cell.styles.halign = "right"; return; } if (d.section === "foot") { if (right) d.cell.styles.halign = "right"; else if (d.column.index >= 2) d.cell.styles.halign = "center"; } },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
@@ -165,6 +165,7 @@ export function ExpensesTab() {
           ["Unsettled (outstanding)", settlement.unsettledCount, settlement.outstandingAmount.toLocaleString("en-IN")],
         ],
         theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, bodyStyles: { fontSize: 10 }, columnStyles: { 1: { halign: "center" }, 2: { halign: "right" } }, margin: { left: 14 },
+        didParseCell: (d) => { if (d.section !== "head") return; if (d.column.index === 0) d.cell.styles.halign = "left"; else if (d.column.index === 2) d.cell.styles.halign = "right"; },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
@@ -174,6 +175,7 @@ export function ExpensesTab() {
         head: [["Pending Aging", "Count", "Amount"]],
         body: aging.buckets.map((b) => [b.label, b.count, b.amount.toLocaleString("en-IN")]),
         theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, bodyStyles: { fontSize: 10 }, columnStyles: { 1: { halign: "center" }, 2: { halign: "right" } }, margin: { left: 14 },
+        didParseCell: (d) => { if (d.section !== "head") return; if (d.column.index === 0) d.cell.styles.halign = "left"; else if (d.column.index === 2) d.cell.styles.halign = "right"; },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
@@ -184,6 +186,10 @@ export function ExpensesTab() {
       theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, bodyStyles: { fontSize: 10, overflow: "ellipsize" }, margin: { left: 14 },
       columnStyles: { 0: { cellWidth: 10, halign: "center" }, 1: { cellWidth: 46 }, 2: { cellWidth: 34 }, 6: { halign: "right" }, 8: { cellWidth: 24, halign: "center" } },
       didParseCell(data) {
+        if (data.section === "head") {
+          if (data.column.index === 0 || data.column.index === 1) data.cell.styles.halign = "left";
+          else if (data.column.index === 6) data.cell.styles.halign = "right";
+        }
         if (data.section === "body" && data.column.index === 7) {
           const val = String(data.cell.raw);
           if (val === "approved") data.cell.styles.textColor = [22, 101, 52];
