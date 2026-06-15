@@ -218,6 +218,16 @@ export function ExpensesTab() {
     byCategory.map((c, i) => [c.category, { label: c.category, color: CATEGORY_PALETTE[i % CATEGORY_PALETTE.length] }])
   );
 
+  // Totals rows for the breakdown tables.
+  const catTotals = byCategory.reduce(
+    (a, c) => ({ count: a.count + c.count, approved: a.approved + c.approved, pending: a.pending + c.pending, rejected: a.rejected + c.rejected, approvedAmount: a.approvedAmount + c.approvedAmount, pendingAmount: a.pendingAmount + c.pendingAmount }),
+    { count: 0, approved: 0, pending: 0, rejected: 0, approvedAmount: 0, pendingAmount: 0 }
+  );
+  const offTotals = byOfficial.reduce(
+    (a, o) => ({ count: a.count + o.count, approved: a.approved + o.approved, pending: a.pending + o.pending, rejected: a.rejected + o.rejected, approvedAmount: a.approvedAmount + o.approvedAmount }),
+    { count: 0, approved: 0, pending: 0, rejected: 0, approvedAmount: 0 }
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex justify-end gap-2">
@@ -347,6 +357,15 @@ export function ExpensesTab() {
                       <TableCell className="text-right text-muted-foreground">₹{c.pendingAmount.toLocaleString("en-IN")}</TableCell>
                     </TableRow>
                   ))}
+                  <TableRow className="font-semibold border-t-2 bg-muted/40">
+                    <TableCell>Total</TableCell>
+                    <TableCell className="text-center">{catTotals.count}</TableCell>
+                    <TableCell className="text-center text-green-700">{catTotals.approved}</TableCell>
+                    <TableCell className="text-center text-amber-700">{catTotals.pending}</TableCell>
+                    <TableCell className="text-center text-red-700">{catTotals.rejected}</TableCell>
+                    <TableCell className="text-right">₹{catTotals.approvedAmount.toLocaleString("en-IN")}</TableCell>
+                    <TableCell className="text-right">₹{catTotals.pendingAmount.toLocaleString("en-IN")}</TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>
@@ -382,6 +401,15 @@ export function ExpensesTab() {
                       <TableCell className="text-right font-medium">₹{o.approvedAmount.toLocaleString("en-IN")}</TableCell>
                     </TableRow>
                   ))}
+                  <TableRow className="font-semibold border-t-2 bg-muted/40">
+                    <TableCell>Total</TableCell>
+                    <TableCell></TableCell>
+                    <TableCell className="text-center">{offTotals.count}</TableCell>
+                    <TableCell className="text-center text-green-700">{offTotals.approved}</TableCell>
+                    <TableCell className="text-center text-amber-700">{offTotals.pending}</TableCell>
+                    <TableCell className="text-center text-red-700">{offTotals.rejected}</TableCell>
+                    <TableCell className="text-right">₹{offTotals.approvedAmount.toLocaleString("en-IN")}</TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>
