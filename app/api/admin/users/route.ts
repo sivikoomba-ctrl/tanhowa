@@ -247,6 +247,13 @@ export async function PUT(req: NextRequest) {
           },
         })
         .eq("id", userId);
+    } else if (action === "remove-photo") {
+      // Restricted to super-admins and state officials (district admins excluded).
+      const callerInfo = await getOfficialInfo(session.userId);
+      if (callerInfo.role !== "super_admin" && callerInfo.official_type !== "state") {
+        return NextResponse.json({ error: "Only super-admins and state officials can remove member photos" }, { status: 403 });
+      }
+      await supabase.from("users").update({ photo_url: "" }).eq("id", userId);
     }
 
     logAudit(session.userId, action, "user", userId, { role, ...body });

@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Shield, ShieldX, ShieldCheck, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Send, Clock, Crown, Building2, Pencil, Copy, Users, CreditCard } from "lucide-react";
+import { Check, X, Shield, ShieldX, ShieldCheck, Trash2, ChevronDown, ChevronUp, Phone, Mail, MapPin, Briefcase, Calendar, Send, Clock, Crown, Building2, Pencil, Copy, Users, CreditCard, ImageOff } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -53,6 +53,8 @@ interface UserCardProps {
   onNudgeClick: () => void;
   onPhotoZoom: (name: string, url: string) => void;
   callerEmail?: string;
+  /** True when the viewer is super-admin or a state official — gates "Remove Photo". */
+  callerCanRemovePhoto?: boolean;
 }
 
 function getActivityStatus(lastActive: string | null): { label: string; color: string; dot: string } {
@@ -116,7 +118,7 @@ function getProfileCompleteness(u: User): { percent: number; missing: string[] }
   return { percent: Math.round((filled / fields.length) * 100), missing };
 }
 
-export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpandToggle, onSelectToggle, onAction, onEditClick, onNudgeClick, onPhotoZoom, callerEmail }: UserCardProps) {
+export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpandToggle, onSelectToggle, onAction, onEditClick, onNudgeClick, onPhotoZoom, callerEmail, callerCanRemovePhoto }: UserCardProps) {
   const profile = getProfileCompleteness(u);
   return (
     <Card className={isSelected ? "border-primary/50 bg-primary/[0.02]" : ""}>
@@ -271,6 +273,11 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
             {(tab === "approved" || (tab === "all" && u.status === "approved")) && u.official_type && (
               <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => onAction("remove-official")}>
                 <X size={14} className="mr-1" />Remove Official
+              </Button>
+            )}
+            {callerCanRemovePhoto && u.photo_url && (
+              <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => onAction("remove-photo")}>
+                <ImageOff size={14} className="mr-1" />Remove Photo
               </Button>
             )}
             {tab === "rejected" && (

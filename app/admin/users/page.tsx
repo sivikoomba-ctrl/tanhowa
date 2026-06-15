@@ -69,6 +69,7 @@ export default function AdminUsersPage() {
   const [zoomPhoto, setZoomPhoto] = useState<{ name: string; url: string } | null>(null);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [callerEmail, setCallerEmail] = useState("");
+  const [callerCanRemovePhoto, setCallerCanRemovePhoto] = useState(false);
   const [suspendTarget, setSuspendTarget] = useState<string | null>(null);
   const [suspendReason, setSuspendReason] = useState("non_payment");
   const [suspendRemarks, setSuspendRemarks] = useState("");
@@ -87,7 +88,11 @@ export default function AdminUsersPage() {
   }>>({});
 
   useEffect(() => {
-    fetch("/api/users/me").then(r => r.json()).then(d => { if (d.user?.email) setCallerEmail(d.user.email); }).catch(() => {});
+    fetch("/api/users/me").then(r => r.json()).then(d => {
+      if (d.user?.email) setCallerEmail(d.user.email);
+      // Remove-photo is restricted to super-admins and state officials.
+      setCallerCanRemovePhoto(d.user?.role === "super_admin" || d.user?.official_type === "state");
+    }).catch(() => {});
   }, []);
 
   const loadUsers = useCallback(() => {
@@ -452,6 +457,9 @@ export default function AdminUsersPage() {
       handleVolunteerInvite(userId);
     } else if (action === "remove-official") {
       handleSetOfficial(userId, null);
+    } else if (action === "remove-photo") {
+      if (!confirm("Remove this member's profile photo? They can upload a new one anytime.")) return;
+      handleAction(userId, "remove-photo");
     } else if (action === "set-role") {
       handleAction(userId, action, extra);
     } else {
@@ -597,6 +605,7 @@ export default function AdminUsersPage() {
                   onNudgeClick={() => { setNudgeUserId(u.id); }}
                   onPhotoZoom={(name, url) => setZoomPhoto({ name, url })}
                   callerEmail={callerEmail}
+                  callerCanRemovePhoto={callerCanRemovePhoto}
                 />
               ))}
               {visibleCount < filteredUsers.length && (
