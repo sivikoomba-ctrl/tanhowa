@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { toast } from "sonner";
 import {
   Plus, ArrowLeft, Trash2, CalendarDays, MapPin, Video, Users, ListChecks, FileText,
-  CheckCircle2, Loader2, FileDown, Lock, UserPlus, X,
+  CheckCircle2, Loader2, FileDown, Lock, UserPlus, X, Pencil,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -88,6 +88,17 @@ export default function MeetingsPage() {
       setCreateOpen(false); setEditId(null); setForm(blankForm);
       loadList();
     } finally { setSaving(false); }
+  }
+
+  function openEdit(m: Meeting) {
+    setEditId(m.id);
+    setForm({ title: m.title, type: m.type, description: m.description || "", scheduled_at: toLocalInput(m.scheduled_at), location: m.location || "", mode: m.mode, meeting_link: m.meeting_link || "", quorum_required: m.quorum_required ? String(m.quorum_required) : "" });
+    setCreateOpen(true);
+  }
+  async function delMeeting(id: string) {
+    if (!confirm("Delete this meeting and its agenda/attendance? This cannot be undone.")) return;
+    const res = await fetch(`/api/admin/meetings?id=${id}`, { method: "DELETE" });
+    if (res.ok) { toast.success("Meeting deleted"); loadList(); } else toast.error("Delete failed");
   }
 
   if (loading) return <div className="flex justify-center h-64 items-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
@@ -200,6 +211,10 @@ export default function MeetingsPage() {
                     <span className="flex items-center gap-1"><ListChecks size={12} /> {m.agendaCount} agenda</span>
                     <span className="flex items-center gap-1"><Users size={12} /> {m.attendanceCount} attendees</span>
                   </p>
+                </div>
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Edit meeting" onClick={() => openEdit(m)}><Pencil size={15} /></Button>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600" title="Delete meeting" onClick={() => delMeeting(m.id)}><Trash2 size={15} /></Button>
                 </div>
               </CardContent>
             </Card>
