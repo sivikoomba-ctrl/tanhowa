@@ -563,6 +563,45 @@ export async function sendVoucherStatusEmail(to: string, officialName: string, t
   `));
 }
 
+/**
+ * Politely asks a member to re-upload a clear, high-resolution passport-size photo
+ * after an official (or the AI pre-screen) flags their current photo as low quality.
+ * Bypasses HOLD_MEMBER_EMAILS — it is human/official-initiated and sent one-to-one.
+ */
+export async function sendPhotoRejectionEmail(to: string, memberName: string, reason?: string) {
+  const safeName = escapeHtml(memberName || "Member");
+  const reasonHtml = reason
+    ? `<div style="background: #fef2f2; border-radius: 8px; padding: 12px 16px; margin: 0 0 16px;">
+         <p style="color: #b91c1c; font-size: 13px; margin: 0;"><strong>Why:</strong> ${escapeHtml(reason)}</p>
+       </div>`
+    : "";
+  await sendEmail(to, "Please update your TANHOWA profile photo", wrapEmailTemplate(`
+    <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">A small request about your profile photo</h2>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      Dear <strong>${safeName}</strong>,
+    </p>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      Thank you for being part of TANHOWA. We noticed your current profile photo is not
+      clear enough for your member records and digital ID card.
+    </p>
+    ${reasonHtml}
+    <p style="color: #333; font-size: 14px; margin: 0 0 8px;">
+      Kindly upload a <strong>clear, high-resolution passport-size photo</strong>:
+    </p>
+    <ul style="color: #555; font-size: 13px; margin: 0 0 16px; padding-left: 20px;">
+      <li>Front-facing, your face clearly visible and well-lit</li>
+      <li>Plain background, recent photo of just you</li>
+      <li>Sharp and not blurry (a good phone camera is perfect)</li>
+    </ul>
+    <div style="text-align: center;">
+      <a href="https://tanhowa.in/dashboard/profile" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">Update My Photo</a>
+    </div>
+    <p style="color: #999; font-size: 12px; margin: 16px 0 0; text-align: center;">
+      It takes less than a minute. Thank you for helping us keep our records professional.
+    </p>
+  `));
+}
+
 export async function generateVoucherPdf(voucher: {
   id: string;
   title: string;

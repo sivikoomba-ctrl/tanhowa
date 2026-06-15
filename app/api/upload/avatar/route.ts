@@ -76,6 +76,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Image must be under 2MB" }, { status: 400 });
     }
 
+    const supabase = getServiceClient();
+
+    // Photo lock: once an official approves a member's photo it is locked. Only the
+    // member themselves who is super_admin / state official may replace a locked photo;
+    // a regular member must ask an official to unlock it first.
+    const { data: me } = await supabase
+      .from("users")
+      .select("role, official_type, photo_locked")
+      .eq("id", session.userId)
+      .single();
+    const isPrivileged = me?.role === "super_admin" || me?.official_type === "state";
+    if (me?.photo_locked && !isPrivileged) {
+      return NextResponse.json({
+        error: "Your profile photo has been approved and locked by an official. Please contact a state official if you need to change it.",
+        photo_locked: true,
+      }, { status: 403 });
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -87,8 +105,6 @@ export async function POST(req: NextRequest) {
         validation_failed: true,
       }, { status: 400 });
     }
-
-    const supabase = getServiceClient();
     const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
     const fileName = `${session.userId}.${ext}`;
 
@@ -124,10 +140,18 @@ export async function POST(req: NextRequest) {
 
     const photoUrl = urlData.publicUrl;
 
-    // Update user's photo_url
+    // Update user's photo_url and reset review state — a fresh photo needs fresh review.
     await supabase
       .from("users")
-      .update({ photo_url: photoUrl })
+      .update({
+        photo_url: photoUrl,
+        photo_status: "pending",
+        photo_locked: false,
+        photo_reviewed_by: null,
+        photo_reviewed_at: null,
+        photo_review_note: null,
+        photo_quality: null,
+      })
       .eq("id", session.userId);
 
     return NextResponse.json({ photo_url: photoUrl });
