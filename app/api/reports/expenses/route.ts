@@ -78,6 +78,62 @@ export async function GET(req: NextRequest) {
       else if (v.status === "rejected") byOfficial[sub.id].rejected++;
     }
 
+    // R6 — Settlement / reconciliation: which approved vouchers are settled
+    // against an issued/cleared cheque, and how much is still outstanding.
+    const approvedRows = rows.filter((v) => v.status === "approved");
+    const approvedIds = approvedRows.map((v) => v.id);
+    const settledMap = new Map<string, { cheque_no: string | null; status: string }>();
+    if (approvedIds.length > 0) {
+      const { data: cheques } = await supabase
+        .from("finance_entries")
+        .select("voucher_id, cheque_no, status")
+        .in("voucher_id", approvedIds)
+        .in("status", ["issued", "cleared"]);
+      for (const c of cheques || []) {
+        if (c.voucher_id) settledMap.set(c.voucher_id, { cheque_no: c.cheque_no, status: c.status });
+      }
+    }
+    let settledCount = 0, settledAmount = 0, unsettledCount = 0, outstandingAmount = 0;
+    const chequeStatus: Record<string, number> = {};
+    const unsettledApproved: { id: string; title: string; amount: number; submitter_name: string; approved_at: string | null }[] = [];
+    for (const v of approvedRows) {
+      const s = settledMap.get(v.id);
+      if (s) {
+        settledCount++;
+        settledAmount += v.amount || 0;
+        chequeStatus[s.status] = (chequeStatus[s.status] || 0) + 1;
+      } else {
+        unsettledCount++;
+        outstandingAmount += v.amount || 0;
+        unsettledApproved.push({ id: v.id, title: v.title, amount: v.amount || 0, submitter_name: v.submitter?.name || "Unknown", approved_at: v.approved_at || v.created_at });
+      }
+    }
+    unsettledApproved.sort((a, b) => b.amount - a.amount);
+    const settlement = { settledCount, unsettledCount, settledAmount, outstandingAmount, chequeStatus, unsettledApproved };
+
+    // R7 — Pending aging / SLA: how long pending vouchers have waited.
+    const nowMs = Date.now();
+    const agingBuckets = [
+      { label: "0-3 days", min: 0, max: 3, count: 0, amount: 0 },
+      { label: "4-7 days", min: 4, max: 7, count: 0, amount: 0 },
+      { label: ">7 days", min: 8, max: Infinity, count: 0, amount: 0 },
+    ];
+    const agingList: { id: string; title: string; amount: number; submitter_name: string; ageDays: number; created_at: string }[] = [];
+    for (const v of rows) {
+      if (v.status !== "pending") continue;
+      const ageDays = Math.floor((nowMs - new Date(v.created_at).getTime()) / 86400000);
+      const b = agingBuckets.find((bk) => ageDays >= bk.min && ageDays <= bk.max) || agingBuckets[agingBuckets.length - 1];
+      b.count++;
+      b.amount += v.amount || 0;
+      agingList.push({ id: v.id, title: v.title, amount: v.amount || 0, submitter_name: v.submitter?.name || "Unknown", ageDays, created_at: v.created_at });
+    }
+    agingList.sort((a, b) => b.ageDays - a.ageDays);
+    const aging = {
+      buckets: agingBuckets.map(({ label, count, amount }) => ({ label, count, amount })),
+      oldestDays: agingList[0]?.ageDays ?? 0,
+      list: agingList.slice(0, 50),
+    };
+
     return NextResponse.json({
       vouchers: rows.map((v) => ({
         id: v.id,
@@ -95,6 +151,8 @@ export async function GET(req: NextRequest) {
       summary: { total, approved, pending, rejected, totalAmount, pendingAmount },
       byCategory: Object.values(byCategory).sort((a, b) => b.approvedAmount - a.approvedAmount),
       byOfficial: Object.values(byOfficial).sort((a, b) => b.approvedAmount - a.approvedAmount),
+      settlement,
+      aging,
       categories,
       officials,
     });

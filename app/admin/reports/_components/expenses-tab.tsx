@@ -50,11 +50,31 @@ interface OfficialBreakdown {
   approvedAmount: number;
 }
 
+interface Settlement {
+  settledCount: number;
+  unsettledCount: number;
+  settledAmount: number;
+  outstandingAmount: number;
+  chequeStatus: Record<string, number>;
+  unsettledApproved: { id: string; title: string; amount: number; submitter_name: string; approved_at: string | null }[];
+}
+
+interface Aging {
+  buckets: { label: string; count: number; amount: number }[];
+  oldestDays: number;
+  list: { id: string; title: string; amount: number; submitter_name: string; ageDays: number; created_at: string }[];
+}
+
+const EMPTY_SETTLEMENT: Settlement = { settledCount: 0, unsettledCount: 0, settledAmount: 0, outstandingAmount: 0, chequeStatus: {}, unsettledApproved: [] };
+const EMPTY_AGING: Aging = { buckets: [], oldestDays: 0, list: [] };
+
 export function ExpensesTab() {
   const [vouchers, setVouchers] = useState<ExpenseRow[]>([]);
   const [summary, setSummary] = useState({ total: 0, approved: 0, pending: 0, rejected: 0, totalAmount: 0, pendingAmount: 0 });
   const [byCategory, setByCategory] = useState<CategoryBreakdown[]>([]);
   const [byOfficial, setByOfficial] = useState<OfficialBreakdown[]>([]);
+  const [settlement, setSettlement] = useState<Settlement>(EMPTY_SETTLEMENT);
+  const [aging, setAging] = useState<Aging>(EMPTY_AGING);
   const [categories, setCategories] = useState<string[]>([]);
   const [officials, setOfficials] = useState<{ id: string; name: string; official_type: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +96,8 @@ export function ExpensesTab() {
         setSummary(data.summary || { total: 0, approved: 0, pending: 0, rejected: 0, totalAmount: 0, pendingAmount: 0 });
         setByCategory(data.byCategory || []);
         setByOfficial(data.byOfficial || []);
+        setSettlement(data.settlement || EMPTY_SETTLEMENT);
+        setAging(data.aging || EMPTY_AGING);
         setCategories(data.categories || []);
         setOfficials(data.officials || []);
       }
@@ -118,6 +140,27 @@ export function ExpensesTab() {
         startY,
         head: [["Official", "Type", "Total", "Approved", "Pending", "Rejected", "Approved Amt"]],
         body: byOfficial.map((o) => [o.name, o.official_type === "state" ? "State" : "District", o.count, o.approved, o.pending, o.rejected, o.approvedAmount.toLocaleString("en-IN")]),
+        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 8 }, bodyStyles: { fontSize: 7 }, margin: { left: 14 },
+      });
+      startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+    }
+    if (settlement.settledCount > 0 || settlement.unsettledCount > 0) {
+      autoTable(doc, {
+        startY,
+        head: [["Settlement", "Count", "Amount"]],
+        body: [
+          ["Settled", settlement.settledCount, settlement.settledAmount.toLocaleString("en-IN")],
+          ["Unsettled (outstanding)", settlement.unsettledCount, settlement.outstandingAmount.toLocaleString("en-IN")],
+        ],
+        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 8 }, bodyStyles: { fontSize: 7 }, margin: { left: 14 },
+      });
+      startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+    }
+    if (aging.buckets.some((b) => b.count > 0)) {
+      autoTable(doc, {
+        startY,
+        head: [["Pending Aging", "Count", "Amount"]],
+        body: aging.buckets.map((b) => [b.label, b.count, b.amount.toLocaleString("en-IN")]),
         theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 8 }, bodyStyles: { fontSize: 7 }, margin: { left: 14 },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
@@ -185,6 +228,8 @@ export function ExpensesTab() {
           const sheets = [];
           if (byCategory.length > 0) sheets.push({ name: "By Category", data: byCategory.map((c) => ({ Category: c.category, Count: c.count, Approved: c.approved, Pending: c.pending, Rejected: c.rejected })) });
           if (byOfficial.length > 0) sheets.push({ name: "By Official", data: byOfficial.map((o) => ({ Official: o.name, Type: o.official_type, Count: o.count, Approved: o.approved, Pending: o.pending })) });
+          if (settlement.unsettledApproved.length > 0) sheets.push({ name: "Unsettled (Outstanding)", data: settlement.unsettledApproved.map((u) => ({ Title: u.title, Official: u.submitter_name, Amount: u.amount, "Approved On": u.approved_at || "" })) });
+          if (aging.list.length > 0) sheets.push({ name: "Pending Aging", data: aging.list.map((a) => ({ Title: a.title, Official: a.submitter_name, Amount: a.amount, "Age (days)": a.ageDays, "Created At": a.created_at })) });
           sheets.push({ name: "Vouchers", data: vouchers.map((v) => ({ Title: v.title, Amount: v.amount, Category: v.category, Status: v.status, "Invoice No": v.invoice_number, Vendor: v.vendor_name, "Expense Date": v.expense_date || "", Official: v.submitter_name, "Created At": v.created_at })) });
           downloadXlsx(sheets, "Expenses-Report");
         }} disabled={vouchers.length === 0}><Sheet size={14} className="mr-2" /> Excel</Button>
@@ -335,6 +380,109 @@ export function ExpensesTab() {
                       <TableCell className="text-center text-amber-700">{o.pending}</TableCell>
                       <TableCell className="text-center text-red-700">{o.rejected}</TableCell>
                       <TableCell className="text-right font-medium">₹{o.approvedAmount.toLocaleString("en-IN")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* R6 — Settlement / Reconciliation */}
+      {!loading && (settlement.settledCount > 0 || settlement.unsettledCount > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Receipt size={18} /> Settlement &amp; Reconciliation
+              <span className="text-xs font-normal text-muted-foreground">(approved vouchers vs cheques)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-lg border p-3">
+                <p className="text-xl font-bold text-green-700">{settlement.settledCount}</p>
+                <p className="text-xs text-muted-foreground">Settled</p>
+                <p className="text-[11px] text-muted-foreground">₹{settlement.settledAmount.toLocaleString("en-IN")}</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xl font-bold text-amber-700">{settlement.unsettledCount}</p>
+                <p className="text-xs text-muted-foreground">Unsettled</p>
+              </div>
+              <div className="rounded-lg border p-3 bg-amber-50/50">
+                <p className="text-xl font-bold text-amber-700">₹{settlement.outstandingAmount.toLocaleString("en-IN")}</p>
+                <p className="text-xs text-muted-foreground">Outstanding (approved, unpaid)</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-sm font-medium">
+                  {Object.keys(settlement.chequeStatus).length === 0
+                    ? "—"
+                    : Object.entries(settlement.chequeStatus).map(([s, n]) => `${n} ${s}`).join(", ")}
+                </p>
+                <p className="text-xs text-muted-foreground">Cheque status</p>
+              </div>
+            </div>
+            {settlement.unsettledApproved.length > 0 && (
+              <div className="overflow-x-auto">
+                <p className="text-sm font-medium mb-2">Unsettled approved vouchers (awaiting payment)</p>
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>Title</TableHead><TableHead>Official</TableHead>
+                    <TableHead className="text-right">Amount</TableHead><TableHead>Approved</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {settlement.unsettledApproved.map((u) => (
+                      <TableRow key={u.id}>
+                        <TableCell className="font-medium text-sm">{u.title}</TableCell>
+                        <TableCell className="text-sm">{u.submitter_name}</TableCell>
+                        <TableCell className="text-right text-sm font-medium">₹{u.amount.toLocaleString("en-IN")}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{u.approved_at ? new Date(u.approved_at).toLocaleDateString("en-IN") : "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* R7 — Pending Aging / SLA */}
+      {!loading && aging.list.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Clock size={18} /> Pending Aging
+              <span className="text-xs font-normal text-muted-foreground">(oldest: {aging.oldestDays} days)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              {aging.buckets.map((b, i) => (
+                <div key={b.label} className={`rounded-lg border p-3 ${i === 2 && b.count > 0 ? "bg-red-50/60 border-red-200" : ""}`}>
+                  <p className={`text-xl font-bold ${i === 0 ? "text-green-700" : i === 1 ? "text-amber-700" : "text-red-700"}`}>{b.count}</p>
+                  <p className="text-xs text-muted-foreground">{b.label}</p>
+                  <p className="text-[11px] text-muted-foreground">₹{b.amount.toLocaleString("en-IN")}</p>
+                </div>
+              ))}
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Title</TableHead><TableHead>Official</TableHead>
+                  <TableHead className="text-right">Amount</TableHead><TableHead className="text-center">Age</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {aging.list.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="font-medium text-sm">{a.title}</TableCell>
+                      <TableCell className="text-sm">{a.submitter_name}</TableCell>
+                      <TableCell className="text-right text-sm">₹{a.amount.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className={a.ageDays > 7 ? "bg-red-50 text-red-700 border-red-300" : a.ageDays > 3 ? "bg-amber-50 text-amber-700 border-amber-300" : "bg-green-50 text-green-700 border-green-300"}>
+                          {a.ageDays}d
+                        </Badge>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail, ScanLine, Loader2, Pencil, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail, ScanLine, Loader2, Pencil, RotateCcw, BarChart3 } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate } from "@/lib/utils";
 import { FinanceOtpGate } from "@/components/finance-otp-gate";
@@ -654,6 +655,13 @@ export default function AdminVouchersPage() {
             <p className="text-sm text-muted-foreground">Review and approve expense claims from officials</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+        <Link href="/admin/reports?tab=expenses">
+          <Button variant="outline" title="Expense reports & analytics">
+            <BarChart3 size={16} className="mr-1" />
+            Reports
+          </Button>
+        </Link>
         <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (open) loadOfficials(); }}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
@@ -811,6 +819,7 @@ export default function AdminVouchersPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>

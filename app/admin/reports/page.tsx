@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, IndianRupee, Receipt, Award, Users, ClipboardCheck } from "lucide-react";
 import { OverviewTab } from "./_components/overview-tab";
@@ -11,12 +11,21 @@ import { ContributionsTab } from "./_components/contributions-tab";
 const MembersTab = lazy(() => import("./_components/members-tab").then(m => ({ default: m.MembersTab })));
 const PerformanceTab = lazy(() => import("./_components/performance-tab").then(m => ({ default: m.PerformanceTab })));
 
+const VALID_TABS = ["overview", "subscriptions", "expenses", "contributions", "members", "performance"];
+
 export default function ReportsPage() {
+  const [tab, setTab] = useState("overview");
+
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t && VALID_TABS.includes(t)) setTab(t);
+  }, []);
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Reports</h1>
 
-      <Tabs defaultValue="overview">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="overview" className="flex items-center gap-1.5"><BarChart3 size={14} /> Overview</TabsTrigger>
           <TabsTrigger value="subscriptions" className="flex items-center gap-1.5"><IndianRupee size={14} /> Subscriptions</TabsTrigger>
