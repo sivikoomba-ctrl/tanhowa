@@ -75,6 +75,7 @@ const adminNavItems = [
   { href: "/admin/polls", labelKey: "nav.polls" as const, icon: PieChart },
   { href: "/admin/logo-vote", labelKey: "nav.logo_vote" as const, icon: Flower2 },
   { href: "/admin/elections", labelKey: "nav.elections" as const, icon: Vote },
+  { href: "/admin/meetings", labelKey: "nav.meetings" as const, icon: Calendar },
   { href: "/admin/todos", labelKey: "nav.todos" as const, icon: ListTodo },
   { href: "/admin/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt },
   { href: "/admin/contributions", labelKey: "nav.contributions" as const, icon: Award },
@@ -189,6 +190,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           if (item.href === "/admin/engagement") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/at-risk-members") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/digest") return user?.email === "tanhowa19791@gmail.com";
+          if (item.href === "/admin/meetings") return user?.role === "super_admin" || user?.official_type === "state";
           if (item.href === "/admin/why-ministry") return user?.email === "tanhowa19791@gmail.com";
           if (item.href === "/admin/history") return user?.role === "admin" || user?.role === "super_admin";
           if (item.href === "/admin/feedback-pulse") return user?.email === "tanhowa19791@gmail.com";

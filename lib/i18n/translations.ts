@@ -58,6 +58,7 @@ const translations = {
   "nav.engagement": { en: "Engagement", ta: "ஈடுபாடு" },
   "nav.at_risk": { en: "At-Risk Members", ta: "ஆபத்தில் உள்ள உறுப்பினர்கள்" },
   "nav.digest": { en: "Weekly Digest", ta: "வாராந்திர சுருக்கம்" },
+  "nav.meetings": { en: "Meetings & AGM", ta: "கூட்டங்கள் & பொதுக்குழு" },
   "nav.why_ministry": { en: "Why Ministry", ta: "ஏன் அமைச்சகம்" },
   "nav.history": { en: "History", ta: "வரலாறு" },
   "nav.telegram": { en: "Telegram", ta: "டெலிகிராம்" },
