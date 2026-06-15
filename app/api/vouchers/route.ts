@@ -228,6 +228,10 @@ export async function PUT(req: NextRequest) {
         if (body.status === "approved" || body.status === "rejected") {
           updates.approved_by = session.userId;
           updates.approved_at = new Date().toISOString();
+        } else if (body.status === "pending") {
+          // Reverting to pending — clear the approval stamp so the audit stays clean.
+          updates.approved_by = null;
+          updates.approved_at = null;
         }
       }
       if (body.remarks !== undefined) updates.remarks = body.remarks;
@@ -260,6 +264,24 @@ export async function PUT(req: NextRequest) {
       if (body.payment_transaction_id !== undefined) updates.payment_transaction_id = body.payment_transaction_id;
       if (body.payment_date !== undefined) updates.payment_date = body.payment_date;
       if (body.paid_to !== undefined) updates.paid_to = body.paid_to;
+    }
+
+    // Guard: a voucher settled against an issued/cleared cheque must not be
+    // reverted to pending — that would desync the finance ledger. Unlink the
+    // cheque first.
+    if (financeAccess && body.status === "pending") {
+      const { data: settled } = await supabase
+        .from("finance_entries")
+        .select("voucher_id")
+        .in("voucher_id", ids)
+        .in("status", ["issued", "cleared"])
+        .limit(1);
+      if (settled && settled.length) {
+        return NextResponse.json(
+          { error: "This voucher is settled against a cheque. Unlink or cancel the cheque before reverting it to pending." },
+          { status: 409 }
+        );
+      }
     }
 
     let query = supabase.from("expense_vouchers").update(updates).in("id", ids);

@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail, ScanLine, Loader2, Pencil } from "lucide-react";
+import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail, ScanLine, Loader2, Pencil, RotateCcw } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate } from "@/lib/utils";
 import { FinanceOtpGate } from "@/components/finance-otp-gate";
@@ -333,6 +333,27 @@ export default function AdminVouchersPage() {
       load();
     } else {
       toast.error("Failed to update");
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function handleRevert(v: any) {
+    if (v.settlement) {
+      toast.error("Settled against a cheque — unlink the cheque before reverting.");
+      return;
+    }
+    if (!confirm(`Revert "${v.title}" back to Pending? This clears its "${v.status}" status.`)) return;
+    const res = await fetch("/api/vouchers", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: v.id, status: "pending" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      toast.success("Reverted to Pending");
+      load();
+    } else {
+      toast.error(data.error || "Failed to revert");
     }
   }
 
@@ -950,6 +971,17 @@ export default function AdminVouchersPage() {
                                   <XCircle size={12} className="mr-1" /> Reject
                                 </Button>
                               </>
+                            )}
+                            {v.status !== "pending" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                                title="Revert to Pending"
+                                onClick={() => handleRevert(v)}
+                              >
+                                <RotateCcw size={12} className="mr-1" /> Revert
+                              </Button>
                             )}
                             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Edit voucher" onClick={() => setEditVoucher({ ...v })}>
                               <Pencil size={14} />
