@@ -116,6 +116,11 @@ export function ExpensesTab() {
     const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
     const catLabel = filterCategory === "all" ? "All Categories" : filterCategory;
     const statusLabel = filterStatus === "all" ? "All Status" : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1);
+    const ddmmyyyy = (s: string | null) => {
+      if (!s) return "—";
+      const d = new Date(s);
+      return Number.isNaN(d.getTime()) ? "—" : `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+    };
 
     doc.setFontSize(16);
     doc.text("TANHOWA - Expense Vouchers Report", 14, 15);
@@ -126,21 +131,26 @@ export function ExpensesTab() {
     doc.text(`Total: ${summary.total}  |  Approved: ${summary.approved} (Rs.${summary.totalAmount.toLocaleString("en-IN")})  |  Pending: ${summary.pending} (Rs.${summary.pendingAmount.toLocaleString("en-IN")})  |  Rejected: ${summary.rejected}`, 14, 29);
 
     let startY = 34;
+    const footStyles = { fillColor: [220, 235, 225] as [number, number, number], textColor: 0, fontStyle: "bold" as const, fontSize: 10 };
     if (byCategory.length > 1) {
+      const t = byCategory.reduce((a, c) => ({ count: a.count + c.count, approved: a.approved + c.approved, pending: a.pending + c.pending, rejected: a.rejected + c.rejected, approvedAmount: a.approvedAmount + c.approvedAmount, pendingAmount: a.pendingAmount + c.pendingAmount }), { count: 0, approved: 0, pending: 0, rejected: 0, approvedAmount: 0, pendingAmount: 0 });
       autoTable(doc, {
         startY,
         head: [["Category", "Total", "Approved", "Pending", "Rejected", "Approved Amt", "Pending Amt"]],
         body: byCategory.map((c) => [c.category, c.count, c.approved, c.pending, c.rejected, c.approvedAmount.toLocaleString("en-IN"), c.pendingAmount.toLocaleString("en-IN")]),
-        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 8 }, bodyStyles: { fontSize: 7 }, margin: { left: 14 },
+        foot: [["Total", t.count, t.approved, t.pending, t.rejected, t.approvedAmount.toLocaleString("en-IN"), t.pendingAmount.toLocaleString("en-IN")]],
+        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11 }, footStyles, bodyStyles: { fontSize: 10, overflow: "ellipsize" }, columnStyles: { 0: { cellWidth: 50 } }, margin: { left: 14 },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
     if (byOfficial.length > 1) {
+      const t = byOfficial.reduce((a, o) => ({ count: a.count + o.count, approved: a.approved + o.approved, pending: a.pending + o.pending, rejected: a.rejected + o.rejected, approvedAmount: a.approvedAmount + o.approvedAmount }), { count: 0, approved: 0, pending: 0, rejected: 0, approvedAmount: 0 });
       autoTable(doc, {
         startY,
         head: [["Official", "Type", "Total", "Approved", "Pending", "Rejected", "Approved Amt"]],
         body: byOfficial.map((o) => [o.name, o.official_type === "state" ? "State" : "District", o.count, o.approved, o.pending, o.rejected, o.approvedAmount.toLocaleString("en-IN")]),
-        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 8 }, bodyStyles: { fontSize: 7 }, margin: { left: 14 },
+        foot: [["Total", "", t.count, t.approved, t.pending, t.rejected, t.approvedAmount.toLocaleString("en-IN")]],
+        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11 }, footStyles, bodyStyles: { fontSize: 10, overflow: "ellipsize" }, columnStyles: { 0: { cellWidth: 50 } }, margin: { left: 14 },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
@@ -152,7 +162,7 @@ export function ExpensesTab() {
           ["Settled", settlement.settledCount, settlement.settledAmount.toLocaleString("en-IN")],
           ["Unsettled (outstanding)", settlement.unsettledCount, settlement.outstandingAmount.toLocaleString("en-IN")],
         ],
-        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 8 }, bodyStyles: { fontSize: 7 }, margin: { left: 14 },
+        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11 }, bodyStyles: { fontSize: 10 }, margin: { left: 14 },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
@@ -161,15 +171,16 @@ export function ExpensesTab() {
         startY,
         head: [["Pending Aging", "Count", "Amount"]],
         body: aging.buckets.map((b) => [b.label, b.count, b.amount.toLocaleString("en-IN")]),
-        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 8 }, bodyStyles: { fontSize: 7 }, margin: { left: 14 },
+        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11 }, bodyStyles: { fontSize: 10 }, margin: { left: 14 },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
     autoTable(doc, {
       startY,
       head: [["#", "Title", "Official", "Category", "Vendor", "Invoice", "Amount", "Status", "Date"]],
-      body: vouchers.map((v, i) => [i + 1, v.title, v.submitter_name, v.category || "—", v.vendor_name || "—", v.invoice_number || "—", (v.amount || 0).toLocaleString("en-IN"), v.status, v.expense_date ? new Date(v.expense_date).toLocaleDateString("en-IN") : "—"]),
-      theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 8 }, bodyStyles: { fontSize: 7 }, margin: { left: 14 },
+      body: vouchers.map((v, i) => [i + 1, v.title, v.submitter_name, v.category || "—", v.vendor_name || "—", v.invoice_number || "—", (v.amount || 0).toLocaleString("en-IN"), v.status, ddmmyyyy(v.expense_date)]),
+      theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11 }, bodyStyles: { fontSize: 10, overflow: "ellipsize" }, margin: { left: 14 },
+      columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 46 }, 2: { cellWidth: 34 }, 8: { cellWidth: 24 } },
       didParseCell(data) {
         if (data.section === "body" && data.column.index === 7) {
           const val = String(data.cell.raw);
