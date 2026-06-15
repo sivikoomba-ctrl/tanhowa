@@ -28,6 +28,7 @@ import {
   PauseCircle,
   Trash2,
   AlertTriangle,
+  FileText,
 } from "lucide-react";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 
@@ -84,6 +85,9 @@ export default function VerifyPaymentsPage() {
   const [selectedSubs, setSelectedSubs] = useState<Set<string>>(new Set());
   const [batchProcessing, setBatchProcessing] = useState(false);
   const [proofThumbnails, setProofThumbnails] = useState<Record<string, string>>({});
+  // Proofs whose thumbnail <img> failed to render (PDFs / non-image formats) —
+  // show a document icon instead of the broken-image + "Proof" alt text.
+  const [failedThumbs, setFailedThumbs] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<Subscription | null>(null);
 
@@ -531,24 +535,48 @@ export default function VerifyPaymentsPage() {
                             />
                           )}
 
-                          {/* Proof thumbnail */}
-                          {thumbUrl && (
-                            <div
-                              className="w-14 h-14 shrink-0 rounded-lg overflow-hidden border cursor-pointer hover:ring-2 ring-primary/50"
-                              onClick={() => { setVerifyTarget(null); setPreviewSub(sub); handleViewProof(sub); }}
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={thumbUrl} alt="Proof" className="w-full h-full object-cover" />
-                            </div>
-                          )}
-                          {!thumbUrl && hasProof && (
-                            <div
-                              className="w-14 h-14 shrink-0 rounded-lg border bg-muted/50 flex items-center justify-center cursor-pointer hover:bg-muted"
-                              onClick={() => { setVerifyTarget(null); setPreviewSub(sub); handleViewProof(sub); }}
-                            >
-                              <Eye size={16} className="text-muted-foreground" />
-                            </div>
-                          )}
+                          {/* Proof thumbnail — render <img> only for image proofs that
+                              load; PDFs / non-image / failed loads show a doc icon. */}
+                          {(() => {
+                            const isPdf = /\.pdf($|\?)/i.test(sub.payment_proof_url || "");
+                            const showImg = !!thumbUrl && !isPdf && !failedThumbs.has(sub.id);
+                            if (showImg) {
+                              return (
+                                <div
+                                  className="w-14 h-14 shrink-0 rounded-lg overflow-hidden border cursor-pointer hover:ring-2 ring-primary/50"
+                                  onClick={() => { setVerifyTarget(null); setPreviewSub(sub); handleViewProof(sub); }}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={thumbUrl}
+                                    alt="Proof"
+                                    className="w-full h-full object-cover"
+                                    onError={() => setFailedThumbs((prev) => new Set(prev).add(sub.id))}
+                                  />
+                                </div>
+                              );
+                            }
+                            if (hasProof) {
+                              const loading = !thumbUrl && !isPdf;
+                              return (
+                                <div
+                                  className="w-14 h-14 shrink-0 rounded-lg border bg-muted/50 flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:bg-muted"
+                                  onClick={() => { setVerifyTarget(null); setPreviewSub(sub); handleViewProof(sub); }}
+                                  title="View proof"
+                                >
+                                  {loading ? (
+                                    <Eye size={16} className="text-muted-foreground" />
+                                  ) : (
+                                    <>
+                                      <FileText size={16} className="text-muted-foreground" />
+                                      <span className="text-[9px] text-muted-foreground leading-none">{isPdf ? "PDF" : "View"}</span>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
 
                           {/* Member info */}
                           <div className="flex-1 min-w-0">
