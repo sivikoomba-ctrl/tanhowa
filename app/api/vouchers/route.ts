@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
       .insert({
         submitted_by: v.data.submitted_by || session.userId,
         title: v.data.title,
-        amount: v.data.amount,
+        amount: Math.round(v.data.amount), // store whole rupees — no paise on vouchers
         description: v.data.description || "",
         invoice_number: v.data.invoice_number || "",
         vendor_name: v.data.vendor_name || "",
@@ -239,7 +239,7 @@ export async function PUT(req: NextRequest) {
       if (body.payment_proof_url !== undefined) updates.payment_proof_url = body.payment_proof_url;
       // Finance team / super admin can also correct voucher content fields
       if (body.title !== undefined) updates.title = body.title;
-      if (body.amount !== undefined) updates.amount = body.amount;
+      if (body.amount !== undefined) updates.amount = Math.round(Number(body.amount));
       if (body.description !== undefined) updates.description = body.description;
       if (body.invoice_number !== undefined) updates.invoice_number = body.invoice_number;
       if (body.vendor_name !== undefined) updates.vendor_name = body.vendor_name;
@@ -253,7 +253,7 @@ export async function PUT(req: NextRequest) {
     } else {
       // Officials can only update their own pending vouchers
       if (body.title !== undefined) updates.title = body.title;
-      if (body.amount !== undefined) updates.amount = body.amount;
+      if (body.amount !== undefined) updates.amount = Math.round(Number(body.amount));
       if (body.description !== undefined) updates.description = body.description;
       if (body.invoice_number !== undefined) updates.invoice_number = body.invoice_number;
       if (body.vendor_name !== undefined) updates.vendor_name = body.vendor_name;

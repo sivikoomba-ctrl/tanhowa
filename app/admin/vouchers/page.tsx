@@ -193,7 +193,7 @@ export default function AdminVouchersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: createForm.title,
-        amount: parseFloat(createForm.amount) || 0,
+        amount: Math.round(parseFloat(createForm.amount) || 0),
         description: createForm.description,
         invoice_number: createForm.invoice_number,
         expense_event: createForm.expense_event,
@@ -252,7 +252,7 @@ export default function AdminVouchersPage() {
         if (!createForm.title) updates.title = `${data.vendor_name} expense`;
       }
       if (data.total_amount != null) {
-        updates.amount = String(data.total_amount);
+        updates.amount = String(Math.round(Number(data.total_amount)));
         setScannedBillAmount(Number(data.total_amount));
       }
       if (data.invoice_number) updates.invoice_number = data.invoice_number;
@@ -310,7 +310,7 @@ export default function AdminVouchersPage() {
       if (data.amount != null) {
         setScannedPaymentAmount(Number(data.amount));
         if (scannedBillAmount == null && !createForm.amount) {
-          updates.amount = String(data.amount);
+          updates.amount = String(Math.round(Number(data.amount)));
         }
       }
       setCreateForm(updates);
@@ -719,7 +719,7 @@ export default function AdminVouchersPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Amount (&#8377;) *</Label>
-                  <Input type="number" value={createForm.amount} onChange={(e) => setCreateForm({ ...createForm, amount: e.target.value })} placeholder="0" required />
+                  <Input type="number" step="1" min="1" value={createForm.amount} onChange={(e) => setCreateForm({ ...createForm, amount: e.target.value })} placeholder="0" required />
                   {parseFloat(createForm.amount) > HIGH_AMOUNT_THRESHOLD && (
                     <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
                       <AlertTriangle size={12} /> High amount — ensure receipt is attached
@@ -1052,7 +1052,7 @@ export default function AdminVouchersPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Amount (₹) *</Label>
-                  <Input type="number" min="1" step="0.01" value={editVoucher.amount} onChange={(e) => setEditVoucher({ ...editVoucher, amount: parseFloat(e.target.value) || 0 })} />
+                  <Input type="number" min="1" step="1" value={editVoucher.amount} onChange={(e) => setEditVoucher({ ...editVoucher, amount: Math.round(parseFloat(e.target.value) || 0) })} />
                 </div>
                 <div>
                   <Label>Category</Label>

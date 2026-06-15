@@ -146,7 +146,7 @@ export default function VouchersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: form.title,
-        amount: parseFloat(form.amount) || 0,
+        amount: Math.round(parseFloat(form.amount) || 0),
         description: form.description,
         invoice_number: form.invoice_number,
         vendor_name: form.vendor_name,
@@ -209,7 +209,7 @@ export default function VouchersPage() {
       body: JSON.stringify({
         id: editVoucher.id,
         title: editForm.title,
-        amount: parseFloat(editForm.amount) || 0,
+        amount: Math.round(parseFloat(editForm.amount) || 0),
         description: editForm.description,
         invoice_number: editForm.invoice_number,
         vendor_name: editForm.vendor_name,
@@ -267,7 +267,7 @@ export default function VouchersPage() {
         if (!form.title) updates.title = `${data.vendor_name} expense`;
       }
       if (data.total_amount != null) {
-        updates.amount = String(data.total_amount);
+        updates.amount = String(Math.round(Number(data.total_amount)));
         setScannedBillAmount(Number(data.total_amount));
       }
       if (data.invoice_number) updates.invoice_number = data.invoice_number;
@@ -334,7 +334,7 @@ export default function VouchersPage() {
       if (data.amount != null) {
         setScannedPaymentAmount(Number(data.amount));
         if (scannedBillAmount == null && !form.amount) {
-          updates.amount = String(data.amount);
+          updates.amount = String(Math.round(Number(data.amount)));
         }
       }
       setForm(updates);
@@ -409,7 +409,7 @@ export default function VouchersPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Amount (&#8377;) *</Label>
-                  <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" required />
+                  <Input type="number" step="1" min="1" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" required />
                 </div>
                 <div>
                   <Label>Category</Label>
@@ -634,7 +634,7 @@ export default function VouchersPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Amount (&#8377;) *</Label>
-                <Input type="number" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} required />
+                <Input type="number" step="1" min="1" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} required />
               </div>
               <div>
                 <Label>Category</Label>
