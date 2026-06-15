@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail, ScanLine, Loader2, Pencil, RotateCcw, BarChart3 } from "lucide-react";
+import { Receipt, Trash2, IndianRupee, CheckCircle2, XCircle, Eye, Plus, Upload, CheckSquare, Square, MinusSquare, AlertTriangle, Download, Mail, ScanLine, Loader2, Pencil, RotateCcw, BarChart3, Search } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate } from "@/lib/utils";
 import { FinanceOtpGate } from "@/components/finance-otp-gate";
@@ -55,6 +55,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 export default function AdminVouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [tab, setTab] = useState("pending");
+  const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -402,6 +403,15 @@ export default function AdminVouchersPage() {
       load();
     }
   }
+
+  // Quick search across the current tab's vouchers.
+  const q = search.trim().toLowerCase();
+  const filteredVouchers = q
+    ? vouchers.filter((v) =>
+        [v.title, v.submitter?.name, v.category, v.vendor_name, v.paid_to, v.expense_event, v.payment_transaction_id, v.invoice_number, v.description]
+          .some((f) => (f || "").toString().toLowerCase().includes(q))
+      )
+    : vouchers;
 
   // Bulk selection helpers
   const pendingVouchers = vouchers.filter((v) => v.status === "pending");
@@ -831,6 +841,17 @@ export default function AdminVouchersPage() {
         </TabsList>
 
         <TabsContent value={tab} className="mt-4">
+          {!loading && vouchers.length > 0 && (
+            <div className="relative mb-3">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search title, official, category, vendor, payee, event, txn / invoice no…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          )}
           {loading ? (
             <div className="flex justify-center py-12">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
@@ -869,7 +890,10 @@ export default function AdminVouchersPage() {
                   </CardContent>
                 </Card>
               )}
-              {vouchers.map((v) => {
+              {filteredVouchers.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-8">No vouchers match &ldquo;{search}&rdquo;.</p>
+              )}
+              {filteredVouchers.map((v) => {
                 const config = statusConfig[v.status] || statusConfig.pending;
                 return (
                   <Card key={v.id}>
