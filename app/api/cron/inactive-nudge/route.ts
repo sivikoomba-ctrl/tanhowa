@@ -60,11 +60,16 @@ export async function GET(req: NextRequest) {
     }
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    // Per-member cooldown: nudge each inactive member at most once every 15 days.
+    // Without this the daily cron re-emails the same ~329 inactive members every
+    // day (huge volume + spam + bounce-driven sender-reputation damage).
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
 
     // Find inactive approved members (last active > 30 days or never active)
+    // who have NOT already been nudged within the last 15 days.
     const { data: inactive } = await supabase
       .from("users")
-      .select("id, name, email, telegram_chat_id, last_active_at, login_count")
+      .select("id, name, email, telegram_chat_id, last_active_at, login_count, last_inactive_nudge_at")
       .eq("status", "approved")
       .or(`last_active_at.is.null,last_active_at.lt.${thirtyDaysAgo}`)
       .neq("email", "tanhowa19791@gmail.com")
@@ -79,6 +84,9 @@ export async function GET(req: NextRequest) {
     let nudgedEmail = 0;
 
     for (const user of inactive) {
+      // 15-day per-member cooldown — skip anyone nudged recently.
+      if (user.last_inactive_nudge_at && user.last_inactive_nudge_at > fifteenDaysAgo) continue;
+
       const firstName = user.name?.split(" ")[0] || "Member";
       let feedbackLink: string | null = null;
       try {
@@ -99,10 +107,16 @@ export async function GET(req: NextRequest) {
       }
 
       // Email nudge with feedback link (250ms throttle to stay under Gmail bulk threshold)
+      let emailed = false;
       if (user.email && feedbackLink) {
-        const sent = await sendInactiveNudgeEmail(user.email, firstName, feedbackLink);
-        if (sent) nudgedEmail++;
+        emailed = await sendInactiveNudgeEmail(user.email, firstName, feedbackLink);
+        if (emailed) nudgedEmail++;
         await sleep(250);
+      }
+
+      // Stamp the cooldown when this member was nudged on any channel.
+      if (emailed || user.telegram_chat_id) {
+        await supabase.from("users").update({ last_inactive_nudge_at: new Date().toISOString() }).eq("id", user.id);
       }
     }
 
