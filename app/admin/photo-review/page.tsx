@@ -63,6 +63,17 @@ const TABS: { key: keyof Counts; label: string }[] = [
   { key: "all", label: "All" },
 ];
 
+// Turn AI verdict issue tags (e.g. "not_a_portrait", "busy_background") into a
+// readable, comma-separated reason to pre-fill the reject box. Editable before send.
+function suggestedReason(qa?: PhotoQuality | null): string {
+  if (!qa) return "";
+  const issues = (qa.issues || [])
+    .map((i) => i.replace(/[_-]+/g, " ").trim().toLowerCase())
+    .filter(Boolean);
+  if (issues.length) return issues.join(", ");
+  return (qa.reason || "").trim();
+}
+
 function verdictColor(v?: string) {
   if (v === "poor") return "bg-red-100 text-red-700 border-red-200";
   if (v === "borderline") return "bg-amber-100 text-amber-700 border-amber-200";
@@ -341,7 +352,7 @@ export default function PhotoReviewPage() {
                         disabled={busy === m.id}
                         onClick={() => {
                           setRejectFor(m);
-                          setRejectNote("");
+                          setRejectNote(suggestedReason(m.photo_quality));
                         }}
                       >
                         <X className="h-3.5 w-3.5 mr-1" /> Reject
@@ -505,7 +516,7 @@ export default function PhotoReviewPage() {
                         const m = zoomFor;
                         closeZoom();
                         setRejectFor(m);
-                        setRejectNote("");
+                        setRejectNote(suggestedReason(m.photo_quality));
                       }}
                     >
                       <X className="mr-1 h-4 w-4" /> Reject
