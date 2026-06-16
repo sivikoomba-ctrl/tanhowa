@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
+import IdCardDialog from "./IdCardDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -120,7 +122,9 @@ function getProfileCompleteness(u: User): { percent: number; missing: string[] }
 
 export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpandToggle, onSelectToggle, onAction, onEditClick, onNudgeClick, onPhotoZoom, callerEmail, callerCanRemovePhoto }: UserCardProps) {
   const profile = getProfileCompleteness(u);
+  const [showIdCard, setShowIdCard] = useState(false);
   return (
+    <>
     <Card className={isSelected ? "border-primary/50 bg-primary/[0.02]" : ""}>
       <CardContent className="pt-4">
         {/* Header row */}
@@ -218,6 +222,15 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              title="View member ID card"
+              onClick={(e) => { e.stopPropagation(); setShowIdCard(true); }}
+            >
+              <CreditCard size={14} className="mr-1" />
+              ID Card
+            </Button>
             {tab === "pending" && (
               <>
                 <Button
@@ -502,5 +515,7 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
         )}
       </CardContent>
     </Card>
+    <IdCardDialog user={u} open={showIdCard} onOpenChange={setShowIdCard} />
+    </>
   );
 }

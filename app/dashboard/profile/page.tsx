@@ -20,7 +20,7 @@ import { DISTRICT_NAMES, TN_HORTICULTURE_FARMS_DATA, FARM_TYPE_ORDER, POSTING_LO
 import { useT } from "@/lib/i18n";
 import { DateDropdowns } from "@/components/date-dropdowns";
 import type { TranslationKey } from "@/lib/i18n/translations";
-import jsPDF from "jspdf";
+import { downloadIdCard } from "@/lib/id-card";
 
 const titleOptions = ["", "Mr.", "Mrs.", "Miss.", "Dr."];
 
@@ -128,153 +128,6 @@ function getProfileCompletion(p: Profile): { percent: number; missing: string[] 
   const filled = checks.filter(([ok]) => ok).length;
   const missing = checks.filter(([ok]) => !ok).map(([, name]) => name);
   return { percent: Math.round((filled / checks.length) * 100), missing };
-}
-
-async function downloadIdCard(profile: Profile, photoUrl: string | null) {
-  // Standard ID card size: 85.6mm x 54mm (credit card, landscape)
-  const w = 85.6, h = 54;
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [h, w] });
-  const green = [45, 106, 79] as [number, number, number];
-  const darkGreen = [30, 70, 52] as [number, number, number];
-
-  // Border
-  doc.setDrawColor(...green);
-  doc.setLineWidth(0.8);
-  doc.rect(1.5, 1.5, w - 3, h - 3);
-
-  // Header bar
-  doc.setFillColor(...green);
-  doc.rect(0, 0, w, 12, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.text("TANHOWA", w / 2, 6.5, { align: "center" });
-  doc.setFontSize(4.5);
-  doc.setFont("helvetica", "normal");
-  doc.text("Tamil Nadu Horticultural Officers Welfare Association", w / 2, 10, { align: "center" });
-
-  // Thin accent line below header
-  doc.setFillColor(200, 170, 80);
-  doc.rect(0, 12, w, 0.6, "F");
-
-  // Photo
-  const photoX = 4, photoY = 15, photoW = 20, photoH = 24;
-  if (photoUrl) {
-    try {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject();
-        img.src = photoUrl;
-      });
-      const canvas = document.createElement("canvas");
-      canvas.width = 200;
-      canvas.height = 240;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0, 200, 240);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-      doc.addImage(dataUrl, "JPEG", photoX, photoY, photoW, photoH);
-      // Photo border
-      doc.setDrawColor(...green);
-      doc.setLineWidth(0.4);
-      doc.rect(photoX, photoY, photoW, photoH);
-    } catch {
-      doc.setDrawColor(180, 180, 180);
-      doc.setLineWidth(0.3);
-      doc.rect(photoX, photoY, photoW, photoH);
-      doc.setTextColor(150, 150, 150);
-      doc.setFontSize(7);
-      doc.text("Photo", photoX + photoW / 2, photoY + photoH / 2, { align: "center" });
-    }
-  } else {
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.3);
-    doc.rect(photoX, photoY, photoW, photoH);
-  }
-
-  // Name
-  const infoX = 27;
-  doc.setTextColor(30, 30, 30);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  const name = [profile.title, profile.first_name, profile.last_name].filter(Boolean).join(" ").toUpperCase();
-  const displayName = name || "MEMBER NAME";
-  // Truncate long names
-  const maxNameWidth = w - infoX - 4;
-  const nameLines = doc.splitTextToSize(displayName, maxNameWidth);
-  doc.text(nameLines[0], infoX, 18.5);
-
-  // TANHOWA Designation (primary)
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...darkGreen);
-  doc.text(profile.posting_details.official_designation || "Member", infoX, 23);
-
-  // Govt Designation + District
-  doc.setFontSize(5.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  const govtLine = [profile.occupation, profile.posting_details.regular_district].filter(Boolean).join(" - ");
-  if (govtLine) doc.text(govtLine, infoX, 27);
-
-  // Phone
-  if (profile.phone) {
-    doc.setTextColor(80, 80, 80);
-    doc.setFontSize(6);
-    doc.text("Ph: " + profile.phone, infoX, 31);
-  }
-
-  // Email
-  if (profile.email) {
-    doc.setFontSize(5);
-    doc.setTextColor(100, 100, 100);
-    const emailText = profile.email.length > 35 ? profile.email.slice(0, 34) + "..." : profile.email;
-    doc.text(emailText, infoX, 35);
-  }
-
-  // Divider
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.line(4, 40.5, w - 4, 40.5);
-
-  // Bottom details row
-  doc.setFontSize(5.5);
-
-  // Member ID
-  doc.setTextColor(100, 100, 100);
-  doc.setFont("helvetica", "normal");
-  doc.text("ID:", 4, 44);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 30, 30);
-  doc.text((profile.id || "").slice(0, 8).toUpperCase(), 9, 44);
-
-  // Member Since
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  doc.text("Since:", 30, 44);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 30, 30);
-  doc.text(profile.created_at ? new Date(profile.created_at).getFullYear().toString() : "-", 40, 44);
-
-  // Valid Until
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  doc.text("Valid:", 55, 44);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 30, 30);
-  doc.text(`Dec ${new Date().getFullYear()}`, 64, 44);
-
-  // Footer bar
-  doc.setFillColor(...green);
-  doc.rect(0, h - 5.5, w, 5.5, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(5.5);
-  doc.setFont("helvetica", "bold");
-  doc.text("www.tanhowa.in", w / 2, h - 2, { align: "center" });
-
-  const fileName = `TANHOWA_ID_${(profile.first_name || "Member").replace(/\s/g, "_")}.pdf`;
-  doc.save(fileName);
 }
 
 export default function ProfilePage() {
@@ -571,7 +424,18 @@ export default function ProfilePage() {
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold flex items-center gap-2"><IdCard size={14} /> {t("id_card.title")}</h3>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => downloadIdCard(profile, photoPreview)}>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => downloadIdCard({
+              id: profile.id,
+              title: profile.title,
+              first_name: profile.first_name,
+              last_name: profile.last_name,
+              occupation: profile.occupation,
+              phone: profile.phone,
+              email: profile.email,
+              created_at: profile.created_at,
+              official_designation: profile.posting_details.official_designation,
+              regular_district: profile.posting_details.regular_district,
+            }, photoPreview)}>
               <Download size={12} /> {t("id_card.download")}
             </Button>
           </div>
