@@ -151,6 +151,7 @@ export async function POST(req: NextRequest) {
         photo_reviewed_at: null,
         photo_review_note: null,
         photo_quality: null,
+        photo_uploaded_at: new Date().toISOString(),
       })
       .eq("id", session.userId);
 
