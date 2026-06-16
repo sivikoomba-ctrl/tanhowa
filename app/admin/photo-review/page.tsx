@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ import {
   Sparkles,
   AlertTriangle,
   ShieldCheck,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 
 interface PhotoQuality {
@@ -88,6 +90,55 @@ export default function PhotoReviewPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [rejectFor, setRejectFor] = useState<Member | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+
+  // Lightbox / zoom state
+  const [zoomFor, setZoomFor] = useState<Member | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const drag = useRef({ active: false, startX: 0, startY: 0, baseX: 0, baseY: 0 });
+
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 4;
+
+  const openZoom = (m: Member) => {
+    setZoomFor(m);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+  const closeZoom = () => setZoomFor(null);
+
+  const zoomBy = useCallback((delta: number) => {
+    setZoom((z) => {
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round((z + delta) * 100) / 100));
+      if (next === 1) setPan({ x: 0, y: 0 }); // recenter when fully zoomed out
+      return next;
+    });
+  }, []);
+
+  const onWheel = (e: React.WheelEvent) => zoomBy(e.deltaY < 0 ? 0.3 : -0.3);
+
+  const onDoubleClick = () =>
+    setZoom((z) => {
+      const next = z > 1 ? 1 : 2;
+      if (next === 1) setPan({ x: 0, y: 0 });
+      return next;
+    });
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (zoom <= 1) return; // panning only matters when zoomed in
+    drag.current = { active: true, startX: e.clientX, startY: e.clientY, baseX: pan.x, baseY: pan.y };
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!drag.current.active) return;
+    setPan({
+      x: drag.current.baseX + (e.clientX - drag.current.startX),
+      y: drag.current.baseY + (e.clientY - drag.current.startY),
+    });
+  };
+  const onPointerUp = () => {
+    drag.current.active = false;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -210,7 +261,12 @@ export default function PhotoReviewPage() {
             const qa = m.photo_quality;
             return (
               <Card key={m.id} className="overflow-hidden flex flex-col p-0">
-                <div className="relative aspect-square bg-muted">
+                <button
+                  type="button"
+                  onClick={() => openZoom(m)}
+                  aria-label={`Zoom into ${m.name}'s photo`}
+                  className="group relative block aspect-square w-full bg-muted cursor-zoom-in"
+                >
                   <Image
                     src={m.photo_url}
                     alt={m.name}
@@ -219,6 +275,12 @@ export default function PhotoReviewPage() {
                     className="object-cover"
                     unoptimized
                   />
+                  {/* hover hint that the photo is clickable */}
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/30">
+                    <span className="rounded-full bg-black/60 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      <ZoomIn className="h-5 w-5" />
+                    </span>
+                  </div>
                   <div className="absolute top-2 left-2">{statusBadge(m.photo_status, m.photo_locked)}</div>
                   {qa?.verdict && (
                     <div className="absolute bottom-2 left-2 right-2">
@@ -233,7 +295,7 @@ export default function PhotoReviewPage() {
                       </span>
                     </div>
                   )}
-                </div>
+                </button>
 
                 <div className="p-3 flex flex-col gap-2 flex-1">
                   <div className="min-w-0">
@@ -328,6 +390,139 @@ export default function PhotoReviewPage() {
               <X className="h-4 w-4 mr-1" /> Reject &amp; Email
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Zoom / lightbox */}
+      <Dialog open={!!zoomFor} onOpenChange={(o) => !o && closeZoom()}>
+        <DialogContent className="max-w-3xl gap-0 overflow-hidden p-0">
+          {zoomFor && (
+            <>
+              <DialogHeader className="border-b px-4 py-3">
+                <DialogTitle className="flex items-center justify-between gap-2 pr-8">
+                  <span className="truncate">{zoomFor.name}</span>
+                  {zoomFor.photo_quality?.verdict && (
+                    <span
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${verdictColor(
+                        zoomFor.photo_quality.verdict
+                      )}`}
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {zoomFor.photo_quality.verdict}
+                      {typeof zoomFor.photo_quality.score === "number"
+                        ? ` · ${zoomFor.photo_quality.score}`
+                        : ""}
+                    </span>
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+
+              <div
+                className="relative select-none touch-none overflow-hidden bg-black"
+                style={{ height: "70vh" }}
+                onWheel={onWheel}
+                onDoubleClick={onDoubleClick}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerLeave={onPointerUp}
+              >
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                    transition: drag.current.active ? "none" : "transform 0.15s ease-out",
+                    cursor: zoom > 1 ? "grab" : "zoom-in",
+                  }}
+                >
+                  <Image
+                    src={zoomFor.photo_url}
+                    alt={zoomFor.name}
+                    fill
+                    sizes="(max-width:768px) 100vw, 768px"
+                    className="object-contain"
+                    unoptimized
+                  />
+                </div>
+
+                {/* zoom controls */}
+                <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-lg bg-black/60 p-1 backdrop-blur">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-white hover:bg-white/20"
+                    onClick={() => zoomBy(-0.5)}
+                    disabled={zoom <= MIN_ZOOM}
+                    aria-label="Zoom out"
+                  >
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                  <span className="w-12 text-center text-xs tabular-nums text-white">
+                    {Math.round(zoom * 100)}%
+                  </span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-white hover:bg-white/20"
+                    onClick={() => zoomBy(0.5)}
+                    disabled={zoom >= MAX_ZOOM}
+                    aria-label="Zoom in"
+                  >
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2 border-t px-4 py-3">
+                {zoomFor.photo_quality?.issues && zoomFor.photo_quality.issues.length > 0 && (
+                  <p className="flex items-start gap-1 text-xs text-amber-700">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{zoomFor.photo_quality.issues.join(", ")}</span>
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {zoomFor.photo_status !== "approved" && (
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                      disabled={busy === zoomFor.id}
+                      onClick={() => {
+                        const m = zoomFor;
+                        closeZoom();
+                        act(m, "approve");
+                      }}
+                    >
+                      <Check className="mr-1 h-4 w-4" /> Approve
+                    </Button>
+                  )}
+                  {zoomFor.photo_status !== "rejected" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      disabled={busy === zoomFor.id}
+                      onClick={() => {
+                        const m = zoomFor;
+                        closeZoom();
+                        setRejectFor(m);
+                        setRejectNote("");
+                      }}
+                    >
+                      <X className="mr-1 h-4 w-4" /> Reject
+                    </Button>
+                  )}
+                  <a
+                    href={zoomFor.photo_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto text-xs text-muted-foreground underline hover:text-foreground"
+                  >
+                    Open original
+                  </a>
+                </div>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
