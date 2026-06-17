@@ -20,7 +20,7 @@ import { DISTRICT_NAMES, TN_HORTICULTURE_FARMS_DATA, FARM_TYPE_ORDER, POSTING_LO
 import { useT } from "@/lib/i18n";
 import { DateDropdowns } from "@/components/date-dropdowns";
 import type { TranslationKey } from "@/lib/i18n/translations";
-import { downloadIdCard } from "@/lib/id-card";
+import { downloadIdCard, idCardName } from "@/lib/id-card";
 
 const titleOptions = ["", "Mr.", "Mrs.", "Miss.", "Dr."];
 
@@ -460,7 +460,7 @@ export default function ProfilePage() {
                 </div>
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm uppercase truncate">{displayName || "Member Name"}</p>
+                  <p className="font-bold text-sm uppercase truncate">{idCardName({ title: profile.title, first_name: profile.first_name, last_name: profile.last_name, id: profile.id }) || "Member Name"}</p>
                   <p className="text-xs font-semibold text-[#2d6a4f]">
                     {profile.posting_details.official_designation || "Member"}
                   </p>

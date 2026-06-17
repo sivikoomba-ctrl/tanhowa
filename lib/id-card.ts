@@ -20,10 +20,21 @@ export interface IdCardData {
   regular_district?: string;
 }
 
-/** Full display name, honorific first, uppercased. Falls back to `name`. */
+/** Only "Dr" is shown as a prefix on the ID card; all other honorifics
+ *  (Mr./Mrs./Miss/Ms./Thiru/Tmt/Selvi…) are dropped. */
+function idCardTitle(title?: string): string | undefined {
+  const t = (title || "").trim().toLowerCase().replace(/\.$/, "");
+  return t === "dr" || t === "doctor" ? "Dr." : undefined;
+}
+
+/** Full display name, uppercased. Uses first/last when split, otherwise the
+ *  single `name` field (admin records). "Dr." is the only honorific kept. */
 export function idCardName(d: IdCardData): string {
-  const split = [d.title, d.first_name, d.last_name].filter(Boolean).join(" ").trim();
-  return (split || d.name || "").toUpperCase();
+  const title = idCardTitle(d.title);
+  const parts = d.first_name || d.last_name
+    ? [title, d.first_name, d.last_name]
+    : [title, d.name];
+  return parts.filter(Boolean).join(" ").trim().toUpperCase();
 }
 
 export const ID_CARD_MEMBER_ID = (id?: string) => (id || "").slice(0, 8).toUpperCase();
