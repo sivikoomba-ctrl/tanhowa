@@ -27,7 +27,7 @@ export const TN_DISTRICTS: Record<string, string[]> = {
   "Sivaganga": ["Devakottai", "Ilayangudi", "Kalayarkoil", "Kallal", "Kannakudi", "Manamadurai", "S.Pudur", "Sakkottai", "Singampunari", "Sivaganga", "Thiruppathur", "Thirupuvanam"],
   "Tenkasi": ["Alangulam", "Kadayanallur", "Kadayam", "Keelapavoor", "Kuruvikulam", "Melaneelithanallur", "Sankarankovil", "Shencottai", "Tenkasi", "Vasudevanallur"],
   "Thanjavur": ["Ammapettai", "Budalur", "Kumbakonam", "Madukkur", "Orathanadu", "Papanasam", "Pattukottai", "Peravurani", "Sethubavachatram", "Thanjavur", "Thirupananthal", "Thiruvaiyaru", "Thiruvidaimarudur", "Thiruvonam"],
-  "Theni": ["Andipatti", "Bodinayakanur", "Chinnamanur", "Cumbum", "Myladumparai", "Periyakulam", "Theni", "Uthamapalayam"],
+  "Theni": ["Andipatti", "Bodinayakanur", "Chinnamanur", "Cumbum", "K Myladumparai", "Periyakulam", "Theni", "Uthamapalayam"],
   "Thoothukudi": ["Alwarthirunagari", "Karungulam", "Kayathar", "Kovilpatti", "Ottapidaram", "Pudur", "Sattankulam", "Srivaikuntam", "Thoothukudi", "Tiruchendur", "Udangudi", "Vilathikulam"],
   "Tiruchirappalli": ["Andhanallur", "Lalgudi", "Manachanallur", "Manapparai", "Manikandam", "Marungapuri", "Musiri", "Pullambadi", "Thathaiyangarpettai", "Thiruverumbur", "Thottiyam", "Thuraiyur", "Tiruchirappalli", "Uppiliapuram", "Vaiyampatti"],
   "Tirunelveli": ["Ambasamudram", "Cheranmahadevi", "Kalakkad", "Manur", "Nanguneri", "Palayamkottai", "Pappakudi", "Radhapuram", "Valliyoor"],
