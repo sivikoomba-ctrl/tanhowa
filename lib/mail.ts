@@ -602,6 +602,42 @@ export async function sendPhotoRejectionEmail(to: string, memberName: string, re
   `));
 }
 
+export async function sendMemberWelcomeEmail(to: string, memberName: string) {
+  const safeName = escapeHtml(memberName || "Member");
+  await sendEmail(to, "Welcome to TANHOWA - your membership is approved", wrapEmailTemplate(`
+    <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Welcome to TANHOWA, ${safeName}!</h2>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      We are delighted to confirm that your membership has been <strong>approved</strong>. You are now
+      part of the Tamil Nadu Horticultural Officers Welfare Association family.
+    </p>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      Sign in to access announcements, events, the member directory, subscriptions, trainings,
+      grievances, your digital ID card and much more.
+    </p>
+    <div style="text-align: center;">
+      <a href="https://tanhowa.in/dashboard" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">Go to My Dashboard</a>
+    </div>
+    <p style="color: #999; font-size: 12px; margin: 16px 0 0; text-align: center;">Together we grow stronger!</p>
+  `));
+}
+
+export async function sendTeamWelcomeEmail(to: string, memberName: string, teamName: string, isLead = false) {
+  const safeName = escapeHtml(memberName || "Member");
+  const safeTeam = escapeHtml(teamName || "a team");
+  const roleLine = isLead
+    ? `You have been added as the <strong>Team Lead</strong> of <strong>${safeTeam}</strong>.`
+    : `You have been added to the <strong>${safeTeam}</strong> team.`;
+  await sendEmail(to, `You have been added to ${teamName} - TANHOWA`, wrapEmailTemplate(`
+    <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Welcome to the ${safeTeam} team!</h2>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">Dear <strong>${safeName}</strong>,</p>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">${roleLine} We look forward to your contributions.</p>
+    <div style="text-align: center;">
+      <a href="https://tanhowa.in/dashboard/teams" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">View My Teams</a>
+    </div>
+    <p style="color: #999; font-size: 12px; margin: 16px 0 0; text-align: center;">Together we grow stronger!</p>
+  `));
+}
+
 export async function generateVoucherPdf(voucher: {
   id: string;
   title: string;

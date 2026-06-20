@@ -4,7 +4,7 @@ import { getSession, isAdmin, getDbRole, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
-import { notifyNewMemberRegistered, sendSuspensionEmail, sendReinstatementEmail } from "@/lib/mail";
+import { notifyNewMemberRegistered, sendSuspensionEmail, sendReinstatementEmail, sendMemberWelcomeEmail } from "@/lib/mail";
 import { sendTelegramMessage } from "@/lib/telegram";
 
 export async function PUT(req: NextRequest) {
@@ -74,6 +74,11 @@ export async function PUT(req: NextRequest) {
         }
       } catch {
         // Don't fail the approval if subscription creation fails
+      }
+
+      // Welcome the newly approved member directly (transactional, one-to-one)
+      if (userData?.email) {
+        sendMemberWelcomeEmail(userData.email, userData.name || "Member").catch(() => {});
       }
 
       // Notify all members about the new member (fire-and-forget)
