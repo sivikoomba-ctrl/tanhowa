@@ -638,6 +638,17 @@ export async function sendTeamWelcomeEmail(to: string, memberName: string, teamN
   `));
 }
 
+export async function sendBirthdayDigestEmail(to: string, dateStr: string, whatsappText: string) {
+  const safeText = escapeHtml(whatsappText);
+  await sendEmail(to, `Today's Birthdays (${dateStr}) - for the WhatsApp group`, wrapEmailTemplate(`
+    <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Today's Birthday List</h2>
+    <p style="color: #333; font-size: 14px; margin: 0 0 14px;">
+      Please <strong>copy the message below</strong> and paste it into the TANHOWA WhatsApp group.
+    </p>
+    <pre style="white-space: pre-wrap; word-wrap: break-word; font-family: inherit; background: #f6faf6; border: 1px solid #d6e8d6; border-radius: 8px; padding: 14px 16px; font-size: 14px; line-height: 1.5; color: #222; margin: 0;">${safeText}</pre>
+  `));
+}
+
 export async function generateVoucherPdf(voucher: {
   id: string;
   title: string;
