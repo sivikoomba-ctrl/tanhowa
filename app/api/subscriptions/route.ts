@@ -7,6 +7,7 @@ import { validate, subscriptionUpdateSchema } from "@/lib/validation";
 const SUBSCRIPTION_EXEMPT_EMAILS = [DEFAULT_ADMIN_EMAIL, "tanhowa19791@gmail.com"];
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { isFlexibleAmount } from "@/lib/subscriptions";
 import { logAudit } from "@/lib/audit-log";
 import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification, sendPaymentRejectionAlertEmail, notifyAdminProofSubmitted } from "@/lib/mail";
 import { notifyPaymentRejected } from "@/lib/telegram";
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
       if (memberUserId && isAdminGet) {
         const { data: memberSubs, error: memberSubError } = await supabase
           .from("subscriptions")
-          .select("id, period, amount, status, due_date, remarks, payment_proof_url, paid_amount, created_at, paid_at, transaction_id, payment_method, approved_at, approver:users!subscriptions_approved_by_fkey(name)")
+          .select("id, period, amount, status, due_date, remarks, payment_proof_url, paid_amount, created_at, paid_at, transaction_id, payment_method, approved_at, description, flexible_amount, approver:users!subscriptions_approved_by_fkey(name)")
           .eq("user_id", memberUserId)
           .order("created_at", { ascending: false });
         if (memberSubError) {
@@ -256,6 +257,8 @@ export async function POST(req: NextRequest) {
         amount: parseFloat(body.amount) || 0,
         due_date: body.due_date || null,
         status: "pending",
+        description: body.description || "",
+        flexible_amount: !!body.flexible,
       }));
 
       const { error } = await supabase.from("subscriptions").insert(rows);
@@ -444,14 +447,14 @@ export async function PUT(req: NextRequest) {
       if (body.remarks !== undefined) memberUpdates.remarks = body.remarks;
       if (body.payment_proof_url !== undefined) memberUpdates.payment_proof_url = body.payment_proof_url;
 
-      // Allow members to set amount on voluntary subscriptions
+      // Allow members to set amount on flexible/voluntary subscriptions
       if (body.amount !== undefined) {
         const { data: fullSub } = await supabase
           .from("subscriptions")
-          .select("period")
+          .select("period, flexible_amount")
           .eq("id", body.id)
           .single();
-        if (fullSub?.period?.toLowerCase().startsWith("volunteer")) {
+        if (isFlexibleAmount(fullSub || {})) {
           memberUpdates.amount = parseFloat(body.amount) || 0;
         }
       }

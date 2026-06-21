@@ -14,6 +14,7 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
 import { statusStyles } from "@/components/status-badge";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
+import { isFlexibleAmount } from "@/lib/subscriptions";
 import { PaymentProofPreviewDialog } from "@/components/payment-proof-preview-dialog";
 import { useT } from "@/lib/i18n";
 
@@ -49,6 +50,8 @@ interface Subscription {
   remarks: string | null;
   paid_amount: number | null;
   created_at: string;
+  description?: string | null;
+  flexible_amount?: boolean | null;
 }
 
 const statusIcons: Record<string, typeof CheckCircle2> = {
@@ -946,7 +949,7 @@ export default function SubscriptionsPage() {
                         <Badge variant="outline" className={config.color}>
                           {config.label}
                         </Badge>
-                        {sub.period.toLowerCase().startsWith("volunteer") && (
+                        {isFlexibleAmount(sub) && (
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">
                             {t("subs.voluntary")}
                           </Badge>
@@ -957,8 +960,15 @@ export default function SubscriptionsPage() {
                           </Badge>
                         )}
                       </div>
+                      {sub.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{sub.description}</p>
+                      )}
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-sm font-medium">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
+                        <span className="text-sm font-medium">
+                          {isFlexibleAmount(sub) && !sub.amount
+                            ? "Any amount"
+                            : <>&#8377;{sub.amount?.toLocaleString("en-IN") || 0}{isFlexibleAmount(sub) ? " (suggested)" : ""}</>}
+                        </span>
                         {sub.paid_amount && sub.paid_amount > (sub.amount || 0) && (
                           <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
                             +&#8377;{(sub.paid_amount - (sub.amount || 0)).toLocaleString("en-IN")} extra
@@ -1160,14 +1170,14 @@ export default function SubscriptionsPage() {
                     onChange={(e) => setDetailsForm({ ...detailsForm, amount: e.target.value })}
                     placeholder={extracting ? "Extracting from proof..." : "e.g. 3000"}
                   />
-                  {detailsSub.amount && detailsForm.amount && parseFloat(detailsForm.amount) !== detailsSub.amount && !detailsSub.period.toLowerCase().startsWith("volunteer") && (
+                  {detailsSub.amount && detailsForm.amount && parseFloat(detailsForm.amount) !== detailsSub.amount && !isFlexibleAmount(detailsSub) && (
                     <p className="text-xs text-amber-600 mt-1">
                       Subscription amount is &#8377;{detailsSub.amount.toLocaleString("en-IN")} — you entered &#8377;{parseFloat(detailsForm.amount).toLocaleString("en-IN")}
                     </p>
                   )}
-                  {detailsSub.period.toLowerCase().startsWith("volunteer") && (
+                  {isFlexibleAmount(detailsSub) && (
                     <p className="text-xs text-purple-600 mt-1">
-                      This is a voluntary contribution — you may enter any amount.
+                      This is a flexible contribution — you may enter any amount.
                     </p>
                   )}
                 </div>

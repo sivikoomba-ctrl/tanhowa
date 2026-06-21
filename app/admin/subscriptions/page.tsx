@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { isFlexibleAmount } from "@/lib/subscriptions";
 import { toast } from "sonner";
 import {
   Wallet,
@@ -61,6 +62,8 @@ interface Subscription {
   approved_at: string | null;
   paid_amount: number | null;
   payment_group_id: string | null;
+  description?: string | null;
+  flexible_amount?: boolean | null;
   created_at: string;
   updated_at: string;
   users?: { name: string; email: string; phone: string; posting_details?: { regular_district?: string } };
@@ -141,7 +144,7 @@ export default function AdminSubscriptionsPage() {
 
   // Special subscription dialog
   const [specialOpen, setSpecialOpen] = useState(false);
-  const [specialForm, setSpecialForm] = useState({ period: "For UATT 2.0 Case 2025", amount: "3000", due_date: "" });
+  const [specialForm, setSpecialForm] = useState({ period: "For UATT 2.0 Case 2025", amount: "3000", due_date: "", description: "", flexible: false });
   const [specialLoading, setSpecialLoading] = useState(false);
 
   // Past year subscription dialog
@@ -594,15 +597,17 @@ export default function AdminSubscriptionsPage() {
       body: JSON.stringify({
         action: "bulk-create",
         period: specialForm.period,
-        amount: parseFloat(specialForm.amount) || 3000,
+        amount: specialForm.flexible ? (parseFloat(specialForm.amount) || 0) : (parseFloat(specialForm.amount) || 3000),
         due_date: specialForm.due_date || null,
+        description: specialForm.description,
+        flexible: specialForm.flexible,
       }),
     });
     const data = await res.json();
     if (res.ok) {
       toast.success(`Created ${data.count} special subscription entries`);
       setSpecialOpen(false);
-      setSpecialForm({ period: "For UATT 2.0 Case 2025", amount: "3000", due_date: "" });
+      setSpecialForm({ period: "For UATT 2.0 Case 2025", amount: "3000", due_date: "", description: "", flexible: false });
       load();
     } else {
       toast.error(data.error || "Failed");
@@ -1240,14 +1245,35 @@ export default function AdminSubscriptionsPage() {
                   />
                 </div>
                 <div>
-                  <Label>Amount (&#8377;) *</Label>
+                  <Label>Description</Label>
+                  <Textarea
+                    value={specialForm.description}
+                    onChange={(e) => setSpecialForm({ ...specialForm, description: e.target.value })}
+                    placeholder="What is this contribution for? Shown to members on their subscription card."
+                    rows={2}
+                  />
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-accent"
+                    checked={specialForm.flexible}
+                    onChange={(e) => setSpecialForm({ ...specialForm, flexible: e.target.checked })}
+                  />
+                  <span className="text-sm">Flexible amount — let members enter any amount they wish to pay</span>
+                </label>
+                <div>
+                  <Label>{specialForm.flexible ? <>Suggested amount (&#8377;) &mdash; optional</> : <>Amount (&#8377;) *</>}</Label>
                   <Input
                     type="number"
                     value={specialForm.amount}
                     onChange={(e) => setSpecialForm({ ...specialForm, amount: e.target.value })}
-                    placeholder="3000"
-                    required
+                    placeholder={specialForm.flexible ? "Leave blank for no suggested amount" : "3000"}
+                    required={!specialForm.flexible}
                   />
+                  {specialForm.flexible && (
+                    <p className="text-xs text-purple-600 mt-1">Members can pay any amount; the suggested value is shown only as a hint.</p>
+                  )}
                 </div>
                 <div>
                   <Label>Due Date</Label>
@@ -1520,10 +1546,15 @@ export default function AdminSubscriptionsPage() {
                       <p className="text-xs text-muted-foreground truncate">{sub.users?.email} {sub.users?.phone && `| ${sub.users.phone}`}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
                         <Badge variant="secondary" className="text-xs">{sub.period}</Badge>
-                        {sub.period.toLowerCase().startsWith("volunteer") && (
-                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">Voluntary</Badge>
+                        {isFlexibleAmount(sub) && (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">Flexible</Badge>
                         )}
-                        <span className="text-sm font-semibold">&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</span>
+                        {sub.description && (
+                          <p className="basis-full text-xs text-muted-foreground">{sub.description}</p>
+                        )}
+                        <span className="text-sm font-semibold">
+                          {isFlexibleAmount(sub) && !sub.amount ? "Any amount" : <>&#8377;{sub.amount?.toLocaleString("en-IN") || 0}</>}
+                        </span>
                         {sub.paid_amount && sub.paid_amount > (sub.amount || 0) && (
                           <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
                             +&#8377;{(sub.paid_amount - (sub.amount || 0)).toLocaleString("en-IN")} extra
@@ -2374,10 +2405,10 @@ export default function AdminSubscriptionsPage() {
                       </div>
                       <div className="text-right shrink-0">
                         <Badge variant="secondary" className="text-[10px]">{sub.period}</Badge>
-                        {sub.period.toLowerCase().startsWith("volunteer") && (
-                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px] ml-1">Voluntary</Badge>
+                        {isFlexibleAmount(sub) && (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px] ml-1">Flexible</Badge>
                         )}
-                        <p className="text-xs font-semibold">&#8377;{sub.amount?.toLocaleString("en-IN")}</p>
+                        <p className="text-xs font-semibold">{isFlexibleAmount(sub) && !sub.amount ? "Any amount" : <>&#8377;{sub.amount?.toLocaleString("en-IN")}</>}</p>
                       </div>
                     </label>
                   ))
