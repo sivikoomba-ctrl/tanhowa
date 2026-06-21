@@ -17,6 +17,7 @@ interface Sub {
   period: string;
   amount: number;
   status: string;
+  payment_proof_url?: string | null;
 }
 
 interface Message {
@@ -137,7 +138,9 @@ export default function ChatbotWidget() {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         const subs: Sub[] = (data?.subscriptions || []).filter(
-          (s: Sub) => s.status === "pending" || s.status === "overdue"
+          // Pending/overdue AND no proof yet — once a proof is submitted it's awaiting
+          // verification, so don't nag the member about it as "pending".
+          (s: Sub) => (s.status === "pending" || s.status === "overdue") && !(s.payment_proof_url && s.payment_proof_url !== "")
         );
         setPendingSubs(subs);
       })
