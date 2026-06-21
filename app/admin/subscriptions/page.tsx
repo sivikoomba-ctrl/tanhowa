@@ -143,7 +143,7 @@ export default function AdminSubscriptionsPage() {
   const [districtLoading, setDistrictLoading] = useState(false);
 
   // Special subscription dialog
-  const [specialOpen, setSpecialOpen] = useState(false);
+  const [createType, setCreateType] = useState<"yearly" | "special">("yearly");
   const [specialForm, setSpecialForm] = useState({ period: "For UATT 2.0 Case 2025", amount: "3000", due_date: "", description: "", flexible: false });
   const [specialLoading, setSpecialLoading] = useState(false);
 
@@ -533,7 +533,7 @@ export default function AdminSubscriptionsPage() {
     const data = await res.json();
     if (res.ok) {
       toast.success(`Created ${data.count} special subscription entries`);
-      setSpecialOpen(false);
+      setBulkOpen(false);
       setSpecialForm({ period: "For UATT 2.0 Case 2025", amount: "3000", due_date: "", description: "", flexible: false });
       load();
     } else {
@@ -968,123 +968,133 @@ export default function AdminSubscriptionsPage() {
               </div>
             </DialogContent>
           </Dialog>
-          <Dialog open={specialOpen} onOpenChange={setSpecialOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="border-accent text-accent hover:bg-accent/10">
-                <Plus size={16} className="mr-1" />
-                Special Subscription
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create Special Subscription</DialogTitle>
-              </DialogHeader>
-              <p className="text-sm text-muted-foreground">This creates a pending special subscription entry for every approved member. Use for legal case funds, one-time levies, etc.</p>
-              <form onSubmit={handleSpecialCreate} className="space-y-4">
-                <div>
-                  <Label>Label *</Label>
-                  <Input
-                    value={specialForm.period}
-                    onChange={(e) => setSpecialForm({ ...specialForm, period: e.target.value })}
-                    placeholder="e.g. For UATT 2.0 Case 2025"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Description</Label>
-                  <Textarea
-                    value={specialForm.description}
-                    onChange={(e) => setSpecialForm({ ...specialForm, description: e.target.value })}
-                    placeholder="What is this contribution for? Shown to members on their subscription card."
-                    rows={2}
-                  />
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-accent"
-                    checked={specialForm.flexible}
-                    onChange={(e) => setSpecialForm({ ...specialForm, flexible: e.target.checked })}
-                  />
-                  <span className="text-sm">Flexible amount — let members enter any amount they wish to pay</span>
-                </label>
-                <div>
-                  <Label>{specialForm.flexible ? <>Suggested amount (&#8377;) &mdash; optional</> : <>Amount (&#8377;) *</>}</Label>
-                  <Input
-                    type="number"
-                    value={specialForm.amount}
-                    onChange={(e) => setSpecialForm({ ...specialForm, amount: e.target.value })}
-                    placeholder={specialForm.flexible ? "Leave blank for no suggested amount" : "3000"}
-                    required={!specialForm.flexible}
-                  />
-                  {specialForm.flexible && (
-                    <p className="text-xs text-purple-600 mt-1">Members can pay any amount; the suggested value is shown only as a hint.</p>
-                  )}
-                </div>
-                <div>
-                  <Label>Due Date</Label>
-                  <Input
-                    type="date"
-                    value={specialForm.due_date}
-                    onChange={(e) => setSpecialForm({ ...specialForm, due_date: e.target.value })}
-                  />
-                </div>
-                <Button type="submit" disabled={specialLoading} className="w-full bg-accent hover:bg-accent/90 text-white">
-                  {specialLoading ? "Creating..." : "Create for All Members"}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
           <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90">
                 <Plus size={16} className="mr-1" />
-                New Year Subscription
+                New Subscription
               </Button>
             </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Yearly Subscription</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">This creates a pending subscription entry for every approved member for the selected year.</p>
-            <form onSubmit={handleBulkCreate} className="space-y-4">
-              <div>
-                <Label>Year *</Label>
-                <Select value={bulkForm.period} onValueChange={(val) => setBulkForm({ ...bulkForm, period: val })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {yearOptions.map((y) => (
-                      <SelectItem key={y} value={y}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Subscription</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCreateType("yearly")}
+                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${createType === "yearly" ? "border-primary bg-primary/10 text-primary" : "border-input text-muted-foreground hover:bg-muted"}`}
+                >
+                  Yearly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateType("special")}
+                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${createType === "special" ? "border-accent bg-accent/10 text-accent" : "border-input text-muted-foreground hover:bg-muted"}`}
+                >
+                  Special
+                </button>
               </div>
-              <div>
-                <Label>Amount (&#8377;) *</Label>
-                <Input
-                  type="number"
-                  value={bulkForm.amount}
-                  onChange={(e) => setBulkForm({ ...bulkForm, amount: e.target.value })}
-                  placeholder="500"
-                  required
-                />
-              </div>
-              <div>
-                <Label>Due Date</Label>
-                <Input
-                  type="date"
-                  value={bulkForm.due_date}
-                  onChange={(e) => setBulkForm({ ...bulkForm, due_date: e.target.value })}
-                />
-              </div>
-              <Button type="submit" disabled={bulkLoading} className="w-full bg-primary hover:bg-primary/90">
-                {bulkLoading ? "Creating..." : "Create for All Members"}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+              {createType === "yearly" ? (
+                <>
+                  <p className="text-sm text-muted-foreground">This creates a pending subscription entry for every approved member for the selected year.</p>
+                  <form onSubmit={handleBulkCreate} className="space-y-4">
+                    <div>
+                      <Label>Year *</Label>
+                      <Select value={bulkForm.period} onValueChange={(val) => setBulkForm({ ...bulkForm, period: val })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {yearOptions.map((y) => (
+                            <SelectItem key={y} value={y}>{y}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Amount (&#8377;) *</Label>
+                      <Input
+                        type="number"
+                        value={bulkForm.amount}
+                        onChange={(e) => setBulkForm({ ...bulkForm, amount: e.target.value })}
+                        placeholder="500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label>Due Date</Label>
+                      <Input
+                        type="date"
+                        value={bulkForm.due_date}
+                        onChange={(e) => setBulkForm({ ...bulkForm, due_date: e.target.value })}
+                      />
+                    </div>
+                    <Button type="submit" disabled={bulkLoading} className="w-full bg-primary hover:bg-primary/90">
+                      {bulkLoading ? "Creating..." : "Create for All Members"}
+                    </Button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">This creates a pending special subscription entry for every approved member. Use for legal case funds, one-time levies, etc.</p>
+                  <form onSubmit={handleSpecialCreate} className="space-y-4">
+                    <div>
+                      <Label>Label *</Label>
+                      <Input
+                        value={specialForm.period}
+                        onChange={(e) => setSpecialForm({ ...specialForm, period: e.target.value })}
+                        placeholder="e.g. For UATT 2.0 Case 2025"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Textarea
+                        value={specialForm.description}
+                        onChange={(e) => setSpecialForm({ ...specialForm, description: e.target.value })}
+                        placeholder="What is this contribution for? Shown to members on their subscription card."
+                        rows={2}
+                      />
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-accent"
+                        checked={specialForm.flexible}
+                        onChange={(e) => setSpecialForm({ ...specialForm, flexible: e.target.checked })}
+                      />
+                      <span className="text-sm">Flexible amount — let members enter any amount they wish to pay</span>
+                    </label>
+                    <div>
+                      <Label>{specialForm.flexible ? <>Suggested amount (&#8377;) &mdash; optional</> : <>Amount (&#8377;) *</>}</Label>
+                      <Input
+                        type="number"
+                        value={specialForm.amount}
+                        onChange={(e) => setSpecialForm({ ...specialForm, amount: e.target.value })}
+                        placeholder={specialForm.flexible ? "Leave blank for no suggested amount" : "3000"}
+                        required={!specialForm.flexible}
+                      />
+                      {specialForm.flexible && (
+                        <p className="text-xs text-purple-600 mt-1">Members can pay any amount; the suggested value is shown only as a hint.</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>Due Date</Label>
+                      <Input
+                        type="date"
+                        value={specialForm.due_date}
+                        onChange={(e) => setSpecialForm({ ...specialForm, due_date: e.target.value })}
+                      />
+                    </div>
+                    <Button type="submit" disabled={specialLoading} className="w-full bg-accent hover:bg-accent/90 text-white">
+                      {specialLoading ? "Creating..." : "Create for All Members"}
+                    </Button>
+                  </form>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
