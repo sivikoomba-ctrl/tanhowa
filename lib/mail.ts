@@ -624,11 +624,14 @@ export async function sendMemberWelcomeEmail(to: string, memberName: string) {
 export async function sendTeamWelcomeEmail(to: string, memberName: string, teamName: string, isLead = false) {
   const safeName = escapeHtml(memberName || "Member");
   const safeTeam = escapeHtml(teamName || "a team");
+  // Avoid "Team team" — don't append "team" when the name already ends in it.
+  const endsWithTeam = /\bteam\s*$/i.test(teamName || "");
+  const teamPhrase = endsWithTeam ? safeTeam : `${safeTeam} team`;
   const roleLine = isLead
-    ? `You have been added as the <strong>Team Lead</strong> of <strong>${safeTeam}</strong>.`
-    : `You have been added to the <strong>${safeTeam}</strong> team.`;
+    ? `You have been added as the <strong>Team Lead</strong> of <strong>${teamPhrase}</strong>.`
+    : `You have been added to the <strong>${teamPhrase}</strong>.`;
   await sendEmail(to, `You have been added to ${teamName} - TANHOWA`, wrapEmailTemplate(`
-    <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Welcome to the ${safeTeam} team!</h2>
+    <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Welcome to the ${teamPhrase}!</h2>
     <p style="color: #333; font-size: 14px; margin: 0 0 16px;">Dear <strong>${safeName}</strong>,</p>
     <p style="color: #333; font-size: 14px; margin: 0 0 16px;">${roleLine} We look forward to your contributions.</p>
     <div style="text-align: center;">
