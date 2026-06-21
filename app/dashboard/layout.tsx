@@ -302,6 +302,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     prevPathnameRef.current = pathname;
   }, [pathname]);
 
+  // Hard-block the Elections area (manage / nominate / polling) for non-election users.
+  // Mirrors hasElectionAccess() server-side and the electionsOnly nav gate.
+  useEffect(() => {
+    if (!user) return;
+    const canElections = user.role === "super_admin" || user.official_type === "state" || user.email === "sivikoomba@gmail.com";
+    if (canElections) return;
+    const electionRoutes = ["/dashboard/elections", "/dashboard/nominate", "/dashboard/polling"];
+    if (electionRoutes.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
+      router.push("/dashboard");
+    }
+  }, [user, pathname, router]);
+
   // Poll notifications every 60 seconds
   useEffect(() => {
     const interval = setInterval(() => {

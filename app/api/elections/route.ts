@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, isSuperAdmin, getOfficialType, type SessionPayload } from "@/lib/auth";
+import { getSession, hasElectionAccess } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
-const ALLOWED_EMAILS = ["sivikoomba@gmail.com"];
 const POST_STATUSES = ["draft", "nominations_open", "voting_open", "closed"];
 const CANDIDATE_STATUSES = ["nominated", "approved", "withdrawn"];
-
-async function hasElectionAccess(session: SessionPayload) {
-  if (ALLOWED_EMAILS.includes(session.email)) return true;
-  if (await isSuperAdmin(session)) return true;
-  return (await getOfficialType(session.userId)) === "state";
-}
 
 export async function GET() {
   try {

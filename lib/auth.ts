@@ -163,6 +163,19 @@ export async function isSuperAdmin(session: SessionPayload | null): Promise<bool
 }
 
 /**
+ * Election management/participation access. The whole Elections area (manage,
+ * nominate, vote) is restricted to super_admins, state officials, and the owner.
+ * Keep this in sync with the `electionsOnly` nav gate in app/dashboard/layout.tsx.
+ */
+const ELECTION_ALLOWED_EMAILS = ["sivikoomba@gmail.com"];
+export async function hasElectionAccess(session: SessionPayload | null): Promise<boolean> {
+  if (!session) return false;
+  if (ELECTION_ALLOWED_EMAILS.includes(session.email)) return true;
+  if (await isSuperAdmin(session)) return true;
+  return (await getOfficialType(session.userId)) === "state";
+}
+
+/**
  * Check if a user is a member of the Finance Team.
  * Matches team name case-insensitively containing "finance".
  */

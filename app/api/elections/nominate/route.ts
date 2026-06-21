@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
+import { getSession, hasElectionAccess } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 
 interface MemberRow {
@@ -28,6 +28,7 @@ export async function GET() {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!(await hasElectionAccess(session))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const member = await getMember(session.userId);
     if (!member) return NextResponse.json({ error: "Member not found" }, { status: 404 });
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!(await hasElectionAccess(session))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const member = await getMember(session.userId);
     if (!member) return NextResponse.json({ error: "Member not found" }, { status: 404 });
@@ -137,6 +139,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!(await hasElectionAccess(session))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const supabase = getServiceClient();
     const id = new URL(req.url).searchParams.get("id");
