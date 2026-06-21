@@ -59,49 +59,95 @@ import { useT } from "@/lib/i18n";
 import { SettingsPopover } from "@/components/settings-popover";
 import { GlobalSearch } from "@/components/global-search";
 
-const adminNavItems = [
-  { href: "/admin", labelKey: "nav.dashboard" as const, icon: LayoutDashboard },
-  { href: "/admin/users", labelKey: "nav.member_approval" as const, icon: Users },
-  { href: "/admin/roster", labelKey: "nav.roster" as const, icon: ClipboardList },
-  { href: "/admin/officials", labelKey: "nav.officials" as const, icon: Crown },
-  { href: "/admin/photo-review", labelKey: "nav.photo_review" as const, icon: Camera },
-  { href: "/admin/teams", labelKey: "nav.teams" as const, icon: UsersRound },
-  { href: "/admin/group-chat", labelKey: "nav.group_chat" as const, icon: MessagesSquare },
-  { href: "/admin/announcements", labelKey: "nav.announcements" as const, icon: Megaphone },
-  { href: "/admin/events", labelKey: "nav.events" as const, icon: Calendar },
-  { href: "/admin/documents", labelKey: "nav.documents" as const, icon: FileText },
-  { href: "/admin/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
-  { href: "/admin/verify-payments", labelKey: "nav.verify_payments" as const, icon: ShieldCheck },
-  { href: "/admin/district-dues", labelKey: "nav.district_dues" as const, icon: Calculator },
-  { href: "/admin/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
-  { href: "/admin/polls", labelKey: "nav.polls" as const, icon: PieChart },
-  { href: "/admin/logo-vote", labelKey: "nav.logo_vote" as const, icon: Flower2 },
-  { href: "/admin/elections", labelKey: "nav.elections" as const, icon: Vote },
-  { href: "/admin/meetings", labelKey: "nav.meetings" as const, icon: Calendar },
-  { href: "/admin/todos", labelKey: "nav.todos" as const, icon: ListTodo },
-  { href: "/admin/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt },
-  { href: "/admin/contributions", labelKey: "nav.contributions" as const, icon: Award },
-  { href: "/admin/reports", labelKey: "nav.reports" as const, icon: BarChart3 },
-  { href: "/admin/district-benchmark", labelKey: "nav.district_benchmark" as const, icon: BarChart3 },
-  { href: "/admin/finance", labelKey: "nav.finance" as const, icon: Landmark },
-  { href: "/admin/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
-  { href: "/admin/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },
-  { href: "/admin/trainings", labelKey: "nav.trainings" as const, icon: GraduationCap },
-  { href: "/admin/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
-  { href: "/admin/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed },
-  { href: "/admin/special-tasks", labelKey: "nav.special_tasks" as const, icon: ClipboardCheck },
-  { href: "/admin/special-documents", labelKey: "nav.special_documents" as const, icon: FileText },
-  { href: "/admin/analytics", labelKey: "nav.analytics" as const, icon: Activity },
-  { href: "/admin/engagement", labelKey: "nav.engagement" as const, icon: TrendingUp },
-  { href: "/admin/at-risk-members", labelKey: "nav.at_risk" as const, icon: UserMinus },
-  { href: "/admin/digest", labelKey: "nav.digest" as const, icon: Mail },
-  { href: "/admin/why-ministry", labelKey: "nav.why_ministry" as const, icon: Sprout },
-  { href: "/admin/history", labelKey: "nav.history" as const, icon: HistoryIcon },
-  { href: "/admin/feedback-pulse", labelKey: "nav.feedback_pulse" as const, icon: MessageCircle },
-  { href: "/admin/pest-training", labelKey: "nav.pest_training" as const, icon: Bug },
-  { href: "/admin/audit-logs", labelKey: "nav.audit_log" as const, icon: ClipboardList },
-  { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
-  { href: "/admin/settings", labelKey: "nav.settings" as const, icon: Settings },
+const NAV_SECTIONS = [
+  {
+    titleKey: "nav.section.overview" as const,
+    items: [
+      { href: "/admin", labelKey: "nav.dashboard" as const, icon: LayoutDashboard },
+    ],
+  },
+  {
+    titleKey: "nav.section.members" as const,
+    items: [
+      { href: "/admin/users", labelKey: "nav.member_approval" as const, icon: Users },
+      { href: "/admin/roster", labelKey: "nav.roster" as const, icon: ClipboardList },
+      { href: "/admin/officials", labelKey: "nav.officials" as const, icon: Crown },
+      { href: "/admin/photo-review", labelKey: "nav.photo_review" as const, icon: Camera },
+      { href: "/admin/teams", labelKey: "nav.teams" as const, icon: UsersRound },
+      { href: "/admin/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
+    ],
+  },
+  {
+    titleKey: "nav.section.content" as const,
+    items: [
+      { href: "/admin/announcements", labelKey: "nav.announcements" as const, icon: Megaphone },
+      { href: "/admin/events", labelKey: "nav.events" as const, icon: Calendar },
+      { href: "/admin/group-chat", labelKey: "nav.group_chat" as const, icon: MessagesSquare },
+      { href: "/admin/meetings", labelKey: "nav.meetings" as const, icon: Calendar },
+      { href: "/admin/documents", labelKey: "nav.documents" as const, icon: FileText },
+      { href: "/admin/history", labelKey: "nav.history" as const, icon: HistoryIcon },
+    ],
+  },
+  {
+    titleKey: "nav.section.finance" as const,
+    items: [
+      { href: "/admin/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
+      { href: "/admin/verify-payments", labelKey: "nav.verify_payments" as const, icon: ShieldCheck },
+      { href: "/admin/district-dues", labelKey: "nav.district_dues" as const, icon: Calculator },
+      { href: "/admin/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt },
+      { href: "/admin/finance", labelKey: "nav.finance" as const, icon: Landmark },
+    ],
+  },
+  {
+    titleKey: "nav.section.governance" as const,
+    items: [
+      { href: "/admin/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
+      { href: "/admin/polls", labelKey: "nav.polls" as const, icon: PieChart },
+      { href: "/admin/logo-vote", labelKey: "nav.logo_vote" as const, icon: Flower2 },
+      { href: "/admin/elections", labelKey: "nav.elections" as const, icon: Vote },
+    ],
+  },
+  {
+    titleKey: "nav.section.engagement" as const,
+    items: [
+      { href: "/admin/todos", labelKey: "nav.todos" as const, icon: ListTodo },
+      { href: "/admin/trainings", labelKey: "nav.trainings" as const, icon: GraduationCap },
+      { href: "/admin/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },
+      { href: "/admin/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed },
+      { href: "/admin/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
+      { feedbackGroup: true as const },
+      { href: "/admin/contributions", labelKey: "nav.contributions" as const, icon: Award },
+    ],
+  },
+  {
+    titleKey: "nav.section.insights" as const,
+    items: [
+      { href: "/admin/reports", labelKey: "nav.reports" as const, icon: BarChart3 },
+      { href: "/admin/district-benchmark", labelKey: "nav.district_benchmark" as const, icon: BarChart3 },
+      { href: "/admin/analytics", labelKey: "nav.analytics" as const, icon: Activity },
+      { href: "/admin/engagement", labelKey: "nav.engagement" as const, icon: TrendingUp },
+      { href: "/admin/at-risk-members", labelKey: "nav.at_risk" as const, icon: UserMinus },
+      { href: "/admin/feedback-pulse", labelKey: "nav.feedback_pulse" as const, icon: MessageCircle },
+      { href: "/admin/digest", labelKey: "nav.digest" as const, icon: Mail },
+    ],
+  },
+  {
+    titleKey: "nav.section.owner" as const,
+    items: [
+      { href: "/admin/special-tasks", labelKey: "nav.special_tasks" as const, icon: ClipboardCheck },
+      { href: "/admin/special-documents", labelKey: "nav.special_documents" as const, icon: FileText },
+      { href: "/admin/why-ministry", labelKey: "nav.why_ministry" as const, icon: Sprout },
+      { href: "/admin/pest-training", labelKey: "nav.pest_training" as const, icon: Bug },
+    ],
+  },
+  {
+    titleKey: "nav.section.system" as const,
+    items: [
+      { href: "/admin/audit-logs", labelKey: "nav.audit_log" as const, icon: ClipboardList },
+      { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
+      { href: "/admin/settings", labelKey: "nav.settings" as const, icon: Settings },
+    ],
+  },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -180,101 +226,104 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ];
   const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);
 
+  function isNavItemVisible(href: string) {
+    const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks", "/admin/logo-vote", "/admin/pest-training"];
+    if (superAdminOnly.includes(href)) return user?.role === "super_admin";
+    if (href === "/admin/elections") return user?.role === "super_admin" || user?.official_type === "state" || user?.email === "sivikoomba@gmail.com";
+    if (href === "/admin/special-documents") return user?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/analytics") return user?.email === "tanhowa19791@gmail.com" || user?.email === "tanhowaadmin@tanhowa.in";
+    if (href === "/admin/engagement") return user?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/at-risk-members") return user?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/digest") return user?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/meetings") return user?.role === "super_admin" || user?.official_type === "state";
+    if (href === "/admin/photo-review") return user?.role === "super_admin" || user?.official_type === "state";
+    if (href === "/admin/why-ministry") return user?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/history") return user?.role === "admin" || user?.role === "super_admin";
+    if (href === "/admin/feedback-pulse") return user?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/vouchers") return user?.role === "super_admin" || isFinanceTeam;
+    return true;
+  }
+
   function NavLinks({ onItemClick }: { onItemClick?: () => void }) {
+    function renderItem(item: { href: string; labelKey: Parameters<typeof t>[0]; icon: typeof LayoutDashboard }) {
+      const isActive = pathname === item.href;
+      const showBadge = (item.href === "/admin/users" && pendingCount > 0) || (item.href === "/admin/error-logs" && errorCount > 0);
+      const badgeCount = item.href === "/admin/users" ? pendingCount : errorCount;
+      const badgeColor = item.href === "/admin/error-logs" ? "bg-red-500" : "bg-amber-500";
+      return (
+        <Link
+          key={item.href}
+          href={item.href}
+          onClick={onItemClick}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isActive
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          }`}
+        >
+          <item.icon size={18} />
+          <span className="flex-1">{t(item.labelKey)}</span>
+          {showBadge && (
+            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full ${badgeColor} text-white`}>
+              {badgeCount}
+            </span>
+          )}
+        </Link>
+      );
+    }
+
+    const feedbackGroupJsx = (
+      <div key="feedback-group">
+        <button
+          onClick={() => setFeedbackOpen(!feedbackOpen)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isFeedbackActive && !feedbackOpen
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          }`}
+        >
+          <MessageCircle size={18} />
+          <span className="flex-1 text-left">{t("nav.feedback")}</span>
+          <ChevronDown size={14} className={`transition-transform ${feedbackOpen ? "rotate-180" : ""}`} />
+        </button>
+        {feedbackOpen && (
+          <div className="ml-4 space-y-0.5 mt-0.5">
+            {feedbackItems.map((fi) => (
+              <Link
+                key={fi.href}
+                href={fi.href}
+                onClick={onItemClick}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  pathname === fi.href
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                }`}
+              >
+                <fi.icon size={16} />
+                {t(fi.labelKey)}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+
     return (
       <>
-        {adminNavItems.filter((item) => {
-          const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks", "/admin/logo-vote", "/admin/pest-training"];
-          if (superAdminOnly.includes(item.href)) return user?.role === "super_admin";
-          if (item.href === "/admin/elections") return user?.role === "super_admin" || user?.official_type === "state" || user?.email === "sivikoomba@gmail.com";
-          if (item.href === "/admin/special-documents") return user?.email === "tanhowa19791@gmail.com";
-          if (item.href === "/admin/analytics") return user?.email === "tanhowa19791@gmail.com" || user?.email === "tanhowaadmin@tanhowa.in";
-          if (item.href === "/admin/engagement") return user?.email === "tanhowa19791@gmail.com";
-          if (item.href === "/admin/at-risk-members") return user?.email === "tanhowa19791@gmail.com";
-          if (item.href === "/admin/digest") return user?.email === "tanhowa19791@gmail.com";
-          if (item.href === "/admin/meetings") return user?.role === "super_admin" || user?.official_type === "state";
-          if (item.href === "/admin/photo-review") return user?.role === "super_admin" || user?.official_type === "state";
-          if (item.href === "/admin/why-ministry") return user?.email === "tanhowa19791@gmail.com";
-          if (item.href === "/admin/history") return user?.role === "admin" || user?.role === "super_admin";
-          if (item.href === "/admin/feedback-pulse") return user?.email === "tanhowa19791@gmail.com";
-          if (item.href === "/admin/vouchers") return user?.role === "super_admin" || isFinanceTeam;
-          return true;
-        }).map((item) => {
-          const isActive = pathname === item.href;
-          const showBadge = (item.href === "/admin/users" && pendingCount > 0) || (item.href === "/admin/error-logs" && errorCount > 0);
-          const badgeCount = item.href === "/admin/users" ? pendingCount : errorCount;
-          const badgeColor = item.href === "/admin/error-logs" ? "bg-red-500" : "bg-amber-500";
-
-          // Insert Feedback group before Subscriptions
-          if (item.href === "/admin/subscriptions") {
-            return (
-              <div key="feedback-group">
-                <button
-                  onClick={() => setFeedbackOpen(!feedbackOpen)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isFeedbackActive && !feedbackOpen
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                  }`}
-                >
-                  <MessageCircle size={18} />
-                  <span className="flex-1 text-left">{t("nav.feedback")}</span>
-                  <ChevronDown size={14} className={`transition-transform ${feedbackOpen ? "rotate-180" : ""}`} />
-                </button>
-                {feedbackOpen && (
-                  <div className="ml-4 space-y-0.5 mt-0.5">
-                    {feedbackItems.map((fi) => (
-                      <Link
-                        key={fi.href}
-                        href={fi.href}
-                        onClick={onItemClick}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          pathname === fi.href
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                        }`}
-                      >
-                        <fi.icon size={16} />
-                        {t(fi.labelKey)}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                <Link
-                  href={item.href}
-                  onClick={onItemClick}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                  }`}
-                >
-                  <item.icon size={18} />
-                  <span className="flex-1">{t(item.labelKey)}</span>
-                </Link>
-              </div>
-            );
-          }
-
+        {NAV_SECTIONS.map((section) => {
+          const visible = section.items.filter((item) =>
+            "feedbackGroup" in item ? true : isNavItemVisible(item.href)
+          );
+          if (visible.length === 0) return null;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onItemClick}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-              }`}
-            >
-              <item.icon size={18} />
-              <span className="flex-1">{t(item.labelKey)}</span>
-              {showBadge && (
-                <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full ${badgeColor} text-white`}>
-                  {badgeCount}
-                </span>
+            <div key={section.titleKey} className="space-y-0.5">
+              <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+                {t(section.titleKey)}
+              </p>
+              {visible.map((item) =>
+                "feedbackGroup" in item ? feedbackGroupJsx : renderItem(item)
               )}
-            </Link>
+            </div>
           );
         })}
       </>
