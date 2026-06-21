@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, Save, Calculator, ScanLine, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
@@ -1093,17 +1093,23 @@ export default function SubscriptionsPage() {
 
       {/* QR Code Zoom Dialog */}
       <Dialog open={qrZoom} onOpenChange={setQrZoom}>
-        <DialogContent className="max-w-sm p-4">
-          <DialogHeader>
-            <DialogTitle className="text-center">Scan to Pay</DialogTitle>
-          </DialogHeader>
-          {qrUrl && (
-            <div className="bg-white rounded-xl p-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qrUrl} alt="Payment QR Code" className="w-full h-auto" />
-            </div>
-          )}
-          <p className="text-xs text-center text-muted-foreground">Open your payment app and scan this QR code</p>
+        <DialogContent showCloseButton={false} className="max-w-sm p-0 gap-0 max-h-[90vh] flex flex-col">
+          <div className="flex shrink-0 items-center justify-between border-b bg-background px-4 py-3">
+            <DialogTitle className="text-base">Scan to Pay</DialogTitle>
+            <DialogClose className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+              <X size={18} />
+              <span className="sr-only">Close</span>
+            </DialogClose>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {qrUrl && (
+              <div className="bg-white rounded-xl p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={qrUrl} alt="Payment QR Code" className="w-full h-auto" />
+              </div>
+            )}
+            <p className="mt-3 text-center text-xs text-muted-foreground">Open your payment app and scan this QR code</p>
+          </div>
         </DialogContent>
       </Dialog>
 
