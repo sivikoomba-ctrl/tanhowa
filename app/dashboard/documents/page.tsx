@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { FileText, Download, Upload, Search, FolderLock, Filter, Link, FileUp, X, Eye } from "lucide-react";
+import { FileText, Download, Upload, Search, FolderLock, Filter, Link, FileUp, X, Eye, Folder, Inbox, ChevronLeft } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 
@@ -36,12 +36,22 @@ interface Document {
   category: string;
   approved: boolean;
   summary?: string;
+  folder_id: string | null;
   created_at: string;
   users?: { name: string };
 }
 
+interface Folder {
+  id: string;
+  name: string;
+  description: string;
+  doc_count: number;
+}
+
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [activeFolder, setActiveFolder] = useState<string | null>(null); // null = landing; "all"; "unfiled"; or folder id
   const [form, setForm] = useState({ title: "", description: "", file_url: "", file_type: "", category: "" });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -58,6 +68,10 @@ export default function DocumentsPage() {
       .then((r) => r.json())
       .then((d) => setDocuments(d.documents || []))
       .catch(() => toast.error("Failed to load documents"));
+    fetch("/api/document-folders")
+      .then((r) => r.json())
+      .then((d) => setFolders(d.folders || []))
+      .catch(() => {});
   }
 
   useEffect(() => {
@@ -66,6 +80,9 @@ export default function DocumentsPage() {
 
   const filtered = useMemo(() => {
     return documents.filter((doc) => {
+      // Folder scope
+      if (activeFolder === "unfiled") { if (doc.folder_id) return false; }
+      else if (activeFolder && activeFolder !== "all") { if (doc.folder_id !== activeFolder) return false; }
       const matchesSearch =
         !searchQuery ||
         doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -74,7 +91,14 @@ export default function DocumentsPage() {
       const matchesCategory = filterCategory === "all" || doc.category === filterCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [documents, searchQuery, filterCategory]);
+  }, [documents, searchQuery, filterCategory, activeFolder]);
+
+  const unfiledDocs = useMemo(() => documents.filter((d) => !d.folder_id), [documents]);
+  const folderDocCount = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const d of documents) if (d.folder_id) m[d.folder_id] = (m[d.folder_id] || 0) + 1;
+    return m;
+  }, [documents]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -360,6 +384,37 @@ export default function DocumentsPage() {
         </Dialog>
       </div>
 
+      {/* Folder grid landing */}
+      {activeFolder === null && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <button onClick={() => setActiveFolder("all")} className="text-left rounded-2xl border p-4 hover:border-primary hover:shadow-sm transition bg-card">
+            <FileText className="w-7 h-7 text-primary mb-2" />
+            <p className="font-semibold text-sm">{t("doc.all_documents")}</p>
+            <p className="text-xs text-muted-foreground">{documents.length} {documents.length !== 1 ? t("doc.docs") : t("doc.doc")}</p>
+          </button>
+          {folders.map((f) => (
+            <button key={f.id} onClick={() => setActiveFolder(f.id)} className="text-left rounded-2xl border p-4 hover:border-primary hover:shadow-sm transition bg-card">
+              <Folder className="w-7 h-7 text-primary mb-2" />
+              <p className="font-semibold text-sm truncate">{f.name}</p>
+              <p className="text-xs text-muted-foreground">{folderDocCount[f.id] || 0} {(folderDocCount[f.id] || 0) !== 1 ? t("doc.docs") : t("doc.doc")}</p>
+              {f.description && <p className="text-[11px] text-muted-foreground/80 mt-1 line-clamp-2">{f.description}</p>}
+            </button>
+          ))}
+          {unfiledDocs.length > 0 && (
+            <button onClick={() => setActiveFolder("unfiled")} className="text-left rounded-2xl border border-dashed p-4 hover:border-primary hover:shadow-sm transition bg-card">
+              <Inbox className="w-7 h-7 text-muted-foreground mb-2" />
+              <p className="font-semibold text-sm">{t("doc.unfiled")}</p>
+              <p className="text-xs text-muted-foreground">{unfiledDocs.length} {unfiledDocs.length !== 1 ? t("doc.docs") : t("doc.doc")}</p>
+            </button>
+          )}
+        </div>
+      )}
+
+      {activeFolder !== null && (<>
+      <button onClick={() => { setActiveFolder(null); setSearchQuery(""); setFilterCategory("all"); }} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
+        <ChevronLeft size={14} /> {t("doc.all_folders")}
+      </button>
+
       {/* Search & Filter Bar */}
       <Card>
         <CardContent className="pt-4">
@@ -490,6 +545,7 @@ export default function DocumentsPage() {
           ))}
         </div>
       )}
+      </>)}
     </div>
   );
 }

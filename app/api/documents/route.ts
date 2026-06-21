@@ -100,8 +100,27 @@ export async function GET(req: NextRequest) {
         ...(teamAccessRows || []).map((r: { document_id: string }) => r.document_id),
       ]);
 
-      // Filter: show docs with visibility=all OR docs specifically assigned to this user/team
-      const filteredDocuments = (allApproved || []).filter((d: { id: string; visibility?: string }) => {
+      // Compute which folders this member can access (folder governs its documents)
+      const { data: allFolders } = await supabase.from("document_folders").select("id, visibility");
+      const [{ data: folderUserAccess }, { data: folderTeamAccess }] = await Promise.all([
+        supabase.from("folder_access").select("folder_id").eq("user_id", session.userId),
+        myTeamIds.length > 0
+          ? supabase.from("folder_access").select("folder_id").in("team_id", myTeamIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+      const accessibleFolderIds = new Set<string>([
+        ...((allFolders || []) as { id: string; visibility?: string }[])
+          .filter((f) => !f.visibility || f.visibility === "all")
+          .map((f) => f.id),
+        ...(folderUserAccess || []).map((r: { folder_id: string }) => r.folder_id),
+        ...(folderTeamAccess || []).map((r: { folder_id: string }) => r.folder_id),
+      ]);
+
+      // Filter:
+      //  - Foldered docs: visible only if the member can access the folder (folder governs).
+      //  - Unfiled docs: existing per-document visibility (all OR assigned to user/team).
+      const filteredDocuments = (allApproved || []).filter((d: { id: string; visibility?: string; folder_id?: string | null }) => {
+        if (d.folder_id) return accessibleFolderIds.has(d.folder_id);
         if (!d.visibility || d.visibility === "all") return true;
         return accessibleDocIds.has(d.id);
       });
@@ -154,6 +173,7 @@ export async function POST(req: NextRequest) {
         uploaded_by: session.userId,
         approved: role === "admin" || role === "super_admin",
         visibility,
+        folder_id: body.folder_id || null,
       })
       .select()
       .single();
@@ -256,6 +276,7 @@ export async function PUT(req: NextRequest) {
     const update: Record<string, unknown> = {};
     if (body.approved !== undefined) update.approved = body.approved;
     if (body.visibility !== undefined) update.visibility = body.visibility;
+    if (body.folder_id !== undefined) update.folder_id = body.folder_id || null;
     if (body.title !== undefined) update.title = body.title;
     if (body.description !== undefined) update.description = body.description;
     if (body.file_url !== undefined) {
