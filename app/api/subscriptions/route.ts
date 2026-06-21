@@ -257,57 +257,6 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ message: `Created ${newUsers.length} subscriptions`, count: newUsers.length });
-    } else if (body.action === "past-create") {
-      // Create subscriptions for selected members (past year entries)
-      const userIds: string[] = body.user_ids;
-      if (!userIds || userIds.length === 0) {
-        return NextResponse.json({ error: "No members selected" }, { status: 400 });
-      }
-      if (!body.period) {
-        return NextResponse.json({ error: "Year is required" }, { status: 400 });
-      }
-
-      // Filter out members who already have a subscription for this period
-      const { data: existing } = await supabase
-        .from("subscriptions")
-        .select("user_id")
-        .eq("period", body.period)
-        .in("user_id", userIds);
-
-      const existingIds = new Set((existing || []).map((s: { user_id: string }) => s.user_id));
-      const newUserIds = userIds.filter((id: string) => !existingIds.has(id));
-
-      if (newUserIds.length === 0) {
-        return NextResponse.json({ error: "All selected members already have subscriptions for this period" }, { status: 400 });
-      }
-
-      const isPaid = body.status === "paid";
-      const rows = newUserIds.map((uid: string) => ({
-        user_id: uid,
-        period: body.period,
-        amount: parseFloat(body.amount) || 0,
-        due_date: body.due_date || null,
-        status: isPaid ? "paid" : "pending",
-        paid_at: isPaid ? (body.paid_at || new Date().toISOString()) : null,
-        remarks: body.remarks || null,
-        payment_proof_url: body.payment_proof_url || null,
-        approved_by: isPaid ? session.userId : null,
-        approved_at: isPaid ? new Date().toISOString() : null,
-      }));
-
-      const { error } = await supabase.from("subscriptions").insert(rows);
-
-      if (error) {
-        await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
-        return NextResponse.json({ error: "Failed to create subscriptions" }, { status: 500 });
-      }
-
-      const skipped = userIds.length - newUserIds.length;
-      return NextResponse.json({
-        message: `Created ${newUserIds.length} subscription(s)${skipped > 0 ? ` (${skipped} already existed)` : ""}`,
-        count: newUserIds.length,
-        skipped,
-      });
     } else if (body.action === "notify-member") {
       if (!body.subscription_id || !body.message) {
         return NextResponse.json({ error: "Subscription ID and message are required" }, { status: 400 });
