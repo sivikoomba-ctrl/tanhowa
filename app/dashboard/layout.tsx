@@ -416,14 +416,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ];
     const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);
 
-    const electionItems = [
-      { href: "/dashboard/elections", labelKey: "nav.elections" as const, icon: Vote, electionsOnly: true },
+    // The entire Elections section (Elections / Nominate / Polling) is hidden from
+    // regular members — only election admins (super_admin / state official / owner) see it.
+    const hasElectionAccess = user?.role === "super_admin" || user?.official_type === "state" || user?.email === "sivikoomba@gmail.com";
+    const electionItems = hasElectionAccess ? [
+      { href: "/dashboard/elections", labelKey: "nav.elections" as const, icon: Vote },
       { href: "/dashboard/nominate", labelKey: "nav.nominate" as const, icon: ClipboardCheck },
       { href: "/dashboard/polling", labelKey: "nav.polling" as const, icon: TrendingUp },
-    ].filter((item) => {
-      if ("electionsOnly" in item && item.electionsOnly && !(user?.role === "super_admin" || user?.official_type === "state" || user?.email === "sivikoomba@gmail.com")) return false;
-      return true;
-    });
+    ] : [];
     const isElectionsActive = electionItems.some((i) => pathname === i.href);
 
     return (
