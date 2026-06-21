@@ -93,38 +93,75 @@ function hasTitle(name: string): boolean {
   return TITLE_PREFIXES.some((t) => upper.startsWith(t));
 }
 
-const navItems = [
-  { href: "/dashboard", labelKey: "nav.overview" as const, icon: Home },
-  { href: "/dashboard/profile", labelKey: "nav.profile" as const, icon: User },
-  { href: "/dashboard/members", labelKey: "nav.members" as const, icon: Users },
-  { href: "/dashboard/officials", labelKey: "nav.officials" as const, icon: Crown },
-  { href: "/dashboard/teams", labelKey: "nav.teams" as const, icon: UsersRound },
-  { href: "/dashboard/messages", labelKey: "nav.messages" as const, icon: MessageSquarePlus },
-  { href: "/dashboard/group-chat", labelKey: "nav.group_chat" as const, icon: MessagesSquare },
-  { href: "/dashboard/announcements", labelKey: "nav.announcements" as const, icon: Megaphone },
-  { href: "/dashboard/events", labelKey: "nav.events" as const, icon: Calendar },
-  { href: "/dashboard/calendar", labelKey: "nav.calendar" as const, icon: CalendarDays },
-  { href: "/dashboard/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
-  { href: "/dashboard/polls", labelKey: "nav.polls" as const, icon: BarChart3 },
-  { href: "/dashboard/documents", labelKey: "nav.documents" as const, icon: FileText },
-  { href: "/dashboard/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
-  { href: "/dashboard/payment-status", labelKey: "nav.payment_status" as const, icon: IndianRupee },
-  { href: "/dashboard/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt, officialOnly: true },
-  { href: "/dashboard/letters", labelKey: "nav.letters" as const, icon: FileSignature, superAdminOnly: true },
-  { href: "/dashboard/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
-  { href: "/dashboard/todos", labelKey: "nav.todos" as const, icon: ListTodo },
-  { href: "/dashboard/activity", labelKey: "nav.my_activity" as const, icon: Activity },
-  { href: "/dashboard/achievements", labelKey: "nav.achievements" as const, icon: Trophy },
-  { href: "/dashboard/contributions", labelKey: "nav.contributions" as const, icon: Award },
-  { href: "/dashboard/finance", labelKey: "nav.finance" as const, icon: Landmark },
-  { href: "/dashboard/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },
-  { href: "/dashboard/trainings", labelKey: "nav.trainings" as const, icon: GraduationCap },
-  { href: "/dashboard/ai-tools", labelKey: "nav.ai_tools" as const, icon: Sparkles },
-  { href: "/dashboard/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
-  { href: "/dashboard/history", labelKey: "nav.history" as const, icon: HistoryIcon },
-  { href: "/dashboard/telegram", labelKey: "nav.telegram" as const, icon: Send },
-  { href: "/dashboard/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed, superAdminOnly: true },
-  { href: "/dashboard/project-h", labelKey: "nav.project_h" as const, icon: Lock, projectHOnly: true },
+const MEMBER_NAV_SECTIONS = [
+  {
+    titleKey: "nav.section.overview" as const,
+    items: [
+      { href: "/dashboard", labelKey: "nav.overview" as const, icon: Home },
+      { href: "/dashboard/profile", labelKey: "nav.profile" as const, icon: User },
+    ],
+  },
+  {
+    titleKey: "nav.section.community" as const,
+    items: [
+      { href: "/dashboard/members", labelKey: "nav.members" as const, icon: Users },
+      { href: "/dashboard/officials", labelKey: "nav.officials" as const, icon: Crown },
+      { href: "/dashboard/teams", labelKey: "nav.teams" as const, icon: UsersRound },
+      { href: "/dashboard/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
+    ],
+  },
+  {
+    titleKey: "nav.section.content" as const,
+    items: [
+      { href: "/dashboard/messages", labelKey: "nav.messages" as const, icon: MessageSquarePlus },
+      { href: "/dashboard/group-chat", labelKey: "nav.group_chat" as const, icon: MessagesSquare },
+      { href: "/dashboard/announcements", labelKey: "nav.announcements" as const, icon: Megaphone },
+      { href: "/dashboard/events", labelKey: "nav.events" as const, icon: Calendar },
+      { href: "/dashboard/calendar", labelKey: "nav.calendar" as const, icon: CalendarDays },
+      { href: "/dashboard/documents", labelKey: "nav.documents" as const, icon: FileText },
+      { href: "/dashboard/history", labelKey: "nav.history" as const, icon: HistoryIcon },
+      { href: "/dashboard/telegram", labelKey: "nav.telegram" as const, icon: Send },
+    ],
+  },
+  {
+    titleKey: "nav.section.finance" as const,
+    items: [
+      { href: "/dashboard/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
+      { href: "/dashboard/payment-status", labelKey: "nav.payment_status" as const, icon: IndianRupee },
+      { href: "/dashboard/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt, officialOnly: true },
+      { href: "/dashboard/finance", labelKey: "nav.finance" as const, icon: Landmark },
+    ],
+  },
+  {
+    titleKey: "nav.section.participation" as const,
+    items: [
+      { href: "/dashboard/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
+      { href: "/dashboard/polls", labelKey: "nav.polls" as const, icon: BarChart3 },
+      { electionsGroup: true as const },
+      { feedbackGroup: true as const },
+      { href: "/dashboard/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },
+    ],
+  },
+  {
+    titleKey: "nav.section.my_activity" as const,
+    items: [
+      { href: "/dashboard/todos", labelKey: "nav.todos" as const, icon: ListTodo },
+      { href: "/dashboard/activity", labelKey: "nav.my_activity" as const, icon: Activity },
+      { href: "/dashboard/achievements", labelKey: "nav.achievements" as const, icon: Trophy },
+      { href: "/dashboard/contributions", labelKey: "nav.contributions" as const, icon: Award },
+    ],
+  },
+  {
+    titleKey: "nav.section.tools" as const,
+    items: [
+      { href: "/dashboard/ai-tools", labelKey: "nav.ai_tools" as const, icon: Sparkles },
+      { href: "/dashboard/trainings", labelKey: "nav.trainings" as const, icon: GraduationCap },
+      { href: "/dashboard/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
+      { href: "/dashboard/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed, superAdminOnly: true },
+      { href: "/dashboard/letters", labelKey: "nav.letters" as const, icon: FileSignature, superAdminOnly: true },
+      { href: "/dashboard/project-h", labelKey: "nav.project_h" as const, icon: Lock, projectHOnly: true },
+    ],
+  },
 ];
 
 // Generic placeholder names that should be treated as "no real name entered"
@@ -438,139 +475,131 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ] : [];
     const isElectionsActive = electionItems.some((i) => pathname === i.href);
 
+    function isItemVisible(item: { href: string; superAdminOnly?: boolean; officialOnly?: boolean; projectHOnly?: boolean }) {
+      if (item.superAdminOnly && user?.role !== "super_admin") return false;
+      if (item.officialOnly && !(user?.official_type === "state" || user?.official_type === "district" || user?.role === "admin" || user?.role === "super_admin")) return false;
+      if (item.projectHOnly && !isProjectH) return false;
+      return true;
+    }
+
+    function renderItem(item: { href: string; labelKey: Parameters<typeof t>[0]; icon: typeof Home }) {
+      const isActive = pathname === item.href;
+      return (
+        <Link
+          key={item.href}
+          href={item.href}
+          onClick={onItemClick}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isActive
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          }`}
+        >
+          <item.icon size={18} />
+          <span className="flex-1">{t(item.labelKey)}</span>
+          {item.href === "/dashboard/messages" && unreadMessages > 0 && (
+            <span className="min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">
+              {unreadMessages > 99 ? "99+" : unreadMessages}
+            </span>
+          )}
+        </Link>
+      );
+    }
+
+    const electionsGroupJsx = (
+      <div key="elections-group">
+        <button
+          onClick={() => setElectionsOpen(!electionsOpen)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isElectionsActive && !electionsOpen
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          }`}
+        >
+          <Vote size={18} />
+          <span className="flex-1 text-left">{t("nav.elections_group")}</span>
+          <ChevronDown size={14} className={`transition-transform ${electionsOpen ? "rotate-180" : ""}`} />
+        </button>
+        {electionsOpen && (
+          <div className="ml-4 space-y-0.5 mt-0.5">
+            {electionItems.map((ei) => (
+              <Link
+                key={ei.href}
+                href={ei.href}
+                onClick={onItemClick}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  pathname === ei.href
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                }`}
+              >
+                <ei.icon size={16} />
+                {t(ei.labelKey)}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+
+    const feedbackGroupJsx = (
+      <div key="feedback-group">
+        <button
+          onClick={() => setFeedbackOpen(!feedbackOpen)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isFeedbackActive && !feedbackOpen
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          }`}
+        >
+          <MessageCircle size={18} />
+          <span className="flex-1 text-left">{t("nav.feedback")}</span>
+          <ChevronDown size={14} className={`transition-transform ${feedbackOpen ? "rotate-180" : ""}`} />
+        </button>
+        {feedbackOpen && (
+          <div className="ml-4 space-y-0.5 mt-0.5">
+            {feedbackItems.map((fi) => (
+              <Link
+                key={fi.href}
+                href={fi.href}
+                onClick={onItemClick}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  pathname === fi.href
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                }`}
+              >
+                <fi.icon size={16} />
+                {t(fi.labelKey)}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+
     return (
       <>
-        {navItems.filter((item) => {
-          if ("superAdminOnly" in item && item.superAdminOnly && user?.role !== "super_admin") return false;
-          if ("officialOnly" in item && item.officialOnly && !(user?.official_type === "state" || user?.official_type === "district" || user?.role === "admin" || user?.role === "super_admin")) return false;
-          if ("projectHOnly" in item && item.projectHOnly && !isProjectH) return false;
-          if ("electionsOnly" in item && item.electionsOnly && !(user?.role === "super_admin" || user?.official_type === "state" || user?.email === "sivikoomba@gmail.com")) return false;
-          return true;
-        }).map((item) => {
-          const isActive = pathname === item.href;
-          // Insert Elections group (Election / Nomination / Polling) before Document Vault
-          if (item.href === "/dashboard/documents" && electionItems.length > 0) {
-            return (
-              <div key="elections-group">
-                {/* Elections collapsible */}
-                <button
-                  onClick={() => setElectionsOpen(!electionsOpen)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isElectionsActive && !electionsOpen
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                  }`}
-                >
-                  <Vote size={18} />
-                  <span className="flex-1 text-left">{t("nav.elections_group")}</span>
-                  <ChevronDown size={14} className={`transition-transform ${electionsOpen ? "rotate-180" : ""}`} />
-                </button>
-                {electionsOpen && (
-                  <div className="ml-4 space-y-0.5 mt-0.5">
-                    {electionItems.map((ei) => (
-                      <Link
-                        key={ei.href}
-                        href={ei.href}
-                        onClick={onItemClick}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          pathname === ei.href
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                        }`}
-                      >
-                        <ei.icon size={16} />
-                        {t(ei.labelKey)}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                {/* Document Vault (the current item) */}
-                <Link
-                  href={item.href}
-                  onClick={onItemClick}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                  }`}
-                >
-                  <item.icon size={18} />
-                  {t(item.labelKey)}
-                </Link>
-              </div>
-            );
-          }
-          // Insert Feedback group after Document Vault
-          if (item.href === "/dashboard/subscriptions") {
-            return (
-              <div key="feedback-group">
-                {/* Feedback collapsible */}
-                <button
-                  onClick={() => setFeedbackOpen(!feedbackOpen)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isFeedbackActive && !feedbackOpen
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                  }`}
-                >
-                  <MessageCircle size={18} />
-                  <span className="flex-1 text-left">{t("nav.feedback")}</span>
-                  <ChevronDown size={14} className={`transition-transform ${feedbackOpen ? "rotate-180" : ""}`} />
-                </button>
-                {feedbackOpen && (
-                  <div className="ml-4 space-y-0.5 mt-0.5">
-                    {feedbackItems.map((fi) => (
-                      <Link
-                        key={fi.href}
-                        href={fi.href}
-                        onClick={onItemClick}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          pathname === fi.href
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                        }`}
-                      >
-                        <fi.icon size={16} />
-                        {t(fi.labelKey)}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                {/* Subscriptions (the current item) */}
-                <Link
-                  href={item.href}
-                  onClick={onItemClick}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                  }`}
-                >
-                  <item.icon size={18} />
-                  {t(item.labelKey)}
-                </Link>
-              </div>
-            );
-          }
+        {MEMBER_NAV_SECTIONS.map((section) => {
+          const visible = section.items.filter((item) => {
+            if ("electionsGroup" in item) return electionItems.length > 0;
+            if ("feedbackGroup" in item) return true;
+            return isItemVisible(item);
+          });
+          if (visible.length === 0) return null;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onItemClick}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-              }`}
-            >
-              <item.icon size={18} />
-              <span className="flex-1">{t(item.labelKey)}</span>
-              {item.href === "/dashboard/messages" && unreadMessages > 0 && (
-                <span className="min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">
-                  {unreadMessages > 99 ? "99+" : unreadMessages}
-                </span>
+            <div key={section.titleKey} className="space-y-0.5">
+              <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+                {t(section.titleKey)}
+              </p>
+              {visible.map((item) =>
+                "electionsGroup" in item
+                  ? electionsGroupJsx
+                  : "feedbackGroup" in item
+                    ? feedbackGroupJsx
+                    : renderItem(item)
               )}
-            </Link>
+            </div>
           );
         })}
         {(user?.role === "admin" || user?.role === "super_admin" || isFinanceTeam) && (
