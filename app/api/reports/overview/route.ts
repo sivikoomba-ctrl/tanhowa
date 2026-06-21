@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { isGrievanceCategory, hasGrievanceAccess } from "@/lib/grievances";
+import { fetchAllRows } from "@/lib/supabase-helpers";
 
 export async function GET() {
   try {
@@ -13,13 +14,14 @@ export async function GET() {
 
     const supabase = getServiceClient();
 
-    // Run all queries in parallel
+    // Run all queries in parallel. Tables that can exceed 1000 rows (subscriptions,
+    // todos) are paged via fetchAllRows so client-side counts/sums don't truncate.
     const [
       membersRes,
       pendingRes,
       activeRes,
-      subsRes,
-      tasksByStatusRes,
+      subs,
+      taskStatuses,
       grievancesRes,
       contributionsRes,
     ] = await Promise.all([
@@ -32,10 +34,12 @@ export async function GET() {
         .eq("status", "approved")
         .neq("email", "tanhowa19791@gmail.com")
         .gte("last_active_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-      // Subscriptions summary
-      supabase.from("subscriptions").select("status, amount, period"),
-      // Tasks by status
-      supabase.from("todos").select("status"),
+      // Subscriptions summary (all rows, paged)
+      fetchAllRows<{ status: string; amount: number; period: string }>((f, t) =>
+        supabase.from("subscriptions").select("status, amount, period").range(f, t)),
+      // Tasks by status (all rows, paged)
+      fetchAllRows<{ status: string }>((f, t) =>
+        supabase.from("todos").select("status").range(f, t)),
       // Grievances/suggestions
       supabase.from("grievances").select("id, category, status, district", { count: "exact" }),
       // Contributions this month
@@ -50,7 +54,6 @@ export async function GET() {
     const newMembersThisMonth = members.filter(m => new Date(m.created_at) >= monthStart).length;
 
     // Subscription stats by period
-    const subs = subsRes.data || [];
     const periodStats = new Map<string, { paid: number; pending: number; overdue: number; hold: number; rejected: number; collected: number }>();
     for (const s of subs) {
       if (!periodStats.has(s.period)) periodStats.set(s.period, { paid: 0, pending: 0, overdue: 0, hold: 0, rejected: 0, collected: 0 });
@@ -69,7 +72,6 @@ export async function GET() {
     const collectionRate = subs.length > 0 ? Math.round((subs.filter(s => s.status === "paid").length / subs.length) * 100) : 0;
 
     // Task stats
-    const taskStatuses = (tasksByStatusRes.data || []);
     const taskBreakdown: Record<string, number> = {};
     for (const t of taskStatuses) {
       taskBreakdown[t.status] = (taskBreakdown[t.status] || 0) + 1;

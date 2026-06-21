@@ -8,6 +8,7 @@ const SUBSCRIPTION_EXEMPT_EMAILS = [DEFAULT_ADMIN_EMAIL, "tanhowa19791@gmail.com
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { isFlexibleAmount } from "@/lib/subscriptions";
+import { fetchAllRows } from "@/lib/supabase-helpers";
 import { logAudit } from "@/lib/audit-log";
 import { sendSubscriptionApprovedEmail, notifyPaymentVerified, sendSubscriptionNotification, sendPaymentRejectionAlertEmail, notifyAdminProofSubmitted } from "@/lib/mail";
 import { notifyPaymentRejected } from "@/lib/telegram";
@@ -103,14 +104,14 @@ export async function GET(req: NextRequest) {
       if (notPaid) query = query.in("status", ["pending", "overdue"]);
       if (hasProof) query = query.gt("payment_proof_url", "").in("status", ["pending", "overdue"]).not("remarks", "ilike", "Verified by%").not("remarks", "ilike", "Provisionally approved.%").not("remarks", "ilike", "Approved.%");
 
-      const [{ data: subscriptions, count: totalCount, error: subError }, paidRes, pendingRes, overdueRes, rejectedRes, holdRes, proofUploadedRes] = await Promise.all([
+      const isDist = isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet;
+
+      // Stats are computed over ALL subscriptions (paged past the 1000-row cap),
+      // never from the limited display page — otherwise counts/amounts truncate.
+      const [{ data: subscriptions, count: totalCount, error: subError }, allStatsRows] = await Promise.all([
         query,
-        supabase.from("subscriptions").select("amount").eq("status", "paid"),
-        supabase.from("subscriptions").select("amount").eq("status", "pending"),
-        supabase.from("subscriptions").select("amount").eq("status", "overdue"),
-        supabase.from("subscriptions").select("amount").eq("status", "rejected"),
-        supabase.from("subscriptions").select("amount").eq("status", "hold"),
-        supabase.from("subscriptions").select("amount").gt("payment_proof_url", "").in("status", ["pending", "overdue"]).not("remarks", "ilike", "Verified by%").not("remarks", "ilike", "Provisionally approved.%").not("remarks", "ilike", "Approved.%"),
+        fetchAllRows<{ status: string; amount: number; remarks: string | null; payment_proof_url: string | null }>((f, t) =>
+          supabase.from("subscriptions").select("status, amount, remarks, payment_proof_url").range(f, t)),
       ]);
 
       if (subError) {
@@ -118,53 +119,40 @@ export async function GET(req: NextRequest) {
       }
 
       let visibleSubscriptions = subscriptions || [];
-      if (isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet) {
+      if (isDist) {
         visibleSubscriptions = visibleSubscriptions.filter((sub) => {
           const user = sub.users as { posting_details?: { regular_district?: string } | null } | null;
           return user?.posting_details?.regular_district === officialGet.district;
         });
       }
 
-      const sumOf = (rows: { amount: number }[] | null) => (rows || []).reduce((s, r) => s + (r.amount || 0), 0);
-
-      const totalCollected = isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet
-        ? visibleSubscriptions.filter((sub) => sub.status === "paid").reduce((sum, sub) => sum + (sub.amount || 0), 0)
-        : sumOf(paidRes.data as { amount: number }[]);
-
-      const isDist = isDistrictOfficialGet && !isAdminGet && !isStateOfficialGet;
       const dsExclude = (sub: { remarks?: string | null }) => !(sub.remarks && (sub.remarks.startsWith("Verified by") || sub.remarks.startsWith("Provisionally approved.") || sub.remarks.startsWith("Approved.")));
 
-      const stats = isDist
-        ? {
-            paid: visibleSubscriptions.filter((s) => s.status === "paid").length,
-            paidAmount: visibleSubscriptions.filter((s) => s.status === "paid").reduce((t, s) => t + (s.amount || 0), 0),
-            pending: visibleSubscriptions.filter((s) => s.status === "pending").length,
-            pendingAmount: visibleSubscriptions.filter((s) => s.status === "pending").reduce((t, s) => t + (s.amount || 0), 0),
-            overdue: visibleSubscriptions.filter((s) => s.status === "overdue").length,
-            overdueAmount: visibleSubscriptions.filter((s) => s.status === "overdue").reduce((t, s) => t + (s.amount || 0), 0),
-            rejected: visibleSubscriptions.filter((s) => s.status === "rejected").length,
-            rejectedAmount: visibleSubscriptions.filter((s) => s.status === "rejected").reduce((t, s) => t + (s.amount || 0), 0),
-            hold: visibleSubscriptions.filter((s) => s.status === "hold").length,
-            holdAmount: visibleSubscriptions.filter((s) => s.status === "hold").reduce((t, s) => t + (s.amount || 0), 0),
-            proofUploaded: visibleSubscriptions.filter((s) => s.payment_proof_url && s.payment_proof_url !== "" && ["pending", "overdue"].includes(s.status) && dsExclude(s)).length,
-            proofUploadedAmount: visibleSubscriptions.filter((s) => s.payment_proof_url && s.payment_proof_url !== "" && ["pending", "overdue"].includes(s.status) && dsExclude(s)).reduce((t, s) => t + (s.amount || 0), 0),
-            totalCollected,
-          }
-        : {
-            paid: (paidRes.data || []).length,
-            paidAmount: sumOf(paidRes.data as { amount: number }[]),
-            pending: (pendingRes.data || []).length,
-            pendingAmount: sumOf(pendingRes.data as { amount: number }[]),
-            overdue: (overdueRes.data || []).length,
-            overdueAmount: sumOf(overdueRes.data as { amount: number }[]),
-            rejected: (rejectedRes.data || []).length,
-            rejectedAmount: sumOf(rejectedRes.data as { amount: number }[]),
-            hold: (holdRes.data || []).length,
-            holdAmount: sumOf(holdRes.data as { amount: number }[]),
-            proofUploaded: (proofUploadedRes.data || []).length,
-            proofUploadedAmount: sumOf(proofUploadedRes.data as { amount: number }[]),
-            totalCollected,
-          };
+      // District officials see their own district only (display page is district-sized, under the cap);
+      // everyone else gets association-wide stats from the full paged dataset.
+      const statsRows: { status: string; amount: number; remarks?: string | null; payment_proof_url?: string | null }[] =
+        isDist ? visibleSubscriptions : allStatsRows;
+      const sumAmt = (rows: { amount?: number }[]) => rows.reduce((t, s) => t + (s.amount || 0), 0);
+      const byStatus = (st: string) => statsRows.filter((s) => s.status === st);
+      const proofRows = statsRows.filter((s) => s.payment_proof_url && s.payment_proof_url !== "" && ["pending", "overdue"].includes(s.status) && dsExclude(s));
+
+      const totalCollected = sumAmt(byStatus("paid"));
+
+      const stats = {
+        paid: byStatus("paid").length,
+        paidAmount: sumAmt(byStatus("paid")),
+        pending: byStatus("pending").length,
+        pendingAmount: sumAmt(byStatus("pending")),
+        overdue: byStatus("overdue").length,
+        overdueAmount: sumAmt(byStatus("overdue")),
+        rejected: byStatus("rejected").length,
+        rejectedAmount: sumAmt(byStatus("rejected")),
+        hold: byStatus("hold").length,
+        holdAmount: sumAmt(byStatus("hold")),
+        proofUploaded: proofRows.length,
+        proofUploadedAmount: sumAmt(proofRows),
+        totalCollected,
+      };
 
       return NextResponse.json({
         subscriptions: visibleSubscriptions,
