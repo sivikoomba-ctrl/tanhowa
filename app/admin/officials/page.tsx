@@ -45,6 +45,8 @@ export default function AdminOfficialsPage() {
   const [tab, setTab] = useState("state");
   const [showAdd, setShowAdd] = useState(false);
   const [addType, setAddType] = useState<"state" | "district" | "volunteer">("state");
+  // When adding a district official, which designation to apply (DS / DJS) at add-time.
+  const [addDesignation, setAddDesignation] = useState<string>("");
   const [memberSearch, setMemberSearch] = useState("");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
@@ -122,7 +124,7 @@ export default function AdminOfficialsPage() {
       .filter((u) => !q || (u.name || "").toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.occupation?.toLowerCase().includes(q));
   }, [users, memberSearch, addType, isDistrictOfficial, isSuperOrState, callerDistrict]);
 
-  async function handleSetOfficial(userId: string, officialType: string | null) {
+  async function handleSetOfficial(userId: string, officialType: string | null, designation = "") {
     // Volunteer: send invite instead of direct assignment
     if (officialType === "volunteer") {
       const res = await fetch("/api/volunteer-invites", {
@@ -147,7 +149,18 @@ export default function AdminOfficialsPage() {
       body: JSON.stringify({ userId, action: "set-official", officialType }),
     });
     if (res.ok) {
-      const label = officialType === "state" ? "State Official" : officialType === "district" ? "District-Admin" : "regular member";
+      // District officials are added WITH their DS/DJS designation in the same step,
+      // so they're never left half-set (official_type but no designation).
+      if (officialType === "district" && designation) {
+        await fetch("/api/admin/users", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, action: "set-tanhowa-designation", designation }),
+        });
+      }
+      const label = officialType === "state" ? "State Official"
+        : officialType === "district" ? (designation || "District-Admin")
+        : "regular member";
       toast.success(`Set as ${label}`);
       loadUsers();
       setShowAdd(false);
@@ -173,8 +186,9 @@ export default function AdminOfficialsPage() {
     }
   }
 
-  function openAddDialog(type: "state" | "district" | "volunteer") {
+  function openAddDialog(type: "state" | "district" | "volunteer", designation = "") {
     setAddType(type);
+    setAddDesignation(designation);
     setMemberSearch("");
     setShowAdd(true);
   }
@@ -218,9 +232,14 @@ export default function AdminOfficialsPage() {
 
         {/* District Officials */}
         <TabsContent value="district" className="mt-4 space-y-4">
-          <Button onClick={() => openAddDialog("district")} className="bg-blue-600 hover:bg-blue-700">
-            <Plus size={16} className="mr-1" />Add District Official
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => openAddDialog("district", "District Secretary")} className="bg-blue-600 hover:bg-blue-700">
+              <Plus size={16} className="mr-1" />Add District Secretary
+            </Button>
+            <Button onClick={() => openAddDialog("district", "District Joint Secretary")} className="bg-teal-600 hover:bg-teal-700">
+              <Plus size={16} className="mr-1" />Add District Joint Secretary
+            </Button>
+          </div>
           {districtOfficials.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No District Officials designated</p>
           ) : (
@@ -276,7 +295,7 @@ export default function AdminOfficialsPage() {
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add {addType === "state" ? "State" : addType === "district" ? "District" : "Volunteer"} {addType === "volunteer" ? "Admin" : "Official"}</DialogTitle>
+            <DialogTitle>Add {addType === "state" ? "State Official" : addType === "district" ? (addDesignation || "District Official") : "Volunteer Admin"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="relative">
@@ -311,8 +330,8 @@ export default function AdminOfficialsPage() {
                     </div>
                     <Button
                       size="sm"
-                      onClick={() => handleSetOfficial(u.id, addType)}
-                      className={addType === "state" ? "bg-purple-600 hover:bg-purple-700" : addType === "volunteer" ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}
+                      onClick={() => handleSetOfficial(u.id, addType, addDesignation)}
+                      className={addType === "state" ? "bg-purple-600 hover:bg-purple-700" : addType === "volunteer" ? "bg-green-600 hover:bg-green-700" : addDesignation === "District Joint Secretary" ? "bg-teal-600 hover:bg-teal-700" : "bg-blue-600 hover:bg-blue-700"}
                     >
                       {addType === "volunteer" ? "Invite" : "Add"}
                     </Button>
