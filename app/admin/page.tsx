@@ -157,7 +157,7 @@ export default function AdminDashboard() {
             <span className="font-medium text-primary">
               {adminUser.role === "super_admin" ? "State-Admin" :
                adminUser.official_type === "state" ? "State Official" :
-               adminUser.official_type === "district" ? "District-Admin" :
+               adminUser.official_type === "district" ? (adminUser.posting_details?.official_designation || "District-Admin") :
                adminUser.official_type === "volunteer" ? "District Active Volunteer Admin" :
                "Admin"}
             </span>

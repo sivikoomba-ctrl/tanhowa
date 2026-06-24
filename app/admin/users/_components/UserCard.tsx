@@ -11,6 +11,7 @@ import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface PostingDetails {
+  official_designation?: string;
   regular_district?: string;
   regular_block?: string;
   special_duty_district?: string;
@@ -169,7 +170,7 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
               )}
               {u.official_type === "district" && (
                 <Badge className="text-xs bg-blue-600 hover:bg-blue-600 text-white">
-                  <Building2 size={10} className="mr-1" />District-Admin
+                  <Building2 size={10} className="mr-1" />{u.posting_details?.official_designation || "District-Admin"}
                 </Badge>
               )}
               {u.official_type === "volunteer" && (
