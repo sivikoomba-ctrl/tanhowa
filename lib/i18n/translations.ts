@@ -49,6 +49,7 @@ const translations = {
   "nav.section.participation": { en: "Participation", ta: "பங்கேற்பு" },
   "nav.section.my_activity": { en: "My Activity", ta: "என் செயல்பாடு" },
   "nav.section.tools": { en: "Tools & Learning", ta: "கருவிகள் & கற்றல்" },
+  "nav.section.exclusive": { en: "TANHOWA Exclusive", ta: "TANHOWA பிரத்யேகம்" },
   "nav.suggestions": { en: "Suggestions", ta: "பரிந்துரைகள்" },
   "nav.service_requests": { en: "Service Requests", ta: "சேவை கோரிக்கைகள்" },
   "nav.special_tasks": { en: "Special Tasks", ta: "சிறப்பு பணிகள்" },

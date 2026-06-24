@@ -103,7 +103,6 @@ const NAV_SECTIONS = [
     items: [
       { href: "/admin/resolutions", labelKey: "nav.resolutions" as const, icon: Vote },
       { href: "/admin/polls", labelKey: "nav.polls" as const, icon: PieChart },
-      { href: "/admin/logo-vote", labelKey: "nav.logo_vote" as const, icon: Flower2 },
       { href: "/admin/elections", labelKey: "nav.elections" as const, icon: Vote },
     ],
   },
@@ -124,27 +123,28 @@ const NAV_SECTIONS = [
     items: [
       { href: "/admin/reports", labelKey: "nav.reports" as const, icon: BarChart3 },
       { href: "/admin/district-benchmark", labelKey: "nav.district_benchmark" as const, icon: BarChart3 },
-      { href: "/admin/analytics", labelKey: "nav.analytics" as const, icon: Activity },
-      { href: "/admin/engagement", labelKey: "nav.engagement" as const, icon: TrendingUp },
-      { href: "/admin/at-risk-members", labelKey: "nav.at_risk" as const, icon: UserMinus },
-      { href: "/admin/feedback-pulse", labelKey: "nav.feedback_pulse" as const, icon: MessageCircle },
-      { href: "/admin/digest", labelKey: "nav.digest" as const, icon: Mail },
     ],
   },
   {
-    titleKey: "nav.section.owner" as const,
+    titleKey: "nav.section.exclusive" as const,
     items: [
+      { href: "/admin/feedback-pulse", labelKey: "nav.feedback_pulse" as const, icon: MessageCircle },
+      { href: "/admin/analytics", labelKey: "nav.analytics" as const, icon: Activity },
+      { href: "/admin/engagement", labelKey: "nav.engagement" as const, icon: TrendingUp },
+      { href: "/admin/at-risk-members", labelKey: "nav.at_risk" as const, icon: UserMinus },
+      { href: "/admin/digest", labelKey: "nav.digest" as const, icon: Mail },
       { href: "/admin/special-tasks", labelKey: "nav.special_tasks" as const, icon: ClipboardCheck },
       { href: "/admin/special-documents", labelKey: "nav.special_documents" as const, icon: FileText },
       { href: "/admin/why-ministry", labelKey: "nav.why_ministry" as const, icon: Sprout },
       { href: "/admin/pest-training", labelKey: "nav.pest_training" as const, icon: Bug },
+      { href: "/admin/logo-vote", labelKey: "nav.logo_vote" as const, icon: Flower2 },
+      { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
     ],
   },
   {
     titleKey: "nav.section.system" as const,
     items: [
       { href: "/admin/audit-logs", labelKey: "nav.audit_log" as const, icon: ClipboardList },
-      { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
       { href: "/admin/settings", labelKey: "nav.settings" as const, icon: Settings },
     ],
   },
