@@ -68,6 +68,27 @@ for (const d of TN_DISTRICTS) {
 }
 
 const today = new Date().toISOString().slice(0, 10);
+
+// --json: emit structured data (consumed by tools/generate_ds_djs_coverage_pdf.py)
+if (process.argv.includes("--json")) {
+  const districts = TN_DISTRICTS.map(d => ({
+    district: d,
+    ds: byDistrict[d].ds.map(u => u.name),
+    djs: byDistrict[d].djs.map(u => u.name),
+    gap: byDistrict[d].ds.length === 0 && byDistrict[d].djs.length === 0,
+  }));
+  process.stdout.write(JSON.stringify({
+    date: today,
+    totalDistricts: TN_DISTRICTS.length,
+    dsCount, djsCount,
+    covered: TN_DISTRICTS.length - gap.length,
+    stateOfficials: stateOfficials.map(s => ({ name: s.name, occupation: s.occupation, email: s.email })),
+    districts,
+    fullCover, dsOnly, djsOnly, gap,
+  }, null, 2));
+  process.exit(0);
+}
+
 console.log("=== TANHOWA DS/DJS COVERAGE REPORT ===");
 console.log(`Date: ${today}`);
 console.log();
