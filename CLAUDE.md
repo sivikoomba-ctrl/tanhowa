@@ -643,7 +643,7 @@ Beyond yearly subscriptions (period = "2025", "2026"), admins can create special
 - **Legal case fund:** e.g., "For UATT 2.0 Case 2025" at Rs.3000 — mandatory for all members
 - **Voluntary contributions:** Period starts with "Volunteer" (e.g., "Volunteer Special Contribution 2026 (VSC 2026)") — members can set their own amount
 
-Admin creates via "Special Subscription" button on `/admin/subscriptions`. District report column headers auto-shorten special periods (strips "For " prefix and " Case YYYY" suffix).
+Admin creates via the single **"New Subscription"** button on `/admin/subscriptions` — one dialog with a **Yearly / Special** toggle (`createType` state); Yearly → `handleBulkCreate`, Special → `handleSpecialCreate` (the two were merged from separate buttons). District report column headers auto-shorten special periods (strips "For " prefix and " Case YYYY" suffix).
 
 The create dialog also has an optional **Description** (`subscriptions.description`, shown on the member's subscription card) and a **Flexible amount** checkbox (`subscriptions.flexible_amount`). Schema: `supabase/subscription_description_flexible.sql`. Flexibility is resolved by **`lib/subscriptions.ts:isFlexibleAmount(sub)`** = `flexible_amount === true` OR period starts with "Volunteer" (backward compat) — use this helper everywhere instead of re-checking the period string; when flexible, members may enter any amount and the amount-mismatch warning is suppressed (member edit allowed server-side in the PUT handler gated on the same helper).
 
@@ -1289,8 +1289,8 @@ Member service request submission system.
 2. Create API route at `app/api/<feature>/route.ts` — follow `app/api/grievances/route.ts` as a template
 3. Create member page at `app/dashboard/<feature>/page.tsx`
 4. Create admin page at `app/admin/<feature>/page.tsx`
-5. Add nav item with icon to `app/dashboard/layout.tsx` (`navItems` array). If the feature is gated behind the 12-field mandatory profile completion check, no extra wiring needed — the layout already redirects incomplete profiles. If owner-only, gate it on `session.email === "tanhowa19791@gmail.com"`.
-6. Add nav item with icon to `app/admin/layout.tsx` (`adminNavItems` array)
+5. Add nav item with icon to `app/dashboard/layout.tsx` — the member sidebar is grouped into labelled sections (`MEMBER_NAV_SECTIONS`); add the item to the relevant section's `items` array, not a flat list. Section headers auto-hide when no child is visible to the current role. If the feature is gated behind the 12-field mandatory profile completion check, no extra wiring needed — the layout already redirects incomplete profiles. If owner-only, gate it on `session.email === "tanhowa19791@gmail.com"`.
+6. Add nav item with icon to `app/admin/layout.tsx` — the admin sidebar is likewise grouped (`NAV_SECTIONS`); add to the right section's `items`. Per-item visibility lives in `isNavItemVisible(href)` (admin) / `isItemVisible(item)` (member) — add a role/email check there if the item is restricted. The collapsible Feedback (and member-side Elections) sub-groups are rendered via `{ feedbackGroup: true }` / `{ electionsGroup: true }` sentinels inside a section's `items`.
 7. Add UI strings to `lib/i18n/translations.ts` (EN + TA) and consume via `useT()` — never hardcode user-visible text
 8. For user-generated content: call `translateContent("<table>", id, { field1, field2 })` from POST/PUT handlers (fire-and-forget) and accept `?lang=ta` on GET via `getTranslations()`. See Content Auto-Translation
 9. Add any needed shadcn components: `npx shadcn@latest add <component>`
