@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/supabase-helpers";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
@@ -207,15 +208,19 @@ export async function PUT(req: NextRequest) {
       const { data: idea } = await supabase.from("wishlist_ideas").select("*").eq("id", id).single();
       if (!idea) return NextResponse.json({ error: "Idea not found" }, { status: 404 });
 
-      // Generate event_id
-      const { data: allTasks } = await supabase
-        .from("todos")
-        .select("event_id")
-        .like("event_id", "ET-%")
-        .is("parent_id", null);
+      // Generate event_id (page past the 1000-row cap — a single select() truncates
+      // at 1000 rows and generates a duplicate event_id once tasks exceed 1000)
+      const allTasks = await fetchAllRows<{ event_id: string | null }>((from, to) =>
+        supabase
+          .from("todos")
+          .select("event_id")
+          .is("parent_id", null)
+          .like("event_id", "ET-%")
+          .range(from, to)
+      );
 
       let maxNum = 0;
-      for (const t of allTasks || []) {
+      for (const t of allTasks) {
         const match = t.event_id?.match(/^ET-(\d+)$/);
         if (match) {
           const num = parseInt(match[1], 10);

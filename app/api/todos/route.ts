@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/supabase-helpers";
 import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
@@ -181,14 +182,22 @@ export async function POST(req: NextRequest) {
       }
       eventId = `${parent.event_id}-${String(maxNum + 1).padStart(2, "0")}`;
     } else {
-      // Top-level task: find max existing ET-XXX number globally
-      const { data: allTasks } = await supabase
-        .from("todos")
-        .select("event_id")
-        .like("event_id", "ET-%");
+      // Top-level task: find max existing ET-XXX number globally.
+      // PostgREST caps reads at 1000 rows; with 2500+ top-level tasks a single
+      // capped select() computes a stale max and generates an already-used
+      // event_id that the unique constraint rejects ("Failed to submit task").
+      // Page through every top-level ET-XXX row instead.
+      const allTasks = await fetchAllRows<{ event_id: string | null }>((from, to) =>
+        supabase
+          .from("todos")
+          .select("event_id")
+          .is("parent_id", null)
+          .like("event_id", "ET-%")
+          .range(from, to)
+      );
 
       let maxNum = 0;
-      for (const t of allTasks || []) {
+      for (const t of allTasks) {
         const match = t.event_id?.match(/^ET-(\d+)$/);
         if (match) {
           const num = parseInt(match[1], 10);
@@ -437,13 +446,17 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ error: "Task not found" }, { status: 404 });
       }
 
-      // Generate new event_id
-      const { data: allTasks } = await supabase
-        .from("todos")
-        .select("event_id")
-        .like("event_id", "ET-%");
+      // Generate new event_id (page past the 1000-row cap — see POST handler note)
+      const allTasks = await fetchAllRows<{ event_id: string | null }>((from, to) =>
+        supabase
+          .from("todos")
+          .select("event_id")
+          .is("parent_id", null)
+          .like("event_id", "ET-%")
+          .range(from, to)
+      );
       let maxNum = 0;
-      for (const t of allTasks || []) {
+      for (const t of allTasks) {
         const match = t.event_id?.match(/^ET-(\d+)$/);
         if (match) {
           const num = parseInt(match[1], 10);
