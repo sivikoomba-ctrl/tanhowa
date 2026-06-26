@@ -10,6 +10,7 @@ import { sendMemberMessageEmail } from "@/lib/mail";
 import { logAudit } from "@/lib/audit-log";
 import { isFinanceTeamMember } from "@/lib/auth";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { approveMember, rejectMember } from "@/lib/member-approval";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -480,6 +481,44 @@ export async function nudgeMember(ctx: QueryContext, args: { name?: string; type
   return { sent: true, to: member.name, channels: { email: ok, telegram: tg }, type, message: `Reminder sent to ${member.name}${tg ? " (email + Telegram)" : " (email)"}.` };
 }
 
+// Admin action: approve or reject a PENDING member registration by name.
+// Reuses the shared approveMember/rejectMember so it matches the admin UI exactly.
+export async function approveRegistration(ctx: QueryContext, args: { name?: string; action?: string }) {
+  const actor = await resolveActor(ctx);
+  if (!actor.isAdmin) return { error: "Only admins can approve or reject registrations." };
+
+  const action = (args.action || "approve").toLowerCase();
+  if (!["approve", "reject"].includes(action)) return { error: "Action must be 'approve' or 'reject'." };
+
+  const name = (args.name || "").trim();
+  if (!name) return { error: "Tell me which pending member (a name)." };
+
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("users")
+    .select("id, name, email, occupation, posting_details")
+    .eq("status", "pending")
+    .ilike("name", `%${name}%`)
+    .limit(6);
+  const people = data || [];
+
+  if (people.length === 0) return { found: 0, message: `No pending registration found matching "${name}".` };
+  if (people.length > 1) {
+    return {
+      found: people.length,
+      disambiguate: people.map((p) => ({ name: p.name, email: p.email, designation: p.occupation || "", district: (p.posting_details as Record<string, string> | null)?.regular_district || "" })),
+      message: "Multiple pending members match — ask the user which one.",
+    };
+  }
+
+  const member = people[0];
+  const r = action === "approve" ? await approveMember(member.id, ctx.userId) : await rejectMember(member.id, ctx.userId);
+  if (!r.ok) return { error: r.error };
+
+  logAudit(ctx.userId, action === "approve" ? "member_approved" : "member_rejected", "user", member.id, { via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, action, member: member.name, message: `${action === "approve" ? "Approved" : "Rejected"} ${member.name}'s registration.` };
+}
+
 // Admin/finance action: set a member's subscription status (paid / rejected / hold).
 // Two-step: without confirm=true it returns a preview to confirm. Approving as PAID is
 // restricted to finance-team/super_admin and requires an uploaded proof.
@@ -754,6 +793,7 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   send_member_email: (ctx, args) => sendMemberEmail(ctx, args as { name?: string; subject?: string; message?: string }),
   rsvp_event: (ctx, args) => rsvpEvent(ctx, args as { event_name?: string; status?: string }),
   nudge_member: (ctx, args) => nudgeMember(ctx, args as { name?: string; type?: string }),
+  approve_registration: (ctx, args) => approveRegistration(ctx, args as { name?: string; action?: string }),
   set_payment_status: (ctx, args) => setPaymentStatus(ctx, args as { name?: string; period?: string; status?: string; amount?: number; confirm?: boolean }),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),
   get_my_achievements: (ctx) => getMyAchievements(ctx),

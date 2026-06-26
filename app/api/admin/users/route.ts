@@ -4,8 +4,9 @@ import { getSession, isAdmin, getDbRole, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
-import { notifyNewMemberRegistered, sendSuspensionEmail, sendReinstatementEmail, sendMemberWelcomeEmail } from "@/lib/mail";
+import { sendSuspensionEmail, sendReinstatementEmail } from "@/lib/mail";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { approveMember, rejectMember } from "@/lib/member-approval";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -24,70 +25,10 @@ export async function PUT(req: NextRequest) {
     const supabase = getServiceClient();
 
     if (action === "approve") {
-      // Get user details before updating
-      const { data: userData } = await supabase.from("users").select("name, email, occupation").eq("id", userId).single();
-
-      // Block approval if name is missing
-      if (!userData?.name?.trim()) {
-        return NextResponse.json({ error: "Cannot approve: member has not filled their name" }, { status: 400 });
-      }
-
-      await supabase.from("users").update({ status: "approved" }).eq("id", userId);
-
-      // Auto-assign existing subscription periods to the new member
-      try {
-        // Get all distinct periods with their latest amount and due_date
-        const { data: existingPeriods } = await supabase
-          .from("subscriptions")
-          .select("period, amount, due_date")
-          .order("created_at", { ascending: false });
-
-        if (existingPeriods && existingPeriods.length > 0) {
-          // Get unique periods (first occurrence = latest)
-          const seen = new Set<string>();
-          const uniquePeriods = existingPeriods.filter((p: { period: string }) => {
-            if (seen.has(p.period)) return false;
-            seen.add(p.period);
-            return true;
-          });
-
-          // Check which periods the user already has
-          const { data: userSubs } = await supabase
-            .from("subscriptions")
-            .select("period")
-            .eq("user_id", userId);
-          const userPeriods = new Set((userSubs || []).map((s: { period: string }) => s.period));
-
-          const newRows = uniquePeriods
-            .filter((p: { period: string }) => !userPeriods.has(p.period) && /^\d{4}$/.test(p.period))
-            .map((p: { period: string; amount: number; due_date: string | null }) => ({
-              user_id: userId,
-              period: p.period,
-              amount: p.amount || 0,
-              due_date: p.due_date || null,
-              status: "pending",
-            }));
-
-          if (newRows.length > 0) {
-            await supabase.from("subscriptions").insert(newRows);
-          }
-        }
-      } catch {
-        // Don't fail the approval if subscription creation fails
-      }
-
-      // Welcome the newly approved member directly (transactional, one-to-one)
-      if (userData?.email) {
-        sendMemberWelcomeEmail(userData.email, userData.name || "Member").catch(() => {});
-      }
-
-      // Notify all members about the new member (fire-and-forget)
-      notifyNewMemberRegistered(userData?.name || userData?.email || "New Member");
-
-      logContribution(session.userId, "member_approved", "Approved member: " + (userData?.name || userData?.email || "Unknown"));
+      const r = await approveMember(userId, session.userId);
+      if (!r.ok) return NextResponse.json({ error: r.error }, { status: 400 });
     } else if (action === "reject") {
-      await supabase.from("users").update({ status: "rejected" }).eq("id", userId);
-      logContribution(session.userId, "member_rejected", "Rejected member");
+      await rejectMember(userId, session.userId);
     } else if (action === "set-role" && role) {
       // Prevent changing a super_admin's role
       const targetRole = await getDbRole(userId);
