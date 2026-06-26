@@ -7,7 +7,7 @@ import {
   MessageCircle, Send, X, Flower2, User, Database,
   Megaphone, CalendarDays, Users, FileText, Trophy,
   ClipboardList, GraduationCap, BarChart3, CreditCard,
-  Sparkles, RotateCcw, Paperclip, CheckCircle2, AlertCircle, Mic,
+  Sparkles, RotateCcw, Paperclip, CheckCircle2, AlertCircle, Mic, Volume2, VolumeX,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useT, useLang } from "@/lib/i18n";
@@ -122,6 +122,8 @@ export default function ChatbotWidget() {
   const proofInputRef = useRef<HTMLInputElement>(null);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [ttsOn, setTtsOn] = useState(false);
+  const lastSpokenRef = useRef(-1);
   const t = useT();
   const { lang } = useLang();
   const pathname = usePathname();
@@ -286,6 +288,21 @@ export default function ChatbotWidget() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
 
+  // Restore the spoken-replies preference once
+  useEffect(() => {
+    try { if (localStorage.getItem("tanhowa-assistant-tts") === "1") setTtsOn(true); } catch {}
+  }, []);
+
+  // Speak each new bot reply when spoken replies are on (skip while still loading)
+  useEffect(() => {
+    if (!ttsOn || loading || messages.length === 0) return;
+    const idx = messages.length - 1;
+    if (idx <= lastSpokenRef.current) return;
+    const last = messages[idx];
+    if (last.role === "bot") { speak(last.text); lastSpokenRef.current = idx; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, ttsOn, loading]);
+
   if (allowed !== true || !onAppRoute) return null;
 
   async function handleSend(e: React.FormEvent) {
@@ -333,8 +350,38 @@ export default function ChatbotWidget() {
     try { recognition.start(); setListening(true); } catch { setListening(false); }
   }
 
+  // Spoken replies (text-to-speech). Strip markdown/emoji before speaking.
+  function speak(raw: string) {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const clean = raw
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/[*_#>`]/g, "")
+      .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+      .replace(/\n+/g, ". ")
+      .trim();
+    if (!clean) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = lang === "ta" ? "ta-IN" : "en-IN";
+    window.speechSynthesis.speak(u);
+  }
+
+  function toggleTts() {
+    const next = !ttsOn;
+    setTtsOn(next);
+    try { localStorage.setItem("tanhowa-assistant-tts", next ? "1" : "0"); } catch {}
+    if (!next && typeof window !== "undefined") window.speechSynthesis?.cancel();
+    else if (next) {
+      // Speak the most recent bot reply immediately on enable
+      const lastBot = [...messages].reverse().find((m) => m.role === "bot");
+      if (lastBot) { speak(lastBot.text); lastSpokenRef.current = messages.length - 1; }
+    }
+  }
+
   function handleClose() {
     setOpen(false);
+    if (typeof window !== "undefined") window.speechSynthesis?.cancel();
     // Remember dismissal so the assistant doesn't auto-reopen this session.
     try { sessionStorage.setItem("tanhowa-assistant-dismissed", "1"); } catch { /* ignore */ }
   }
@@ -372,6 +419,9 @@ export default function ChatbotWidget() {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <button onClick={toggleTts} className="text-primary-foreground/60 hover:text-primary-foreground p-1 rounded hover:bg-white/10 transition-colors" title={ttsOn ? "Spoken replies on" : "Spoken replies off"}>
+                {ttsOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+              </button>
               {messages.length > 0 && (
                 <button onClick={handleReset} className="text-primary-foreground/60 hover:text-primary-foreground p-1 rounded hover:bg-white/10 transition-colors" title="New conversation">
                   <RotateCcw size={15} />
