@@ -194,9 +194,10 @@ export async function getMySubscriptions(ctx: QueryContext) {
     .select("id, period, amount, paid_amount, status, payment_method, paid_at, due_date, flexible_amount")
     .eq("user_id", ctx.userId)
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(100);
 
-  const subs = (data || []).map((s) => ({
+  const all = data || [];
+  const subs = all.map((s) => ({
     period: s.period,
     amount: s.amount,
     paid_amount: s.paid_amount,
@@ -207,13 +208,25 @@ export async function getMySubscriptions(ctx: QueryContext) {
     flexible: isFlexibleAmount(s),
   }));
 
-  // Voluntary/flexible funds (e.g. Emergency Fund) are opt-in contributions, not dues —
-  // exclude them from pending/overdue so the chatbot doesn't report a fake outstanding due.
+  // Voluntary/flexible funds (e.g. Emergency Fund) — summarise each fund: total amount
+  // contributed (sum of paid) + counts. Answers "how much did I contribute to the
+  // Refundable / Emergency Fund?".
+  const fundMap = new Map<string, { period: string; total_contributed: number; contributions: number; pending: number }>();
+  for (const s of all) {
+    if (!isFlexibleAmount(s)) continue;
+    const g = fundMap.get(s.period) || { period: s.period, total_contributed: 0, contributions: 0, pending: 0 };
+    if (s.status === "paid") { g.total_contributed += s.paid_amount ?? s.amount ?? 0; g.contributions += 1; }
+    else if (s.status !== "rejected") g.pending += 1;
+    fundMap.set(s.period, g);
+  }
+  const voluntary_funds = Array.from(fundMap.values());
+
+  // Exclude flexible funds from pending/overdue so the chatbot doesn't report a fake due.
   const paid = subs.filter((s) => s.status === "paid").length;
   const pending = subs.filter((s) => s.status === "pending" && !s.flexible).length;
   const overdue = subs.filter((s) => s.status === "overdue" && !s.flexible).length;
 
-  return { subscriptions: subs, summary: { total: subs.length, paid, pending, overdue } };
+  return { subscriptions: subs, voluntary_funds, summary: { total: subs.length, paid, pending, overdue } };
 }
 
 export async function getMyAdhPmStatus(ctx: QueryContext) {

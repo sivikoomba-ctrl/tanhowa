@@ -112,7 +112,7 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
       },
       {
         name: "get_my_subscriptions",
-        description: "Get the current user's subscription/payment status. Use when the user asks about their dues, payments, subscription status, or fees.",
+        description: "Get the current user's subscription/payment status, including how much they contributed to voluntary funds (the Refundable / Emergency Fund) via the voluntary_funds summary. Use when the user asks about their dues, payments, subscription status, fees, OR how much they contributed/paid to the Refundable / Emergency Fund.",
         parameters: {
           type: SchemaType.OBJECT,
           properties: {},
