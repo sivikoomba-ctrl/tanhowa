@@ -532,11 +532,19 @@ export async function PUT(req: NextRequest) {
         const { data: approver } = await supabase.from("users").select("name").eq("id", session.userId).single();
         const approverName = approver?.name || "Unknown";
         const financeRemark = `Final approval by ${approverName}, Finance Team, TANHOWA.`;
-        const { data: currentSub } = await supabase.from("subscriptions").select("remarks").eq("id", body.id).single();
+        const { data: currentSub } = await supabase.from("subscriptions").select("remarks, period, flexible_amount, amount, paid_amount").eq("id", body.id).single();
         const dbRemarks = (currentSub?.remarks || "").trim();
         const extraRemarks = (body.remarks || "").trim();
         const combined = [dbRemarks, extraRemarks].filter(Boolean).join("\n");
         updates.remarks = combined ? `${combined}\n${financeRemark}` : financeRemark;
+        // Voluntary funds: the contribution amount IS what was paid. Keep `amount` in
+        // sync with paid_amount on approval so amount-based totals (member total, finance
+        // ledger, reports) reflect it — otherwise a zeroed flexible row stays at amount=0
+        // and shows a misleading "+extra" badge.
+        if (isFlexibleAmount(currentSub || {})) {
+          const effPaid = body.paid_amount !== undefined ? Number(body.paid_amount) : Number(currentSub?.paid_amount ?? currentSub?.amount ?? 0);
+          if (!isNaN(effPaid) && effPaid > 0) updates.amount = effPaid;
+        }
       } else {
         // Clear approval info when reverting
         updates.approved_by = null;
