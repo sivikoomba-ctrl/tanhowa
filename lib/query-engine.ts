@@ -229,6 +229,99 @@ export async function getMySubscriptions(ctx: QueryContext) {
   return { subscriptions: subs, voluntary_funds, summary: { total: subs.length, paid, pending, overdue } };
 }
 
+// Admin-only: look up ANY member's payment status by name. District officials are
+// scoped to their own district; state officials / super_admin see everyone.
+export async function getMemberPayments(ctx: QueryContext, args: { name?: string }) {
+  const supabase = getServiceClient();
+
+  // Re-check authority from the DB (JWT role can be stale)
+  const { data: caller } = await supabase
+    .from("users")
+    .select("role, official_type, posting_details")
+    .eq("id", ctx.userId)
+    .single();
+  const role = caller?.role || "";
+  const officialType = caller?.official_type || null;
+  const isAdmin = role === "admin" || role === "super_admin";
+  const isState = officialType === "state";
+  const isDistrict = officialType === "district";
+  if (!isAdmin && !isState && !isDistrict) {
+    return { error: "Only admins and officials can look up other members' payments." };
+  }
+
+  const name = (args.name || "").trim();
+  if (!name) return { error: "Tell me which member — give a name to look up." };
+
+  const { data: matches } = await supabase
+    .from("users")
+    .select("id, name, occupation, posting_details, status")
+    .eq("status", "approved")
+    .ilike("name", `%${name}%`)
+    .limit(6);
+
+  let people = matches || [];
+  // District officials only see members in their own district
+  if (isDistrict && !isAdmin && !isState) {
+    const myDistrict = (caller?.posting_details as Record<string, string> | null)?.regular_district || "";
+    people = people.filter((p) => ((p.posting_details as Record<string, string> | null)?.regular_district || "") === myDistrict);
+  }
+
+  if (people.length === 0) return { found: 0, message: `No approved member found matching "${name}".` };
+  if (people.length > 1) {
+    return {
+      found: people.length,
+      disambiguate: people.map((p) => ({
+        name: p.name,
+        designation: p.occupation || "",
+        district: (p.posting_details as Record<string, string> | null)?.regular_district || "",
+      })),
+      message: "Multiple members match — ask the user which one (by district/designation).",
+    };
+  }
+
+  const member = people[0];
+  const { data: subRows } = await supabase
+    .from("subscriptions")
+    .select("period, amount, paid_amount, status, paid_at, flexible_amount")
+    .eq("user_id", member.id)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const rows = subRows || [];
+  const dues = rows.filter((s) => !isFlexibleAmount(s));
+  const flex = rows.filter((s) => isFlexibleAmount(s));
+  const totalPaid = dues.filter((s) => s.status === "paid").reduce((sum, s) => sum + (s.paid_amount ?? s.amount ?? 0), 0);
+  const voluntaryTotal = flex.filter((s) => s.status === "paid").reduce((sum, s) => sum + (s.paid_amount ?? s.amount ?? 0), 0);
+
+  return {
+    member: {
+      name: member.name,
+      designation: member.occupation || "",
+      district: (member.posting_details as Record<string, string> | null)?.regular_district || "",
+    },
+    payments: dues.map((s) => ({
+      period: s.period,
+      amount: s.amount,
+      paid_amount: s.paid_amount,
+      status: s.status,
+      paid_at: s.paid_at,
+    })),
+    voluntary_funds: Array.from(
+      flex.reduce((m, s) => {
+        const g = m.get(s.period) || { period: s.period, total_contributed: 0, contributions: 0 };
+        if (s.status === "paid") { g.total_contributed += s.paid_amount ?? s.amount ?? 0; g.contributions += 1; }
+        m.set(s.period, g);
+        return m;
+      }, new Map<string, { period: string; total_contributed: number; contributions: number }>()).values(),
+    ),
+    summary: {
+      total_dues_paid: totalPaid,
+      voluntary_contributed: voluntaryTotal,
+      pending_dues: dues.filter((s) => s.status === "pending" || s.status === "overdue").length,
+    },
+  };
+}
+
 export async function getMyAdhPmStatus(ctx: QueryContext) {
   const supabase = getServiceClient();
   const { data } = await supabase
@@ -419,6 +512,7 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   get_my_profile: (ctx) => getMyProfile(ctx),
   get_my_subscriptions: (ctx) => getMySubscriptions(ctx),
   get_my_adh_pm_status: (ctx) => getMyAdhPmStatus(ctx),
+  get_member_payments: (ctx, args) => getMemberPayments(ctx, args as { name?: string }),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),
   get_my_achievements: (ctx) => getMyAchievements(ctx),
   get_portal_stats: () => getPortalStats(),

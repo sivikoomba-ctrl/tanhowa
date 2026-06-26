@@ -119,6 +119,17 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
         },
       },
       {
+        name: "get_member_payments",
+        description: "Admin/official only: look up ANOTHER member's payment/subscription status by their name — how much they paid, pending dues, and Refundable/voluntary contributions. Use when an admin asks how much a named member (e.g. 'how much did Suresh Kumar M pay?') has paid or owes. District officials only see members in their own district.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            name: { type: SchemaType.STRING, description: "The member's name (or part of it) to look up" },
+          },
+          required: ["name"],
+        },
+      },
+      {
         name: "get_my_adh_pm_status",
         description: "Get whether the current user has responded to the ADH(PM) designation query (the 'Are you an Assistant Director of Horticulture (PM)?' email), and what their current designation is. Use when the user asks if their ADH(PM) response was recorded, or about their ADH(PM) / PM designation status.",
         parameters: {
