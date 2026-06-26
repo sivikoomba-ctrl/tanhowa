@@ -119,6 +119,14 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
         },
       },
       {
+        name: "get_my_adh_pm_status",
+        description: "Get whether the current user has responded to the ADH(PM) designation query (the 'Are you an Assistant Director of Horticulture (PM)?' email), and what their current designation is. Use when the user asks if their ADH(PM) response was recorded, or about their ADH(PM) / PM designation status.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {},
+        },
+      },
+      {
         name: "get_my_tasks",
         description: "Get tasks assigned to or submitted by the current user. Use when the user asks about their tasks, to-dos, assignments, or work items.",
         parameters: {

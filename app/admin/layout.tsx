@@ -50,6 +50,7 @@ import {
   History as HistoryIcon,
   Bug,
   Camera,
+  BadgeCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,7 @@ const NAV_SECTIONS = [
       { href: "/admin/users", labelKey: "nav.member_approval" as const, icon: Users },
       { href: "/admin/roster", labelKey: "nav.roster" as const, icon: ClipboardList },
       { href: "/admin/officials", labelKey: "nav.officials" as const, icon: Crown },
+      { href: "/admin/adh-pm", labelKey: "nav.adh_pm" as const, icon: BadgeCheck },
       { href: "/admin/photo-review", labelKey: "nav.photo_review" as const, icon: Camera },
       { href: "/admin/teams", labelKey: "nav.teams" as const, icon: UsersRound },
       { href: "/admin/nearby", labelKey: "nav.nearby" as const, icon: Navigation },
@@ -237,6 +239,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (href === "/admin/digest") return user?.email === "tanhowa19791@gmail.com";
     if (href === "/admin/meetings") return user?.role === "super_admin" || user?.official_type === "state";
     if (href === "/admin/photo-review") return user?.role === "super_admin" || user?.official_type === "state";
+    if (href === "/admin/adh-pm") return user?.role === "super_admin" || user?.official_type === "state";
     if (href === "/admin/why-ministry") return user?.email === "tanhowa19791@gmail.com";
     if (href === "/admin/history") return user?.role === "admin" || user?.role === "super_admin";
     if (href === "/admin/feedback-pulse") return user?.email === "tanhowa19791@gmail.com";

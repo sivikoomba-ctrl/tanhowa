@@ -9,6 +9,7 @@ const translations = {
   "nav.profile": { en: "Profile", ta: "சுயவிவரம்" },
   "nav.members": { en: "Members", ta: "உறுப்பினர்கள்" },
   "nav.officials": { en: "Officials", ta: "அதிகாரிகள்" },
+  "nav.adh_pm": { en: "ADH (PM) Query", ta: "ADH (PM) வினவல்" },
   "nav.teams": { en: "Teams", ta: "குழுக்கள்" },
   "nav.messages": { en: "Messages", ta: "செய்திகள்" },
   "nav.group_chat": { en: "Group Chat", ta: "குழு உரையாடல்" },

@@ -216,6 +216,33 @@ export async function getMySubscriptions(ctx: QueryContext) {
   return { subscriptions: subs, summary: { total: subs.length, paid, pending, overdue } };
 }
 
+export async function getMyAdhPmStatus(ctx: QueryContext) {
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("users")
+    .select("occupation, social_links")
+    .eq("id", ctx.userId)
+    .single();
+
+  const occupation = data?.occupation || "";
+  const isAdhPm = occupation === "Assistant Director of Horticulture (PM)";
+  const optedOut = !!(data?.social_links as { adh_pm_optout?: boolean } | null)?.adh_pm_optout;
+  const responded = isAdhPm || optedOut;
+
+  let response_recorded: string;
+  if (isAdhPm) response_recorded = "Yes — recorded as Assistant Director of Horticulture (PM).";
+  else if (optedOut) response_recorded = "Recorded — you answered No (not ADH(PM)); you won't be asked again.";
+  else response_recorded = "No response recorded yet. If you received the 'Are you an ADH (PM)?' email, tap Yes or No in it.";
+
+  return {
+    current_designation: occupation || "(not set)",
+    is_adh_pm: isAdhPm,
+    opted_out: optedOut,
+    responded,
+    response_recorded,
+  };
+}
+
 // ── 8. Get My Tasks ─────────────────────────────────────────────────
 
 export async function getMyTasks(ctx: QueryContext, args: { status?: string; limit?: number }) {
@@ -378,6 +405,7 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   search_documents: (_ctx, args) => searchDocuments(args as { query?: string; category?: string; limit?: number }),
   get_my_profile: (ctx) => getMyProfile(ctx),
   get_my_subscriptions: (ctx) => getMySubscriptions(ctx),
+  get_my_adh_pm_status: (ctx) => getMyAdhPmStatus(ctx),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),
   get_my_achievements: (ctx) => getMyAchievements(ctx),
   get_portal_stats: () => getPortalStats(),
