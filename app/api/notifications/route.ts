@@ -33,12 +33,15 @@ export async function GET() {
         .eq("published", true)
         .gt("created_at", since),
 
-      // Pending/overdue subscriptions with NO proof uploaded yet (still action needed)
+      // Pending/overdue subscriptions with NO proof uploaded yet (still action needed).
+      // amount>0 excludes the zero-amount voluntary-fund placeholder (e.g. Emergency Fund),
+      // which is opt-in and should not nag the member as an outstanding due.
       supabase
         .from("subscriptions")
         .select("id", { count: "exact", head: true })
         .eq("user_id", session.userId)
         .in("status", ["pending", "overdue"])
+        .gt("amount", 0)
         .or("payment_proof_url.is.null,payment_proof_url.eq."),
 
       // Pending/overdue subscriptions where proof IS uploaded (awaiting admin verification)

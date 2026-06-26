@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { isFlexibleAmount } from "@/lib/subscriptions";
 
 function getDesignationRank(occupation: string): number {
   const o = (occupation || "").toLowerCase();
@@ -39,17 +40,22 @@ export async function GET(req: NextRequest) {
         .eq("period", period),
       supabase
         .from("subscriptions")
-        .select("period")
+        .select("period, flexible_amount")
         .order("period", { ascending: false }),
     ]);
 
     const users = usersRes.data || [];
     const subs = subsRes.data || [];
 
-    // Available periods (deduplicated)
+    // Available periods (deduplicated). Exclude voluntary/flexible funds (e.g. Emergency
+    // Fund) — they aren't a due everyone owes, so showing them as a "payment status"
+    // period misleads (most rows sit pending at amount 0).
     const periodSet = new Set<string>();
+    const flexiblePeriods = new Set<string>();
     for (const p of periodsRes.data || []) {
-      if (p.period) periodSet.add(p.period);
+      if (!p.period) continue;
+      if (isFlexibleAmount(p)) { flexiblePeriods.add(p.period); continue; }
+      periodSet.add(p.period);
     }
     const periods = Array.from(periodSet).sort((a, b) => b.localeCompare(a));
 

@@ -466,7 +466,9 @@ export default function SubscriptionsPage() {
 
   const paid = subscriptions.filter((s) => s.status === "paid").length;
   const proofUploaded = subscriptions.filter((s) => (s.status === "pending" || s.status === "overdue") && s.payment_proof_url && s.payment_proof_url !== "").length;
-  const pending = subscriptions.filter((s) => (s.status === "pending" || s.status === "overdue") && (!s.payment_proof_url || s.payment_proof_url === "")).length;
+  // "Due" excludes voluntary/flexible funds — those are opt-in contributions, surfaced
+  // in their own fund card, not an outstanding due.
+  const pending = subscriptions.filter((s) => (s.status === "pending" || s.status === "overdue") && !isFlexibleAmount(s) && (!s.payment_proof_url || s.payment_proof_url === "")).length;
   const totalPaid = subscriptions
     .filter((s) => s.status === "paid")
     .reduce((sum, s) => sum + (s.amount || 0), 0);

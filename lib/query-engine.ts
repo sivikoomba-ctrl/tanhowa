@@ -5,6 +5,7 @@
  */
 
 import { getServiceClient } from "@/lib/supabase";
+import { isFlexibleAmount } from "@/lib/subscriptions";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -190,7 +191,7 @@ export async function getMySubscriptions(ctx: QueryContext) {
   const supabase = getServiceClient();
   const { data } = await supabase
     .from("subscriptions")
-    .select("id, period, amount, paid_amount, status, payment_method, paid_at, due_date")
+    .select("id, period, amount, paid_amount, status, payment_method, paid_at, due_date, flexible_amount")
     .eq("user_id", ctx.userId)
     .order("created_at", { ascending: false })
     .limit(10);
@@ -203,11 +204,14 @@ export async function getMySubscriptions(ctx: QueryContext) {
     payment_method: s.payment_method || "",
     paid_at: s.paid_at,
     due_date: s.due_date,
+    flexible: isFlexibleAmount(s),
   }));
 
+  // Voluntary/flexible funds (e.g. Emergency Fund) are opt-in contributions, not dues —
+  // exclude them from pending/overdue so the chatbot doesn't report a fake outstanding due.
   const paid = subs.filter((s) => s.status === "paid").length;
-  const pending = subs.filter((s) => s.status === "pending").length;
-  const overdue = subs.filter((s) => s.status === "overdue").length;
+  const pending = subs.filter((s) => s.status === "pending" && !s.flexible).length;
+  const overdue = subs.filter((s) => s.status === "overdue" && !s.flexible).length;
 
   return { subscriptions: subs, summary: { total: subs.length, paid, pending, overdue } };
 }
