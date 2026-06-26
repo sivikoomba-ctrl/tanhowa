@@ -127,7 +127,17 @@ export async function PUT(req: NextRequest) {
         }
       }
 
-      await supabase.from("users").update({ official_type: officialType }).eq("id", userId);
+      // District officials (DS/DJS) need role=admin for admin-panel access + payment
+      // verification — grant it here so they aren't left half-set without access.
+      const officialUpdates: { official_type: string | null; role?: string } = { official_type: officialType };
+      if (officialType === "district") {
+        officialUpdates.role = "admin";
+      } else if (officialType === null) {
+        // Reverting a district official to a regular member — never demote a super_admin.
+        const { data: t } = await supabase.from("users").select("role, official_type").eq("id", userId).single();
+        if (t?.official_type === "district" && t.role === "admin") officialUpdates.role = "member";
+      }
+      await supabase.from("users").update(officialUpdates).eq("id", userId);
     } else if (action === "set-tanhowa-designation") {
       // Only super_admin or state officials can set TANHOWA designations
       const callerInfo = await getOfficialInfo(session.userId);
