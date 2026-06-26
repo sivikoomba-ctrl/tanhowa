@@ -11,6 +11,16 @@ import { Pencil } from "lucide-react";
 import { DateDropdowns } from "@/components/date-dropdowns";
 import { DISTRICT_NAMES, POSTING_LOCATION_GROUPS } from "@/lib/tn-districts";
 
+const OCCUPATION_OPTIONS = [
+  "Horticultural Officer",
+  "Assistant Director of Horticulture",
+  "Assistant Director of Horticulture (PM)",
+  "Deputy Director of Horticulture",
+  "Joint Director of Horticulture",
+  "Additional Director of Horticulture",
+  "System Admin",
+];
+
 interface PostingDetails {
   regular_district?: string;
   regular_block?: string;
@@ -178,7 +188,15 @@ export default function EditUserDialog({ user, open, onOpenChange, onSave }: Edi
             </div>
             <div>
               <Label className="text-sm">Designation</Label>
-              <Input value={editForm.occupation} onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })} />
+              <Select value={editForm.occupation} onValueChange={(val) => setEditForm({ ...editForm, occupation: val })}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Select designation" /></SelectTrigger>
+                <SelectContent>
+                  {OCCUPATION_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                  {editForm.occupation && !OCCUPATION_OPTIONS.includes(editForm.occupation) && (
+                    <SelectItem value={editForm.occupation}>{editForm.occupation}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
