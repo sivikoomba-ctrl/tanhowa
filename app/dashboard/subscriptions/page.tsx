@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, Save, Calculator, ScanLine, Trash2 } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, Save, Calculator, ScanLine, Trash2, Plus } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -96,6 +96,41 @@ export default function SubscriptionsPage() {
   const duesFileRef = useRef<HTMLInputElement>(null);
   const [duesProofPreview, setDuesProofPreview] = useState<string | null>(null);
   const [detailsProofSignedUrl, setDetailsProofSignedUrl] = useState<string | null>(null);
+
+  // Voluntary-fund "Add Contribution" dialog
+  const [contribFund, setContribFund] = useState<string | null>(null);
+  const [contribAmount, setContribAmount] = useState("");
+  const [contribSaving, setContribSaving] = useState(false);
+
+  async function handleAddContribution() {
+    if (!contribFund) return;
+    const amt = parseFloat(contribAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error("Enter a valid contribution amount");
+      return;
+    }
+    setContribSaving(true);
+    try {
+      const res = await fetch("/api/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add-contribution", period: contribFund, amount: amt }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to add contribution");
+        return;
+      }
+      toast.success("Contribution added — now upload your payment proof on the new entry.");
+      setContribFund(null);
+      setContribAmount("");
+      load();
+    } catch {
+      toast.error("Failed to add contribution");
+    } finally {
+      setContribSaving(false);
+    }
+  }
 
   async function handleRescan() {
     if (!detailsProofSignedUrl) return;
@@ -373,6 +408,23 @@ export default function SubscriptionsPage() {
   const totalPaid = subscriptions
     .filter((s) => s.status === "paid")
     .reduce((sum, s) => sum + (s.amount || 0), 0);
+
+  // Voluntary funds (flexible_amount) — group contributions per fund (e.g. Emergency Fund).
+  // Members can pay any amount, any number of times, so each fund is a ledger of rows.
+  const flexibleFunds = Object.values(
+    subscriptions
+      .filter((s) => isFlexibleAmount(s))
+      .reduce<Record<string, { period: string; contributed: number; paidCount: number; pendingCount: number }>>((acc, s) => {
+        const g = acc[s.period] || (acc[s.period] = { period: s.period, contributed: 0, paidCount: 0, pendingCount: 0 });
+        if (s.status === "paid") {
+          g.contributed += s.paid_amount ?? s.amount ?? 0;
+          g.paidCount += 1;
+        } else if (s.status !== "rejected") {
+          g.pendingCount += 1;
+        }
+        return acc;
+      }, {}),
+  );
 
   // Dues summary calculations
   const duesUpTo2025 = subscriptions
@@ -923,6 +975,51 @@ export default function SubscriptionsPage() {
         className="hidden"
       />
 
+      {/* Voluntary funds — contribute any amount, any number of times */}
+      {flexibleFunds.map((f) => (
+        <Card key={`fund-${f.period}`} className="border-2 border-purple-200 bg-purple-50/40">
+          <CardContent className="pt-5">
+            <div className="flex items-start gap-3 flex-wrap">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+                <IndianRupee className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-semibold">{f.period}</h3>
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">
+                    {t("subs.voluntary")}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Contribute any amount, any number of times.
+                </p>
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                  <span className="text-sm">
+                    Total contributed:{" "}
+                    <span className="font-bold text-purple-700">&#8377;{f.contributed.toLocaleString("en-IN")}</span>
+                  </span>
+                  {f.paidCount > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {f.paidCount} contribution{f.paidCount !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  {f.pendingCount > 0 && (
+                    <span className="text-xs text-blue-600">{f.pendingCount} awaiting verification</span>
+                  )}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                className="h-8 text-xs bg-purple-600 hover:bg-purple-700"
+                onClick={() => { setContribFund(f.period); setContribAmount(""); }}
+              >
+                <Plus size={14} className="mr-1" /> Add Contribution
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+
       {/* Subscription List */}
       {subscriptions.length === 0 ? (
         <div className="text-center py-12">
@@ -1363,6 +1460,40 @@ export default function SubscriptionsPage() {
               </form>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Contribution dialog (voluntary fund) */}
+      <Dialog open={!!contribFund} onOpenChange={(open) => { if (!open) { setContribFund(null); setContribAmount(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add Contribution</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {contribFund} — contribute any amount. After adding, upload your payment proof on the new entry below and submit it for verification.
+            </p>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Contribution amount (&#8377;)</label>
+              <Input
+                type="number"
+                min="1"
+                value={contribAmount}
+                onChange={(e) => setContribAmount(e.target.value)}
+                placeholder="e.g. 500"
+                className="mt-1"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" size="sm" onClick={() => { setContribFund(null); setContribAmount(""); }} disabled={contribSaving}>
+                Cancel
+              </Button>
+              <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={handleAddContribution} disabled={contribSaving}>
+                {contribSaving ? "Adding..." : "Add Contribution"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

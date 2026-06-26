@@ -182,10 +182,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!(await isAdmin(session))) {
-      return NextResponse.json({ error: "Forbidden — admin role required" }, { status: 403 });
-    }
-
     const ip = req.headers.get("x-forwarded-for") || "unknown";
     if (!writeLimiter.check(ip)) {
       return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
@@ -193,6 +189,59 @@ export async function POST(req: NextRequest) {
 
     const supabase = getServiceClient();
     const body = await req.json();
+
+    // Member-allowed: add a voluntary contribution to a flexible fund.
+    // Creates a NEW pending row (a ledger of contributions) so members can pay any
+    // amount, any number of times. Restricted to a period where the member already
+    // has a flexible_amount row (so arbitrary periods can't be created).
+    if (body.action === "add-contribution") {
+      const period = (body.period || "").trim();
+      if (!period || period.length > 100) {
+        return NextResponse.json({ error: "Invalid fund" }, { status: 400 });
+      }
+      const amount = parseFloat(body.amount);
+      if (isNaN(amount) || amount <= 0) {
+        return NextResponse.json({ error: "Enter a valid contribution amount" }, { status: 400 });
+      }
+      // Confirm this period is a flexible fund the member already participates in
+      const { data: ref } = await supabase
+        .from("subscriptions")
+        .select("flexible_amount")
+        .eq("user_id", session.userId)
+        .eq("period", period)
+        .limit(1)
+        .maybeSingle();
+      if (!isFlexibleAmount({ period, flexible_amount: ref?.flexible_amount })) {
+        return NextResponse.json({ error: "Not a voluntary fund" }, { status: 403 });
+      }
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .insert({
+          user_id: session.userId,
+          period,
+          amount,
+          status: "pending",
+          flexible_amount: true,
+          payment_proof_url: body.payment_proof_url || null,
+          payment_method: body.payment_method || null,
+          transaction_id: body.transaction_id || null,
+          remarks: body.remarks || null,
+        })
+        .select()
+        .single();
+      if (error) {
+        await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
+        return NextResponse.json({ error: "Failed to add contribution" }, { status: 500 });
+      }
+      if (body.payment_proof_url) {
+        logContribution(session.userId, "payment_proof_uploaded", "Added voluntary contribution");
+      }
+      return NextResponse.json({ subscription: data });
+    }
+
+    if (!(await isAdmin(session))) {
+      return NextResponse.json({ error: "Forbidden — admin role required" }, { status: 403 });
+    }
 
     // Validate period for all create actions
     if (body.period && (!body.period.trim() || body.period.length > 100)) {
