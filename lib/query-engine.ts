@@ -17,6 +17,79 @@ interface QueryContext {
   role: string;
 }
 
+// ── Action-tool foundation ──────────────────────────────────────────
+// Shared scaffolding for chatbot ACTION tools (side effects). Every action
+// re-checks authority from the DB (the JWT role can be stale) and resolves a
+// target member with district scoping + disambiguation.
+
+interface Actor {
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+  officialType: string | null;
+  district: string | null;
+  isAdmin: boolean;       // admin or super_admin
+  isState: boolean;       // state official
+  isDistrict: boolean;    // district official
+  canAdminAct: boolean;   // any of the above — may act on other members
+}
+
+async function resolveActor(ctx: QueryContext): Promise<Actor> {
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("users")
+    .select("role, official_type, posting_details, name")
+    .eq("id", ctx.userId)
+    .single();
+  const role = data?.role || "";
+  const officialType = (data?.official_type as string | null) || null;
+  const district = (data?.posting_details as Record<string, string> | null)?.regular_district || null;
+  const isAdmin = role === "admin" || role === "super_admin";
+  const isState = officialType === "state";
+  const isDistrict = officialType === "district";
+  return {
+    userId: ctx.userId, email: ctx.email, name: (data?.name as string) || "",
+    role, officialType, district, isAdmin, isState, isDistrict,
+    canAdminAct: isAdmin || isState || isDistrict,
+  };
+}
+
+interface MemberRow {
+  id: string; name: string | null; email: string;
+  occupation: string | null; posting_details: Record<string, string> | null;
+}
+
+// Returns the single matched member, or a `fail` payload (not found / disambiguate)
+// that the action tool should return verbatim to the assistant.
+async function resolveMember(name: string, actor: Actor): Promise<{ member: MemberRow } | { fail: Record<string, unknown> }> {
+  const n = (name || "").trim();
+  if (!n) return { fail: { error: "Tell me which member — give a name." } };
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("users")
+    .select("id, name, email, occupation, posting_details, status")
+    .eq("status", "approved")
+    .ilike("name", `%${n}%`)
+    .limit(6);
+  let people = (data || []) as (MemberRow & { status: string })[];
+  // District officials (without higher rights) only see their own district
+  if (actor.isDistrict && !actor.isAdmin && !actor.isState) {
+    people = people.filter((p) => (p.posting_details?.regular_district || "") === actor.district);
+  }
+  if (people.length === 0) return { fail: { found: 0, message: `No approved member found matching "${n}".` } };
+  if (people.length > 1) {
+    return {
+      fail: {
+        found: people.length,
+        disambiguate: people.map((p) => ({ name: p.name, district: p.posting_details?.regular_district || "", designation: p.occupation || "" })),
+        message: "Multiple members match — ask the user which one (by district/designation) before acting.",
+      },
+    };
+  }
+  return { member: people[0] };
+}
+
 // ── 1. Search Announcements ─────────────────────────────────────────
 
 export async function searchAnnouncements(args: { query?: string; limit?: number }) {
@@ -236,52 +309,14 @@ export async function getMySubscriptions(ctx: QueryContext) {
 export async function getMemberPayments(ctx: QueryContext, args: { name?: string }) {
   const supabase = getServiceClient();
 
-  // Re-check authority from the DB (JWT role can be stale)
-  const { data: caller } = await supabase
-    .from("users")
-    .select("role, official_type, posting_details")
-    .eq("id", ctx.userId)
-    .single();
-  const role = caller?.role || "";
-  const officialType = caller?.official_type || null;
-  const isAdmin = role === "admin" || role === "super_admin";
-  const isState = officialType === "state";
-  const isDistrict = officialType === "district";
-  if (!isAdmin && !isState && !isDistrict) {
+  const actor = await resolveActor(ctx);
+  if (!actor.canAdminAct) {
     return { error: "Only admins and officials can look up other members' payments." };
   }
+  const resolved = await resolveMember(args.name || "", actor);
+  if ("fail" in resolved) return resolved.fail;
+  const member = resolved.member;
 
-  const name = (args.name || "").trim();
-  if (!name) return { error: "Tell me which member — give a name to look up." };
-
-  const { data: matches } = await supabase
-    .from("users")
-    .select("id, name, occupation, posting_details, status")
-    .eq("status", "approved")
-    .ilike("name", `%${name}%`)
-    .limit(6);
-
-  let people = matches || [];
-  // District officials only see members in their own district
-  if (isDistrict && !isAdmin && !isState) {
-    const myDistrict = (caller?.posting_details as Record<string, string> | null)?.regular_district || "";
-    people = people.filter((p) => ((p.posting_details as Record<string, string> | null)?.regular_district || "") === myDistrict);
-  }
-
-  if (people.length === 0) return { found: 0, message: `No approved member found matching "${name}".` };
-  if (people.length > 1) {
-    return {
-      found: people.length,
-      disambiguate: people.map((p) => ({
-        name: p.name,
-        designation: p.occupation || "",
-        district: (p.posting_details as Record<string, string> | null)?.regular_district || "",
-      })),
-      message: "Multiple members match — ask the user which one (by district/designation).",
-    };
-  }
-
-  const member = people[0];
   const { data: subRows } = await supabase
     .from("subscriptions")
     .select("period, amount, paid_amount, status, paid_at, flexible_amount")
@@ -328,60 +363,69 @@ export async function getMemberPayments(ctx: QueryContext, args: { name?: string
 // (e.g. a thank-you). Re-checks authority from DB; district officials scoped to
 // their district; disambiguates on multiple matches; audit-logged.
 export async function sendMemberEmail(ctx: QueryContext, args: { name?: string; subject?: string; message?: string }) {
-  const supabase = getServiceClient();
-
-  const { data: caller } = await supabase
-    .from("users")
-    .select("role, official_type, posting_details, name")
-    .eq("id", ctx.userId)
-    .single();
-  const role = caller?.role || "";
-  const officialType = caller?.official_type || null;
-  const isAdmin = role === "admin" || role === "super_admin";
-  const isState = officialType === "state";
-  const isDistrict = officialType === "district";
-  if (!isAdmin && !isState && !isDistrict) {
+  const actor = await resolveActor(ctx);
+  if (!actor.canAdminAct) {
     return { error: "Only admins and officials can send member emails." };
   }
-
-  const name = (args.name || "").trim();
   const message = (args.message || "").trim();
-  if (!name) return { error: "Tell me which member to email (a name)." };
   if (!message) return { error: "What should the email say? Provide a message." };
 
-  const { data: matches } = await supabase
-    .from("users")
-    .select("id, name, email, occupation, posting_details, status")
-    .eq("status", "approved")
-    .ilike("name", `%${name}%`)
-    .limit(6);
-
-  let people = matches || [];
-  if (isDistrict && !isAdmin && !isState) {
-    const myDistrict = (caller?.posting_details as Record<string, string> | null)?.regular_district || "";
-    people = people.filter((p) => ((p.posting_details as Record<string, string> | null)?.regular_district || "") === myDistrict);
-  }
-
-  if (people.length === 0) return { found: 0, message: `No approved member found matching "${name}".` };
-  if (people.length > 1) {
-    return {
-      found: people.length,
-      sent: false,
-      disambiguate: people.map((p) => ({ name: p.name, district: (p.posting_details as Record<string, string> | null)?.regular_district || "" })),
-      message: "Multiple members match — confirm which one before I send.",
-    };
-  }
-
-  const member = people[0];
+  const resolved = await resolveMember(args.name || "", actor);
+  if ("fail" in resolved) return resolved.fail;
+  const member = resolved.member;
   if (!member.email) return { sent: false, error: `${member.name} has no email on file.` };
 
   const subject = (args.subject || "").trim() || "A message from TANHOWA";
   const ok = await sendMemberMessageEmail(member.email, member.name || "Member", subject, message);
   if (!ok) return { sent: false, error: "The email failed to send. Please try again." };
 
-  logAudit(ctx.userId, "send_member_email", "user", member.id, { subject, via: "assistant", by: caller?.name || ctx.email });
+  logAudit(ctx.userId, "send_member_email", "user", member.id, { subject, via: "assistant", by: actor.name || ctx.email });
 
   return { sent: true, to: member.name, email: member.email, subject, message: `Email sent to ${member.name}.` };
+}
+
+// Member self-service action: RSVP the current user to an event by name.
+// Low risk (acts only on the caller's own RSVP), so no confirmation step.
+export async function rsvpEvent(ctx: QueryContext, args: { event_name?: string; status?: string }) {
+  const supabase = getServiceClient();
+  const eventName = (args.event_name || "").trim();
+  if (!eventName) return { error: "Which event? Give me the event name." };
+
+  const status = (args.status || "going").toLowerCase();
+  if (!["going", "interested", "cancel"].includes(status)) {
+    return { error: "Status must be 'going', 'interested', or 'cancel'." };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: events } = await supabase
+    .from("events")
+    .select("id, title, date, location")
+    .ilike("title", `%${eventName}%`)
+    .order("date", { ascending: true })
+    .limit(8);
+
+  let list = events || [];
+  if (list.length === 0) return { found: 0, message: `No event found matching "${eventName}".` };
+  // When several match, prefer upcoming ones to narrow down
+  const upcoming = list.filter((e) => (e.date || "") >= today);
+  if (upcoming.length >= 1) list = upcoming;
+  if (list.length > 1) {
+    return {
+      found: list.length,
+      disambiguate: list.map((e) => ({ title: e.title, date: e.date, location: e.location || "TBD" })),
+      message: "Multiple events match — ask the user which one (by date) before RSVPing.",
+    };
+  }
+
+  const event = list[0];
+  if (status === "cancel") {
+    await supabase.from("event_rsvps").delete().eq("event_id", event.id).eq("user_id", ctx.userId);
+    return { ok: true, event: event.title, status: "cancelled", message: `Cancelled your RSVP for "${event.title}".` };
+  }
+  await supabase
+    .from("event_rsvps")
+    .upsert({ event_id: event.id, user_id: ctx.userId, status }, { onConflict: "event_id,user_id" });
+  return { ok: true, event: event.title, status, date: event.date, location: event.location || "TBD", message: `You're marked as ${status} for "${event.title}".` };
 }
 
 export async function getMyAdhPmStatus(ctx: QueryContext) {
@@ -576,6 +620,7 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   get_my_adh_pm_status: (ctx) => getMyAdhPmStatus(ctx),
   get_member_payments: (ctx, args) => getMemberPayments(ctx, args as { name?: string }),
   send_member_email: (ctx, args) => sendMemberEmail(ctx, args as { name?: string; subject?: string; message?: string }),
+  rsvp_event: (ctx, args) => rsvpEvent(ctx, args as { event_name?: string; status?: string }),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),
   get_my_achievements: (ctx) => getMyAchievements(ctx),
   get_portal_stats: () => getPortalStats(),
