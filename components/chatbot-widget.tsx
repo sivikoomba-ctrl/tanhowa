@@ -7,9 +7,10 @@ import {
   MessageCircle, Send, X, Flower2, User, Database,
   Megaphone, CalendarDays, Users, FileText, Trophy,
   ClipboardList, GraduationCap, BarChart3, CreditCard,
-  Sparkles, RotateCcw, Paperclip, CheckCircle2, AlertCircle,
+  Sparkles, RotateCcw, Paperclip, CheckCircle2, AlertCircle, Mic,
 } from "lucide-react";
-import { useT } from "@/lib/i18n";
+import { toast } from "sonner";
+import { useT, useLang } from "@/lib/i18n";
 import { usePathname } from "next/navigation";
 
 interface Sub {
@@ -119,7 +120,10 @@ export default function ChatbotWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const proofInputRef = useRef<HTMLInputElement>(null);
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const t = useT();
+  const { lang } = useLang();
   const pathname = usePathname();
   // The assistant is a member feature tied to personal portal data — only mount
   // it inside the authenticated app, never on the public landing / auth pages
@@ -287,6 +291,46 @@ export default function ChatbotWidget() {
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     await sendMessage(input);
+  }
+
+  // Voice command: speech-to-text into the chat, then auto-send on completion.
+  function toggleVoice() {
+    if (listening) { recognitionRef.current?.stop(); return; }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { toast.error("Voice input needs Chrome or a supported browser."); return; }
+
+    const recognition = new SR();
+    recognition.lang = lang === "ta" ? "ta-IN" : "en-IN";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    let finalText = "";
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = "";
+      finalText = "";
+      for (let i = 0; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setInput(finalText || interim);
+    };
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      if (event.error === "not-allowed" || event.error === "service-not-allowed" || event.error === "audio-capture") {
+        toast.error("Microphone is blocked. Allow mic access in your browser settings.");
+      } else if (event.error !== "aborted" && event.error !== "no-speech") {
+        toast.error("Voice input didn't work — please try again.");
+      }
+      setListening(false);
+    };
+    recognition.onend = () => {
+      setListening(false);
+      const text = finalText.trim();
+      if (text) { setInput(""); sendMessage(text); }
+    };
+
+    recognitionRef.current = recognition;
+    try { recognition.start(); setListening(true); } catch { setListening(false); }
   }
 
   function handleClose() {
@@ -470,11 +514,20 @@ export default function ChatbotWidget() {
             >
               {uploading ? <CheckCircle2 size={18} className="text-green-500 animate-pulse" /> : <Paperclip size={18} />}
             </button>
+            <button
+              type="button"
+              onClick={toggleVoice}
+              disabled={loading || uploading}
+              title={listening ? "Stop listening" : "Speak your message"}
+              className={`p-1.5 rounded-lg shrink-0 transition-colors ${listening ? "text-red-500 bg-red-50 animate-pulse" : "text-muted-foreground hover:text-primary hover:bg-primary/5"}`}
+            >
+              <Mic size={18} />
+            </button>
             <Input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={t("chat.type_message")}
+              placeholder={listening ? "Listening…" : t("chat.type_message")}
               disabled={loading || uploading}
               className="flex-1 border-primary/30 focus-visible:ring-primary"
             />
