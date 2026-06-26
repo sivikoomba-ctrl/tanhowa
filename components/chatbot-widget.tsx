@@ -97,7 +97,11 @@ function RenderMarkdown({ text }: { text: string }) {
   return <div className="space-y-0">{elements}</div>;
 }
 
-const PROOF_KEYWORDS = /\b(upload|proof|payment proof|paid|receipt|screenshot|upi|neft|transfer)\b/i;
+// Only treat a message as an upload intent when the user clearly wants to upload —
+// NOT when they're just asking a question that happens to contain "paid"/"payment"
+// (e.g. "how much did Suresh pay?"). Bare "paid/upi/transfer" no longer triggers it.
+const PROOF_INTENT = /\b(upload|attach)\b|\bpayment proof\b|\bproof of payment\b|\bi(?:'ve| have)? paid\b|\bsubmit (?:my )?(?:payment|proof|receipt)\b/i;
+const QUESTION_RX = /\?|^\s*(how|what|who|whom|whose|when|where|why|which|whether|is|are|am|do|does|did|can|could|would|should|has|have|had|show|list|tell|find|search)\b/i;
 
 export default function ChatbotWidget() {
   const [open, setOpen] = useState(false);
@@ -239,8 +243,8 @@ export default function ChatbotWidget() {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || loading) return;
 
-    // Intercept proof upload intent locally
-    if (PROOF_KEYWORDS.test(text) && pendingSubs.length > 0) {
+    // Intercept proof upload intent locally — but never hijack a question
+    if (PROOF_INTENT.test(text) && !QUESTION_RX.test(text) && pendingSubs.length > 0) {
       setMessages((prev) => [...prev, { role: "user", text: text.trim() }]);
       setInput("");
       startProofUpload();
