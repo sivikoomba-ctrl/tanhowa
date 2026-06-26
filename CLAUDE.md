@@ -22,7 +22,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 
 **Member features:** [Member Dashboard Widgets](#member-dashboard-home-widgets) · [Suggestions & Grievances](#suggestions--grievances-split) · [Polls](#polls) · [Wishlist / IDEA BOARD](#wishlist--idea-board) · [Logo Vote](#logo-vote) · [Elections](#elections-posts-nominations--polling) · [Direct Messages](#direct-messages) · [Group Chat](#group-chat) · [Calendar & iCal](#calendar--ical-export) · [Event RSVP](#event-rsvp) · [Announcement Read Tracking](#announcement-read-tracking) · [Achievements / Badges](#achievements--badges) · [Contributions Tracking](#contributions-tracking) · [Member Directory Sorting](#member-directory-sorting) · [Digital Member ID Card](#digital-member-id-card) · [Profile Completeness](#profile-completeness) · [Mandatory Profile Completion](#mandatory-profile-completion) · [Location Sharing](#location-sharing--nearby-members) · [Trainings System](#trainings-system) · [TANHOWA History Timeline](#tanhowa-history-timeline) · [Member Feedback Loop](#member-feedback-loop--ai-pulse-super-admin-only) · [Service Requests](#service-requests) · [Volunteer Invites](#volunteer-invites)
 
-**Subscriptions / Finance / Tasks:** [Subscription Auto-Sync](#subscription-auto-sync) · [Special Subscriptions](#special-subscriptions) · [Payment Group Linking](#payment-group-linking) · [Payment Status Transparency](#payment-status-transparency) · [District Roster](#district-roster-admin) · [Finance (Bank Reconciliation)](#finance-bank-reconciliation) · [Expense Vouchers](#expense-vouchers-officials-only) · [Task Management](#task-management-system) · [e-Resolutions](#e-resolutions-voting-system) · [Reports & Analytics](#reports--analytics-adminreports) · [District Benchmark](#district-benchmark) · [Engagement Analytics](#engagement-analytics)
+**Subscriptions / Finance / Tasks:** [Subscription Auto-Sync](#subscription-auto-sync) · [Special Subscriptions](#special-subscriptions) · [Payment Group Linking](#payment-group-linking) · [Payment Status Transparency](#payment-status-transparency) · [District Roster](#district-roster-admin) · [Finance (Bank Reconciliation)](#finance-bank-reconciliation) · [Expense Vouchers](#expense-vouchers-officials-only) · [Task Management](#task-management-system) · [Task Gamification](#task-gamification) · [e-Resolutions](#e-resolutions-voting-system) · [Reports & Analytics](#reports--analytics-adminreports) · [District Benchmark](#district-benchmark) · [Engagement Analytics](#engagement-analytics)
 
 **Roles & private spaces:** [Officials System](#officials-system) · [Team Lead & Legal Advisor](#team-lead-role--legal-advisor) · [Private Teams & Project H](#private-teams--project-h) · [Letters & Forms](#letters--forms-superadminonly) · [Why-Ministry Position Paper](#why-ministry-position-paper-super-admin-only) · [Owner-Only Admin Tools](#owner-only-admin-tools) · [Account Suspension](#account-suspension) · [Content Scheduling](#content-scheduling)
 
@@ -191,6 +191,7 @@ One-line index. For column-level detail, jump to the matching feature section be
 | `roster_entries` | Manual (non-registered) officer entries merged with approved users in the admin District Roster (see District Roster) |
 | `admin_tasks` | Owner-only private task list (see Owner-Only Admin Tools) |
 | `admin_documents` | Owner-only private document vault (see Owner-Only Admin Tools) |
+| `task_points` | Task-gamification points ledger (see Task Gamification) |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET), `telegram_chat_id` (TEXT), `telegram_last_cmd_msg_id` (BIGINT — id of the bot's last command-response message; used by `sendTelegramMessageReplace` to delete the prior reply so command replies stack-replace instead of accumulating)
@@ -431,10 +432,30 @@ AI-powered chatbot with live portal data access via Gemini function calling.
 
 **User context:** Each query receives `{ userId, email, role }` — personal data queries (`get_my_*`) are scoped to the current user.
 
-**Adding a new query function:**
+**Adding a new query/action function:**
 1. Add FunctionDeclaration in `lib/gemini.ts` (QUERY_TOOLS array)
-2. Add query implementation in `lib/query-engine.ts`
+2. Add implementation in `lib/query-engine.ts`
 3. Add case to `executeQuery()` dispatcher in `query-engine.ts`
+
+### Action tools (side effects)
+
+Beyond read-only queries, the chatbot has **action tools** that write/notify. Every action re-checks authority and is gated/audited:
+- **`rsvp_event`** — member self-service: RSVP/cancel the caller's own event RSVP (low risk, no confirm).
+- **`get_member_payments`** — admin/official: look up any member's dues/voluntary contributions by name.
+- **`send_member_email`** — admin/official: send a branded one-to-one email (e.g. thank-you) to a member; audit-logged `send_member_email`. Uses `sendMemberMessageEmail()` in `lib/mail.ts` (bypasses `HOLD_MEMBER_EMAILS` since admin-initiated).
+
+**Action-tool foundation (`lib/query-engine.ts`):** reuse these for any new action tool instead of re-inlining:
+- `resolveActor(ctx)` — re-fetches the caller's role/official_type/district from the DB (JWT role can be stale); returns `{ isAdmin, isState, isDistrict, canAdminAct, district, ... }`.
+- `resolveMember(name, actor)` — name search + district scoping (district officials see only their own district) + disambiguation; returns `{ member }` or `{ fail }` (the tool returns `fail` verbatim so the assistant asks the user to pick).
+- The system prompt has a MEMBER ACTIONS / ADMIN ACTIONS block telling Gemini it *can* act (otherwise it refuses). Add new actions there.
+
+### Voice (hands-free)
+
+`components/chatbot-widget.tsx` adds voice I/O via the browser Web Speech API (same engine as AI-Tools Voice Notes):
+- **Voice input (mic button):** `SpeechRecognition` transcribes speech into the input (lang `ta-IN`/`en-IN` per portal language) and **auto-sends** on completion. Pulsing red while listening.
+- **Spoken replies (speaker toggle in header):** `SpeechSynthesis` reads each new bot reply aloud (markdown/emoji stripped). Preference persists in `localStorage["tanhowa-assistant-tts"]`; cancels on toggle-off/close.
+
+**Proof-upload intercept:** `sendMessage` locally intercepts genuine upload *intent* (`PROOF_INTENT` regex: upload/attach/"I paid"/submit proof) and opens the file picker — but **skips questions** (`QUESTION_RX`) so "how much did X pay?" reaches the assistant instead of hijacking to the uploader.
 
 ## UI Labels
 
@@ -646,6 +667,22 @@ Beyond yearly subscriptions (period = "2025", "2026"), admins can create special
 Admin creates via the single **"New Subscription"** button on `/admin/subscriptions` — one dialog with a **Yearly / Special** toggle (`createType` state); Yearly → `handleBulkCreate`, Special → `handleSpecialCreate` (the two were merged from separate buttons). District report column headers auto-shorten special periods (strips "For " prefix and " Case YYYY" suffix).
 
 The create dialog also has an optional **Description** (`subscriptions.description`, shown on the member's subscription card) and a **Flexible amount** checkbox (`subscriptions.flexible_amount`). Schema: `supabase/subscription_description_flexible.sql`. Flexibility is resolved by **`lib/subscriptions.ts:isFlexibleAmount(sub)`** = `flexible_amount === true` OR period starts with "Volunteer" (backward compat) — use this helper everywhere instead of re-checking the period string; when flexible, members may enter any amount and the amount-mismatch warning is suppressed (member edit allowed server-side in the PUT handler gated on the same helper).
+
+### Voluntary funds — pay any amount, any number of times (`REFUNDABLE (Emergency Fund)`)
+
+A flexible fund is a **recurring voluntary contribution**, NOT a fixed due. The Emergency Fund's 600+ rows are `flexible_amount=true` with `amount=0` (unpaid) so nothing reads as "owed". Key rules:
+- **A flexible row is a contribution, never a due.** Treat `isFlexibleAmount()` rows as paid contributions (sum only); never count them as pending/overdue. Guards live in: member "Due" metric (`/dashboard/subscriptions`), `/api/notifications` (uses `amount>0` to skip the ₹0 placeholder), `/api/subscriptions/payment-status` (excludes flexible periods from the period selector), and the chatbot pending tally.
+- **On paid approval of a flexible sub, the PUT handler sets `amount = paid_amount`** so amount-based totals reflect the actual contribution (a zeroed row approved with `paid_amount>0` otherwise stays `amount=0` and shows a bogus "+extra" badge).
+- **`add-contribution`** (POST action, member-allowed) creates a NEW pending flexible row → a *ledger* of contributions (pay multiple times). Member page shows a purple per-fund "Add Contribution" card with the total contributed.
+- **`split-payment`** (POST action, member-allowed) links several of the member's own unpaid dues + an optional flexible contribution under one `payment_group_id`, one proof/txn, submitted together. Member "Combine Payment" dialog. Admin adjusts each row amount before approving (existing per-row edit + auto-match cascade — no separate admin UI).
+- Auto-sync (`?sync=true`) only touches 4-digit year periods, so it never recreates a fund row.
+
+## ADH (PM) Designation Query
+
+One-off campaign to tag members who serve as **ADH (PM)** specifically (a literal occupation distinct from plain ADH). Members were emailed "Are you an Assistant Director of Horticulture (PM)?" with one-click Yes/No.
+- **`GET /api/adh-pm-confirm?t=<jwt>&a=yes|no`** — token-auth (HS256 `{ userId, purpose: "adh_pm" }`, 60-day), no login. Yes → sets occupation to `Assistant Director of Horticulture (PM)`; No → sets `social_links.adh_pm_optout=true` (excluded from re-asks). Returns a branded bilingual HTML page.
+- **Admin tracker:** `/admin/adh-pm` + `GET /api/admin/adh-pm` (super_admin + state officials) — groups members into Now ADH(PM) / Said No / No reply.
+- **Chatbot:** `get_my_adh_pm_status` reports whether the caller's response was recorded.
 
 ## Task Management System
 
@@ -1230,6 +1267,17 @@ Automated badge system that awards badges based on member activity stats.
 - **Member page:** `/dashboard/achievements` — personal badges display
 - **Admin page:** `/admin/achievements` — badge leaderboard
 - **Badges:** Century (100min), Half Century (50min), Dedicated (200min), All-Rounder (5+ action types), Task Master (10+ tasks), Task Starter (1st task), Payment Champion (all paid), Voice of Change (5+ grievances), Idea Factory (3+ ideas), Social Butterfly (5+ RSVPs), Loyal Member (6+ months), Pioneer (1+ year), Regular (50+ logins)
+
+## Task Gamification
+
+Points-based gamification layered on the task system to motivate members. Table: `task_points` (schema `supabase/task_points_schema.sql`). **Distinct from Achievements/Badges** (those are milestone flags; this is a continuous points score + leaderboard).
+
+- **Engine:** `lib/task-points.ts` — `TASK_POINTS` values, 5 `LEVELS` (🌱 Sprout 0 → 🌿 Gardener 100 → 🪴 Cultivator 300 → 🌳 Horticulturist 700 → 🏆 Master 1500), `getLevel(points)`, and **`awardTaskPoints(userId, reason, todoId?)`** — idempotent (a partial unique index on `(user_id, todo_id, reason) WHERE todo_id IS NOT NULL` prevents double-awarding; conflict errors swallowed). Fire-and-forget; never blocks the caller.
+- **Award hooks (already wired):** `first_task` +15 (one-time, self-guarded), `commit` +5, `deliverable` +5, `time_log` +2, `subtask_completed` +8, `task_completed` +20, `on_time_bonus` +10 (completed on/before `due_date`). Wired in `app/api/todos/route.ts` (POST create, PUT commit, PUT status=completed → awards to `committed_by ?? assigned_to ?? submitted_by`), `app/api/todos/attachments/route.ts`, `app/api/todos/time-entries/route.ts`. **Add new award points by calling `awardTaskPoints` at the event site** — don't recompute totals.
+- **API:** `GET /api/gamification?period=week|month|all&scope=overall|district` — returns the caller's `{ points, level, rank, streak, breakdown, recent }` + a leaderboard (lifetime points drive the level; period filters the board). Streak = consecutive 7-day windows ending today with ≥1 award. Test accounts excluded.
+- **Member page:** `/dashboard/rewards` ("Rewards & Progress", under *My Activity*) — level progress hero, points breakdown, leaderboard with period/scope toggles.
+- **Backfill:** `scripts/backfill-task-points.mjs` (dry-run default, `--execute`) seeds points from historical task activity. Idempotent (skips existing `user|todo|reason` keys).
+- **Rewards redemption is intentionally deferred** (points-only). When building it: add `rewards` (admin catalog) + `reward_redemptions` (request → approve/deduct or reject/refund) tables; the points ledger already exists.
 
 ## Event RSVP
 
