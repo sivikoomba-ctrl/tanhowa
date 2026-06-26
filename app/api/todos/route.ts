@@ -5,6 +5,7 @@ import { getSession, isAdmin, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { logAudit } from "@/lib/audit-log";
+import { awardTaskPoints } from "@/lib/task-points";
 import { notifyTaskAssigned, notifyTaskCommitted, notifyTaskStatusChanged } from "@/lib/telegram";
 import { validate, todoCreateSchema } from "@/lib/validation";
 import { writeLimiter } from "@/lib/rate-limit";
@@ -232,6 +233,8 @@ export async function POST(req: NextRequest) {
 
     logContribution(session.userId, "task_created", "Created task: " + v.data.title);
     logAudit(session.userId, "task_created", "task", data.id);
+    // Gamification: one-time bonus for a member's first task (self-guarded)
+    if (!v.data.parent_id) awardTaskPoints(session.userId, "first_task", data.id);
 
     return NextResponse.json({ todo: data });
   } catch (error) {
@@ -341,6 +344,7 @@ export async function PUT(req: NextRequest) {
       })();
 
       logContribution(session.userId, "task_committed", "Committed to task");
+      awardTaskPoints(session.userId, "commit", body.id);
 
       return NextResponse.json({ message: "Committed" });
     }
@@ -572,6 +576,30 @@ export async function PUT(req: NextRequest) {
     const statusLabel = body.status ? ` → ${body.status}` : "";
     logContribution(session.userId, "task_updated", `Updated task${statusLabel}`);
     logAudit(session.userId, "task_" + (body.status || "updated"), "task", body.id);
+
+    // Gamification: award completion points to the member who did the work
+    if (body.status === "completed" && dbRole === "admin") {
+      (async () => {
+        try {
+          const { data: t } = await supabase
+            .from("todos")
+            .select("committed_by, assigned_to, submitted_by, parent_id, due_date, completed_at")
+            .eq("id", body.id)
+            .single();
+          const worker = t?.committed_by || t?.assigned_to || t?.submitted_by;
+          if (!worker) return;
+          if (t?.parent_id) {
+            await awardTaskPoints(worker, "subtask_completed", body.id);
+          } else {
+            await awardTaskPoints(worker, "task_completed", body.id);
+            if (t?.due_date) {
+              const done = (t.completed_at || new Date().toISOString()).slice(0, 10);
+              if (done <= String(t.due_date).slice(0, 10)) await awardTaskPoints(worker, "on_time_bonus", body.id);
+            }
+          }
+        } catch { /* ignore */ }
+      })();
+    }
 
     // Fire-and-forget: notify on status change
     if (body.status && dbRole === "admin") {

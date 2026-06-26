@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, getDbRole } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { awardTaskPoints } from "@/lib/task-points";
 
 export async function GET(req: NextRequest) {
   try {
@@ -106,6 +107,8 @@ export async function POST(req: NextRequest) {
       await logError({ type: "api", message: error.message, path: "/api/todos/time-entries", method: "POST", status_code: 500 });
       return NextResponse.json({ error: "Failed to log time" }, { status: 500 });
     }
+
+    awardTaskPoints(session.userId, "time_log", body.todo_id);
 
     return NextResponse.json({ entry });
   } catch (error) {

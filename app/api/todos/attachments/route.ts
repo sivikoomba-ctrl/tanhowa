@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { awardTaskPoints } from "@/lib/task-points";
 
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -142,6 +143,8 @@ export async function POST(req: NextRequest) {
       await logError({ type: "api", message: error.message, path: "/api/todos/attachments", method: "POST", status_code: 500 });
       return NextResponse.json({ error: "Failed to save attachment" }, { status: 500 });
     }
+
+    awardTaskPoints(session.userId, "deliverable", todoId);
 
     return NextResponse.json({ attachment: data });
   } catch (error) {

@@ -997,6 +997,7 @@ const translations = {
 
   // Navigation — New features
   "nav.achievements": { en: "Achievements", ta: "சாதனைகள்" },
+  "nav.rewards": { en: "Rewards & Progress", ta: "வெகுமதிகள் & முன்னேற்றம்" },
   "nav.calendar": { en: "Calendar", ta: "நாட்காட்டி" },
 
   // Letters & Forms

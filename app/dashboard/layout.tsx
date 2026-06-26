@@ -47,6 +47,7 @@ import {
   MessageSquarePlus,
   MessagesSquare,
   Trophy,
+  Medal,
   CalendarDays,
   History as HistoryIcon,
   Lock,
@@ -147,6 +148,7 @@ const MEMBER_NAV_SECTIONS = [
     items: [
       { href: "/dashboard/todos", labelKey: "nav.todos" as const, icon: ListTodo },
       { href: "/dashboard/activity", labelKey: "nav.my_activity" as const, icon: Activity },
+      { href: "/dashboard/rewards", labelKey: "nav.rewards" as const, icon: Medal },
       { href: "/dashboard/achievements", labelKey: "nav.achievements" as const, icon: Trophy },
       { href: "/dashboard/contributions", labelKey: "nav.contributions" as const, icon: Award },
     ],

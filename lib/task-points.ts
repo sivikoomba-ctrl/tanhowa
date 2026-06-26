@@ -1,0 +1,81 @@
+// Task gamification — points engine, levels, and the award helper.
+// Points are stored in the `task_points` ledger (supabase/task_points_schema.sql).
+import { getServiceClient } from "@/lib/supabase";
+
+export const TASK_POINTS = {
+  first_task: 15,        // one-time, first task a member ever creates
+  commit: 5,             // committing to a task
+  deliverable: 5,        // uploading a deliverable file
+  time_log: 2,           // logging a time entry
+  subtask_completed: 8,  // a sub-task marked completed
+  task_completed: 20,    // a top-level task marked completed
+  on_time_bonus: 10,     // completed on/before its due date
+} as const;
+
+export type PointReason = keyof typeof TASK_POINTS;
+
+export const REASON_LABELS: Record<string, string> = {
+  first_task: "First task created",
+  commit: "Committed to a task",
+  deliverable: "Uploaded a deliverable",
+  time_log: "Logged time",
+  subtask_completed: "Completed a sub-task",
+  task_completed: "Completed a task",
+  on_time_bonus: "On-time completion bonus",
+};
+
+export const LEVELS = [
+  { name: "Sprout", emoji: "🌱", min: 0 },
+  { name: "Gardener", emoji: "🌿", min: 100 },
+  { name: "Cultivator", emoji: "🪴", min: 300 },
+  { name: "Horticulturist", emoji: "🌳", min: 700 },
+  { name: "Master Horticulturist", emoji: "🏆", min: 1500 },
+] as const;
+
+export function getLevel(points: number) {
+  let current: (typeof LEVELS)[number] = LEVELS[0];
+  for (const l of LEVELS) if (points >= l.min) current = l;
+  const index = LEVELS.indexOf(current);
+  const next = LEVELS[index + 1] || null;
+  const span = next ? next.min - current.min : 1;
+  const into = points - current.min;
+  return {
+    name: current.name,
+    emoji: current.emoji,
+    index,
+    next: next ? { name: next.name, emoji: next.emoji, min: next.min } : null,
+    pointsToNext: next ? Math.max(0, next.min - points) : 0,
+    progressPct: next ? Math.min(100, Math.round((into / span) * 100)) : 100,
+  };
+}
+
+/**
+ * Award points to a member, idempotently. The unique index on
+ * (user_id, todo_id, reason) prevents double-awarding the same task event;
+ * conflict errors are swallowed. Fire-and-forget — never blocks the caller.
+ */
+export async function awardTaskPoints(
+  userId: string | null | undefined,
+  reason: PointReason,
+  todoId?: string | null,
+  overridePoints?: number,
+): Promise<void> {
+  if (!userId) return;
+  const points = overridePoints ?? TASK_POINTS[reason];
+  if (!points) return;
+  try {
+    const supabase = getServiceClient();
+    // first_task has no todo-based dedup across tasks — guard it explicitly
+    if (reason === "first_task") {
+      const { count } = await supabase
+        .from("task_points")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("reason", "first_task");
+      if ((count || 0) > 0) return;
+    }
+    await supabase.from("task_points").insert({ user_id: userId, points, reason, todo_id: todoId || null });
+  } catch {
+    /* ignore — includes unique-conflict dedup */
+  }
+}
