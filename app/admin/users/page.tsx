@@ -278,14 +278,22 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handleSetOfficial(userId: string, officialType: string | null) {
-    const label = officialType === "state" ? "State Official" : officialType === "district" ? "District-Admin" : officialType === "volunteer" ? "Volunteer Admin" : "regular member";
+  async function handleSetOfficial(userId: string, officialType: string | null, designation?: string) {
+    const label = officialType === "state" ? "State Official" : officialType === "district" ? (designation || "District-Admin") : officialType === "volunteer" ? "Volunteer Admin" : "regular member";
     const res = await fetch("/api/admin/users", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, action: "set-official", officialType }),
     });
     if (res.ok) {
+      // Set the DS/DJS designation in the same step so the official is never half-set.
+      if (officialType === "district" && designation) {
+        await fetch("/api/admin/users", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, action: "set-tanhowa-designation", designation }),
+        });
+      }
       toast.success(`User set as ${label}`);
       loadUsers();
     } else {
@@ -452,7 +460,7 @@ export default function AdminUsersPage() {
     } else if (action === "set-official-state") {
       handleSetOfficial(userId, "state");
     } else if (action === "set-official-district") {
-      handleSetOfficial(userId, "district");
+      handleSetOfficial(userId, "district", extra);
     } else if (action === "set-official-volunteer") {
       handleVolunteerInvite(userId);
     } else if (action === "remove-official") {

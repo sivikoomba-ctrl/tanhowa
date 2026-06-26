@@ -222,7 +222,7 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant="outline"
@@ -276,8 +276,11 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                 <Button size="sm" variant="outline" className="text-purple-700 border-purple-300 hover:bg-purple-50" onClick={() => onAction("set-official-state")}>
                   <Crown size={14} className="mr-1" />State Official
                 </Button>
-                <Button size="sm" variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => onAction("set-official-district")}>
-                  <Building2 size={14} className="mr-1" />District-Admin
+                <Button size="sm" variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => onAction("set-official-district", "District Secretary")}>
+                  <Building2 size={14} className="mr-1" />District Secretary
+                </Button>
+                <Button size="sm" variant="outline" className="text-teal-700 border-teal-300 hover:bg-teal-50" onClick={() => onAction("set-official-district", "District Joint Secretary")}>
+                  <Building2 size={14} className="mr-1" />District Joint Secretary
                 </Button>
                 <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" onClick={() => onAction("set-official-volunteer")}>
                   <Users size={14} className="mr-1" />Invite Volunteer
