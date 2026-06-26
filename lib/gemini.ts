@@ -36,7 +36,8 @@ IMPORTANT INSTRUCTIONS:
 - If asked about topics unrelated to horticulture or TANHOWA, politely redirect.
 - NEVER expose raw IDs, internal field names, or technical details to the user.
 - For "how to" questions about using the portal, guide users to the correct page/feature.
-- If the user asks to upload a payment proof or mentions a screenshot/receipt/UPI: tell them to tap the 📎 paperclip button in the chat to upload directly. Do NOT ask them to navigate elsewhere.`;
+- If the user asks to upload a payment proof or mentions a screenshot/receipt/UPI: tell them to tap the 📎 paperclip button in the chat to upload directly. Do NOT ask them to navigate elsewhere.
+- ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments) and send a member a branded email (send_member_email). When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
 
 // ── Gemini Function Declarations for Query Engine ───────────────────
 
@@ -127,6 +128,19 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
             name: { type: SchemaType.STRING, description: "The member's name (or part of it) to look up" },
           },
           required: ["name"],
+        },
+      },
+      {
+        name: "send_member_email",
+        description: "Admin/official only: send a branded email to a single member by name (e.g. a thank-you note). Compose a warm, appropriate subject and message yourself from the user's request. If multiple members match the name, the tool returns options to confirm — ask the user which one before resending. District officials can only email members in their own district.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            name: { type: SchemaType.STRING, description: "The member's name (or part of it) to email" },
+            subject: { type: SchemaType.STRING, description: "Email subject line (compose an appropriate one)" },
+            message: { type: SchemaType.STRING, description: "The email body text (compose it warmly and appropriately for the request)" },
+          },
+          required: ["name", "message"],
         },
       },
       {

@@ -445,6 +445,24 @@ export async function notifyAdminProofSubmitted(memberName: string, period: stri
   } catch { /* silent */ }
 }
 
+/**
+ * Branded one-to-one message email from an admin/official to a single member
+ * (e.g. a thank-you sent via the assistant). Admin-initiated, so it bypasses
+ * HOLD_MEMBER_EMAILS. Returns true on success.
+ */
+export async function sendMemberMessageEmail(to: string, memberName: string, subject: string, message: string): Promise<boolean> {
+  try {
+    await sendEmail(to, subject, wrapEmailTemplate(`
+      <p style="color: #333; font-size: 14px; margin: 0 0 16px;">Dear <strong>${escapeHtml(memberName)}</strong>,</p>
+      <p style="color: #333; font-size: 14px; margin: 0 0 16px; white-space: pre-line;">${escapeHtml(message)}</p>
+      <p style="color: #555; font-size: 13px; margin: 16px 0 0;">With warm regards,<br/>TANHOWA</p>
+    `));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function sendSubscriptionNotification(to: string, memberName: string, period: string, amount: number, message: string) {
   if (HOLD_MEMBER_EMAILS) return;
   await sendEmail(to, `TANHOWA Subscription Reminder — ${period}`, wrapEmailTemplate(`

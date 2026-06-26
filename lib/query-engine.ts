@@ -6,6 +6,8 @@
 
 import { getServiceClient } from "@/lib/supabase";
 import { isFlexibleAmount } from "@/lib/subscriptions";
+import { sendMemberMessageEmail } from "@/lib/mail";
+import { logAudit } from "@/lib/audit-log";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -322,6 +324,66 @@ export async function getMemberPayments(ctx: QueryContext, args: { name?: string
   };
 }
 
+// Admin/official action: send a branded one-to-one email to a named member
+// (e.g. a thank-you). Re-checks authority from DB; district officials scoped to
+// their district; disambiguates on multiple matches; audit-logged.
+export async function sendMemberEmail(ctx: QueryContext, args: { name?: string; subject?: string; message?: string }) {
+  const supabase = getServiceClient();
+
+  const { data: caller } = await supabase
+    .from("users")
+    .select("role, official_type, posting_details, name")
+    .eq("id", ctx.userId)
+    .single();
+  const role = caller?.role || "";
+  const officialType = caller?.official_type || null;
+  const isAdmin = role === "admin" || role === "super_admin";
+  const isState = officialType === "state";
+  const isDistrict = officialType === "district";
+  if (!isAdmin && !isState && !isDistrict) {
+    return { error: "Only admins and officials can send member emails." };
+  }
+
+  const name = (args.name || "").trim();
+  const message = (args.message || "").trim();
+  if (!name) return { error: "Tell me which member to email (a name)." };
+  if (!message) return { error: "What should the email say? Provide a message." };
+
+  const { data: matches } = await supabase
+    .from("users")
+    .select("id, name, email, occupation, posting_details, status")
+    .eq("status", "approved")
+    .ilike("name", `%${name}%`)
+    .limit(6);
+
+  let people = matches || [];
+  if (isDistrict && !isAdmin && !isState) {
+    const myDistrict = (caller?.posting_details as Record<string, string> | null)?.regular_district || "";
+    people = people.filter((p) => ((p.posting_details as Record<string, string> | null)?.regular_district || "") === myDistrict);
+  }
+
+  if (people.length === 0) return { found: 0, message: `No approved member found matching "${name}".` };
+  if (people.length > 1) {
+    return {
+      found: people.length,
+      sent: false,
+      disambiguate: people.map((p) => ({ name: p.name, district: (p.posting_details as Record<string, string> | null)?.regular_district || "" })),
+      message: "Multiple members match — confirm which one before I send.",
+    };
+  }
+
+  const member = people[0];
+  if (!member.email) return { sent: false, error: `${member.name} has no email on file.` };
+
+  const subject = (args.subject || "").trim() || "A message from TANHOWA";
+  const ok = await sendMemberMessageEmail(member.email, member.name || "Member", subject, message);
+  if (!ok) return { sent: false, error: "The email failed to send. Please try again." };
+
+  logAudit(ctx.userId, "send_member_email", "user", member.id, { subject, via: "assistant", by: caller?.name || ctx.email });
+
+  return { sent: true, to: member.name, email: member.email, subject, message: `Email sent to ${member.name}.` };
+}
+
 export async function getMyAdhPmStatus(ctx: QueryContext) {
   const supabase = getServiceClient();
   const { data } = await supabase
@@ -513,6 +575,7 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   get_my_subscriptions: (ctx) => getMySubscriptions(ctx),
   get_my_adh_pm_status: (ctx) => getMyAdhPmStatus(ctx),
   get_member_payments: (ctx, args) => getMemberPayments(ctx, args as { name?: string }),
+  send_member_email: (ctx, args) => sendMemberEmail(ctx, args as { name?: string; subject?: string; message?: string }),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),
   get_my_achievements: (ctx) => getMyAchievements(ctx),
   get_portal_stats: () => getPortalStats(),
