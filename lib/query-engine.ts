@@ -8,6 +8,8 @@ import { getServiceClient } from "@/lib/supabase";
 import { isFlexibleAmount } from "@/lib/subscriptions";
 import { sendMemberMessageEmail } from "@/lib/mail";
 import { logAudit } from "@/lib/audit-log";
+import { isFinanceTeamMember } from "@/lib/auth";
+import { sendTelegramMessage } from "@/lib/telegram";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -428,6 +430,136 @@ export async function rsvpEvent(ctx: QueryContext, args: { event_name?: string; 
   return { ok: true, event: event.title, status, date: event.date, location: event.location || "TBD", message: `You're marked as ${status} for "${event.title}".` };
 }
 
+// Admin/official action: nudge a member with a reminder (payment / profile / general).
+// Sends a branded email + Telegram (if linked). District officials scoped to their district.
+export async function nudgeMember(ctx: QueryContext, args: { name?: string; type?: string }) {
+  const actor = await resolveActor(ctx);
+  if (!actor.canAdminAct) return { error: "Only admins and officials can nudge members." };
+
+  const resolved = await resolveMember(args.name || "", actor);
+  if ("fail" in resolved) return resolved.fail;
+  const member = resolved.member;
+  if (!member.email) return { sent: false, error: `${member.name} has no email on file.` };
+
+  const type = (args.type || "general").toLowerCase();
+  const supabase = getServiceClient();
+  const portal = "https://www.tanhowa.in/dashboard";
+  let subject: string;
+  let body: string;
+
+  if (type === "payment") {
+    const { data: subs } = await supabase
+      .from("subscriptions")
+      .select("amount, status, flexible_amount, period")
+      .eq("user_id", member.id)
+      .in("status", ["pending", "overdue"]);
+    const dues = (subs || []).filter((s) => !isFlexibleAmount(s));
+    const total = dues.reduce((sum, s) => sum + (s.amount || 0), 0);
+    if (dues.length === 0) return { sent: false, message: `${member.name} has no pending dues to remind about.` };
+    subject = "TANHOWA — friendly payment reminder";
+    body = `This is a gentle reminder that you have ${dues.length} pending subscription due${dues.length > 1 ? "s" : ""} totalling Rs.${total.toLocaleString("en-IN")}. You can pay and upload your proof here: ${portal}/subscriptions\n\nThank you for supporting TANHOWA.`;
+  } else if (type === "profile") {
+    subject = "TANHOWA — please complete your profile";
+    body = `Your TANHOWA profile is incomplete. Please add your remaining details (designation, district, posting block, photo, etc.) so we can include you fully in the directory and communications: ${portal}/profile`;
+  } else {
+    subject = "TANHOWA — a quick reminder";
+    body = `This is a friendly note from the TANHOWA team. Please log in to the portal to stay up to date: ${portal}`;
+  }
+
+  const ok = await sendMemberMessageEmail(member.email, member.name || "Member", subject, body);
+
+  // Telegram too, if linked
+  let tg = false;
+  const { data: u } = await supabase.from("users").select("telegram_chat_id").eq("id", member.id).single();
+  if (u?.telegram_chat_id) {
+    try { await sendTelegramMessage(u.telegram_chat_id, `<b>${subject}</b>\n\n${body}`); tg = true; } catch { /* ignore */ }
+  }
+
+  if (!ok && !tg) return { sent: false, error: "The reminder failed to send." };
+  logAudit(ctx.userId, "nudge_member", "user", member.id, { type, channels: [ok ? "email" : null, tg ? "telegram" : null].filter(Boolean), by: actor.name || ctx.email });
+  return { sent: true, to: member.name, channels: { email: ok, telegram: tg }, type, message: `Reminder sent to ${member.name}${tg ? " (email + Telegram)" : " (email)"}.` };
+}
+
+// Admin/finance action: set a member's subscription status (paid / rejected / hold).
+// Two-step: without confirm=true it returns a preview to confirm. Approving as PAID is
+// restricted to finance-team/super_admin and requires an uploaded proof.
+export async function setPaymentStatus(ctx: QueryContext, args: { name?: string; period?: string; status?: string; amount?: number; confirm?: boolean }) {
+  const actor = await resolveActor(ctx);
+  if (!actor.canAdminAct) return { error: "Only admins and officials can change payment status." };
+
+  const status = (args.status || "").toLowerCase();
+  if (!["paid", "rejected", "hold"].includes(status)) {
+    return { error: "Status must be 'paid', 'rejected', or 'hold'." };
+  }
+  if (status === "paid") {
+    const allowed = actor.role === "super_admin" || (await isFinanceTeamMember(ctx.userId));
+    if (!allowed) return { error: "Only Finance Team members or the State-Admin can give final payment approval." };
+  }
+
+  const resolved = await resolveMember(args.name || "", actor);
+  if ("fail" in resolved) return resolved.fail;
+  const member = resolved.member;
+
+  const supabase = getServiceClient();
+  let q = supabase
+    .from("subscriptions")
+    .select("id, period, amount, paid_amount, status, payment_proof_url, flexible_amount, remarks")
+    .eq("user_id", member.id)
+    .in("status", ["pending", "overdue", "hold"]);
+  if (args.period) q = q.ilike("period", `%${args.period}%`);
+  const { data: subs } = await q;
+  const candidates = subs || [];
+
+  if (candidates.length === 0) return { found: 0, message: `No open subscription found for ${member.name}${args.period ? ` matching "${args.period}"` : ""}.` };
+  if (candidates.length > 1) {
+    return {
+      found: candidates.length,
+      disambiguate: candidates.map((s) => ({ period: s.period, amount: s.amount, status: s.status, has_proof: !!s.payment_proof_url })),
+      message: `${member.name} has multiple open subscriptions — ask which period (by name).`,
+    };
+  }
+
+  const sub = candidates[0];
+
+  // Preview unless confirmed
+  if (!args.confirm) {
+    return {
+      preview: true,
+      member: member.name,
+      period: sub.period,
+      amount: sub.amount,
+      current_status: sub.status,
+      action: status,
+      has_proof: !!sub.payment_proof_url,
+      message: `Confirm: mark ${member.name}'s "${sub.period}" (Rs.${(sub.amount || 0).toLocaleString("en-IN")}) as ${status}? Ask the user to confirm, then call again with confirm=true.`,
+    };
+  }
+
+  // Execute
+  const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+  if (status === "paid") {
+    if (!sub.payment_proof_url) return { error: `Cannot approve — no payment proof is uploaded for ${member.name}'s "${sub.period}". Ask them to upload it first.` };
+    const paidAmount = args.amount != null ? Number(args.amount) : (sub.paid_amount ?? sub.amount ?? 0);
+    updates.paid_at = new Date().toISOString();
+    updates.approved_by = ctx.userId;
+    updates.approved_at = new Date().toISOString();
+    updates.paid_amount = paidAmount;
+    if (isFlexibleAmount(sub) && paidAmount > 0) updates.amount = paidAmount;
+    const financeRemark = `Final approval by ${actor.name || "Finance"}, Finance Team, TANHOWA.`;
+    const db = (sub.remarks || "").trim();
+    updates.remarks = db ? `${db}\n${financeRemark}` : financeRemark;
+  } else {
+    updates.approved_by = null;
+    updates.approved_at = null;
+  }
+
+  const { error } = await supabase.from("subscriptions").update(updates).eq("id", sub.id);
+  if (error) return { error: "Failed to update the payment. Please try again." };
+
+  logAudit(ctx.userId, "payment_" + status, "subscription", sub.id, { member: member.name, period: sub.period, via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, member: member.name, period: sub.period, status, message: `Marked ${member.name}'s "${sub.period}" as ${status}.` };
+}
+
 export async function getMyAdhPmStatus(ctx: QueryContext) {
   const supabase = getServiceClient();
   const { data } = await supabase
@@ -621,6 +753,8 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   get_member_payments: (ctx, args) => getMemberPayments(ctx, args as { name?: string }),
   send_member_email: (ctx, args) => sendMemberEmail(ctx, args as { name?: string; subject?: string; message?: string }),
   rsvp_event: (ctx, args) => rsvpEvent(ctx, args as { event_name?: string; status?: string }),
+  nudge_member: (ctx, args) => nudgeMember(ctx, args as { name?: string; type?: string }),
+  set_payment_status: (ctx, args) => setPaymentStatus(ctx, args as { name?: string; period?: string; status?: string; amount?: number; confirm?: boolean }),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),
   get_my_achievements: (ctx) => getMyAchievements(ctx),
   get_portal_stats: () => getPortalStats(),

@@ -38,7 +38,8 @@ IMPORTANT INSTRUCTIONS:
 - For "how to" questions about using the portal, guide users to the correct page/feature.
 - If the user asks to upload a payment proof or mentions a screenshot/receipt/UPI: tell them to tap the 📎 paperclip button in the chat to upload directly. Do NOT ask them to navigate elsewhere.
 - MEMBER ACTIONS: You can RSVP the current user to an event (rsvp_event) when they ask to attend/register/cancel.
-- ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments) and send a member a branded email (send_member_email). When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
+- ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments), send a branded email (send_member_email), send a reminder (nudge_member), and set a member's payment status (set_payment_status).
+- For set_payment_status: ALWAYS preview first (call without confirm), show the member + period + amount + action to the user, ask "Shall I confirm?", and only call again with confirm=true after they say yes. Never approve/reject without that confirmation step. When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
 
 // ── Gemini Function Declarations for Query Engine ───────────────────
 
@@ -154,6 +155,33 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
             status: { type: SchemaType.STRING, description: "going (default), interested, or cancel" },
           },
           required: ["event_name"],
+        },
+      },
+      {
+        name: "nudge_member",
+        description: "Admin/official only: send a reminder to a member by name. type 'payment' (pending dues reminder), 'profile' (complete-your-profile), or 'general'. Sends email + Telegram if linked. District officials limited to their own district.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            name: { type: SchemaType.STRING, description: "The member's name (or part of it)" },
+            type: { type: SchemaType.STRING, description: "payment | profile | general (default general)" },
+          },
+          required: ["name"],
+        },
+      },
+      {
+        name: "set_payment_status",
+        description: "Admin/finance only: set a member's subscription payment status to paid, rejected, or hold, by member name (and period if they have several open). IMPORTANT: this is a two-step action — first call WITHOUT confirm to get a preview (member, period, amount), show it to the user and ask them to confirm, THEN call again with confirm=true. Approving as 'paid' is restricted to Finance Team / State-Admin and needs an uploaded proof.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            name: { type: SchemaType.STRING, description: "The member's name (or part of it)" },
+            period: { type: SchemaType.STRING, description: "Subscription period if the member has several open (e.g. '2026', 'UATT')" },
+            status: { type: SchemaType.STRING, description: "paid | rejected | hold" },
+            amount: { type: SchemaType.NUMBER, description: "Paid amount when approving (defaults to the subscription amount)" },
+            confirm: { type: SchemaType.BOOLEAN, description: "Set true ONLY after the user has confirmed the previewed action" },
+          },
+          required: ["name", "status"],
         },
       },
       {
