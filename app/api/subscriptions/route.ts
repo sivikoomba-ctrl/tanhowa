@@ -239,6 +239,103 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ subscription: data });
     }
 
+    // Member-allowed: split ONE payment across several of the member's own dues plus
+    // an optional voluntary-fund contribution. All affected rows share one proof, txn,
+    // and a payment_group_id, and are submitted for review together. Admin/Finance can
+    // still adjust each row's amount before final approval.
+    if (body.action === "split-payment") {
+      const dueIds: string[] = Array.isArray(body.due_ids) ? body.due_ids.filter((x: unknown) => typeof x === "string") : [];
+      const flexPeriod = (body.flexible_period || "").trim();
+      const flexAmount = body.flexible_amount != null ? parseFloat(body.flexible_amount) : 0;
+      const hasFlex = !!flexPeriod && !isNaN(flexAmount) && flexAmount > 0;
+
+      if (dueIds.length === 0 && !hasFlex) {
+        return NextResponse.json({ error: "Select at least one due or enter a contribution" }, { status: 400 });
+      }
+      if (dueIds.length + (hasFlex ? 1 : 0) < 2) {
+        return NextResponse.json({ error: "A split needs at least two items" }, { status: 400 });
+      }
+
+      // Resolve the member's own unpaid due rows
+      let dueRows: { id: string; period: string; amount: number; status: string }[] = [];
+      if (dueIds.length > 0) {
+        const { data: rows } = await supabase
+          .from("subscriptions")
+          .select("id, period, amount, status, user_id")
+          .in("id", dueIds);
+        const owned = (rows || []).filter((r) => r.user_id === session.userId && r.status !== "paid");
+        if (owned.length !== dueIds.length) {
+          return NextResponse.json({ error: "One or more selected dues are invalid or already paid" }, { status: 400 });
+        }
+        dueRows = owned;
+      }
+
+      // Resolve / create the flexible contribution row
+      let flexRowId: string | null = null;
+      if (hasFlex) {
+        const { data: ref } = await supabase
+          .from("subscriptions")
+          .select("id, flexible_amount, status")
+          .eq("user_id", session.userId)
+          .eq("period", flexPeriod)
+          .order("created_at", { ascending: false });
+        const isFlex = isFlexibleAmount({ period: flexPeriod, flexible_amount: ref?.[0]?.flexible_amount });
+        if (!isFlex) {
+          return NextResponse.json({ error: "Not a voluntary fund" }, { status: 403 });
+        }
+        // Reuse an existing unpaid row without proof; else create a fresh one
+        const reusable = (ref || []).find((r) => r.status !== "paid");
+        if (reusable) {
+          flexRowId = reusable.id;
+        } else {
+          const { data: created, error: cErr } = await supabase
+            .from("subscriptions")
+            .insert({ user_id: session.userId, period: flexPeriod, amount: flexAmount, status: "pending", flexible_amount: true })
+            .select("id")
+            .single();
+          if (cErr || !created) {
+            await logError({ type: "api", message: cErr?.message || "insert flex failed", path: "/api/subscriptions", method: "POST", status_code: 500 });
+            return NextResponse.json({ error: "Failed to add contribution" }, { status: 500 });
+          }
+          flexRowId = created.id;
+        }
+      }
+
+      const groupId = globalThis.crypto.randomUUID();
+      const dueTotal = dueRows.reduce((s, r) => s + (r.amount || 0), 0);
+      const grandTotal = dueTotal + (hasFlex ? flexAmount : 0);
+      const splitNote = `Combined payment of Rs.${grandTotal.toLocaleString("en-IN")} split across ${dueRows.length + (hasFlex ? 1 : 0)} items.`;
+      const baseRemark = (body.remarks || "").trim();
+      const remark = baseRemark ? `${baseRemark} | ${splitNote}` : splitNote;
+
+      const common = {
+        payment_proof_url: body.payment_proof_url || null,
+        transaction_id: body.transaction_id || null,
+        payment_method: body.payment_method || null,
+        payment_group_id: groupId,
+        status: "pending",
+        remarks: remark,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Apply to each due row (keep its own fixed amount)
+      for (const r of dueRows) {
+        await supabase.from("subscriptions").update(common).eq("id", r.id);
+      }
+      // Apply to the flexible row (set its contribution amount)
+      if (flexRowId) {
+        await supabase.from("subscriptions").update({ ...common, amount: flexAmount }).eq("id", flexRowId);
+      }
+
+      logContribution(session.userId, "payment_proof_uploaded", "Submitted a combined (split) payment");
+
+      // Notify admins once
+      const { data: me } = await supabase.from("users").select("name").eq("id", session.userId).single();
+      notifyAdminProofSubmitted(me?.name || "Member", "Combined payment", grandTotal).catch(() => {});
+
+      return NextResponse.json({ message: "Split payment submitted", count: dueRows.length + (hasFlex ? 1 : 0), total: grandTotal, payment_group_id: groupId });
+    }
+
     if (!(await isAdmin(session))) {
       return NextResponse.json({ error: "Forbidden — admin role required" }, { status: 403 });
     }

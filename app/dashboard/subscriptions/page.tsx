@@ -102,6 +102,68 @@ export default function SubscriptionsPage() {
   const [contribAmount, setContribAmount] = useState("");
   const [contribSaving, setContribSaving] = useState(false);
 
+  // Combined / split payment dialog
+  const [splitOpen, setSplitOpen] = useState(false);
+  const [splitSelected, setSplitSelected] = useState<Set<string>>(new Set());
+  const [splitRefund, setSplitRefund] = useState("");
+  const [splitTxn, setSplitTxn] = useState("");
+  const [splitMethod, setSplitMethod] = useState("UPI");
+  const [splitProofUrl, setSplitProofUrl] = useState<string | null>(null);
+  const [splitUploading, setSplitUploading] = useState(false);
+  const [splitSaving, setSplitSaving] = useState(false);
+  const splitFileRef = useRef<HTMLInputElement>(null);
+
+  async function handleSplitProofUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Need a subscription_id we own for the upload — use a selected due, else the flex fund row
+    const ownId = Array.from(splitSelected)[0]
+      || subscriptions.find((s) => isFlexibleAmount(s) && s.status !== "paid")?.id;
+    if (!ownId) { toast.error("Select at least one item first"); return; }
+    setSplitUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("subscription_id", ownId);
+      const res = await fetch("/api/upload/payment-proof", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok) { setSplitProofUrl(data.payment_proof_url); toast.success("Proof attached"); }
+      else toast.error(data.error || "Upload failed");
+    } catch { toast.error("Upload failed"); }
+    finally { setSplitUploading(false); if (splitFileRef.current) splitFileRef.current.value = ""; }
+  }
+
+  async function handleSubmitSplit() {
+    const refundNum = parseFloat(splitRefund) || 0;
+    const items = splitSelected.size + (refundNum > 0 ? 1 : 0);
+    if (items < 2) { toast.error("Select at least two items to combine"); return; }
+    if (!splitProofUrl) { toast.error("Attach your payment proof"); return; }
+    setSplitSaving(true);
+    try {
+      const flexPeriod = subscriptions.find((s) => isFlexibleAmount(s))?.period || null;
+      const res = await fetch("/api/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "split-payment",
+          due_ids: Array.from(splitSelected),
+          flexible_period: refundNum > 0 ? flexPeriod : null,
+          flexible_amount: refundNum > 0 ? refundNum : null,
+          transaction_id: splitTxn,
+          payment_method: splitMethod,
+          payment_proof_url: splitProofUrl,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Failed to submit"); return; }
+      toast.success(`Combined payment submitted (${data.count} items) — awaiting verification.`);
+      setSplitOpen(false);
+      setSplitSelected(new Set()); setSplitRefund(""); setSplitTxn(""); setSplitProofUrl(null);
+      load();
+    } catch { toast.error("Failed to submit"); }
+    finally { setSplitSaving(false); }
+  }
+
   async function handleAddContribution() {
     if (!contribFund) return;
     const amt = parseFloat(contribAmount);
@@ -425,6 +487,18 @@ export default function SubscriptionsPage() {
         return acc;
       }, {}),
   );
+
+  // Member's own unpaid fixed dues (non-flexible) — eligible for a combined/split payment
+  const pendingDues = subscriptions.filter(
+    (s) => !isFlexibleAmount(s) && (s.status === "pending" || s.status === "overdue"),
+  );
+  const hasFlexFund = subscriptions.some((s) => isFlexibleAmount(s));
+  // Show the combine option when there's enough to combine (2+ dues, or 1 due + the fund)
+  const canCombine = pendingDues.length >= 2 || (pendingDues.length >= 1 && hasFlexFund);
+  const splitDueTotal = pendingDues
+    .filter((s) => splitSelected.has(s.id))
+    .reduce((sum, s) => sum + (s.amount || 0), 0);
+  const splitGrandTotal = splitDueTotal + (parseFloat(splitRefund) || 0);
 
   // Dues summary calculations
   const duesUpTo2025 = subscriptions
@@ -975,6 +1049,28 @@ export default function SubscriptionsPage() {
         className="hidden"
       />
 
+      {/* Combine multiple dues + Refundable into one payment */}
+      {canCombine && (
+        <Card className="border-2 border-primary/20 bg-primary/5">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Wallet className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm">Paid for several dues at once?</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Combine your subscription dues{hasFlexFund ? " and a Refundable contribution" : ""} into a single payment with one proof.
+                </p>
+              </div>
+              <Button size="sm" className="h-8 text-xs" onClick={() => setSplitOpen(true)}>
+                <Plus size={14} className="mr-1" /> Combine Payment
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Voluntary funds — contribute any amount, any number of times */}
       {flexibleFunds.map((f) => (
         <Card key={`fund-${f.period}`} className="border-2 border-purple-200 bg-purple-50/40">
@@ -1460,6 +1556,88 @@ export default function SubscriptionsPage() {
               </form>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Combine / split payment dialog */}
+      <input ref={splitFileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleSplitProofUpload} />
+      <Dialog open={splitOpen} onOpenChange={(open) => { if (!open) setSplitOpen(false); }}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Combine Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Select the dues this single payment covers{hasFlexFund ? ", and optionally add a Refundable contribution" : ""}. One proof applies to all; admin verifies each.
+            </p>
+
+            {/* Pending dues checkboxes */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">My dues</p>
+              {pendingDues.length === 0 && <p className="text-xs text-muted-foreground italic">No pending dues.</p>}
+              {pendingDues.map((s) => (
+                <label key={s.id} className="flex items-center gap-2 p-2 rounded-lg border cursor-pointer hover:bg-muted/40">
+                  <input
+                    type="checkbox"
+                    checked={splitSelected.has(s.id)}
+                    onChange={(e) => {
+                      setSplitSelected((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(s.id); else next.delete(s.id);
+                        return next;
+                      });
+                    }}
+                    className="accent-primary"
+                  />
+                  <span className="flex-1 text-sm">{s.period}</span>
+                  <span className="text-sm font-mono">&#8377;{(s.amount || 0).toLocaleString("en-IN")}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* Refundable contribution */}
+            {hasFlexFund && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Refundable / voluntary contribution (&#8377;)</label>
+                <Input type="number" min="0" value={splitRefund} onChange={(e) => setSplitRefund(e.target.value)} placeholder="e.g. 10000" className="mt-1" />
+              </div>
+            )}
+
+            {/* Total */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-primary/10">
+              <span className="text-sm font-medium">Total this payment</span>
+              <span className="text-base font-bold text-primary">&#8377;{splitGrandTotal.toLocaleString("en-IN")}</span>
+            </div>
+
+            {/* Payment details */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Method</label>
+                <select value={splitMethod} onChange={(e) => setSplitMethod(e.target.value)} className="mt-1 w-full h-9 rounded-md border px-2 text-sm">
+                  <option>UPI</option><option>Bank Transfer</option><option>Cash</option><option>Cheque</option><option>Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Transaction ID</label>
+                <Input value={splitTxn} onChange={(e) => setSplitTxn(e.target.value)} placeholder="UTR / Ref no." className="mt-1 h-9" />
+              </div>
+            </div>
+
+            {/* Proof */}
+            <div>
+              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => splitFileRef.current?.click()} disabled={splitUploading}>
+                {splitUploading ? <><Upload size={14} className="mr-1.5 animate-pulse" /> Uploading...</> : <><Upload size={14} className="mr-1.5" /> {splitProofUrl ? "Replace Proof" : "Attach Payment Proof"}</>}
+              </Button>
+              {splitProofUrl && <span className="ml-2 text-xs text-green-600">Proof attached ✓</span>}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" size="sm" onClick={() => setSplitOpen(false)} disabled={splitSaving}>Cancel</Button>
+              <Button size="sm" onClick={handleSubmitSplit} disabled={splitSaving || splitUploading}>
+                {splitSaving ? "Submitting..." : "Submit for Review"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
