@@ -27,6 +27,30 @@ export async function GET(req: NextRequest) {
     const period = url.searchParams.get("period");
     const status = url.searchParams.get("status");
 
+    // Member picker search (admin Create-Subscription dialog) — returns approved
+    // members matching a name query, regardless of whether a sub row is loaded.
+    const memberSearch = url.searchParams.get("member_search");
+    if (memberSearch !== null) {
+      if (!(await isAdmin(session))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const q = memberSearch.trim();
+      if (q.length < 2) return NextResponse.json({ members: [] });
+      const { data } = await supabase
+        .from("users")
+        .select("id, name, posting_details")
+        .eq("status", "approved")
+        .ilike("name", `%${q}%`)
+        .order("name", { ascending: true })
+        .limit(20);
+      const members = (data || []).map((u) => ({
+        id: u.id,
+        name: u.name || "Unknown",
+        district: (u.posting_details as { regular_district?: string } | null)?.regular_district || "",
+      }));
+      return NextResponse.json({ members });
+    }
+
     const officialGet = await getOfficialInfo(session.userId);
     const isAdminGet = officialGet.role === "admin" || officialGet.role === "super_admin";
     const isDistrictOfficialGet = officialGet.official_type === "district" && !!officialGet.district;

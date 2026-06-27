@@ -150,6 +150,8 @@ export default function AdminSubscriptionsPage() {
   const [createScope, setCreateScope] = useState<"all" | "member">("all");
   const [targetMember, setTargetMember] = useState<{ id: string; name: string } | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
+  const [memberResults, setMemberResults] = useState<{ id: string; name: string; district: string }[]>([]);
+  const [memberSearching, setMemberSearching] = useState(false);
 
   // Admin proof upload
   const adminFileInputRef = useRef<HTMLInputElement>(null);
@@ -494,16 +496,22 @@ export default function AdminSubscriptionsPage() {
     });
   }, [subscriptions, searchQuery, filterStatus, filterPeriod, filterDistrict, filterUploadTime]);
 
-  // Unique approved members (derived from loaded subscriptions) for the per-member create picker
-  const memberOptions = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; district: string }>();
-    for (const s of subscriptions) {
-      if (!map.has(s.user_id)) {
-        map.set(s.user_id, { id: s.user_id, name: s.users?.name || "Unknown", district: s.users?.posting_details?.regular_district || "" });
-      }
-    }
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [subscriptions]);
+  // Member picker (per-member create) — search ALL approved members server-side,
+  // not just those whose subscription rows are on the current page.
+  useEffect(() => {
+    const q = memberSearch.trim();
+    if (createScope !== "member" || targetMember || q.length < 2) { setMemberResults([]); return; }
+    setMemberSearching(true);
+    const tmr = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/subscriptions?member_search=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        setMemberResults(res.ok ? (data.members || []) : []);
+      } catch { setMemberResults([]); }
+      setMemberSearching(false);
+    }, 300);
+    return () => clearTimeout(tmr);
+  }, [memberSearch, createScope, targetMember]);
 
   async function handleBulkCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -1050,20 +1058,23 @@ export default function AdminSubscriptionsPage() {
                   ) : (
                     <>
                       <Input value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} placeholder="Search member by name…" />
-                      {memberSearch.trim() && (
+                      {memberSearch.trim().length >= 2 && (
                         <div className="max-h-40 overflow-y-auto rounded-lg border divide-y">
-                          {memberOptions.filter((m) => m.name.toLowerCase().includes(memberSearch.toLowerCase())).slice(0, 20).map((m) => (
-                            <button
-                              key={m.id}
-                              type="button"
-                              onClick={() => { setTargetMember({ id: m.id, name: m.name }); setMemberSearch(""); }}
-                              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted"
-                            >
-                              <span>{m.name}</span>
-                              <span className="text-xs text-muted-foreground">{m.district}</span>
-                            </button>
-                          ))}
-                          {memberOptions.filter((m) => m.name.toLowerCase().includes(memberSearch.toLowerCase())).length === 0 && (
+                          {memberSearching ? (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">Searching…</p>
+                          ) : memberResults.length > 0 ? (
+                            memberResults.map((m) => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => { setTargetMember({ id: m.id, name: m.name }); setMemberSearch(""); }}
+                                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted"
+                              >
+                                <span>{m.name}</span>
+                                <span className="text-xs text-muted-foreground">{m.district}</span>
+                              </button>
+                            ))
+                          ) : (
                             <p className="px-3 py-2 text-xs text-muted-foreground">No member found.</p>
                           )}
                         </div>
