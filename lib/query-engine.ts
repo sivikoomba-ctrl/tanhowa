@@ -9,7 +9,7 @@ import { isFlexibleAmount } from "@/lib/subscriptions";
 import { sendMemberMessageEmail, sendVoucherStatusEmail } from "@/lib/mail";
 import { logAudit } from "@/lib/audit-log";
 import { isFinanceTeamMember } from "@/lib/auth";
-import { sendTelegramMessage } from "@/lib/telegram";
+import { sendTelegramMessage, notifyTaskAssigned } from "@/lib/telegram";
 import { approveMember, rejectMember } from "@/lib/member-approval";
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -481,6 +481,81 @@ export async function nudgeMember(ctx: QueryContext, args: { name?: string; type
   return { sent: true, to: member.name, channels: { email: ok, telegram: tg }, type, message: `Reminder sent to ${member.name}${tg ? " (email + Telegram)" : " (email)"}.` };
 }
 
+// Admin action: assign a task (by event ID or title) to a member or a team.
+export async function assignTask(ctx: QueryContext, args: { task?: string; assignee_name?: string; team_name?: string }) {
+  const actor = await resolveActor(ctx);
+  if (!actor.isAdmin) return { error: "Only admins can assign tasks." };
+
+  const taskRef = (args.task || "").trim();
+  if (!taskRef) return { error: "Which task? Give an event ID (e.g. ET-022) or title." };
+  const assigneeName = (args.assignee_name || "").trim();
+  const teamName = (args.team_name || "").trim();
+  if (!assigneeName && !teamName) return { error: "Assign to whom? Give a member name or a team name." };
+  if (assigneeName && teamName) return { error: "Assign to a member OR a team, not both." };
+
+  const supabase = getServiceClient();
+
+  // Resolve the task — by event_id (hyphen-optional) or title
+  const eidMatch = taskRef.match(/ET-?(\d+(?:-\d+)*)/i);
+  let tasks: { id: string; title: string; event_id: string; status: string }[] = [];
+  if (eidMatch) {
+    const eid = `ET-${eidMatch[1]}`;
+    const { data } = await supabase.from("todos").select("id, title, event_id, status").eq("event_id", eid).limit(2);
+    tasks = data || [];
+  }
+  if (tasks.length === 0) {
+    const { data } = await supabase.from("todos").select("id, title, event_id, status").ilike("title", `%${taskRef}%`).limit(6);
+    tasks = data || [];
+  }
+  if (tasks.length === 0) return { found: 0, message: `No task found matching "${taskRef}".` };
+  if (tasks.length > 1) {
+    return { found: tasks.length, disambiguate: tasks.map((t) => ({ event_id: t.event_id, title: t.title, status: t.status })), message: "Multiple tasks match — ask which (by event ID)." };
+  }
+  const task = tasks[0];
+
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  let targetLabel = "";
+  const recipientChatIds: string[] = [];
+
+  if (assigneeName) {
+    const resolved = await resolveMember(assigneeName, actor);
+    if ("fail" in resolved) return resolved.fail;
+    updates.assigned_to = resolved.member.id;
+    updates.assigned_team_id = null;
+    targetLabel = resolved.member.name || "member";
+    const { data: u } = await supabase.from("users").select("telegram_chat_id").eq("id", resolved.member.id).single();
+    if (u?.telegram_chat_id) recipientChatIds.push(u.telegram_chat_id);
+  } else {
+    const { data: teams } = await supabase.from("teams").select("id, name").ilike("name", `%${teamName}%`).limit(6);
+    const list = teams || [];
+    if (list.length === 0) return { found: 0, message: `No team found matching "${teamName}".` };
+    if (list.length > 1) return { found: list.length, disambiguate: list.map((t) => ({ team: t.name })), message: "Multiple teams match — ask which one." };
+    updates.assigned_team_id = list[0].id;
+    updates.assigned_to = null;
+    targetLabel = `${list[0].name} (team)`;
+    const { data: members } = await supabase.from("team_members").select("user_id").eq("team_id", list[0].id);
+    const ids = (members || []).map((m) => m.user_id).filter((id) => id !== ctx.userId);
+    if (ids.length) {
+      const { data: us } = await supabase.from("users").select("telegram_chat_id").in("id", ids).not("telegram_chat_id", "is", null);
+      for (const u of us || []) recipientChatIds.push(u.telegram_chat_id);
+    }
+  }
+
+  // Move a pending task to approved so the assignee can commit to it
+  if (task.status === "pending") {
+    updates.status = "approved";
+    updates.approved_by = ctx.userId;
+    updates.approved_at = new Date().toISOString();
+  }
+
+  const { error } = await supabase.from("todos").update(updates).eq("id", task.id);
+  if (error) return { error: "Failed to assign the task. Please try again." };
+
+  for (const cid of recipientChatIds) notifyTaskAssigned(cid, task.title, task.event_id, actor.name || "Admin").catch(() => {});
+  logAudit(ctx.userId, "task_assigned", "task", task.id, { to: targetLabel, via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, task: task.event_id, title: task.title, assigned_to: targetLabel, message: `Assigned ${task.event_id} "${task.title}" to ${targetLabel}.` };
+}
+
 // Admin action: approve or reject a PENDING member registration by name.
 // Reuses the shared approveMember/rejectMember so it matches the admin UI exactly.
 export async function approveRegistration(ctx: QueryContext, args: { name?: string; action?: string }) {
@@ -852,6 +927,7 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   rsvp_event: (ctx, args) => rsvpEvent(ctx, args as { event_name?: string; status?: string }),
   nudge_member: (ctx, args) => nudgeMember(ctx, args as { name?: string; type?: string }),
   approve_registration: (ctx, args) => approveRegistration(ctx, args as { name?: string; action?: string }),
+  assign_task: (ctx, args) => assignTask(ctx, args as { task?: string; assignee_name?: string; team_name?: string }),
   set_voucher_status: (ctx, args) => setVoucherStatus(ctx, args as { submitter_name?: string; title?: string; status?: string; confirm?: boolean; remarks?: string }),
   set_payment_status: (ctx, args) => setPaymentStatus(ctx, args as { name?: string; period?: string; status?: string; amount?: number; confirm?: boolean }),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),

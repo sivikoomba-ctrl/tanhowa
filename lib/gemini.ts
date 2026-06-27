@@ -38,7 +38,7 @@ IMPORTANT INSTRUCTIONS:
 - For "how to" questions about using the portal, guide users to the correct page/feature.
 - If the user asks to upload a payment proof or mentions a screenshot/receipt/UPI: tell them to tap the 📎 paperclip button in the chat to upload directly. Do NOT ask them to navigate elsewhere.
 - MEMBER ACTIONS: You can RSVP the current user to an event (rsvp_event) when they ask to attend/register/cancel.
-- ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments), send a branded email (send_member_email), send a reminder (nudge_member), set a member's payment status (set_payment_status), and approve/reject a pending registration (approve_registration).
+- ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments), send a branded email (send_member_email), send a reminder (nudge_member), set a member's payment status (set_payment_status), approve/reject a pending registration (approve_registration), approve/reject a voucher (set_voucher_status), and assign a task to a member/team (assign_task).
 - For set_payment_status AND set_voucher_status: ALWAYS preview first (call without confirm), show the details to the user, ask "Shall I confirm?", and only call again with confirm=true after they say yes. Never approve/reject without that confirmation step. When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
 
 // ── Gemini Function Declarations for Query Engine ───────────────────
@@ -167,6 +167,19 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
             type: { type: SchemaType.STRING, description: "payment | profile | general (default general)" },
           },
           required: ["name"],
+        },
+      },
+      {
+        name: "assign_task",
+        description: "Admin only: assign a task (by event ID like ET-022, or by title) to a member OR a team. Notifies the assignee/team. If the task or member/team name is ambiguous, the tool returns options to confirm.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            task: { type: SchemaType.STRING, description: "Event ID (ET-022) or part of the task title" },
+            assignee_name: { type: SchemaType.STRING, description: "Member name to assign to (use this OR team_name)" },
+            team_name: { type: SchemaType.STRING, description: "Team name to assign to (use this OR assignee_name)" },
+          },
+          required: ["task"],
         },
       },
       {
