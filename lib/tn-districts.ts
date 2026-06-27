@@ -264,8 +264,8 @@ const duplicateBlockNames = new Set(
 
 export const ALL_TN_BLOCK_OPTIONS: PostingLocationOption[] = allBlockEntries
   .map(({ block, district }) => ({
-    value: duplicateBlockNames.has(block) ? `${block} â€” ${district}` : block,
-    label: duplicateBlockNames.has(block) ? `${block} â€” ${district}` : block,
+    value: duplicateBlockNames.has(block) ? `${block} — ${district}` : block,
+    label: duplicateBlockNames.has(block) ? `${block} — ${district}` : block,
   }))
   .sort((a, b) => a.label.localeCompare(b.label));
 
@@ -273,7 +273,7 @@ function facilityOptions(type: SHFarmType): PostingLocationOption[] {
   return TN_HORTICULTURE_FARMS_DATA
     .filter((f) => f.type === type)
     .map((f) => {
-      const value = `${f.name} â€” ${f.district}`;
+      const value = `${f.name} — ${f.district}`;
       return { value, label: value };
     })
     .sort((a, b) => a.label.localeCompare(b.label));
