@@ -926,6 +926,42 @@ export async function getMyAdhPmStatus(ctx: QueryContext) {
   };
 }
 
+// Admin/official aggregate for the "Are you an ADH (PM)?" campaign — mirrors
+// the /admin/adh-pm tracker. now_pm = clicked Yes, said_no = opted out,
+// no_reply = plain ADH with no response yet. Super-admin / state officials only.
+export async function getAdhPmStats(ctx: QueryContext) {
+  const actor = await resolveActor(ctx);
+  if (!(actor.role === "super_admin" || actor.isState)) {
+    return { error: "Only the State-Admin or state officials can see the ADH(PM) campaign totals." };
+  }
+  const ADH = "Assistant Director of Horticulture";
+  const ADH_PM = "Assistant Director of Horticulture (PM)";
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("users")
+    .select("occupation, social_links")
+    .eq("status", "approved")
+    .limit(2000);
+  const rows = data || [];
+  let now_pm = 0, said_no = 0, no_reply = 0;
+  for (const u of rows) {
+    const occ = (u.occupation || "").trim();
+    const optout = !!(u.social_links as { adh_pm_optout?: boolean } | null)?.adh_pm_optout;
+    if (occ === ADH_PM) now_pm++;
+    else if (optout) said_no++;
+    else if (occ === ADH) no_reply++;
+  }
+  const responded = now_pm + said_no;
+  return {
+    now_pm,
+    said_no,
+    no_reply,
+    total_responded: responded,
+    audience: responded + no_reply,
+    message: `ADH(PM) campaign: ${now_pm} confirmed PM, ${said_no} said No, ${no_reply} no reply yet (${responded} of ${responded + no_reply} responded).`,
+  };
+}
+
 // ── 8. Get My Tasks ─────────────────────────────────────────────────
 
 export async function getMyTasks(ctx: QueryContext, args: { status?: string; limit?: number }) {
@@ -1218,6 +1254,7 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   get_my_profile: (ctx) => getMyProfile(ctx),
   get_my_subscriptions: (ctx) => getMySubscriptions(ctx),
   get_my_adh_pm_status: (ctx) => getMyAdhPmStatus(ctx),
+  get_adh_pm_stats: (ctx) => getAdhPmStats(ctx),
   get_member_payments: (ctx, args) => getMemberPayments(ctx, args as { name?: string }),
   send_member_email: (ctx, args) => sendMemberEmail(ctx, args as { name?: string; subject?: string; message?: string }),
   rsvp_event: (ctx, args) => rsvpEvent(ctx, args as { event_name?: string; status?: string }),

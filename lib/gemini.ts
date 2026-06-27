@@ -346,6 +346,14 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
         },
       },
       {
+        name: "get_adh_pm_stats",
+        description: "State-Admin/state-official only: campaign TOTALS for the 'Are you an ADH (PM)?' query — how many members confirmed PM (clicked Yes), how many said No, and how many haven't replied. Use when an admin asks how many ADH(PM) responses were received / the campaign count. (For a single user's own status, use get_my_adh_pm_status instead.)",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {},
+        },
+      },
+      {
         name: "get_my_tasks",
         description: "Get tasks assigned to or submitted by the current user. Use when the user asks about their tasks, to-dos, assignments, or work items.",
         parameters: {
