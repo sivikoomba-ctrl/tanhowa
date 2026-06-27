@@ -559,6 +559,7 @@ const translations = {
   "chat.more_queries": { en: "More queries...", ta: "மேலும் கேள்விகள்..." },
   "chat.show_less": { en: "Show less", ta: "குறைவாகக் காட்டு" },
   "chat.searching": { en: "Searching portal data...", ta: "தரவுகளைத் தேடுகிறது..." },
+  "chat.q_help": { en: "What can I do here?", ta: "இங்கே நான் என்ன செய்யலாம்?" },
   "chat.q_announcements": { en: "What are the latest announcements?", ta: "சமீபத்திய அறிவிப்புகள் என்ன?" },
   "chat.q_events": { en: "Any upcoming events?", ta: "வரவிருக்கும் நிகழ்வுகள் உள்ளனவா?" },
   "chat.q_subscriptions": { en: "What's my subscription status?", ta: "என் சந்தா நிலை என்ன?" },

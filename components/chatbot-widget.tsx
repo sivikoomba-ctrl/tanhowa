@@ -46,6 +46,7 @@ function firstName(full?: string): string {
 }
 
 const QUICK_QUERIES = [
+  { icon: Sparkles, key: "chat.q_help", fallback: "What can I do here?" },
   { icon: Megaphone, key: "chat.q_announcements", fallback: "What are the latest announcements?" },
   { icon: CalendarDays, key: "chat.q_events", fallback: "Any upcoming events?" },
   { icon: CreditCard, key: "chat.q_subscriptions", fallback: "What's my subscription status?" },

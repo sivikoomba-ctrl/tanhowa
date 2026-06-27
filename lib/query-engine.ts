@@ -14,6 +14,7 @@ import { sendTelegramMessage, notifyTaskAssigned } from "@/lib/telegram";
 import { approveMember, rejectMember } from "@/lib/member-approval";
 import { logContribution } from "@/lib/contributions";
 import { GRIEVANCE_CATEGORIES, SERVICE_REQUEST_CATEGORIES } from "@/lib/grievances";
+import { awardTaskPoints } from "@/lib/task-points";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -1239,6 +1240,104 @@ export async function setNotificationPref(ctx: QueryContext, args: { channel?: s
   return { ok: true, channel: key, enabled: args.enabled, message: `${key.replace(/_/g, " ")} notifications ${args.enabled ? "enabled" : "disabled"}.` };
 }
 
+// Add a voluntary contribution to a flexible fund the caller participates in.
+// Creates a NEW pending row (a ledger); the member still uploads proof to complete it.
+export async function addContribution(ctx: QueryContext, args: { fund?: string; amount?: number }) {
+  const supabase = getServiceClient();
+  const fundQ = (args.fund || "").trim();
+  const amount = Number(args.amount);
+  if (!fundQ) return { error: "Which fund do you want to contribute to (e.g. the Emergency Fund)?" };
+  if (isNaN(amount) || amount <= 0) return { error: "How much would you like to contribute? Give a positive amount." };
+
+  const { data: rows } = await supabase
+    .from("subscriptions")
+    .select("period, flexible_amount")
+    .eq("user_id", ctx.userId);
+  const flexPeriods = [...new Set((rows || [])
+    .filter((r) => isFlexibleAmount({ period: r.period, flexible_amount: r.flexible_amount }))
+    .map((r) => r.period))];
+  if (flexPeriods.length === 0) return { error: "You don't have any voluntary funds to contribute to." };
+
+  const matches = flexPeriods.filter((p) => p.toLowerCase().includes(fundQ.toLowerCase()));
+  let period: string;
+  if (matches.length === 1) period = matches[0];
+  else if (matches.length > 1) return { found: matches.length, disambiguate: matches.map((p) => ({ fund: p })), message: "Multiple funds match — ask which one." };
+  else if (flexPeriods.length === 1) period = flexPeriods[0];
+  else return { found: 0, options: flexPeriods, message: `No fund matches "${fundQ}". Your voluntary funds: ${flexPeriods.join("; ")}. Ask which one.` };
+
+  const { error } = await supabase.from("subscriptions").insert({ user_id: ctx.userId, period, amount, status: "pending", flexible_amount: true });
+  if (error) return { error: "Couldn't add the contribution. Please try again." };
+  return { ok: true, fund: period, amount, message: `Added a pending contribution of Rs.${amount.toLocaleString("en-IN")} to "${period}". To complete it, upload the payment proof — tap 📎 → Payment proof, or use the Subscriptions page.` };
+}
+
+// Commit to a task, or submit it for review ("done") — caller's own task.
+export async function updateMyTask(ctx: QueryContext, args: { task?: string; action?: string }) {
+  const supabase = getServiceClient();
+  const ref = (args.task || "").trim();
+  const a = (args.action || "").toLowerCase();
+  if (!ref) return { error: "Which task? Give its event ID (e.g. ET-022) or title." };
+  const act = a.includes("commit") ? "commit"
+    : (a.includes("review") || a.includes("done") || a.includes("complet") || a.includes("finish")) ? "review" : "";
+  if (!act) return { error: "What do you want to do — 'commit' to the task, or mark it 'done' (submit for review)?" };
+
+  const eid = ref.match(/ET-?(\d+(?:-\d+)*)/i);
+  const cols = "id, title, event_id, status, committed_by, assigned_to, submitted_by";
+  let tasks: { id: string; title: string; event_id: string; status: string; committed_by: string | null; assigned_to: string | null; submitted_by: string | null }[] = [];
+  if (eid) {
+    const { data } = await supabase.from("todos").select(cols).eq("event_id", `ET-${eid[1]}`).limit(2);
+    tasks = data || [];
+  }
+  if (tasks.length === 0) {
+    const { data } = await supabase.from("todos").select(cols).ilike("title", `%${ref}%`).limit(6);
+    tasks = data || [];
+  }
+  if (tasks.length === 0) return { found: 0, message: `No task found matching "${ref}".` };
+  if (tasks.length > 1) return { found: tasks.length, disambiguate: tasks.map((t) => ({ event_id: t.event_id, title: t.title, status: t.status })), message: "Multiple tasks match — ask which (by event ID)." };
+  const task = tasks[0];
+
+  if (act === "commit") {
+    if (task.committed_by && task.committed_by !== ctx.userId) return { error: "That task is already committed by another member." };
+    if (!["approved", "in_progress"].includes(task.status)) return { error: "Only an approved or in-progress task can be committed." };
+    await supabase.from("todos").update({ committed_by: ctx.userId, committed_at: new Date().toISOString(), status: "in_progress", updated_at: new Date().toISOString() }).eq("id", task.id);
+    logContribution(ctx.userId, "task_committed", "Committed to task: " + task.title);
+    awardTaskPoints(ctx.userId, "commit", task.id);
+    return { ok: true, task: task.title, event_id: task.event_id, action: "committed", message: `You've committed to "${task.title}" (${task.event_id}) — it's now in progress.` };
+  }
+  // review
+  if (task.status !== "in_progress") return { error: "Only an in-progress task can be submitted for review." };
+  if (task.committed_by && task.committed_by !== ctx.userId) return { error: "Only the member who committed to the task can submit it for review." };
+  await supabase.from("todos").update({ status: "review", updated_at: new Date().toISOString() }).eq("id", task.id);
+  logContribution(ctx.userId, "task_updated", "Submitted task for review: " + task.title);
+  return { ok: true, task: task.title, event_id: task.event_id, action: "review", message: `"${task.title}" (${task.event_id}) is submitted for review — an admin will verify and mark it complete.` };
+}
+
+// Return the caller's Telegram connect deep link (or say it's already linked).
+export async function getTelegramConnect(ctx: QueryContext) {
+  const supabase = getServiceClient();
+  const { data } = await supabase.from("users").select("telegram_chat_id").eq("id", ctx.userId).single();
+  if (data?.telegram_chat_id) {
+    return { already_connected: true, message: "Your Telegram is already connected ✅ — you'll get task and payment alerts there." };
+  }
+  const link = `https://t.me/tanhowa_task_bot?start=${encodeURIComponent(ctx.email)}`;
+  return { connect_url: link, message: `To connect Telegram, open this link and tap **Start** (it pre-fills your email and links your account): ${link}` };
+}
+
+// Update one safe personal field (phone / home address / office address) on the caller.
+// Name/designation/district/DOB go through the Profile page (full-replace logic there).
+export async function updateMyProfileField(ctx: QueryContext, args: { field?: string; value?: string }) {
+  const supabase = getServiceClient();
+  const raw = (args.field || "").toLowerCase().replace(/[\s-]/g, "_");
+  const value = (args.value || "").trim();
+  const MAP: Record<string, string> = { phone: "phone", mobile: "phone", phone_number: "phone", contact: "phone", address: "address", home_address: "address", office_address: "office_address", office: "office_address" };
+  const col = MAP[raw];
+  if (!col) return { error: "I can update your phone, home address, or office address here. For name, designation, district or date of birth, use the Profile page." };
+  if (!value) return { error: `What should I set your ${col.replace(/_/g, " ")} to?` };
+  if (col === "phone" && !/^\+?[\d\s-]{7,15}$/.test(value)) return { error: "That doesn't look like a valid phone number." };
+  await supabase.from("users").update({ [col]: value }).eq("id", ctx.userId);
+  logContribution(ctx.userId, "profile_updated", `Updated ${col} via assistant`);
+  return { ok: true, field: col, value, message: `Your ${col.replace(/_/g, " ")} is updated to ${value}.` };
+}
+
 // ── Wave D: owner-only actions ──────────────────────────────────────
 // Restricted to the association owner (tanhowa19791@gmail.com) — the same gate
 // the admin Users route enforces for suspend/reinstate.
@@ -1388,6 +1487,10 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   submit_grievance: (ctx, args) => submitGrievance(ctx, args as { kind?: string; subject?: string; description?: string; category?: string; priority?: string }),
   enroll_training: (ctx, args) => enrollTraining(ctx, args as { training_title?: string }),
   set_notification_pref: (ctx, args) => setNotificationPref(ctx, args as { channel?: string; enabled?: boolean }),
+  add_contribution: (ctx, args) => addContribution(ctx, args as { fund?: string; amount?: number }),
+  update_my_task: (ctx, args) => updateMyTask(ctx, args as { task?: string; action?: string }),
+  get_telegram_connect: (ctx) => getTelegramConnect(ctx),
+  update_my_profile: (ctx, args) => updateMyProfileField(ctx, args as { field?: string; value?: string }),
   nudge_member: (ctx, args) => nudgeMember(ctx, args as { name?: string; type?: string }),
   approve_registration: (ctx, args) => approveRegistration(ctx, args as { name?: string; action?: string }),
   assign_task: (ctx, args) => assignTask(ctx, args as { task?: string; assignee_name?: string; team_name?: string }),
