@@ -12,6 +12,8 @@ import { logAudit } from "@/lib/audit-log";
 import { isFinanceTeamMember } from "@/lib/auth";
 import { sendTelegramMessage, notifyTaskAssigned } from "@/lib/telegram";
 import { approveMember, rejectMember } from "@/lib/member-approval";
+import { logContribution } from "@/lib/contributions";
+import { GRIEVANCE_CATEGORIES, SERVICE_REQUEST_CATEGORIES } from "@/lib/grievances";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -1114,6 +1116,129 @@ export async function getMyContributions(ctx: QueryContext) {
   };
 }
 
+// ── Wave A: member self-service actions ─────────────────────────────
+// Low-risk — act only on the caller's OWN data, so no resolveActor/confirm.
+
+const WISHLIST_CATEGORIES = ["Training", "Infrastructure", "Events", "Digital Tools", "Policy", "Welfare", "Communication", "Other"];
+
+// Cast/replace the caller's vote in an active poll (matched by title + option).
+export async function votePoll(ctx: QueryContext, args: { poll_title?: string; option?: string }) {
+  const supabase = getServiceClient();
+  const title = (args.poll_title || "").trim();
+  const optionRaw = (args.option || "").trim();
+  if (!title) return { error: "Which poll? Give the poll's title." };
+  if (!optionRaw) return { error: "Which option do you want to vote for?" };
+
+  const { data: polls } = await supabase
+    .from("polls")
+    .select("id, title, options, status, expires_at")
+    .eq("status", "active")
+    .ilike("title", `%${title}%`)
+    .limit(6);
+  const nowIso = new Date().toISOString();
+  const list = (polls || []).filter((p) => !p.expires_at || p.expires_at > nowIso);
+  if (list.length === 0) return { found: 0, message: `No open poll found matching "${title}".` };
+  if (list.length > 1) {
+    return { found: list.length, disambiguate: list.map((p) => ({ title: p.title })), message: "Multiple open polls match — ask which one." };
+  }
+  const poll = list[0];
+  const options: string[] = Array.isArray(poll.options) ? poll.options : [];
+  let idx = -1;
+  const asNum = parseInt(optionRaw, 10);
+  if (!isNaN(asNum) && asNum >= 1 && asNum <= options.length) idx = asNum - 1;
+  else idx = options.findIndex((o) => String(o).toLowerCase().includes(optionRaw.toLowerCase()));
+  if (idx < 0) {
+    return { found_poll: poll.title, options, message: `That option isn't on "${poll.title}". Options: ${options.map((o, i) => `${i + 1}. ${o}`).join("; ")}. Ask the user to pick one.` };
+  }
+  await supabase.from("poll_votes").upsert({ poll_id: poll.id, user_id: ctx.userId, option_index: idx }, { onConflict: "poll_id,user_id" });
+  logContribution(ctx.userId, "poll_voted", `Voted in poll: ${poll.title}`);
+  return { ok: true, poll: poll.title, choice: options[idx], message: `Your vote for "${options[idx]}" in "${poll.title}" is recorded.` };
+}
+
+// Submit an idea to the wishlist/ideas board.
+export async function addWishlistIdea(ctx: QueryContext, args: { title?: string; description?: string; category?: string }) {
+  const supabase = getServiceClient();
+  const title = (args.title || "").trim();
+  const description = (args.description || "").trim();
+  if (!title) return { error: "What's the idea? Give a short title." };
+  if (!description) return { error: "Add a sentence or two describing the idea." };
+  const match = WISHLIST_CATEGORIES.find((c) => c.toLowerCase() === (args.category || "").trim().toLowerCase());
+  const category = match || "Other";
+  const { data, error } = await supabase.from("wishlist_ideas").insert({ title, description, category, submitted_by: ctx.userId }).select("id").single();
+  if (error) return { error: "Couldn't submit the idea. Please try again." };
+  logContribution(ctx.userId, "idea_submitted", "Submitted idea: " + title);
+  translateContent("wishlist_ideas", data.id, { title, description });
+  return { ok: true, title, category, message: `Your idea "${title}" was added to the wishlist board (category: ${category}).` };
+}
+
+// File a grievance, suggestion, or service request (one shared table; ticket # by trigger).
+export async function submitGrievance(ctx: QueryContext, args: { kind?: string; subject?: string; description?: string; category?: string; priority?: string }) {
+  const supabase = getServiceClient();
+  const subject = (args.subject || "").trim();
+  const description = (args.description || "").trim();
+  if (!subject) return { error: "What's the subject/title?" };
+  if (!description) return { error: "Describe it in a sentence or two." };
+
+  const kind = (args.kind || "").toLowerCase();
+  const allCats = [...GRIEVANCE_CATEGORIES, "Suggestion", ...SERVICE_REQUEST_CATEGORIES] as string[];
+  const matched = allCats.find((c) => c.toLowerCase() === (args.category || "").trim().toLowerCase());
+  let category: string;
+  if (matched) category = matched;
+  else if (kind.includes("suggest")) category = "Suggestion";
+  else if (kind.includes("service") || kind.includes("request")) category = "Other Service";
+  else category = "Personal";
+  const priority = ["low", "medium", "high"].includes((args.priority || "").toLowerCase()) ? (args.priority as string).toLowerCase() : undefined;
+
+  const { data, error } = await supabase
+    .from("grievances")
+    .insert({ subject, description, category, submitted_by: ctx.userId, ...(priority ? { priority } : {}) })
+    .select("id, ticket_number, category")
+    .single();
+  if (error) return { error: "Couldn't submit it. Please try again." };
+  const isService = (SERVICE_REQUEST_CATEGORIES as readonly string[]).includes(category);
+  const label = category === "Suggestion" ? "suggestion" : isService ? "service request" : "grievance";
+  logContribution(ctx.userId, label === "suggestion" ? "suggestion_submitted" : label === "service request" ? "service_request_submitted" : "grievance_submitted", "Submitted: " + subject);
+  return { ok: true, ticket: data.ticket_number || null, kind: label, subject, message: `Your ${label} "${subject}" was submitted${data.ticket_number ? ` (ticket ${data.ticket_number})` : ""}. Track it on the portal.` };
+}
+
+// Enroll the caller in a training (matched by title).
+export async function enrollTraining(ctx: QueryContext, args: { training_title?: string }) {
+  const supabase = getServiceClient();
+  const title = (args.training_title || "").trim();
+  if (!title) return { error: "Which training? Give its title." };
+  const { data: trainings } = await supabase
+    .from("trainings")
+    .select("id, title, date, status")
+    .ilike("title", `%${title}%`)
+    .order("date", { ascending: false })
+    .limit(6);
+  const list = (trainings || []).filter((t) => t.status !== "cancelled");
+  if (list.length === 0) return { found: 0, message: `No training found matching "${title}".` };
+  if (list.length > 1) {
+    return { found: list.length, disambiguate: list.map((t) => ({ title: t.title, date: t.date })), message: "Multiple trainings match — ask which one (by date)." };
+  }
+  const training = list[0];
+  const { error } = await supabase.from("training_enrollments").upsert({ training_id: training.id, user_id: ctx.userId, status: "enrolled" }, { onConflict: "training_id,user_id" });
+  if (error) return { error: "Couldn't enroll you. Please try again." };
+  logContribution(ctx.userId, "training_enrolled", "Enrolled in training: " + training.title);
+  return { ok: true, training: training.title, date: training.date, message: `You're enrolled in "${training.title}"${training.date ? ` (${training.date})` : ""}.` };
+}
+
+// Toggle one of the caller's notification channels.
+export async function setNotificationPref(ctx: QueryContext, args: { channel?: string; enabled?: boolean }) {
+  const supabase = getServiceClient();
+  const raw = (args.channel || "").toLowerCase().replace(/[\s-]/g, "_");
+  const MAP: Record<string, string> = { email: "email", telegram: "telegram", in_app: "in_app", inapp: "in_app", app: "in_app", weekly_digest: "weekly_digest", digest: "weekly_digest", whatsapp: "whatsapp" };
+  const key = MAP[raw];
+  if (!key) return { error: "Which channel? One of: email, telegram, in-app, weekly digest, whatsapp." };
+  if (typeof args.enabled !== "boolean") return { error: "Should I enable or disable it?" };
+  const { data } = await supabase.from("users").select("notification_prefs").eq("id", ctx.userId).single();
+  const prefs: Record<string, boolean> = { email: true, telegram: true, in_app: true, weekly_digest: true, whatsapp: false, ...((data?.notification_prefs as Record<string, boolean>) || {}) };
+  prefs[key] = args.enabled;
+  await supabase.from("users").update({ notification_prefs: prefs }).eq("id", ctx.userId);
+  return { ok: true, channel: key, enabled: args.enabled, message: `${key.replace(/_/g, " ")} notifications ${args.enabled ? "enabled" : "disabled"}.` };
+}
+
 // ── Wave D: owner-only actions ──────────────────────────────────────
 // Restricted to the association owner (tanhowa19791@gmail.com) — the same gate
 // the admin Users route enforces for suspend/reinstate.
@@ -1258,6 +1383,11 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   get_member_payments: (ctx, args) => getMemberPayments(ctx, args as { name?: string }),
   send_member_email: (ctx, args) => sendMemberEmail(ctx, args as { name?: string; subject?: string; message?: string }),
   rsvp_event: (ctx, args) => rsvpEvent(ctx, args as { event_name?: string; status?: string }),
+  vote_poll: (ctx, args) => votePoll(ctx, args as { poll_title?: string; option?: string }),
+  add_wishlist_idea: (ctx, args) => addWishlistIdea(ctx, args as { title?: string; description?: string; category?: string }),
+  submit_grievance: (ctx, args) => submitGrievance(ctx, args as { kind?: string; subject?: string; description?: string; category?: string; priority?: string }),
+  enroll_training: (ctx, args) => enrollTraining(ctx, args as { training_title?: string }),
+  set_notification_pref: (ctx, args) => setNotificationPref(ctx, args as { channel?: string; enabled?: boolean }),
   nudge_member: (ctx, args) => nudgeMember(ctx, args as { name?: string; type?: string }),
   approve_registration: (ctx, args) => approveRegistration(ctx, args as { name?: string; action?: string }),
   assign_task: (ctx, args) => assignTask(ctx, args as { task?: string; assignee_name?: string; team_name?: string }),

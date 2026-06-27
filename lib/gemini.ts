@@ -38,7 +38,7 @@ IMPORTANT INSTRUCTIONS:
 - For "how to" questions about using the portal, guide users to the correct page/feature.
 - If the user asks to upload a payment proof or mentions a screenshot/receipt/UPI: tell them to tap the 📎 button in the chat and choose "Payment proof". Do NOT ask them to navigate elsewhere.
 - IMAGES: the user may attach a photo via the 📎 button ("Show the assistant"). If an image is present, look at it and answer their question directly — identify a pest/plant and suggest action, read or summarize a document, describe a receipt/bill, etc. Be specific about what you see.
-- MEMBER ACTIONS: You can RSVP the current user to an event (rsvp_event) when they ask to attend/register/cancel.
+- MEMBER ACTIONS (any approved member, on their OWN data): RSVP to an event (rsvp_event); vote in a poll (vote_poll); submit a wishlist idea (add_wishlist_idea); file a grievance/suggestion/service request (submit_grievance); enroll in a training (enroll_training); turn a notification channel on/off (set_notification_pref). These act only for the current user — just do it (no confirm needed); if the tool returns multiple matches or an invalid option, show them and ask the user to choose.
 - ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments), send a branded email (send_member_email), send a reminder (nudge_member), set a member's payment status (set_payment_status), approve/reject a pending registration (approve_registration), approve/reject a voucher (set_voucher_status), assign a task to a member/team (assign_task), and create content — announcements (create_announcement), events (create_event), polls (create_poll). For announcements/events, default to in-app only; email all members (notify_email=true) ONLY when the user explicitly asks to email everyone.
 - OWNER ACTIONS (only the association owner, tanhowa19791@gmail.com): suspend or reinstate a member (suspend_member) and record a manual cheque debit in the finance ledger (create_finance_entry). For anyone else the tool returns a permission error — relay it.
 - For set_payment_status, set_voucher_status, set_official, create_subscription, suspend_member, and create_finance_entry: ALWAYS preview first (call without confirm), show the details to the user, ask "Shall I confirm?", and only call again with confirm=true after they say yes. Never execute these without that confirmation step. When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
@@ -157,6 +157,69 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
             status: { type: SchemaType.STRING, description: "going (default), interested, or cancel" },
           },
           required: ["event_name"],
+        },
+      },
+      {
+        name: "vote_poll",
+        description: "Cast (or change) the current user's vote in an active poll. Match the poll by title and the option by its text or its number. If the option doesn't match, the tool returns the list of options — show them and ask the user to pick.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            poll_title: { type: SchemaType.STRING, description: "The poll's title (or part of it)" },
+            option: { type: SchemaType.STRING, description: "The chosen option's text, or its 1-based number" },
+          },
+          required: ["poll_title", "option"],
+        },
+      },
+      {
+        name: "add_wishlist_idea",
+        description: "Submit one of the current user's ideas to the wishlist/ideas board. Category is optional (Training, Infrastructure, Events, Digital Tools, Policy, Welfare, Communication, Other — defaults to Other).",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            title: { type: SchemaType.STRING, description: "Short title for the idea" },
+            description: { type: SchemaType.STRING, description: "A sentence or two describing the idea" },
+            category: { type: SchemaType.STRING, description: "Optional category" },
+          },
+          required: ["title", "description"],
+        },
+      },
+      {
+        name: "submit_grievance",
+        description: "File the current user's grievance, suggestion, or service request (one shared system; a ticket number is auto-assigned). Set kind to 'grievance', 'suggestion', or 'service_request'. category is optional — for grievances: Personal/District-All/District-Specific/Technical; for service requests: Transfer/Training/Legal Help/Certificate/Letter-Recommendation/Welfare/IT Support/Other Service.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            kind: { type: SchemaType.STRING, description: "grievance | suggestion | service_request" },
+            subject: { type: SchemaType.STRING, description: "Subject/title" },
+            description: { type: SchemaType.STRING, description: "Details" },
+            category: { type: SchemaType.STRING, description: "Optional category (see description)" },
+            priority: { type: SchemaType.STRING, description: "Optional: low | medium | high" },
+          },
+          required: ["subject", "description"],
+        },
+      },
+      {
+        name: "enroll_training",
+        description: "Enroll the current user in a training, matched by title. If several match, the tool returns options — ask which one (by date).",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            training_title: { type: SchemaType.STRING, description: "The training's title (or part of it)" },
+          },
+          required: ["training_title"],
+        },
+      },
+      {
+        name: "set_notification_pref",
+        description: "Turn one of the current user's notification channels on or off. channel: email, telegram, in-app, weekly digest, or whatsapp.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            channel: { type: SchemaType.STRING, description: "email | telegram | in-app | weekly digest | whatsapp" },
+            enabled: { type: SchemaType.BOOLEAN, description: "true to enable, false to disable" },
+          },
+          required: ["channel", "enabled"],
         },
       },
       {

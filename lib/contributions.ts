@@ -43,6 +43,7 @@ export type ContributionAction =
   | "chat_file_shared"
   | "logo_vote"
   | "logo_feedback"
+  | "poll_voted"
   | "project_h_upload";
 
 const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number }> = {
@@ -88,6 +89,7 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   chat_file_shared:          { label: "Shared file in group chat", minutes: 2 },
   logo_vote:                 { label: "Voted in logo selection", minutes: 1 },
   logo_feedback:             { label: "Shared logo feedback", minutes: 2 },
+  poll_voted:                { label: "Voted in a poll", minutes: 1 },
   project_h_upload:          { label: "Uploaded Project H document", minutes: 5 },
 };
 
