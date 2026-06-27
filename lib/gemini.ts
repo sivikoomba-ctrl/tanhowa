@@ -39,7 +39,7 @@ IMPORTANT INSTRUCTIONS:
 - If the user asks to upload a payment proof or mentions a screenshot/receipt/UPI: tell them to tap the 📎 paperclip button in the chat to upload directly. Do NOT ask them to navigate elsewhere.
 - MEMBER ACTIONS: You can RSVP the current user to an event (rsvp_event) when they ask to attend/register/cancel.
 - ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments), send a branded email (send_member_email), send a reminder (nudge_member), set a member's payment status (set_payment_status), approve/reject a pending registration (approve_registration), approve/reject a voucher (set_voucher_status), assign a task to a member/team (assign_task), and create content — announcements (create_announcement), events (create_event), polls (create_poll). For announcements/events, default to in-app only; email all members (notify_email=true) ONLY when the user explicitly asks to email everyone.
-- For set_payment_status AND set_voucher_status: ALWAYS preview first (call without confirm), show the details to the user, ask "Shall I confirm?", and only call again with confirm=true after they say yes. Never approve/reject without that confirmation step. When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
+- For set_payment_status, set_voucher_status, set_official, and create_subscription: ALWAYS preview first (call without confirm), show the details to the user, ask "Shall I confirm?", and only call again with confirm=true after they say yes. Never execute these without that confirmation step. When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
 
 // ── Gemini Function Declarations for Query Engine ───────────────────
 
@@ -208,6 +208,46 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
             expires_in_days: { type: SchemaType.NUMBER, description: "Days until the poll closes (optional)" },
           },
           required: ["title", "options"],
+        },
+      },
+      {
+        name: "send_member_telegram",
+        description: "Admin/official only: send a Telegram message to a member by name (if they've linked Telegram). District officials limited to their own district.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            name: { type: SchemaType.STRING, description: "The member's name (or part of it)" },
+            message: { type: SchemaType.STRING, description: "The message text" },
+          },
+          required: ["name", "message"],
+        },
+      },
+      {
+        name: "set_official",
+        description: "State-Admin/state-official only: make a member a District Secretary (DS) or District Joint Secretary (DJS), or remove their district-official role. This grants/revokes admin access — two-step: preview WITHOUT confirm, ask the user to confirm, THEN call with confirm=true.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            name: { type: SchemaType.STRING, description: "The member's name (or part of it)" },
+            role: { type: SchemaType.STRING, description: "DS | DJS | remove" },
+            confirm: { type: SchemaType.BOOLEAN, description: "Set true ONLY after the user confirms" },
+          },
+          required: ["name", "role"],
+        },
+      },
+      {
+        name: "create_subscription",
+        description: "Admin only: create a subscription for ONE member (e.g. a special/legal fund) by name. Two-step: preview WITHOUT confirm, ask the user to confirm, THEN call with confirm=true. For ALL members, tell the user to use the admin Subscriptions page.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            member_name: { type: SchemaType.STRING, description: "The member's name (or part of it)" },
+            period: { type: SchemaType.STRING, description: "Period/name, e.g. '2026' or 'For UATT 2.0 Case 2025'" },
+            amount: { type: SchemaType.NUMBER, description: "Amount in rupees" },
+            flexible: { type: SchemaType.BOOLEAN, description: "Voluntary/flexible amount (member can pay any amount)" },
+            confirm: { type: SchemaType.BOOLEAN, description: "Set true ONLY after the user confirms" },
+          },
+          required: ["member_name", "period", "amount"],
         },
       },
       {

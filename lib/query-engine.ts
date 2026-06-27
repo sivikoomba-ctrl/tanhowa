@@ -553,6 +553,101 @@ export async function createPoll(ctx: QueryContext, args: { title?: string; opti
   return { ok: true, title, options, message: `Created poll "${title}" with ${options.length} options.` };
 }
 
+// Admin/official action: send a Telegram message to a member (if linked).
+export async function sendMemberTelegram(ctx: QueryContext, args: { name?: string; message?: string }) {
+  const actor = await resolveActor(ctx);
+  if (!actor.canAdminAct) return { error: "Only admins and officials can message members." };
+  const message = (args.message || "").trim();
+  if (!message) return { error: "What should the Telegram message say?" };
+  const resolved = await resolveMember(args.name || "", actor);
+  if ("fail" in resolved) return resolved.fail;
+  const member = resolved.member;
+
+  const supabase = getServiceClient();
+  const { data: u } = await supabase.from("users").select("telegram_chat_id").eq("id", member.id).single();
+  if (!u?.telegram_chat_id) return { sent: false, message: `${member.name} hasn't linked their Telegram, so I can't message them there.` };
+  try { await sendTelegramMessage(u.telegram_chat_id, message); } catch { return { sent: false, error: "Telegram send failed." }; }
+  logAudit(ctx.userId, "telegram_message", "user", member.id, { via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, to: member.name, message: `Telegram sent to ${member.name}.` };
+}
+
+// State-Admin action: make a member a district official (DS/DJS) or remove it.
+// Two-step (preview -> confirm). Grants/revokes admin access, so heavily gated.
+export async function setOfficial(ctx: QueryContext, args: { name?: string; role?: string; confirm?: boolean }) {
+  const actor = await resolveActor(ctx);
+  if (!(actor.role === "super_admin" || actor.isState)) {
+    return { error: "Only the State-Admin or state officials can set district officials." };
+  }
+  const role = (args.role || "").toUpperCase();
+  if (!["DS", "DJS", "REMOVE"].includes(role)) return { error: "Role must be 'DS', 'DJS', or 'remove'." };
+
+  const resolved = await resolveMember(args.name || "", actor);
+  if ("fail" in resolved) return resolved.fail;
+  const member = resolved.member;
+  const designation = role === "DS" ? "District Secretary" : role === "DJS" ? "District Joint Secretary" : "";
+
+  if (!args.confirm) {
+    return {
+      preview: true,
+      member: member.name,
+      action: role === "REMOVE" ? "remove district-official role" : `make ${designation} (grants admin access)`,
+      message: `Confirm: ${role === "REMOVE" ? `remove ${member.name}'s district-official role` : `make ${member.name} ${designation} — this grants admin-panel access`}? Ask the user to confirm, then call again with confirm=true.`,
+    };
+  }
+
+  const supabase = getServiceClient();
+  if (role === "REMOVE") {
+    const { data: cur } = await supabase.from("users").select("posting_details, role, official_type").eq("id", member.id).single();
+    const posting = (cur?.posting_details || {}) as Record<string, unknown>;
+    delete posting.official_designation;
+    const updates: Record<string, unknown> = { official_type: null, posting_details: posting };
+    if (cur?.official_type === "district" && cur?.role === "admin") updates.role = "member";
+    await supabase.from("users").update(updates).eq("id", member.id);
+  } else {
+    const { data: cur } = await supabase.from("users").select("posting_details").eq("id", member.id).single();
+    const posting = (cur?.posting_details || {}) as Record<string, unknown>;
+    posting.official_designation = designation;
+    await supabase.from("users").update({ official_type: "district", role: "admin", posting_details: posting }).eq("id", member.id);
+  }
+  logAudit(ctx.userId, "set_official", "user", member.id, { role, via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, member: member.name, role, message: role === "REMOVE" ? `Removed ${member.name}'s district-official role.` : `${member.name} is now ${designation}.` };
+}
+
+// Admin action: create a subscription for ONE member (e.g. a special/legal fund).
+// Two-step (preview -> confirm). For an all-members run, use the admin Subscriptions page.
+export async function createSubscription(ctx: QueryContext, args: { member_name?: string; period?: string; amount?: number; flexible?: boolean; confirm?: boolean }) {
+  const actor = await resolveActor(ctx);
+  if (!actor.isAdmin) return { error: "Only admins can create subscriptions." };
+  const period = (args.period || "").trim();
+  const amount = Number(args.amount);
+  if (!period) return { error: "What period/name should the subscription have (e.g. '2026' or 'For UATT 2.0 Case 2025')?" };
+  if (isNaN(amount) || amount < 0) return { error: "Give a valid amount." };
+
+  const resolved = await resolveMember(args.member_name || "", actor);
+  if ("fail" in resolved) return resolved.fail;
+  const member = resolved.member;
+
+  const supabase = getServiceClient();
+  const { data: ex } = await supabase.from("subscriptions").select("id").eq("user_id", member.id).eq("period", period).maybeSingle();
+  if (ex) return { error: `${member.name} already has a "${period}" subscription.` };
+
+  if (!args.confirm) {
+    return {
+      preview: true,
+      member: member.name,
+      period,
+      amount,
+      flexible: !!args.flexible,
+      message: `Confirm: create "${period}" (Rs.${amount.toLocaleString("en-IN")}${args.flexible ? ", flexible" : ""}) for ${member.name}? Ask the user to confirm, then call again with confirm=true. (For ALL members, use the admin Subscriptions page.)`,
+    };
+  }
+
+  const { error } = await supabase.from("subscriptions").insert({ user_id: member.id, period, amount, status: "pending", flexible_amount: !!args.flexible });
+  if (error) return { error: "Failed to create the subscription." };
+  logAudit(ctx.userId, "subscription_created", "subscription", member.id, { period, amount, via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, member: member.name, period, amount, message: `Created "${period}" (Rs.${amount.toLocaleString("en-IN")}) for ${member.name}.` };
+}
+
 // Admin action: assign a task (by event ID or title) to a member or a team.
 export async function assignTask(ctx: QueryContext, args: { task?: string; assignee_name?: string; team_name?: string }) {
   const actor = await resolveActor(ctx);
@@ -1003,6 +1098,9 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   create_announcement: (ctx, args) => createAnnouncement(ctx, args as { title?: string; content?: string; notify_email?: boolean }),
   create_event: (ctx, args) => createEvent(ctx, args as { title?: string; date?: string; location?: string; description?: string; notify_email?: boolean }),
   create_poll: (ctx, args) => createPoll(ctx, args as { title?: string; options?: string[]; expires_in_days?: number }),
+  send_member_telegram: (ctx, args) => sendMemberTelegram(ctx, args as { name?: string; message?: string }),
+  set_official: (ctx, args) => setOfficial(ctx, args as { name?: string; role?: string; confirm?: boolean }),
+  create_subscription: (ctx, args) => createSubscription(ctx, args as { member_name?: string; period?: string; amount?: number; flexible?: boolean; confirm?: boolean }),
   set_voucher_status: (ctx, args) => setVoucherStatus(ctx, args as { submitter_name?: string; title?: string; status?: string; confirm?: boolean; remarks?: string }),
   set_payment_status: (ctx, args) => setPaymentStatus(ctx, args as { name?: string; period?: string; status?: string; amount?: number; confirm?: boolean }),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),
