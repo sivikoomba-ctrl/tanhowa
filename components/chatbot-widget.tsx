@@ -7,7 +7,7 @@ import {
   MessageCircle, Send, X, Flower2, User, Database,
   Megaphone, CalendarDays, Users, FileText, Trophy,
   ClipboardList, GraduationCap, BarChart3, CreditCard,
-  Sparkles, RotateCcw, Paperclip, CheckCircle2, AlertCircle, Mic, Volume2, VolumeX,
+  Sparkles, RotateCcw, Paperclip, CheckCircle2, AlertCircle, Mic, Volume2, VolumeX, Receipt, ImageUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useT, useLang } from "@/lib/i18n";
@@ -25,6 +25,8 @@ interface Message {
   role: "user" | "bot";
   text: string;
   subSelect?: Sub[]; // renders inline subscription selection buttons
+  attachChoice?: boolean; // renders "what's this file for?" buttons
+  image?: string; // data URL of a user-attached image, rendered as a thumbnail
 }
 
 // Leading honorifics to drop so the greeting uses the real first name, not "Mr."
@@ -120,6 +122,8 @@ export default function ChatbotWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const proofInputRef = useRef<HTMLInputElement>(null);
+  const attachInputRef = useRef<HTMLInputElement>(null);
+  const [pendingImage, setPendingImage] = useState<{ dataUrl: string; base64: string; mimeType: string } | null>(null);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [ttsOn, setTtsOn] = useState(false);
@@ -217,6 +221,44 @@ export default function ChatbotWidget() {
     setTimeout(() => proofInputRef.current?.click(), 50);
   }
 
+  // 📎 button — ask what the file is for, then route accordingly.
+  function openAttachMenu() {
+    addBotMessage("What would you like to attach?", { attachChoice: true });
+  }
+
+  function chooseAttach(kind: "proof" | "voucher" | "assistant") {
+    if (kind === "proof") { startProofUpload(); return; }
+    if (kind === "voucher") {
+      addBotMessage("Opening **Expense Vouchers** — tap *Create Voucher*, then *Scan bill* to attach and auto-read your bill. 🧾");
+      setTimeout(() => { window.location.href = "/dashboard/vouchers"; }, 700);
+      return;
+    }
+    // assistant: pick any image to ask about
+    setTimeout(() => attachInputRef.current?.click(), 50);
+  }
+
+  async function handleAttachFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (attachInputRef.current) attachInputRef.current.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      addBotMessage("Please pick an image — a photo of a pest, plant, document, or receipt.");
+      return;
+    }
+    if (file.size > 6_000_000) {
+      addBotMessage("That image is a bit large — please choose one under 6 MB.");
+      return;
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+    setPendingImage({ dataUrl, base64: dataUrl.split(",")[1] || "", mimeType: file.type });
+    addBotMessage('Got your image 📎 — now type what you\'d like me to do with it (e.g., "what pest is this?", "summarize this document").');
+  }
+
   async function handleProofFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !uploadTargetSub) return;
@@ -247,19 +289,21 @@ export default function ChatbotWidget() {
   }
 
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || loading) return;
+    if ((!text.trim() && !pendingImage) || loading) return;
 
-    // Intercept proof upload intent locally — but never hijack a question
-    if (PROOF_INTENT.test(text) && !QUESTION_RX.test(text) && pendingSubs.length > 0) {
+    // Intercept proof upload intent locally — but never hijack a question or an image attachment
+    if (!pendingImage && PROOF_INTENT.test(text) && !QUESTION_RX.test(text) && pendingSubs.length > 0) {
       setMessages((prev) => [...prev, { role: "user", text: text.trim() }]);
       setInput("");
       startProofUpload();
       return;
     }
 
-    const userMsg: Message = { role: "user", text: text.trim() };
+    const img = pendingImage;
+    const userMsg: Message = { role: "user", text: text.trim() || "(image attached)", ...(img ? { image: img.dataUrl } : {}) };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setPendingImage(null);
     setShowQuickQueries(false);
     setLoading(true);
 
@@ -268,7 +312,11 @@ export default function ChatbotWidget() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text.trim(), history }),
+        body: JSON.stringify({
+          message: text.trim() || "Please look at this image and help me.",
+          history,
+          image: img ? { data: img.base64, mimeType: img.mimeType } : undefined,
+        }),
       });
       const data = await res.json();
       if (res.ok && data.reply) {
@@ -282,7 +330,7 @@ export default function ChatbotWidget() {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, messages, pendingSubs, t]);
+  }, [loading, messages, pendingSubs, pendingImage, t]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -500,9 +548,33 @@ export default function ChatbotWidget() {
                   </div>
                 )}
                 <div className={`max-w-[82%] space-y-2`}>
+                  {msg.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={msg.image} alt="attachment" className="rounded-lg max-h-40 border border-primary/20 ml-auto" />
+                  )}
                   <div className={`px-3 py-2 rounded-xl text-sm leading-relaxed ${msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted text-foreground rounded-bl-sm"}`}>
                     {msg.role === "bot" ? <RenderMarkdown text={msg.text} /> : msg.text}
                   </div>
+                  {/* Attach chooser buttons */}
+                  {msg.attachChoice && (
+                    <div className="space-y-1.5 ml-1">
+                      <button onClick={() => chooseAttach("proof")} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-xs text-left transition-colors">
+                        <CreditCard size={13} className="text-primary shrink-0" />
+                        <span className="font-medium">Payment proof</span>
+                        <span className="text-muted-foreground ml-auto text-[10px]">for a pending subscription</span>
+                      </button>
+                      <button onClick={() => chooseAttach("voucher")} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-xs text-left transition-colors">
+                        <Receipt size={13} className="text-primary shrink-0" />
+                        <span className="font-medium">Expense bill</span>
+                        <span className="text-muted-foreground ml-auto text-[10px]">create a voucher</span>
+                      </button>
+                      <button onClick={() => chooseAttach("assistant")} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-xs text-left transition-colors">
+                        <ImageUp size={13} className="text-primary shrink-0" />
+                        <span className="font-medium">Show the assistant</span>
+                        <span className="text-muted-foreground ml-auto text-[10px]">ask about an image</span>
+                      </button>
+                    </div>
+                  )}
                   {/* Sub-selection buttons */}
                   {msg.subSelect && msg.subSelect.length > 0 && (
                     <div className="space-y-1.5 ml-1">
@@ -566,13 +638,23 @@ export default function ChatbotWidget() {
             </div>
           )}
 
+          {/* Attached-image strip */}
+          {pendingImage && (
+            <div className="px-3 py-1.5 border-t bg-primary/5 flex items-center gap-2 shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={pendingImage.dataUrl} alt="" className="h-8 w-8 rounded object-cover border" />
+              <span className="text-[11px] text-muted-foreground flex-1">Image attached — type your question.</span>
+              <button onClick={() => setPendingImage(null)} className="text-[11px] text-red-600 hover:underline">Remove</button>
+            </div>
+          )}
+
           {/* Input */}
           <form onSubmit={handleSend} className="p-3 border-t bg-card flex gap-2 shrink-0">
             <button
               type="button"
-              onClick={startProofUpload}
+              onClick={openAttachMenu}
               disabled={uploading}
-              title="Upload payment proof"
+              title="Attach a file"
               className="text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-lg hover:bg-primary/5 shrink-0"
             >
               {uploading ? <CheckCircle2 size={18} className="text-green-500 animate-pulse" /> : <Paperclip size={18} />}
@@ -594,13 +676,14 @@ export default function ChatbotWidget() {
               disabled={loading || uploading}
               className="flex-1 border-primary/30 focus-visible:ring-primary"
             />
-            <Button type="submit" disabled={loading || uploading || !input.trim()} size="icon" className="bg-primary hover:bg-primary/90 shrink-0">
+            <Button type="submit" disabled={loading || uploading || (!input.trim() && !pendingImage)} size="icon" className="bg-primary hover:bg-primary/90 shrink-0">
               <Send size={16} />
             </Button>
           </form>
 
-          {/* Hidden file input */}
+          {/* Hidden file inputs */}
           <input ref={proofInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleProofFile} />
+          <input ref={attachInputRef} type="file" accept="image/*" className="hidden" onChange={handleAttachFile} />
         </div>
       )}
     </>

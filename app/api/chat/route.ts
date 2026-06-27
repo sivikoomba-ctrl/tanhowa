@@ -23,11 +23,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { message, history } = await req.json();
+    const { message, history, image } = await req.json();
 
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
+
+    // Optional image attachment (member taps 📎 → "Show the assistant"). Gemini
+    // 2.5-flash is multimodal, so we forward it as an inlineData part.
+    const hasImage =
+      image && typeof image.data === "string" &&
+      typeof image.mimeType === "string" && image.mimeType.startsWith("image/") &&
+      image.data.length < 8_000_000; // ~6MB raw
 
     const genAI = getGemini();
     const model = genAI.getGenerativeModel({
@@ -60,7 +67,13 @@ export async function POST(req: NextRequest) {
     };
 
     // Send user message — may trigger function calls
-    let result = await chat.sendMessage(message.trim());
+    const userParts: Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = [
+      { text: message.trim() },
+    ];
+    if (hasImage) {
+      userParts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
+    }
+    let result = await chat.sendMessage(userParts);
     let response = result.response;
 
     // Function calling loop: Gemini requests data → we execute → feed back
