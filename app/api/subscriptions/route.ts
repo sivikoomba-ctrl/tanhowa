@@ -403,6 +403,43 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ message: `Created ${newUsers.length} subscriptions`, count: newUsers.length });
+    } else if (body.action === "member-create") {
+      // Create a single subscription for one specific member
+      if (!body.user_id) {
+        return NextResponse.json({ error: "Member is required" }, { status: 400 });
+      }
+      const { data: member } = await supabase
+        .from("users")
+        .select("id, name, status")
+        .eq("id", body.user_id)
+        .single();
+      if (!member || member.status !== "approved") {
+        return NextResponse.json({ error: "Member not found or not approved" }, { status: 400 });
+      }
+      // Don't duplicate an existing subscription for the same period
+      const { data: dupe } = await supabase
+        .from("subscriptions")
+        .select("id")
+        .eq("user_id", body.user_id)
+        .eq("period", body.period)
+        .maybeSingle();
+      if (dupe) {
+        return NextResponse.json({ error: `${member.name || "This member"} already has a "${body.period}" subscription` }, { status: 409 });
+      }
+      const { error } = await supabase.from("subscriptions").insert({
+        user_id: body.user_id,
+        period: body.period,
+        amount: parseFloat(body.amount) || 0,
+        due_date: body.due_date || null,
+        status: "pending",
+        description: body.description || "",
+        flexible_amount: !!body.flexible,
+      });
+      if (error) {
+        await logError({ type: "api", message: error.message, path: "/api/subscriptions", method: "POST", status_code: 500 });
+        return NextResponse.json({ error: "Failed to create subscription" }, { status: 500 });
+      }
+      return NextResponse.json({ message: `Created subscription for ${member.name || "member"}`, count: 1, member: member.name });
     } else if (body.action === "notify-member") {
       if (!body.subscription_id || !body.message) {
         return NextResponse.json({ error: "Subscription ID and message are required" }, { status: 400 });

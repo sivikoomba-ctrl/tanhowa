@@ -146,6 +146,10 @@ export default function AdminSubscriptionsPage() {
   const [createType, setCreateType] = useState<"yearly" | "special">("yearly");
   const [specialForm, setSpecialForm] = useState({ period: "For UATT 2.0 Case 2025", amount: "3000", due_date: "", description: "", flexible: false });
   const [specialLoading, setSpecialLoading] = useState(false);
+  // Target scope: all approved members, or one specific member
+  const [createScope, setCreateScope] = useState<"all" | "member">("all");
+  const [targetMember, setTargetMember] = useState<{ id: string; name: string } | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
 
   // Admin proof upload
   const adminFileInputRef = useRef<HTMLInputElement>(null);
@@ -490,14 +494,27 @@ export default function AdminSubscriptionsPage() {
     });
   }, [subscriptions, searchQuery, filterStatus, filterPeriod, filterDistrict, filterUploadTime]);
 
+  // Unique approved members (derived from loaded subscriptions) for the per-member create picker
+  const memberOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; district: string }>();
+    for (const s of subscriptions) {
+      if (!map.has(s.user_id)) {
+        map.set(s.user_id, { id: s.user_id, name: s.users?.name || "Unknown", district: s.users?.posting_details?.regular_district || "" });
+      }
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [subscriptions]);
+
   async function handleBulkCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (createScope === "member" && !targetMember) { toast.error("Pick a member first"); return; }
     setBulkLoading(true);
     const res = await fetch("/api/subscriptions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "bulk-create",
+        action: createScope === "member" ? "member-create" : "bulk-create",
+        user_id: targetMember?.id,
         period: bulkForm.period,
         amount: parseFloat(bulkForm.amount) || 0,
         due_date: bulkForm.due_date || null,
@@ -505,9 +522,10 @@ export default function AdminSubscriptionsPage() {
     });
     const data = await res.json();
     if (res.ok) {
-      toast.success(`Created ${data.count} subscription entries for ${bulkForm.period}`);
+      toast.success(createScope === "member" ? `Created ${bulkForm.period} subscription for ${targetMember?.name}` : `Created ${data.count} subscription entries for ${bulkForm.period}`);
       setBulkOpen(false);
       setBulkForm({ period: String(currentYear), amount: "", due_date: "" });
+      resetCreateScope();
       load();
     } else {
       toast.error(data.error || "Failed");
@@ -515,14 +533,22 @@ export default function AdminSubscriptionsPage() {
     setBulkLoading(false);
   }
 
+  function resetCreateScope() {
+    setCreateScope("all");
+    setTargetMember(null);
+    setMemberSearch("");
+  }
+
   async function handleSpecialCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (createScope === "member" && !targetMember) { toast.error("Pick a member first"); return; }
     setSpecialLoading(true);
     const res = await fetch("/api/subscriptions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "bulk-create",
+        action: createScope === "member" ? "member-create" : "bulk-create",
+        user_id: targetMember?.id,
         period: specialForm.period,
         amount: specialForm.flexible ? (parseFloat(specialForm.amount) || 0) : (parseFloat(specialForm.amount) || 3000),
         due_date: specialForm.due_date || null,
@@ -532,9 +558,10 @@ export default function AdminSubscriptionsPage() {
     });
     const data = await res.json();
     if (res.ok) {
-      toast.success(`Created ${data.count} special subscription entries`);
+      toast.success(createScope === "member" ? `Created "${specialForm.period}" for ${targetMember?.name}` : `Created ${data.count} special subscription entries`);
       setBulkOpen(false);
       setSpecialForm({ period: "For UATT 2.0 Case 2025", amount: "3000", due_date: "", description: "", flexible: false });
+      resetCreateScope();
       load();
     } else {
       toast.error(data.error || "Failed");
@@ -995,9 +1022,60 @@ export default function AdminSubscriptionsPage() {
                   Special
                 </button>
               </div>
+
+              {/* Scope: all approved members, or one specific member */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setCreateScope("all"); setTargetMember(null); }}
+                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${createScope === "all" ? "border-primary bg-primary/10 text-primary" : "border-input text-muted-foreground hover:bg-muted"}`}
+                >
+                  All members
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateScope("member")}
+                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${createScope === "member" ? "border-primary bg-primary/10 text-primary" : "border-input text-muted-foreground hover:bg-muted"}`}
+                >
+                  Specific member
+                </button>
+              </div>
+              {createScope === "member" && (
+                <div className="space-y-2">
+                  {targetMember ? (
+                    <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                      <span className="text-sm font-medium">{targetMember.name}</span>
+                      <button type="button" onClick={() => setTargetMember(null)} className="text-xs text-red-600 hover:underline">Change</button>
+                    </div>
+                  ) : (
+                    <>
+                      <Input value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} placeholder="Search member by name…" />
+                      {memberSearch.trim() && (
+                        <div className="max-h-40 overflow-y-auto rounded-lg border divide-y">
+                          {memberOptions.filter((m) => m.name.toLowerCase().includes(memberSearch.toLowerCase())).slice(0, 20).map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => { setTargetMember({ id: m.id, name: m.name }); setMemberSearch(""); }}
+                              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted"
+                            >
+                              <span>{m.name}</span>
+                              <span className="text-xs text-muted-foreground">{m.district}</span>
+                            </button>
+                          ))}
+                          {memberOptions.filter((m) => m.name.toLowerCase().includes(memberSearch.toLowerCase())).length === 0 && (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">No member found.</p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
               {createType === "yearly" ? (
                 <>
-                  <p className="text-sm text-muted-foreground">This creates a pending subscription entry for every approved member for the selected year.</p>
+                  <p className="text-sm text-muted-foreground">{createScope === "member" ? `This creates a pending subscription entry for ${targetMember?.name || "the selected member"} for the chosen year.` : "This creates a pending subscription entry for every approved member for the selected year."}</p>
                   <form onSubmit={handleBulkCreate} className="space-y-4">
                     <div>
                       <Label>Year *</Label>
@@ -1030,14 +1108,14 @@ export default function AdminSubscriptionsPage() {
                         onChange={(e) => setBulkForm({ ...bulkForm, due_date: e.target.value })}
                       />
                     </div>
-                    <Button type="submit" disabled={bulkLoading} className="w-full bg-primary hover:bg-primary/90">
-                      {bulkLoading ? "Creating..." : "Create for All Members"}
+                    <Button type="submit" disabled={bulkLoading || (createScope === "member" && !targetMember)} className="w-full bg-primary hover:bg-primary/90">
+                      {bulkLoading ? "Creating..." : createScope === "member" ? `Create for ${targetMember?.name || "Member"}` : "Create for All Members"}
                     </Button>
                   </form>
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-muted-foreground">This creates a pending special subscription entry for every approved member. Use for legal case funds, one-time levies, etc.</p>
+                  <p className="text-sm text-muted-foreground">{createScope === "member" ? `This creates a pending special subscription entry for ${targetMember?.name || "the selected member"}. Use for a legal case fund, a member-specific levy, etc.` : "This creates a pending special subscription entry for every approved member. Use for legal case funds, one-time levies, etc."}</p>
                   <form onSubmit={handleSpecialCreate} className="space-y-4">
                     <div>
                       <Label>Label *</Label>
@@ -1087,8 +1165,8 @@ export default function AdminSubscriptionsPage() {
                         onChange={(e) => setSpecialForm({ ...specialForm, due_date: e.target.value })}
                       />
                     </div>
-                    <Button type="submit" disabled={specialLoading} className="w-full bg-accent hover:bg-accent/90 text-white">
-                      {specialLoading ? "Creating..." : "Create for All Members"}
+                    <Button type="submit" disabled={specialLoading || (createScope === "member" && !targetMember)} className="w-full bg-accent hover:bg-accent/90 text-white">
+                      {specialLoading ? "Creating..." : createScope === "member" ? `Create for ${targetMember?.name || "Member"}` : "Create for All Members"}
                     </Button>
                   </form>
                 </>
