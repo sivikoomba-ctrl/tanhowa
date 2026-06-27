@@ -400,62 +400,51 @@ Two AI helpers at the start and end of a task lifecycle. Live at `/dashboard/tod
 AI-powered chatbot with live portal data access via Gemini function calling.
 
 **Architecture:**
-- `lib/gemini.ts` — `SYSTEM_PROMPT`, `QUERY_TOOLS` (13 FunctionDeclarationsTool definitions with SchemaType params), `getGemini()` singleton
-- `lib/query-engine.ts` — `executeQuery()` dispatcher that maps function names to Supabase queries, 13 data-retrieval functions
-- `app/api/chat/route.ts` — POST endpoint with function-calling loop (max 3 rounds), rate limited 20/min per IP
-- `components/chatbot-widget.tsx` — Floating chat UI with 9 quick-query buttons. **Open to all approved members** (not role-gated). It is mounted once in the root layout (`app/layout.tsx`) but **only renders/fetches on `/dashboard` and `/admin` routes** (gated via `usePathname()` → `onAppRoute`) — never on the public landing/auth pages, so it can't leak the previous member's session data after logout. **Auto-opens once** when a member enters the app; clicking ✕ sets `sessionStorage["tanhowa-assistant-dismissed"]` so it won't re-pop that session (the floating bubble stays for manual reopen). The greeting uses a honorific-stripped first name via the local `firstName()` helper.
+- `lib/gemini.ts` — `SYSTEM_PROMPT`, `QUERY_TOOLS` (FunctionDeclarationsTool definitions with SchemaType params), `getGemini()` singleton
+- `lib/query-engine.ts` — `executeQuery()` dispatcher (`QUERY_MAP`) mapping function names to Supabase queries; ~16 read functions + ~19 action functions
+- `app/api/chat/route.ts` — POST endpoint with function-calling loop (max 3 rounds), rate limited 20/min per IP. **Multimodal:** accepts an optional `image` (`{ data: base64, mimeType }`) and forwards it as an `inlineData` part (gemini-2.5-flash is vision-capable).
+- `components/chatbot-widget.tsx` — Floating chat UI with quick-query buttons. **Open to all approved members** (not role-gated). Mounted once in the root layout (`app/layout.tsx`) but **only renders/fetches on `/dashboard` and `/admin` routes** (gated via `usePathname()` → `onAppRoute`) — never on public landing/auth pages, so it can't leak the previous member's session after logout. **Auto-opens once** per session; ✕ sets `sessionStorage["tanhowa-assistant-dismissed"]`. Greeting uses a honorific-stripped first name (`firstName()`).
 
-**13 Query Functions:**
+**Read/query functions (no side effects):** `search_announcements`, `search_events`, `search_faqs`, `search_members`, `search_documents`, `search_trainings`, `search_resolutions`, `get_portal_stats`, `get_my_profile`, `get_my_subscriptions` (includes voluntary-fund summary), `get_my_tasks`, `get_my_achievements`, `get_my_contributions`, `get_my_adh_pm_status`. Admin reads: `get_member_payments` (any member's dues/contributions by name), `get_adh_pm_stats` (ADH(PM) campaign totals — mirrors `/admin/adh-pm`, state-admin/state only).
 
-| Function | Description |
-|----------|-------------|
-| `search_announcements` | Recent/search portal announcements |
-| `search_events` | Upcoming/search events |
-| `search_faqs` | FAQ knowledge base search |
-| `search_members` | Member directory search |
-| `search_documents` | Document library search |
-| `search_trainings` | Training sessions search |
-| `get_portal_stats` | Portal-wide statistics |
-| `get_my_subscriptions` | Current user's payment status |
-| `get_my_tasks` | Current user's assigned tasks |
-| `search_resolutions` | Resolution search/status |
-| `search_grievances` | Grievance/suggestion search |
-| `get_my_achievements` | Current user's badges |
-| `get_my_contributions` | Current user's activity log |
+**How it works:** message → chat history + system prompt → Gemini picks tools → `executeQuery()` runs Supabase queries → Gemini turns results into prose → loop ≤3 rounds. Personal `get_my_*` queries are scoped to `{ userId, email, role }`.
 
-**How it works:**
-1. User sends message → API builds chat history with system prompt
-2. Gemini decides which query tools to call (if any)
-3. `executeQuery()` runs Supabase queries, returns structured data
-4. Gemini receives query results, generates natural language response
-5. Loop repeats up to 3 rounds for multi-step queries
-
-**User context:** Each query receives `{ userId, email, role }` — personal data queries (`get_my_*`) are scoped to the current user.
-
-**Adding a new query/action function:**
-1. Add FunctionDeclaration in `lib/gemini.ts` (QUERY_TOOLS array)
-2. Add implementation in `lib/query-engine.ts`
-3. Add case to `executeQuery()` dispatcher in `query-engine.ts`
+**Adding a new query/action function:** (1) FunctionDeclaration in `lib/gemini.ts` `QUERY_TOOLS`; (2) implementation in `lib/query-engine.ts`; (3) entry in the `QUERY_MAP` dispatcher; (4) for actions, list it in the SYSTEM_PROMPT MEMBER/ADMIN/OWNER ACTIONS block (otherwise Gemini refuses to act).
 
 ### Action tools (side effects)
 
-Beyond read-only queries, the chatbot has **action tools** that write/notify. Every action re-checks authority and is gated/audited:
-- **`rsvp_event`** — member self-service: RSVP/cancel the caller's own event RSVP (low risk, no confirm).
-- **`get_member_payments`** — admin/official: look up any member's dues/voluntary contributions by name.
-- **`send_member_email`** — admin/official: send a branded one-to-one email (e.g. thank-you) to a member; audit-logged `send_member_email`. Uses `sendMemberMessageEmail()` in `lib/mail.ts` (bypasses `HOLD_MEMBER_EMAILS` since admin-initiated).
+The chatbot is a full ops console — ~19 action tools that write/notify, every one re-checking authority from the DB and audit-logging `via: assistant`. Tiers:
 
-**Action-tool foundation (`lib/query-engine.ts`):** reuse these for any new action tool instead of re-inlining:
-- `resolveActor(ctx)` — re-fetches the caller's role/official_type/district from the DB (JWT role can be stale); returns `{ isAdmin, isState, isDistrict, canAdminAct, district, ... }`.
-- `resolveMember(name, actor)` — name search + district scoping (district officials see only their own district) + disambiguation; returns `{ member }` or `{ fail }` (the tool returns `fail` verbatim so the assistant asks the user to pick).
-- The system prompt has a MEMBER ACTIONS / ADMIN ACTIONS block telling Gemini it *can* act (otherwise it refuses). Add new actions there.
+| Tier | Tools |
+|------|-------|
+| **Member self-service** | `rsvp_event` (RSVP/cancel own event) |
+| **Admin / official** | `send_member_email`, `nudge_member`, `approve_registration`, `assign_task` (member or team), `create_announcement`, `create_event`, `create_poll`, `send_member_telegram`, `create_subscription` (one member), `set_payment_status`, `set_voucher_status` |
+| **State-Admin** | `set_official` (make/remove DS/DJS — grants admin access) |
+| **Owner only** (`tanhowa19791@gmail.com`) | `suspend_member` (suspend/reinstate), `create_finance_entry` (manual cheque debit) |
+
+**Two-step confirm (preview → `confirm:true`)** — financial/role/destructive actions never execute on the first call; they return a preview, the assistant asks the user to confirm, then re-calls with `confirm:true`: `set_payment_status`, `set_voucher_status`, `set_official`, `create_subscription`, `suspend_member`, `create_finance_entry`.
+
+**Action-tool foundation (`lib/query-engine.ts`)** — reuse instead of re-inlining:
+- `resolveActor(ctx)` — re-fetches role/official_type/district from the DB (JWT role can be stale); returns `{ isAdmin, isState, isDistrict, canAdminAct, district, ... }`.
+- `resolveMember(name, actor)` — name search + district scoping (district officials see only their own district) + disambiguation; returns `{ member }` or `{ fail }` (returned verbatim so the assistant asks the user to pick).
+- Owner gate is a literal `ctx.email === "tanhowa19791@gmail.com"` check (mirrors the admin Users route); finance gate is `super_admin || isFinanceTeamMember()`.
 
 ### Voice (hands-free)
 
-`components/chatbot-widget.tsx` adds voice I/O via the browser Web Speech API (same engine as AI-Tools Voice Notes):
-- **Voice input (mic button):** `SpeechRecognition` transcribes speech into the input (lang `ta-IN`/`en-IN` per portal language) and **auto-sends** on completion. Pulsing red while listening.
-- **Spoken replies (speaker toggle in header):** `SpeechSynthesis` reads each new bot reply aloud (markdown/emoji stripped). Preference persists in `localStorage["tanhowa-assistant-tts"]`; cancels on toggle-off/close.
+`components/chatbot-widget.tsx` adds voice I/O via the browser Web Speech API:
+- **Voice input (mic button):** before starting `SpeechRecognition`, it calls `navigator.mediaDevices.getUserMedia({audio:true})` to trigger the browser's permission prompt — **SpeechRecognition alone never prompts on Android Chrome / the installed PWA**, it just fails with `not-allowed`. Transcribes (lang `ta-IN`/`en-IN`) and auto-sends on completion.
+- **Spoken replies (speaker toggle):** `SpeechSynthesis` reads each new bot reply (markdown/emoji stripped); persists in `localStorage["tanhowa-assistant-tts"]`.
 
-**Proof-upload intercept:** `sendMessage` locally intercepts genuine upload *intent* (`PROOF_INTENT` regex: upload/attach/"I paid"/submit proof) and opens the file picker — but **skips questions** (`QUESTION_RX`) so "how much did X pay?" reaches the assistant instead of hijacking to the uploader.
+> **Mic gotcha:** voice requires `Permissions-Policy: microphone=(self)` in `next.config.ts`. It was `microphone=()` (disabled for ALL origins incl. self), which blocked `getUserMedia`/`SpeechRecognition` at the policy level — no prompt could ever appear regardless of browser settings.
+
+### Attach chooser (📎)
+
+The paperclip opens a **chooser** (`attachChoice` message) instead of force-routing to payment proof. Three routes:
+- **Payment proof** → `startProofUpload()` (also still on the amber "Upload proof" strip).
+- **Expense bill** → navigates to `/dashboard/vouchers` (AI bill scan).
+- **Show the assistant** → pick any image; it's held as `pendingImage` (thumbnail in the user bubble) and sent to the chat backend as an `inlineData` part so Gemini vision can answer (pest ID, read/summarize a document, describe a receipt). Send is enabled with an image even when the text box is empty.
+
+`sendMessage` still locally intercepts genuine upload *intent* (`PROOF_INTENT` regex) but **skips questions** (`QUESTION_RX`) and skips when an image is attached, so "how much did X pay?" reaches the assistant instead of the uploader.
 
 ## UI Labels
 
@@ -666,6 +655,8 @@ Beyond yearly subscriptions (period = "2025", "2026"), admins can create special
 
 Admin creates via the single **"New Subscription"** button on `/admin/subscriptions` — one dialog with a **Yearly / Special** toggle (`createType` state); Yearly → `handleBulkCreate`, Special → `handleSpecialCreate` (the two were merged from separate buttons). District report column headers auto-shorten special periods (strips "For " prefix and " Case YYYY" suffix).
 
+**Scope — all vs one member:** a second **All members / Specific member** toggle (`createScope`) sits under the Yearly/Special tabs and applies to both. "Specific member" reveals a **server-side** name search (300ms-debounced `GET /api/subscriptions?member_search=` → top-20 approved, admin-only — do NOT derive the picker from loaded subscriptions, which are paginated and miss members without a row on the page). Picking a member POSTs `action: "member-create"` (one pending row for that `user_id`, approved-only, dup-period guarded) instead of `bulk-create`. The chatbot's `create_subscription` does the same per-member create by name.
+
 The create dialog also has an optional **Description** (`subscriptions.description`, shown on the member's subscription card) and a **Flexible amount** checkbox (`subscriptions.flexible_amount`). Schema: `supabase/subscription_description_flexible.sql`. Flexibility is resolved by **`lib/subscriptions.ts:isFlexibleAmount(sub)`** = `flexible_amount === true` OR period starts with "Volunteer" (backward compat) — use this helper everywhere instead of re-checking the period string; when flexible, members may enter any amount and the amount-mismatch warning is suppressed (member edit allowed server-side in the PUT handler gated on the same helper).
 
 ### Voluntary funds — pay any amount, any number of times (`REFUNDABLE (Emergency Fund)`)
@@ -682,7 +673,7 @@ A flexible fund is a **recurring voluntary contribution**, NOT a fixed due. The 
 One-off campaign to tag members who serve as **ADH (PM)** specifically (a literal occupation distinct from plain ADH). Members were emailed "Are you an Assistant Director of Horticulture (PM)?" with one-click Yes/No.
 - **`GET /api/adh-pm-confirm?t=<jwt>&a=yes|no`** — token-auth (HS256 `{ userId, purpose: "adh_pm" }`, 60-day), no login. Yes → sets occupation to `Assistant Director of Horticulture (PM)`; No → sets `social_links.adh_pm_optout=true` (excluded from re-asks). Returns a branded bilingual HTML page.
 - **Admin tracker:** `/admin/adh-pm` + `GET /api/admin/adh-pm` (super_admin + state officials) — groups members into Now ADH(PM) / Said No / No reply.
-- **Chatbot:** `get_my_adh_pm_status` reports whether the caller's response was recorded.
+- **Chatbot:** `get_my_adh_pm_status` reports whether the caller's own response was recorded; `get_adh_pm_stats` (state-admin/state only) reports the campaign totals (Now PM / Said No / No reply).
 
 ## Task Management System
 
