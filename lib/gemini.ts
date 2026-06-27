@@ -39,7 +39,8 @@ IMPORTANT INSTRUCTIONS:
 - If the user asks to upload a payment proof or mentions a screenshot/receipt/UPI: tell them to tap the 📎 paperclip button in the chat to upload directly. Do NOT ask them to navigate elsewhere.
 - MEMBER ACTIONS: You can RSVP the current user to an event (rsvp_event) when they ask to attend/register/cancel.
 - ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments), send a branded email (send_member_email), send a reminder (nudge_member), set a member's payment status (set_payment_status), approve/reject a pending registration (approve_registration), approve/reject a voucher (set_voucher_status), assign a task to a member/team (assign_task), and create content — announcements (create_announcement), events (create_event), polls (create_poll). For announcements/events, default to in-app only; email all members (notify_email=true) ONLY when the user explicitly asks to email everyone.
-- For set_payment_status, set_voucher_status, set_official, and create_subscription: ALWAYS preview first (call without confirm), show the details to the user, ask "Shall I confirm?", and only call again with confirm=true after they say yes. Never execute these without that confirmation step. When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
+- OWNER ACTIONS (only the association owner, tanhowa19791@gmail.com): suspend or reinstate a member (suspend_member) and record a manual cheque debit in the finance ledger (create_finance_entry). For anyone else the tool returns a permission error — relay it.
+- For set_payment_status, set_voucher_status, set_official, create_subscription, suspend_member, and create_finance_entry: ALWAYS preview first (call without confirm), show the details to the user, ask "Shall I confirm?", and only call again with confirm=true after they say yes. Never execute these without that confirmation step. When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
 
 // ── Gemini Function Declarations for Query Engine ───────────────────
 
@@ -248,6 +249,37 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
             confirm: { type: SchemaType.BOOLEAN, description: "Set true ONLY after the user confirms" },
           },
           required: ["member_name", "period", "amount"],
+        },
+      },
+      {
+        name: "suspend_member",
+        description: "Owner only (tanhowa19791@gmail.com): suspend or reinstate a member by name. Two-step — preview WITHOUT confirm, ask the user to confirm, THEN call with confirm=true. Suspension needs a reason. Sends email + Telegram notice. Cannot act on a super admin.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            name: { type: SchemaType.STRING, description: "The member's name (or part of it)" },
+            action: { type: SchemaType.STRING, description: "suspend (default) | reinstate" },
+            reason: { type: SchemaType.STRING, description: "Required for suspend: non_payment | disciplinary | voluntary | transfer | retirement | other" },
+            remarks: { type: SchemaType.STRING, description: "Optional free-text note shown to the member" },
+            confirm: { type: SchemaType.BOOLEAN, description: "Set true ONLY after the user confirms" },
+          },
+          required: ["name"],
+        },
+      },
+      {
+        name: "create_finance_entry",
+        description: "Finance/State-Admin only: record a manual cheque debit in the finance ledger. Two-step — preview WITHOUT confirm, ask the user to confirm, THEN call with confirm=true. Needs payee, a positive amount, and the issue date as YYYY-MM-DD. Skips a cheque number already on record.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            payee: { type: SchemaType.STRING, description: "Who the cheque is payable to" },
+            amount: { type: SchemaType.NUMBER, description: "Cheque amount in rupees (positive)" },
+            cheque_no: { type: SchemaType.STRING, description: "Cheque number (optional)" },
+            entry_date: { type: SchemaType.STRING, description: "Issue date as YYYY-MM-DD — ask the user if not given" },
+            remarks: { type: SchemaType.STRING, description: "Optional note" },
+            confirm: { type: SchemaType.BOOLEAN, description: "Set true ONLY after the user confirms" },
+          },
+          required: ["payee", "amount", "entry_date"],
         },
       },
       {

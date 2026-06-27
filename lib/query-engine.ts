@@ -6,7 +6,7 @@
 
 import { getServiceClient } from "@/lib/supabase";
 import { isFlexibleAmount } from "@/lib/subscriptions";
-import { sendMemberMessageEmail, sendVoucherStatusEmail, notifyNewAnnouncement, notifyNewEvent } from "@/lib/mail";
+import { sendMemberMessageEmail, sendVoucherStatusEmail, notifyNewAnnouncement, notifyNewEvent, sendSuspensionEmail, sendReinstatementEmail } from "@/lib/mail";
 import { translateContent } from "@/lib/translate-content";
 import { logAudit } from "@/lib/audit-log";
 import { isFinanceTeamMember } from "@/lib/auth";
@@ -1078,6 +1078,135 @@ export async function getMyContributions(ctx: QueryContext) {
   };
 }
 
+// ── Wave D: owner-only actions ──────────────────────────────────────
+// Restricted to the association owner (tanhowa19791@gmail.com) — the same gate
+// the admin Users route enforces for suspend/reinstate.
+const OWNER_EMAIL = "tanhowa19791@gmail.com";
+
+// Owner action: suspend or reinstate a member. Two-step (preview -> confirm=true).
+// Mirrors PUT /api/admin/users (action suspend|reinstate): emails + Telegram notice.
+export async function suspendMember(ctx: QueryContext, args: { name?: string; action?: string; reason?: string; remarks?: string; confirm?: boolean }) {
+  if ((ctx.email || "").toLowerCase() !== OWNER_EMAIL) {
+    return { error: "Only the association owner can suspend or reinstate members." };
+  }
+  const actor = await resolveActor(ctx);
+  const action = (args.action || "suspend").toLowerCase();
+  if (!["suspend", "reinstate"].includes(action)) return { error: "Action must be 'suspend' or 'reinstate'." };
+
+  const resolved = await resolveMember(args.name || "", actor);
+  if ("fail" in resolved) return resolved.fail;
+  const member = resolved.member;
+
+  const supabase = getServiceClient();
+  const { data: target } = await supabase.from("users").select("name, email, role, status, telegram_chat_id").eq("id", member.id).single();
+  if (!target) return { error: "Member not found." };
+  if (target.role === "super_admin") return { error: "Cannot suspend or reinstate a super admin." };
+
+  const REASON_LABELS: Record<string, string> = {
+    non_payment: "Non-payment of subscriptions",
+    disciplinary: "Disciplinary action",
+    voluntary: "Voluntary withdrawal",
+    transfer: "Transfer out of TN Horticulture",
+    retirement: "Retirement",
+    other: "Administrative decision",
+  };
+
+  if (action === "suspend") {
+    if (target.status === "suspended") return { error: `${member.name} is already suspended.` };
+    const reason = (args.reason || "").toLowerCase();
+    if (!REASON_LABELS[reason]) {
+      return { error: `Suspension needs a reason — one of: ${Object.keys(REASON_LABELS).join(", ")}.` };
+    }
+    if (!args.confirm) {
+      return {
+        preview: true,
+        member: member.name,
+        action: "suspend",
+        reason: REASON_LABELS[reason],
+        message: `Confirm: suspend ${member.name} (reason: ${REASON_LABELS[reason]})? They will be blocked from the portal and emailed/notified. Ask the user to confirm, then call again with confirm=true.`,
+      };
+    }
+    await supabase.from("users").update({
+      status: "suspended",
+      suspension_details: { reason, remarks: args.remarks || "", suspended_by: ctx.userId, suspended_at: new Date().toISOString() },
+    }).eq("id", member.id);
+    if (target.email) sendSuspensionEmail(target.email, target.name || "Member", REASON_LABELS[reason], args.remarks || "").catch(() => {});
+    if (target.telegram_chat_id) {
+      sendTelegramMessage(target.telegram_chat_id, `⚠️ <b>Membership Suspended</b>\n\nYour TANHOWA membership has been suspended.\n<b>Reason:</b> ${REASON_LABELS[reason]}${args.remarks ? `\n<b>Remarks:</b> ${args.remarks}` : ""}\n\nPlease contact admin for queries.`).catch(() => {});
+    }
+    logAudit(ctx.userId, "suspend", "user", member.id, { reason, via: "assistant", by: actor.name || ctx.email });
+    return { ok: true, member: member.name, action: "suspended", message: `${member.name} has been suspended (${REASON_LABELS[reason]}).` };
+  }
+
+  // reinstate
+  if (target.status !== "suspended") return { error: `${member.name} is not suspended.` };
+  if (!args.confirm) {
+    return {
+      preview: true,
+      member: member.name,
+      action: "reinstate",
+      message: `Confirm: reinstate ${member.name}? They will regain portal access and be notified. Ask the user to confirm, then call again with confirm=true.`,
+    };
+  }
+  await supabase.from("users").update({ status: "approved", suspension_details: null }).eq("id", member.id);
+  if (target.email) sendReinstatementEmail(target.email, target.name || "Member").catch(() => {});
+  if (target.telegram_chat_id) {
+    sendTelegramMessage(target.telegram_chat_id, `✅ <b>Membership Reinstated</b>\n\nYour TANHOWA membership has been reinstated. You can now access the portal.\n\n🌐 <a href="https://www.tanhowa.in">tanhowa.in</a>`).catch(() => {});
+  }
+  logAudit(ctx.userId, "reinstate", "user", member.id, { via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, member: member.name, action: "reinstated", message: `${member.name} has been reinstated.` };
+}
+
+// Finance action: record a manual debit entry (cheque issued). Two-step
+// (preview -> confirm=true). Finance-team / super_admin only. Mirrors POST /api/finance.
+export async function createFinanceEntry(ctx: QueryContext, args: { payee?: string; amount?: number; cheque_no?: string; entry_date?: string; remarks?: string; confirm?: boolean }) {
+  const actor = await resolveActor(ctx);
+  const financeAccess = actor.role === "super_admin" || (await isFinanceTeamMember(ctx.userId));
+  if (!financeAccess) return { error: "Only Finance Team members or the State-Admin can record finance entries." };
+
+  const payee = (args.payee || "").trim();
+  const amount = Number(args.amount);
+  if (!payee) return { error: "Who is the cheque payable to? Give a payee name." };
+  if (isNaN(amount) || amount <= 0) return { error: "Give a positive cheque amount." };
+  const chequeNo = (args.cheque_no || "").trim();
+  // Date must be ISO yyyy-mm-dd; if not supplied, ask (we can't call Date.now reliably here).
+  const entryDate = (args.entry_date || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) {
+    return { error: "What date was the cheque issued? Give it as YYYY-MM-DD." };
+  }
+
+  const supabase = getServiceClient();
+  // Skip a cheque number already on record
+  if (chequeNo) {
+    const { data: dup } = await supabase.from("finance_entries").select("id").eq("cheque_no", chequeNo).limit(1).maybeSingle();
+    if (dup) return { error: `Cheque #${chequeNo} is already recorded.` };
+  }
+
+  if (!args.confirm) {
+    return {
+      preview: true,
+      payee,
+      amount,
+      cheque_no: chequeNo || "(none)",
+      entry_date: entryDate,
+      message: `Confirm: record a cheque debit of Rs.${amount.toLocaleString("en-IN")} to ${payee}${chequeNo ? ` (cheque #${chequeNo})` : ""} dated ${entryDate}? Ask the user to confirm, then call again with confirm=true.`,
+    };
+  }
+
+  const { data, error } = await supabase.from("finance_entries").insert({
+    entry_date: entryDate,
+    entry_type: "cheque_issued",
+    amount,
+    cheque_no: chequeNo || null,
+    payee,
+    remarks: (args.remarks || "").trim() || null,
+    created_by: ctx.userId,
+  }).select("id").single();
+  if (error) return { error: "Failed to record the finance entry." };
+  logAudit(ctx.userId, "finance_entry_created", "finance_entry", data?.id || "", { amount, payee, cheque_no: chequeNo, via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, payee, amount, cheque_no: chequeNo || null, message: `Recorded a cheque debit of Rs.${amount.toLocaleString("en-IN")} to ${payee}${chequeNo ? ` (cheque #${chequeNo})` : ""}.` };
+}
+
 // ── Dispatcher ──────────────────────────────────────────────────────
 
 const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown>) => Promise<unknown>> = {
@@ -1103,6 +1232,8 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   create_subscription: (ctx, args) => createSubscription(ctx, args as { member_name?: string; period?: string; amount?: number; flexible?: boolean; confirm?: boolean }),
   set_voucher_status: (ctx, args) => setVoucherStatus(ctx, args as { submitter_name?: string; title?: string; status?: string; confirm?: boolean; remarks?: string }),
   set_payment_status: (ctx, args) => setPaymentStatus(ctx, args as { name?: string; period?: string; status?: string; amount?: number; confirm?: boolean }),
+  suspend_member: (ctx, args) => suspendMember(ctx, args as { name?: string; action?: string; reason?: string; remarks?: string; confirm?: boolean }),
+  create_finance_entry: (ctx, args) => createFinanceEntry(ctx, args as { payee?: string; amount?: number; cheque_no?: string; entry_date?: string; remarks?: string; confirm?: boolean }),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),
   get_my_achievements: (ctx) => getMyAchievements(ctx),
   get_portal_stats: () => getPortalStats(),
