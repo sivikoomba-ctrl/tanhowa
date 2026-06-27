@@ -311,10 +311,23 @@ export default function ChatbotWidget() {
   }
 
   // Voice command: speech-to-text into the chat, then auto-send on completion.
-  function toggleVoice() {
+  async function toggleVoice() {
     if (listening) { recognitionRef.current?.stop(); return; }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { toast.error("Voice input needs Chrome or a supported browser."); return; }
+
+    // Pre-request mic permission so the browser shows its standard prompt.
+    // Android Chrome and the installed PWA otherwise fail silently with
+    // "not-allowed" because SpeechRecognition never prompts on its own.
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop()); // release; recognition opens its own
+      } catch {
+        toast.error("Mic blocked. Allow microphone for tanhowa.in: browser ⋮ → Site settings → Microphone (or phone Settings → Apps → TANHOWA → Permissions), then try again.");
+        return;
+      }
+    }
 
     const recognition = new SR();
     recognition.lang = lang === "ta" ? "ta-IN" : "en-IN";
@@ -334,7 +347,7 @@ export default function ChatbotWidget() {
     };
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       if (event.error === "not-allowed" || event.error === "service-not-allowed" || event.error === "audio-capture") {
-        toast.error("Microphone is blocked. Allow mic access in your browser settings.");
+        toast.error("Mic blocked. Allow microphone for tanhowa.in: browser ⋮ → Site settings → Microphone (or phone Settings → Apps → TANHOWA → Permissions), then try again.");
       } else if (event.error !== "aborted" && event.error !== "no-speech") {
         toast.error("Voice input didn't work — please try again.");
       }
