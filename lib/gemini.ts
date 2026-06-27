@@ -39,7 +39,7 @@ IMPORTANT INSTRUCTIONS:
 - If the user asks to upload a payment proof or mentions a screenshot/receipt/UPI: tell them to tap the 📎 paperclip button in the chat to upload directly. Do NOT ask them to navigate elsewhere.
 - MEMBER ACTIONS: You can RSVP the current user to an event (rsvp_event) when they ask to attend/register/cancel.
 - ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments), send a branded email (send_member_email), send a reminder (nudge_member), set a member's payment status (set_payment_status), and approve/reject a pending registration (approve_registration).
-- For set_payment_status: ALWAYS preview first (call without confirm), show the member + period + amount + action to the user, ask "Shall I confirm?", and only call again with confirm=true after they say yes. Never approve/reject without that confirmation step. When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
+- For set_payment_status AND set_voucher_status: ALWAYS preview first (call without confirm), show the details to the user, ask "Shall I confirm?", and only call again with confirm=true after they say yes. Never approve/reject without that confirmation step. When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
 
 // ── Gemini Function Declarations for Query Engine ───────────────────
 
@@ -179,6 +179,21 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
             action: { type: SchemaType.STRING, description: "approve (default) or reject" },
           },
           required: ["name"],
+        },
+      },
+      {
+        name: "set_voucher_status",
+        description: "Finance/State-Admin only: approve or reject a pending expense voucher, found by submitter name and/or title. Two-step — call WITHOUT confirm for a preview (title, amount, submitter), ask the user to confirm, THEN call with confirm=true. Emails the submitter on decision.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            submitter_name: { type: SchemaType.STRING, description: "Name of the official who submitted the voucher" },
+            title: { type: SchemaType.STRING, description: "Voucher title (or part) to narrow the match" },
+            status: { type: SchemaType.STRING, description: "approved | rejected" },
+            remarks: { type: SchemaType.STRING, description: "Optional note (esp. for a rejection reason)" },
+            confirm: { type: SchemaType.BOOLEAN, description: "Set true ONLY after the user confirms the previewed voucher" },
+          },
+          required: ["status"],
         },
       },
       {

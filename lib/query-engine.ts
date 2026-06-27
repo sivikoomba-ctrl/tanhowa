@@ -6,7 +6,7 @@
 
 import { getServiceClient } from "@/lib/supabase";
 import { isFlexibleAmount } from "@/lib/subscriptions";
-import { sendMemberMessageEmail } from "@/lib/mail";
+import { sendMemberMessageEmail, sendVoucherStatusEmail } from "@/lib/mail";
 import { logAudit } from "@/lib/audit-log";
 import { isFinanceTeamMember } from "@/lib/auth";
 import { sendTelegramMessage } from "@/lib/telegram";
@@ -519,6 +519,64 @@ export async function approveRegistration(ctx: QueryContext, args: { name?: stri
   return { ok: true, action, member: member.name, message: `${action === "approve" ? "Approved" : "Rejected"} ${member.name}'s registration.` };
 }
 
+// Finance action: approve or reject a pending expense voucher. Two-step
+// (preview -> confirm=true). Finance-team / super_admin only; emails the submitter.
+export async function setVoucherStatus(ctx: QueryContext, args: { submitter_name?: string; title?: string; status?: string; confirm?: boolean; remarks?: string }) {
+  const actor = await resolveActor(ctx);
+  const financeAccess = actor.role === "super_admin" || (await isFinanceTeamMember(ctx.userId));
+  if (!financeAccess) return { error: "Only Finance Team members or the State-Admin can approve or reject vouchers." };
+
+  const status = (args.status || "").toLowerCase();
+  if (!["approved", "rejected"].includes(status)) return { error: "Status must be 'approved' or 'rejected'." };
+
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("expense_vouchers")
+    .select("id, title, amount, status, remarks, submitter:submitted_by(name, email)")
+    .eq("status", "pending")
+    .limit(50);
+
+  let vouchers = data || [];
+  const subName = (args.submitter_name || "").trim().toLowerCase();
+  const title = (args.title || "").trim().toLowerCase();
+  const subOf = (v: { submitter?: unknown }) => (v.submitter as { name?: string; email?: string } | null) || {};
+  if (subName) vouchers = vouchers.filter((v) => (subOf(v).name || "").toLowerCase().includes(subName));
+  if (title) vouchers = vouchers.filter((v) => (v.title || "").toLowerCase().includes(title));
+
+  if (vouchers.length === 0) return { found: 0, message: "No pending voucher found matching that." };
+  if (vouchers.length > 1) {
+    return {
+      found: vouchers.length,
+      disambiguate: vouchers.map((v) => ({ title: v.title, amount: v.amount, submitter: subOf(v).name || "" })),
+      message: "Multiple pending vouchers match — ask which (by title or submitter).",
+    };
+  }
+
+  const voucher = vouchers[0];
+  const submitter = subOf(voucher);
+  if (!args.confirm) {
+    return {
+      preview: true,
+      title: voucher.title,
+      amount: voucher.amount,
+      submitter: submitter.name || "",
+      action: status,
+      message: `Confirm: ${status === "approved" ? "approve" : "reject"} the voucher "${voucher.title}" (Rs.${(voucher.amount || 0).toLocaleString("en-IN")}) from ${submitter.name || "the submitter"}? Ask the user to confirm, then call again with confirm=true.`,
+    };
+  }
+
+  const updates: Record<string, unknown> = { status, approved_by: ctx.userId, approved_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  if (args.remarks) updates.remarks = args.remarks;
+  const { error } = await supabase.from("expense_vouchers").update(updates).eq("id", voucher.id);
+  if (error) return { error: "Failed to update the voucher. Please try again." };
+
+  if (submitter.email) {
+    sendVoucherStatusEmail(submitter.email, submitter.name || "Official", voucher.title, voucher.amount || 0, status as "approved" | "rejected", args.remarks || voucher.remarks || "").catch(() => {});
+  }
+  logAudit(ctx.userId, "voucher_" + status, "voucher", voucher.id, { via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, title: voucher.title, status, submitter: submitter.name, message: `Voucher "${voucher.title}" ${status}.` };
+}
+
 // Admin/finance action: set a member's subscription status (paid / rejected / hold).
 // Two-step: without confirm=true it returns a preview to confirm. Approving as PAID is
 // restricted to finance-team/super_admin and requires an uploaded proof.
@@ -794,6 +852,7 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   rsvp_event: (ctx, args) => rsvpEvent(ctx, args as { event_name?: string; status?: string }),
   nudge_member: (ctx, args) => nudgeMember(ctx, args as { name?: string; type?: string }),
   approve_registration: (ctx, args) => approveRegistration(ctx, args as { name?: string; action?: string }),
+  set_voucher_status: (ctx, args) => setVoucherStatus(ctx, args as { submitter_name?: string; title?: string; status?: string; confirm?: boolean; remarks?: string }),
   set_payment_status: (ctx, args) => setPaymentStatus(ctx, args as { name?: string; period?: string; status?: string; amount?: number; confirm?: boolean }),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),
   get_my_achievements: (ctx) => getMyAchievements(ctx),
