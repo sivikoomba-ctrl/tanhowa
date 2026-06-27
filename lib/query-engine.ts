@@ -6,7 +6,8 @@
 
 import { getServiceClient } from "@/lib/supabase";
 import { isFlexibleAmount } from "@/lib/subscriptions";
-import { sendMemberMessageEmail, sendVoucherStatusEmail } from "@/lib/mail";
+import { sendMemberMessageEmail, sendVoucherStatusEmail, notifyNewAnnouncement, notifyNewEvent } from "@/lib/mail";
+import { translateContent } from "@/lib/translate-content";
 import { logAudit } from "@/lib/audit-log";
 import { isFinanceTeamMember } from "@/lib/auth";
 import { sendTelegramMessage, notifyTaskAssigned } from "@/lib/telegram";
@@ -481,6 +482,77 @@ export async function nudgeMember(ctx: QueryContext, args: { name?: string; type
   return { sent: true, to: member.name, channels: { email: ok, telegram: tg }, type, message: `Reminder sent to ${member.name}${tg ? " (email + Telegram)" : " (email)"}.` };
 }
 
+// Admin/official action: post an announcement (in-app immediately; email opt-in).
+export async function createAnnouncement(ctx: QueryContext, args: { title?: string; content?: string; notify_email?: boolean }) {
+  const actor = await resolveActor(ctx);
+  if (!actor.canAdminAct) return { error: "Only admins and officials can post announcements." };
+  const title = (args.title || "").trim();
+  const content = (args.content || "").trim();
+  if (!title || !content) return { error: "An announcement needs a title and content." };
+
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("announcements")
+    .insert({ title, content, author_id: ctx.userId, published: true })
+    .select()
+    .single();
+  if (error || !data) return { error: "Failed to post the announcement." };
+
+  translateContent("announcements", data.id, { title, content });
+  if (args.notify_email) notifyNewAnnouncement(title, content);
+  logAudit(ctx.userId, "announcement_created", "announcement", data.id, { via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, title, emailed: !!args.notify_email, message: `Posted announcement "${title}"${args.notify_email ? " and emailed members" : " (in-app only — say 'email members' to also send it)"}.` };
+}
+
+// Admin/official action: create a calendar event (email opt-in).
+export async function createEvent(ctx: QueryContext, args: { title?: string; date?: string; location?: string; description?: string; notify_email?: boolean }) {
+  const actor = await resolveActor(ctx);
+  if (!actor.canAdminAct) return { error: "Only admins and officials can create events." };
+  const title = (args.title || "").trim();
+  const date = (args.date || "").trim();
+  if (!title || !date) return { error: "An event needs a title and a date (YYYY-MM-DD)." };
+  if (!/^\d{4}-\d{2}-\d{2}/.test(date)) return { error: "Give the date as YYYY-MM-DD." };
+
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("events")
+    .insert({ title, description: args.description || "", date, location: args.location || "", created_by: ctx.userId })
+    .select()
+    .single();
+  if (error || !data) return { error: "Failed to create the event." };
+
+  translateContent("events", data.id, { title, description: args.description || "", location: args.location || "" });
+  if (args.notify_email) notifyNewEvent(title, date, args.location || "");
+  logAudit(ctx.userId, "event_created", "event", data.id, { via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, title, date, emailed: !!args.notify_email, message: `Created event "${title}" on ${date}${args.notify_email ? " and emailed members" : ""}.` };
+}
+
+// Admin/official action: create a quick poll (2-6 options).
+export async function createPoll(ctx: QueryContext, args: { title?: string; options?: string[]; expires_in_days?: number }) {
+  const actor = await resolveActor(ctx);
+  if (!actor.canAdminAct) return { error: "Only admins and officials can create polls." };
+  const title = (args.title || "").trim();
+  const options = (args.options || []).map((o) => String(o).trim()).filter(Boolean);
+  if (!title) return { error: "What's the poll question?" };
+  if (options.length < 2) return { error: "A poll needs at least two options." };
+  if (options.length > 6) return { error: "A poll can have at most six options." };
+
+  const supabase = getServiceClient();
+  const expires = args.expires_in_days && args.expires_in_days > 0
+    ? new Date(Date.now() + args.expires_in_days * 864e5).toISOString()
+    : null;
+  const { data, error } = await supabase
+    .from("polls")
+    .insert({ title, options, created_by: ctx.userId, expires_at: expires })
+    .select()
+    .single();
+  if (error || !data) return { error: "Failed to create the poll." };
+
+  translateContent("polls", data.id, { title, options: JSON.stringify(options) });
+  logAudit(ctx.userId, "poll_created", "poll", data.id, { via: "assistant", by: actor.name || ctx.email });
+  return { ok: true, title, options, message: `Created poll "${title}" with ${options.length} options.` };
+}
+
 // Admin action: assign a task (by event ID or title) to a member or a team.
 export async function assignTask(ctx: QueryContext, args: { task?: string; assignee_name?: string; team_name?: string }) {
   const actor = await resolveActor(ctx);
@@ -928,6 +1000,9 @@ const QUERY_MAP: Record<string, (ctx: QueryContext, args: Record<string, unknown
   nudge_member: (ctx, args) => nudgeMember(ctx, args as { name?: string; type?: string }),
   approve_registration: (ctx, args) => approveRegistration(ctx, args as { name?: string; action?: string }),
   assign_task: (ctx, args) => assignTask(ctx, args as { task?: string; assignee_name?: string; team_name?: string }),
+  create_announcement: (ctx, args) => createAnnouncement(ctx, args as { title?: string; content?: string; notify_email?: boolean }),
+  create_event: (ctx, args) => createEvent(ctx, args as { title?: string; date?: string; location?: string; description?: string; notify_email?: boolean }),
+  create_poll: (ctx, args) => createPoll(ctx, args as { title?: string; options?: string[]; expires_in_days?: number }),
   set_voucher_status: (ctx, args) => setVoucherStatus(ctx, args as { submitter_name?: string; title?: string; status?: string; confirm?: boolean; remarks?: string }),
   set_payment_status: (ctx, args) => setPaymentStatus(ctx, args as { name?: string; period?: string; status?: string; amount?: number; confirm?: boolean }),
   get_my_tasks: (ctx, args) => getMyTasks(ctx, args as { status?: string; limit?: number }),

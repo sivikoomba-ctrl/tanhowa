@@ -38,7 +38,7 @@ IMPORTANT INSTRUCTIONS:
 - For "how to" questions about using the portal, guide users to the correct page/feature.
 - If the user asks to upload a payment proof or mentions a screenshot/receipt/UPI: tell them to tap the 📎 paperclip button in the chat to upload directly. Do NOT ask them to navigate elsewhere.
 - MEMBER ACTIONS: You can RSVP the current user to an event (rsvp_event) when they ask to attend/register/cancel.
-- ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments), send a branded email (send_member_email), send a reminder (nudge_member), set a member's payment status (set_payment_status), approve/reject a pending registration (approve_registration), approve/reject a voucher (set_voucher_status), and assign a task to a member/team (assign_task).
+- ADMIN ACTIONS: For admins/officials you CAN look up any member's payments (get_member_payments), send a branded email (send_member_email), send a reminder (nudge_member), set a member's payment status (set_payment_status), approve/reject a pending registration (approve_registration), approve/reject a voucher (set_voucher_status), assign a task to a member/team (assign_task), and create content — announcements (create_announcement), events (create_event), polls (create_poll). For announcements/events, default to in-app only; email all members (notify_email=true) ONLY when the user explicitly asks to email everyone.
 - For set_payment_status AND set_voucher_status: ALWAYS preview first (call without confirm), show the details to the user, ask "Shall I confirm?", and only call again with confirm=true after they say yes. Never approve/reject without that confirmation step. When asked to email a member (e.g. a thank-you), compose a warm, appropriate subject and message yourself and call send_member_email — do NOT say you are unable to send emails. If the tool reports multiple name matches, ask the user to confirm which member before sending. If it returns a permission error, relay that only admins/officials can do this.`;
 
 // ── Gemini Function Declarations for Query Engine ───────────────────
@@ -167,6 +167,47 @@ export const QUERY_TOOLS: FunctionDeclarationsTool[] = [
             type: { type: SchemaType.STRING, description: "payment | profile | general (default general)" },
           },
           required: ["name"],
+        },
+      },
+      {
+        name: "create_announcement",
+        description: "Admin/official only: post an announcement to the portal. Compose a clear title and content from the user's request. It appears in-app immediately; set notify_email=true ONLY if the user explicitly wants all members emailed (a mass email).",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            title: { type: SchemaType.STRING, description: "Announcement title" },
+            content: { type: SchemaType.STRING, description: "Announcement body" },
+            notify_email: { type: SchemaType.BOOLEAN, description: "Email all members (only if explicitly requested)" },
+          },
+          required: ["title", "content"],
+        },
+      },
+      {
+        name: "create_event",
+        description: "Admin/official only: create a calendar event. notify_email=true emails all members (only if explicitly requested).",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            title: { type: SchemaType.STRING, description: "Event title" },
+            date: { type: SchemaType.STRING, description: "Event date as YYYY-MM-DD" },
+            location: { type: SchemaType.STRING, description: "Location (optional)" },
+            description: { type: SchemaType.STRING, description: "Details (optional)" },
+            notify_email: { type: SchemaType.BOOLEAN, description: "Email all members (only if explicitly requested)" },
+          },
+          required: ["title", "date"],
+        },
+      },
+      {
+        name: "create_poll",
+        description: "Admin/official only: create a quick poll with 2-6 options. Optionally set expires_in_days.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            title: { type: SchemaType.STRING, description: "The poll question" },
+            options: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "2 to 6 answer options" },
+            expires_in_days: { type: SchemaType.NUMBER, description: "Days until the poll closes (optional)" },
+          },
+          required: ["title", "options"],
         },
       },
       {
