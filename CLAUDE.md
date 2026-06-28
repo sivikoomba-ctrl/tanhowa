@@ -401,7 +401,7 @@ AI-powered chatbot with live portal data access via Gemini function calling.
 
 **Architecture:**
 - `lib/gemini.ts` — `SYSTEM_PROMPT`, `QUERY_TOOLS` (FunctionDeclarationsTool definitions with SchemaType params), `getGemini()` singleton
-- `lib/query-engine.ts` — `executeQuery()` dispatcher (`QUERY_MAP`) mapping function names to Supabase queries; ~16 read functions + ~19 action functions
+- `lib/query-engine.ts` — `executeQuery()` dispatcher (`QUERY_MAP`) mapping function names to Supabase queries; ~16 read functions + ~24 action functions
 - `app/api/chat/route.ts` — POST endpoint with function-calling loop (max 3 rounds), rate limited 20/min per IP. **Multimodal:** accepts an optional `image` (`{ data: base64, mimeType }`) and forwards it as an `inlineData` part (gemini-2.5-flash is vision-capable).
 - `components/chatbot-widget.tsx` — Floating chat UI with quick-query buttons. **Open to all approved members** (not role-gated). Mounted once in the root layout (`app/layout.tsx`) but **only renders/fetches on `/dashboard` and `/admin` routes** (gated via `usePathname()` → `onAppRoute`) — never on public landing/auth pages, so it can't leak the previous member's session after logout. **Auto-opens once** per session; ✕ sets `sessionStorage["tanhowa-assistant-dismissed"]`. Greeting uses a honorific-stripped first name (`firstName()`).
 
@@ -413,14 +413,16 @@ AI-powered chatbot with live portal data access via Gemini function calling.
 
 ### Action tools (side effects)
 
-The chatbot is a full ops console — ~19 action tools that write/notify, every one re-checking authority from the DB and audit-logging `via: assistant`. Tiers:
+The chatbot is a full ops console — ~24 action tools that write/notify, every one re-checking authority from the DB and audit-logging `via: assistant`. Tiers:
 
 | Tier | Tools |
 |------|-------|
-| **Member self-service** | `rsvp_event` (RSVP/cancel own event) |
+| **Member self-service** (own data only, no confirm) | `rsvp_event` (RSVP/cancel own event), `vote_poll` (by title + option), `add_wishlist_idea`, `submit_grievance` (grievance/suggestion/service-request — category auto-derived from `kind`; ticket # by trigger), `enroll_training`, `set_notification_pref` (email/telegram/in-app/digest/whatsapp), `add_contribution` (pending voluntary contribution to a flexible fund the member is in), `update_my_task` (commit / submit-for-review own task; awards points), `get_telegram_connect` (returns `t.me/tanhowa_task_bot?start=email` deep link), `update_my_profile` (phone/home/office address only — name/designation/district stay on the Profile page's full-replace form) |
 | **Admin / official** | `send_member_email`, `nudge_member`, `approve_registration`, `assign_task` (member or team), `create_announcement`, `create_event`, `create_poll`, `send_member_telegram`, `create_subscription` (one member), `set_payment_status`, `set_voucher_status` |
 | **State-Admin** | `set_official` (make/remove DS/DJS — grants admin access) |
 | **Owner only** (`tanhowa19791@gmail.com`) | `suspend_member` (suspend/reinstate), `create_finance_entry` (manual cheque debit) |
+
+Member self-service tools act only on the caller's own data, so they use `ctx.userId` directly (no `resolveActor`/confirm) and mirror their REST route exactly (same insert shape, dup guards, `logContribution`). New `ContributionAction`: `poll_voted`.
 
 **Two-step confirm (preview → `confirm:true`)** — financial/role/destructive actions never execute on the first call; they return a preview, the assistant asks the user to confirm, then re-calls with `confirm:true`: `set_payment_status`, `set_voucher_status`, `set_official`, `create_subscription`, `suspend_member`, `create_finance_entry`.
 
@@ -445,6 +447,10 @@ The paperclip opens a **chooser** (`attachChoice` message) instead of force-rout
 - **Show the assistant** → pick any image; it's held as `pendingImage` (thumbnail in the user bubble) and sent to the chat backend as an `inlineData` part so Gemini vision can answer (pest ID, read/summarize a document, describe a receipt). Send is enabled with an image even when the text box is empty.
 
 `sendMessage` still locally intercepts genuine upload *intent* (`PROOF_INTENT` regex) but **skips questions** (`QUESTION_RX`) and skips when an image is attached, so "how much did X pay?" reaches the assistant instead of the uploader.
+
+### Help discovery
+
+So members discover what's possible: a **"What can I do here?"** chip is the first entry in `QUICK_QUERIES` (`chatbot-widget.tsx`; i18n key `chat.q_help`, en+ta). The SYSTEM_PROMPT has a **HELP block** — on "help" / "what can you do" / "options" it returns a grouped, scannable menu (**Ask me** = reads; **I can do for you** = actions), and only surfaces admin/owner capabilities when the caller is an admin/official.
 
 ## UI Labels
 
