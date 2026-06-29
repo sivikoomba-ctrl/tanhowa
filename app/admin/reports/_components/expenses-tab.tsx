@@ -139,7 +139,7 @@ export function ExpensesTab() {
         head: [["Category", "Total", "Approved", "Pending", "Rejected", "Approved Amt", "Pending Amt"]],
         body: byCategory.map((c) => [c.category, c.count, c.approved, c.pending, c.rejected, c.approvedAmount.toLocaleString("en-IN"), c.pendingAmount.toLocaleString("en-IN")]),
         foot: [["Total", t.count, t.approved, t.pending, t.rejected, t.approvedAmount.toLocaleString("en-IN"), t.pendingAmount.toLocaleString("en-IN")]],
-        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, footStyles, bodyStyles: { fontSize: 10, overflow: "ellipsize" }, columnStyles: { 0: { cellWidth: 50 }, 1: { halign: "center" }, 2: { halign: "center" }, 3: { halign: "center" }, 4: { halign: "center" }, 5: { halign: "right" }, 6: { halign: "right" } }, margin: { left: 14 },
+        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, footStyles, bodyStyles: { fontSize: 10, overflow: "linebreak" }, columnStyles: { 0: { cellWidth: 50 }, 1: { halign: "center" }, 2: { halign: "center" }, 3: { halign: "center" }, 4: { halign: "center" }, 5: { halign: "right" }, 6: { halign: "right" } }, margin: { left: 14 },
         didParseCell: (d) => { const right = d.column.index >= 5; if (d.section === "head") { if (d.column.index === 0) d.cell.styles.halign = "left"; return; } if (d.section === "foot") { if (right) d.cell.styles.halign = "right"; else if (d.column.index >= 1) d.cell.styles.halign = "center"; } },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
@@ -151,7 +151,7 @@ export function ExpensesTab() {
         head: [["Official", "Type", "Total", "Approved", "Pending", "Rejected", "Approved Amt"]],
         body: byOfficial.map((o) => [o.name, o.official_type === "state" ? "State" : "District", o.count, o.approved, o.pending, o.rejected, o.approvedAmount.toLocaleString("en-IN")]),
         foot: [["Total", "", t.count, t.approved, t.pending, t.rejected, t.approvedAmount.toLocaleString("en-IN")]],
-        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, footStyles, bodyStyles: { fontSize: 10, overflow: "ellipsize" }, columnStyles: { 0: { cellWidth: 50 }, 2: { halign: "center" }, 3: { halign: "center" }, 4: { halign: "center" }, 5: { halign: "center" }, 6: { halign: "right" } }, margin: { left: 14 },
+        theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, footStyles, bodyStyles: { fontSize: 10, overflow: "linebreak" }, columnStyles: { 0: { cellWidth: 50 }, 2: { halign: "center" }, 3: { halign: "center" }, 4: { halign: "center" }, 5: { halign: "center" }, 6: { halign: "right" } }, margin: { left: 14 },
         didParseCell: (d) => { const right = d.column.index === 6; if (d.section === "head") { if (d.column.index === 0) d.cell.styles.halign = "left"; return; } if (d.section === "foot") { if (right) d.cell.styles.halign = "right"; else if (d.column.index >= 2) d.cell.styles.halign = "center"; } },
       });
       startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
@@ -183,8 +183,8 @@ export function ExpensesTab() {
       startY,
       head: [["#", "Title", "Official", "Category", "Vendor", "Invoice", "Amount", "Status", "Date"]],
       body: vouchers.map((v, i) => [i + 1, v.title, v.submitter_name, v.category || "—", v.vendor_name || "—", v.invoice_number || "—", (v.amount || 0).toLocaleString("en-IN"), v.status, ddmmyyyy(v.expense_date)]),
-      theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, bodyStyles: { fontSize: 10, overflow: "ellipsize" }, margin: { left: 14 },
-      columnStyles: { 0: { cellWidth: 10, halign: "center" }, 1: { cellWidth: 46 }, 2: { cellWidth: 34 }, 6: { halign: "right" }, 8: { cellWidth: 24, halign: "center" } },
+      theme: "grid", headStyles: { fillColor: [45, 106, 79], fontSize: 11, halign: "center" }, bodyStyles: { fontSize: 9, overflow: "linebreak" }, margin: { left: 14 },
+      columnStyles: { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: 42 }, 2: { cellWidth: 42 }, 6: { halign: "right" }, 8: { cellWidth: 22, halign: "center" } },
       didParseCell(data) {
         if (data.section === "head") {
           if (data.column.index === 0 || data.column.index === 1) data.cell.styles.halign = "left";
