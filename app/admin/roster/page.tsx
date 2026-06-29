@@ -186,7 +186,7 @@ export default function AdminRosterPage() {
     const single = subset && subset.length === 1 ? subset[0][0] : null;
     const doc = new jsPDF({ orientation: "landscape" });
     const pageH = doc.internal.pageSize.getHeight();
-    const today = new Date().toLocaleDateString();
+    const today = new Date().toLocaleDateString("en-GB");
     const filterLabel = single ?? (districtFilter === "all" ? "All districts" : districtFilter);
     doc.setFontSize(14);
     doc.text(single ? `TANHOWA - District Roster: ${single}` : "TANHOWA - District Roster", 14, 15);
@@ -227,7 +227,7 @@ export default function AdminRosterPage() {
     const data = subset ?? groups;
     if (data.length === 0) { toast.error("Nothing to print"); return; }
     const single = subset && subset.length === 1 ? subset[0][0] : null;
-    const today = new Date().toLocaleDateString();
+    const today = new Date().toLocaleDateString("en-GB");
     const filterLabel = single ?? (districtFilter === "all" ? "All districts" : districtFilter);
     const esc = (s: string) =>
       (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c));
