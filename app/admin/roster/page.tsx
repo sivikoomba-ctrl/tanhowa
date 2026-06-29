@@ -180,19 +180,24 @@ export default function AdminRosterPage() {
     }
   };
 
-  const downloadPdf = () => {
-    if (groups.length === 0) { toast.error("Nothing to export"); return; }
+  const downloadPdf = (subset?: [string, Row[]][]) => {
+    const data = subset ?? groups;
+    if (data.length === 0) { toast.error("Nothing to export"); return; }
+    const single = subset && subset.length === 1 ? subset[0][0] : null;
     const doc = new jsPDF({ orientation: "landscape" });
     const pageH = doc.internal.pageSize.getHeight();
     const today = new Date().toLocaleDateString();
-    const filterLabel = districtFilter === "all" ? "All districts" : districtFilter;
+    const filterLabel = single ?? (districtFilter === "all" ? "All districts" : districtFilter);
     doc.setFontSize(14);
-    doc.text("TANHOWA - District Roster", 14, 15);
+    doc.text(single ? `TANHOWA - District Roster: ${single}` : "TANHOWA - District Roster", 14, 15);
     doc.setFontSize(10);
-    doc.text(`${totalApproved} registered | ${totalManual} manual | Filter: ${filterLabel} | Generated: ${today}`, 14, 21);
+    const metaLine = single
+      ? `${data[0][1].length} members | Generated: ${today}`
+      : `${totalApproved} registered | ${totalManual} manual | Filter: ${filterLabel} | Generated: ${today}`;
+    doc.text(metaLine, 14, 21);
 
     let startY = 30;
-    for (const [district, list] of groups) {
+    for (const [district, list] of data) {
       if (startY > pageH - 30) { doc.addPage(); startY = 20; }
       doc.setFontSize(12);
       doc.text(`${district} (${list.length})`, 14, startY);
@@ -214,16 +219,19 @@ export default function AdminRosterPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       startY = ((doc as any).lastAutoTable?.finalY || startY + 30) + 10;
     }
-    doc.save(`TANHOWA_District_Roster_${new Date().toISOString().slice(0, 10)}.pdf`);
+    const fileTag = single ? single.replace(/[^a-z0-9]+/gi, "_") : "All";
+    doc.save(`TANHOWA_District_Roster_${fileTag}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
-  const printRoster = () => {
-    if (groups.length === 0) { toast.error("Nothing to print"); return; }
+  const printRoster = (subset?: [string, Row[]][]) => {
+    const data = subset ?? groups;
+    if (data.length === 0) { toast.error("Nothing to print"); return; }
+    const single = subset && subset.length === 1 ? subset[0][0] : null;
     const today = new Date().toLocaleDateString();
-    const filterLabel = districtFilter === "all" ? "All districts" : districtFilter;
+    const filterLabel = single ?? (districtFilter === "all" ? "All districts" : districtFilter);
     const esc = (s: string) =>
       (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c));
-    const sections = groups
+    const sections = data
       .map(([district, list]) => `
         <h2>${esc(district)} <span class="count">(${list.length})</span></h2>
         <table>
@@ -255,8 +263,8 @@ export default function AdminRosterPage() {
         tr { page-break-inside: avoid; }
       </style></head>
       <body>
-        <h1>TANHOWA — District Roster</h1>
-        <div class="meta">${totalApproved} registered · ${totalManual} manual · Filter: ${esc(filterLabel)} · Generated: ${today}</div>
+        <h1>TANHOWA — District Roster${single ? ": " + esc(single) : ""}</h1>
+        <div class="meta">${single ? `${data[0][1].length} members` : `${totalApproved} registered · ${totalManual} manual · Filter: ${esc(filterLabel)}`} · Generated: ${today}</div>
         ${sections}
         <script>window.onload = function () { window.print(); }</script>
       </body></html>`;
@@ -280,10 +288,10 @@ export default function AdminRosterPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={printRoster} className="gap-2" disabled={loading || groups.length === 0}>
+          <Button variant="outline" onClick={() => printRoster()} className="gap-2" disabled={loading || groups.length === 0}>
             <Printer size={16} /> Print
           </Button>
-          <Button variant="outline" onClick={downloadPdf} className="gap-2" disabled={loading || groups.length === 0}>
+          <Button variant="outline" onClick={() => downloadPdf()} className="gap-2" disabled={loading || groups.length === 0}>
             <FileDown size={16} /> Save PDF
           </Button>
           <Button onClick={() => setAddOpen(true)} className="gap-2">
@@ -323,9 +331,29 @@ export default function AdminRosterPage() {
         <div className="space-y-6">
           {groups.map(([district, list]) => (
             <div key={district} className="rounded-2xl border bg-card overflow-hidden">
-              <div className="px-4 py-3 border-b bg-muted/40 flex items-center justify-between">
-                <h2 className="font-semibold">{district}</h2>
-                <span className="text-xs text-muted-foreground">{list.length} members</span>
+              <div className="px-4 py-3 border-b bg-muted/40 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold">{district}</h2>
+                  <span className="text-xs text-muted-foreground">{list.length} members</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 h-8 text-xs"
+                    onClick={() => printRoster([[district, list]])}
+                  >
+                    <Printer size={14} /> Print
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 h-8 text-xs"
+                    onClick={() => downloadPdf([[district, list]])}
+                  >
+                    <FileDown size={14} /> PDF
+                  </Button>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
