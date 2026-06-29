@@ -39,8 +39,11 @@ import {
   List,
   LayoutGrid,
   Sparkles,
+  Trophy,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { GamificationPanel } from "@/components/gamification-panel";
 
 interface TodoUser {
   id: string;
@@ -204,6 +207,7 @@ export default function TodosPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState<"list" | "matrix">("list");
+  const [showRewards, setShowRewards] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Task detail view
@@ -1260,8 +1264,26 @@ export default function TodosPage() {
           <Button variant={viewMode === "matrix" ? "default" : "outline"} size="icon" onClick={() => setViewMode("matrix")} className="h-8 w-8" title="Matrix view">
             <LayoutGrid size={16} />
           </Button>
+          <Button
+            variant={showRewards ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowRewards((v) => !v)}
+            className="gap-1.5"
+            title="Rewards & leaderboard"
+          >
+            <Trophy size={14} className={showRewards ? "" : "text-amber-500"} />
+            <span className="hidden sm:inline">Rewards</span>
+            <ChevronDown size={14} className={`transition-transform ${showRewards ? "rotate-180" : ""}`} />
+          </Button>
         </div>
       </div>
+
+      {/* Rewards & leaderboard (collapsible — shared with /dashboard/rewards) */}
+      {showRewards && (
+        <div className="rounded-2xl border bg-muted/20 p-4">
+          <GamificationPanel showHeading={false} />
+        </div>
+      )}
 
       {viewMode === "list" ? (
       <>
