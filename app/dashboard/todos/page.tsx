@@ -207,7 +207,7 @@ export default function TodosPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState<"list" | "matrix">("list");
-  const [showRewards, setShowRewards] = useState(false);
+  const [showRewards, setShowRewards] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Task detail view
