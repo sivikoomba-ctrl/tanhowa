@@ -109,6 +109,7 @@ const QUESTION_RX = /\?|^\s*(how|what|who|whom|whose|when|where|why|which|whethe
 
 export default function ChatbotWidget() {
   const [open, setOpen] = useState(false);
+  const [fabHidden, setFabHidden] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -192,10 +193,18 @@ export default function ChatbotWidget() {
     if (autoOpened.current || allowed !== true) return;
     autoOpened.current = true;
     try {
+      if (sessionStorage.getItem("tanhowa-assistant-fab-hidden") === "1") { setFabHidden(true); return; }
       if (sessionStorage.getItem("tanhowa-assistant-dismissed") === "1") return;
     } catch { /* sessionStorage unavailable — open anyway */ }
     setOpen(true);
   }, [allowed]);
+
+  // Hide the floating button for this session (returns next login).
+  function hideFab() {
+    setOpen(false);
+    setFabHidden(true);
+    try { sessionStorage.setItem("tanhowa-assistant-fab-hidden", "1"); } catch { /* ignore */ }
+  }
 
   const addBotMessage = useCallback((text: string, extra?: Partial<Message>) => {
     setMessages((prev) => [...prev, { role: "bot", text, ...extra }]);
@@ -451,19 +460,29 @@ export default function ChatbotWidget() {
 
   return (
     <>
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center"
-          aria-label="Open TANHOWA Assistant"
-        >
-          <MessageCircle size={24} />
-          {pendingSubs.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-background text-[10px] text-white font-bold flex items-center justify-center">
-              {pendingSubs.length}
-            </span>
-          )}
-        </button>
+      {!open && !fabHidden && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <button
+            onClick={() => setOpen(true)}
+            className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center"
+            aria-label="Open TANHOWA Assistant"
+          >
+            <MessageCircle size={24} />
+            {pendingSubs.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-background text-[10px] text-white font-bold flex items-center justify-center">
+                {pendingSubs.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={hideFab}
+            className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-muted text-muted-foreground border border-border shadow flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
+            aria-label="Hide assistant for now"
+            title="Hide for now"
+          >
+            <X size={12} />
+          </button>
+        </div>
       )}
 
       {open && (
