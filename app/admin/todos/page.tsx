@@ -29,8 +29,11 @@ import {
   Plus,
   Sparkles,
   Loader2,
+  Trophy,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { GamificationPanel } from "@/components/gamification-panel";
 import type { Todo, TodoNote, TodoAttachment, TodoVoucher, Member, Team, TimeEntry } from "./_components/types";
 import TodoDetailView from "./_components/TodoDetailView";
 import EditTaskDialog from "./_components/EditTaskDialog";
@@ -59,6 +62,7 @@ export default function AdminTodosPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState<"list" | "matrix">("list");
+  const [showRewards, setShowRewards] = useState(true);
   const [search, setSearch] = useState("");
 
   // Bulk selection
@@ -460,8 +464,25 @@ export default function AdminTodosPage() {
           <Button variant={viewMode === "matrix" ? "default" : "outline"} size="sm" onClick={() => setViewMode("matrix")} className="gap-1.5">
             <LayoutGrid size={14} /> Matrix
           </Button>
+          <Button
+            variant={showRewards ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowRewards((v) => !v)}
+            className="gap-1.5"
+            title="Rewards & leaderboard"
+          >
+            <Trophy size={14} className={showRewards ? "" : "text-amber-500"} /> Rewards
+            <ChevronDown size={14} className={`transition-transform ${showRewards ? "rotate-180" : ""}`} />
+          </Button>
         </div>
       </div>
+
+      {/* Rewards & leaderboard (collapsible — shared with /dashboard/rewards) */}
+      {showRewards && (
+        <div className="rounded-2xl border bg-muted/20 p-4">
+          <GamificationPanel showHeading={false} />
+        </div>
+      )}
 
       {/* Create Task Dialog */}
       <CreateTaskDialog
