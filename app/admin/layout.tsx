@@ -65,6 +65,7 @@ const NAV_SECTIONS = [
     titleKey: "nav.section.overview" as const,
     items: [
       { href: "/admin", labelKey: "nav.dashboard" as const, icon: LayoutDashboard },
+      { assistantAction: true as const },
     ],
   },
   {
@@ -275,6 +276,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       );
     }
 
+    const assistantButtonJsx = (
+      <button
+        key="assistant-action"
+        onClick={() => {
+          try { sessionStorage.removeItem("tanhowa-assistant-fab-hidden"); } catch { /* ignore */ }
+          window.dispatchEvent(new Event("open-tanhowa-assistant"));
+          onItemClick?.();
+        }}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+      >
+        <Flower2 size={18} />
+        <span className="flex-1 text-left">{t("nav.assistant")}</span>
+      </button>
+    );
+
     const feedbackGroupJsx = (
       <div key="feedback-group">
         <button
@@ -315,7 +331,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <>
         {NAV_SECTIONS.map((section) => {
           const visible = section.items.filter((item) =>
-            "feedbackGroup" in item ? true : isNavItemVisible(item.href)
+            "feedbackGroup" in item || "assistantAction" in item ? true : isNavItemVisible(item.href)
           );
           if (visible.length === 0) return null;
           return (
@@ -324,7 +340,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {t(section.titleKey)}
               </p>
               {visible.map((item) =>
-                "feedbackGroup" in item ? feedbackGroupJsx : renderItem(item)
+                "feedbackGroup" in item
+                  ? feedbackGroupJsx
+                  : "assistantAction" in item
+                    ? assistantButtonJsx
+                    : renderItem(item)
               )}
             </div>
           );

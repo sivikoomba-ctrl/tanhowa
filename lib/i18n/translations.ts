@@ -30,6 +30,7 @@ const translations = {
   "nav.contributions": { en: "Contributions", ta: "பங்களிப்புகள்" },
   "nav.finance": { en: "Finance", ta: "நிதி" },
   "nav.ai_tools": { en: "AI Tools", ta: "AI கருவிகள்" },
+  "nav.assistant": { en: "TANHOWA Assistant", ta: "TANHOWA உதவியாளர்" },
   "nav.payment_status": { en: "Payment Status", ta: "கட்டண நிலை" },
   "nav.wishlist": { en: "IDEA BOARD", ta: "யோசனை பலகை" },
   "nav.letters": { en: "Letters & Forms", ta: "கடிதங்கள் & படிவங்கள்" },

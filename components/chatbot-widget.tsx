@@ -206,6 +206,13 @@ export default function ChatbotWidget() {
     try { sessionStorage.setItem("tanhowa-assistant-fab-hidden", "1"); } catch { /* ignore */ }
   }
 
+  // Open the assistant when the sidebar "Assistant" entry is clicked.
+  useEffect(() => {
+    function onOpenRequest() { setFabHidden(false); setOpen(true); }
+    window.addEventListener("open-tanhowa-assistant", onOpenRequest);
+    return () => window.removeEventListener("open-tanhowa-assistant", onOpenRequest);
+  }, []);
+
   const addBotMessage = useCallback((text: string, extra?: Partial<Message>) => {
     setMessages((prev) => [...prev, { role: "bot", text, ...extra }]);
   }, []);

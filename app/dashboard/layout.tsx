@@ -156,6 +156,7 @@ const MEMBER_NAV_SECTIONS = [
   {
     titleKey: "nav.section.tools" as const,
     items: [
+      { assistantAction: true as const },
       { href: "/dashboard/ai-tools", labelKey: "nav.ai_tools" as const, icon: Sparkles },
       { href: "/dashboard/trainings", labelKey: "nav.trainings" as const, icon: GraduationCap },
       { href: "/dashboard/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
@@ -544,6 +545,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
     );
 
+    const assistantButtonJsx = (
+      <button
+        key="assistant-action"
+        onClick={() => {
+          // Ask the floating ChatbotWidget (mounted in root layout) to open.
+          try { sessionStorage.removeItem("tanhowa-assistant-fab-hidden"); } catch { /* ignore */ }
+          window.dispatchEvent(new Event("open-tanhowa-assistant"));
+          onItemClick?.();
+        }}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+      >
+        <Flower2 size={18} />
+        <span className="flex-1 text-left">{t("nav.assistant")}</span>
+      </button>
+    );
+
     const feedbackGroupJsx = (
       <div key="feedback-group">
         <button
@@ -586,6 +603,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           const visible = section.items.filter((item) => {
             if ("electionsGroup" in item) return electionItems.length > 0;
             if ("feedbackGroup" in item) return true;
+            if ("assistantAction" in item) return true;
             return isItemVisible(item);
           });
           if (visible.length === 0) return null;
@@ -599,7 +617,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   ? electionsGroupJsx
                   : "feedbackGroup" in item
                     ? feedbackGroupJsx
-                    : renderItem(item)
+                    : "assistantAction" in item
+                      ? assistantButtonJsx
+                      : renderItem(item)
               )}
             </div>
           );
