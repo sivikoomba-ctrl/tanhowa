@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
-import { getSession, createSession, isFinanceTeamMember, isProjectHMember } from "@/lib/auth";
+import { getSession, createSession, isFinanceTeamMember, isProjectHMember, type SessionPayload } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logApiPerf } from "@/lib/api-perf";
 import { logContribution } from "@/lib/contributions";
@@ -20,6 +20,24 @@ export async function GET() {
       .select("id, name, email, phone, address, office_address, dob, occupation, photo_url, role, status, official_type, posting_details, social_links, created_at, last_active_at, notification_prefs, location_sharing, suspension_details, telegram_chat_id")
       .eq("id", session.userId)
       .single();
+
+    // Self-heal a stale session cookie. The JWT carries role/status snapshotted
+    // at login time, and middleware.ts gates write APIs on the JWT status (not the
+    // DB). So a member approved AFTER they logged in stays blocked with "Account
+    // not approved" for up to 7 days until they happen to re-login. This route runs
+    // on every dashboard load and is whitelisted in middleware, so re-mint the cookie
+    // here whenever the live DB role/status differs — the session then self-heals on
+    // the next page load, no manual logout needed. Best-effort; never blocks the read.
+    if (user && (user.status !== session.status || user.role !== session.role)) {
+      try {
+        await createSession({
+          userId: session.userId,
+          email: session.email,
+          role: user.role as SessionPayload["role"],
+          status: user.status as SessionPayload["status"],
+        });
+      } catch { /* cookie refresh is best-effort */ }
+    }
 
     // Silently update last_active_at (fire-and-forget)
     supabase
