@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Upload, Loader2, Camera, X, ThumbsUp, ThumbsDown, HelpCircle, Sparkles, Trash2, ChevronDown, ChevronUp, Plus, ZoomIn, ZoomOut, AlertTriangle, RotateCw } from "lucide-react";
+import { Upload, Loader2, Camera, X, ThumbsUp, ThumbsDown, HelpCircle, Sparkles, Trash2, ChevronDown, ChevronUp, Plus, ZoomIn, ZoomOut, AlertTriangle, RotateCw, ClipboardList, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
 
@@ -31,6 +31,15 @@ interface PestItem {
   result: PestResult | null;
   error: string | null;
   feedback: "helpful" | "incorrect" | "unsure" | null;
+}
+
+interface SummaryResult {
+  overview: string;
+  top_concern: string;
+  affected_crops: string[];
+  priority_actions: string[];
+  watch_out: string | null;
+  count: number;
 }
 
 interface HistoryItem {
@@ -87,6 +96,8 @@ function uid() {
 export function PestIdentifier() {
   const [items, setItems] = useState<PestItem[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [summary, setSummary] = useState<SummaryResult | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
@@ -136,11 +147,13 @@ export function PestIdentifier() {
       if (found) URL.revokeObjectURL(found.preview);
       return prev.filter((it) => it.uid !== id);
     });
+    setSummary(null); // results changed — stale conclusion
   }
 
   function clearAll() {
     items.forEach((it) => URL.revokeObjectURL(it.preview));
     setItems([]);
+    setSummary(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -167,6 +180,47 @@ export function PestIdentifier() {
     }
   }, [patch, t]);
 
+  const generateSummary = useCallback(async (results: PestResult[]) => {
+    if (results.length < 2) return;
+    setSummarizing(true);
+    setSummary(null);
+    try {
+      const res = await fetch("/api/ai-tools/pest-identify/summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: results.map((r) => ({
+            pest_name: r.pest_name,
+            crop: r.crop,
+            severity: r.severity,
+            confidence: r.confidence,
+            treatment: r.treatment,
+            prevention: r.prevention,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to summarize");
+        return;
+      }
+      setSummary(data);
+    } catch {
+      toast.error("Failed to summarize");
+    } finally {
+      setSummarizing(false);
+    }
+  }, []);
+
+  // Read the freshest analyzed results and (re)generate the combined conclusion.
+  const summarizeCurrent = useCallback(() => {
+    setItems((cur) => {
+      const done = cur.filter((it) => it.status === "done" && it.result).map((it) => it.result!) as PestResult[];
+      if (done.length >= 2) generateSummary(done);
+      return cur; // no state change — just reading latest
+    });
+  }, [generateSummary]);
+
   async function analyzeAll() {
     const pending = items.filter((it) => it.status === "idle" || it.status === "error");
     if (!pending.length) return;
@@ -178,7 +232,10 @@ export function PestIdentifier() {
       anyOk = anyOk || ok;
     }
     setAnalyzing(false);
-    if (anyOk) loadHistory();
+    if (anyOk) {
+      loadHistory();
+      summarizeCurrent(); // auto-conclude across all analyzed photos (needs >= 2)
+    }
   }
 
   async function sendFeedback(item: PestItem, value: "helpful" | "incorrect" | "unsure") {
@@ -255,6 +312,7 @@ export function PestIdentifier() {
   const onPointerUp = () => { drag.current.active = false; };
 
   const pendingCount = items.filter((it) => it.status === "idle" || it.status === "error").length;
+  const doneCount = items.filter((it) => it.status === "done" && it.result).length;
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -278,6 +336,73 @@ export function PestIdentifier() {
         </Card>
       ) : (
         <div className="space-y-3">
+          {(summarizing || summary) && (
+            <Card className="border-primary/40 bg-primary/5">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList size={18} className="text-primary" />
+                    <div>
+                      <h3 className="font-bold text-base leading-tight">{t("ai.field_summary")}</h3>
+                      {summary && <p className="text-xs text-muted-foreground">{t("ai.summary_of_photos", { count: String(summary.count) })}</p>}
+                    </div>
+                  </div>
+                  {summary && !summarizing && (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={summarizeCurrent} disabled={analyzing}>
+                      <RotateCw size={12} className="mr-1" /> {t("ai.regenerate_summary")}
+                    </Button>
+                  )}
+                </div>
+
+                {summarizing ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 size={16} className="animate-spin" /> {t("ai.generating_summary")}
+                  </div>
+                ) : summary ? (
+                  <div className="text-sm space-y-3">
+                    <p className="whitespace-pre-wrap">{summary.overview}</p>
+
+                    {summary.top_concern && (
+                      <div className="rounded-lg bg-red-50 border border-red-200 p-2.5">
+                        <p className="font-medium text-red-800 mb-0.5 flex items-center gap-1"><AlertTriangle size={13} /> {t("ai.top_concern")}</p>
+                        <p className="text-red-900 whitespace-pre-wrap">{summary.top_concern}</p>
+                      </div>
+                    )}
+
+                    {summary.affected_crops.length > 0 && (
+                      <div>
+                        <p className="font-medium text-muted-foreground mb-1">{t("ai.affected_crops")}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {summary.affected_crops.map((c, i) => (
+                            <Badge key={i} variant="outline">{c}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {summary.priority_actions.length > 0 && (
+                      <div>
+                        <p className="font-medium text-muted-foreground mb-1 flex items-center gap-1"><ListChecks size={14} /> {t("ai.priority_actions")}</p>
+                        <ol className="list-decimal list-inside space-y-1">
+                          {summary.priority_actions.map((a, i) => (
+                            <li key={i} className="whitespace-pre-wrap">{a}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+
+                    {summary.watch_out && (
+                      <div className="rounded-lg bg-amber-50 border border-amber-200 p-2.5">
+                        <p className="font-medium text-amber-800 mb-0.5">{t("ai.watch_out")}</p>
+                        <p className="text-amber-900 whitespace-pre-wrap">{summary.watch_out}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          )}
+
           {items.map((item) => (
             <Card key={item.uid} className="overflow-hidden">
               <CardContent className="p-3 space-y-3">
@@ -404,6 +529,11 @@ export function PestIdentifier() {
             {pendingCount > 0 && (
               <Button onClick={analyzeAll} disabled={analyzing} className="flex-1 min-w-[140px]">
                 {analyzing ? <><Loader2 size={16} className="animate-spin mr-2" /> {t("ai.analyzing")}</> : <><Upload size={16} className="mr-2" /> {t("ai.analyze_all", { count: String(pendingCount) })}</>}
+              </Button>
+            )}
+            {doneCount >= 2 && !summary && !summarizing && (
+              <Button variant="secondary" onClick={summarizeCurrent} disabled={analyzing}>
+                <ClipboardList size={16} className="mr-2" /> {t("ai.summarize_all")}
               </Button>
             )}
             <Button variant="outline" onClick={() => inputRef.current?.click()} disabled={analyzing}>
