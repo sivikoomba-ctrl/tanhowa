@@ -81,6 +81,7 @@ interface UserData {
     regular_block?: string;
   };
   social_links?: {
+    title?: string;
     gender?: string;
     qualification?: string;
     date_of_joining?: string;
@@ -237,9 +238,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             router.push("/onboarding");
             return;
           }
-          // Auto-prefix title for members without one
+          // Auto-prefix title for members without one.
+          // The honorific-stripping feature (PUT /api/users/me) keeps `name` clean and
+          // stores the title in `social_links.title`. So a member with a saved title has
+          // NO inline prefix — without this social_links.title guard the picker (female)
+          // or the silent Mr.-prefix (male) would re-fire on every single load forever.
           const gender = data.user.social_links?.gender;
-          if (data.user.name && !hasTitle(data.user.name)) {
+          if (data.user.name && !hasTitle(data.user.name) && !data.user.social_links?.title) {
             if (gender === "Female") {
               // Female: ask for title choice
               setShowTitlePicker(true);
