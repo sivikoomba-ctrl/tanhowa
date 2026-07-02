@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Search, Filter, Calendar, Upload, ExternalLink, ChevronDown, ChevronUp, Sparkles, CheckCircle, AlertTriangle } from "lucide-react";
+import { Search, Filter, Calendar, Upload, ExternalLink, ChevronDown, ChevronUp, Sparkles, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 import { DISTRICT_NAMES } from "@/lib/tn-districts";
@@ -56,6 +56,7 @@ const PAGE_SIZE = 30;
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -96,10 +97,15 @@ export default function AdminUsersPage() {
   }, []);
 
   const loadUsers = useCallback(() => {
+    // Clear stale rows immediately so a previous tab's users (e.g. approved) never
+    // render under the newly-selected tab (e.g. Pending) while the fetch is in flight.
+    setLoading(true);
+    setUsers([]);
     fetch("/api/users?status=" + (tab === "all" ? "" : tab))
       .then((r) => r.json())
       .then((d) => setUsers(d.users || []))
-      .catch(() => toast.error("Failed to load users"));
+      .catch(() => toast.error("Failed to load users"))
+      .finally(() => setLoading(false));
   }, [tab]);
 
   useEffect(() => {
@@ -593,7 +599,11 @@ export default function AdminUsersPage() {
               </Button>
             </div>
           )}
-          {filteredUsers.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+              <Loader2 size={18} className="animate-spin" /> Loading {tab === "all" ? "" : tab} users…
+            </div>
+          ) : filteredUsers.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center">
               {users.length === 0 ? `No ${tab} users` : "No users match your filters"}
             </p>
