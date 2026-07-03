@@ -1009,3 +1009,23 @@ export async function sendReinstatementEmail(to: string, memberName: string) {
   `);
 }
 
+/**
+ * Nightly reminder to a member who did not submit a Field Diary entry
+ * yesterday. Sent by the /api/cron/field-diary-compliance job.
+ */
+export async function sendFieldDiaryMissedNudge(to: string, memberName: string) {
+  if (HOLD_MEMBER_EMAILS) return;
+  await sendEmail(to, "TANHOWA — Log Yesterday's Field Diary", wrapEmailTemplate(`
+    <h2 style="color: #2d6a4f; font-size: 20px; margin: 0 0 12px;">Don't Forget Your Field Diary</h2>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      Dear <strong>${memberName}</strong>,
+    </p>
+    <p style="color: #333; font-size: 14px; margin: 0 0 16px;">
+      We noticed you haven't logged a Field Diary entry yet. Every member is expected to record a short daily note of field work — visits, demonstrations, or farmer interactions — with photos if you have them.
+    </p>
+    <div style="text-align: center;">
+      <a href="https://tanhowa.in/dashboard/field-diary" style="display: inline-block; background: #2d6a4f; color: white; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">Log Today's Entry</a>
+    </div>
+  `));
+}
+

@@ -17,6 +17,7 @@ import { AdminContacts } from "@/components/admin-contacts";
 import { StatusBadge } from "@/components/status-badge";
 import { SectionError } from "@/components/section-error";
 import ConnectTelegramBanner from "@/components/connect-telegram-banner";
+import FieldDiaryNudge from "@/components/field-diary-nudge";
 import { useT } from "@/lib/i18n";
 
 function getGreeting(): { text: string; icon: typeof Sun } {
@@ -295,6 +296,9 @@ export default function DashboardHome() {
     <div className="space-y-6">
       {/* Connect Telegram CTA — auto-hides if already linked or dismissed */}
       <ConnectTelegramBanner />
+
+      {/* Field Diary nudge — auto-hides once submitted or dismissed for today */}
+      <FieldDiaryNudge />
 
       {/* Welcome Greeting */}
       <div>

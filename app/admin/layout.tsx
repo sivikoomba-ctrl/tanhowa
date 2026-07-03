@@ -51,6 +51,7 @@ import {
   Bug,
   Camera,
   BadgeCheck,
+  NotebookPen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -126,6 +127,7 @@ const NAV_SECTIONS = [
     items: [
       { href: "/admin/reports", labelKey: "nav.reports" as const, icon: BarChart3 },
       { href: "/admin/district-benchmark", labelKey: "nav.district_benchmark" as const, icon: BarChart3 },
+      { href: "/admin/field-diary-compliance", labelKey: "nav.field_diary_compliance" as const, icon: NotebookPen },
     ],
   },
   {
@@ -245,6 +247,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (href === "/admin/history") return user?.role === "admin" || user?.role === "super_admin";
     if (href === "/admin/feedback-pulse") return user?.email === "tanhowa19791@gmail.com";
     if (href === "/admin/vouchers") return user?.role === "super_admin" || isFinanceTeam;
+    if (href === "/admin/field-diary-compliance") return user?.role === "super_admin" || user?.official_type === "state" || user?.official_type === "district";
     return true;
   }
 

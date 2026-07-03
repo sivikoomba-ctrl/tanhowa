@@ -149,6 +149,18 @@ export const trainingCreateSchema = z.object({
   description: safeString.max(10000).optional(),
 });
 
+// Field Diary
+export const fieldDiaryEntrySchema = z.object({
+  report_text: nonEmptyString.max(20000),
+  is_success_story: z.boolean().optional(),
+});
+
+export const fieldDiaryEntryUpdateSchema = z.object({
+  id: uuidSchema,
+  report_text: nonEmptyString.max(20000).optional(),
+  is_success_story: z.boolean().optional(),
+});
+
 // Search
 export const searchSchema = z.object({
   q: trimmedString.min(2).max(200),

@@ -10,6 +10,7 @@ export const TASK_POINTS = {
   subtask_completed: 8,  // a sub-task marked completed
   task_completed: 20,    // a top-level task marked completed
   on_time_bonus: 10,     // completed on/before its due date
+  diary_entry: 10,       // submitted a daily field diary entry
 } as const;
 
 export type PointReason = keyof typeof TASK_POINTS;
@@ -22,6 +23,7 @@ export const REASON_LABELS: Record<string, string> = {
   subtask_completed: "Completed a sub-task",
   task_completed: "Completed a task",
   on_time_bonus: "On-time completion bonus",
+  diary_entry: "Submitted a field diary entry",
 };
 
 export const LEVELS = [
@@ -53,12 +55,18 @@ export function getLevel(points: number) {
  * Award points to a member, idempotently. The unique index on
  * (user_id, todo_id, reason) prevents double-awarding the same task event;
  * conflict errors are swallowed. Fire-and-forget — never blocks the caller.
+ *
+ * For events tied to a non-todo entity (e.g. a field diary entry), pass `ref`
+ * instead of `todoId` — `todo_id` has a hard FK into `todos` and cannot be
+ * reused for other tables. `ref` is deduped via a separate unique index on
+ * (user_id, ref_type, ref_id, reason).
  */
 export async function awardTaskPoints(
   userId: string | null | undefined,
   reason: PointReason,
   todoId?: string | null,
   overridePoints?: number,
+  ref?: { type: string; id: string },
 ): Promise<void> {
   if (!userId) return;
   const points = overridePoints ?? TASK_POINTS[reason];
@@ -74,7 +82,14 @@ export async function awardTaskPoints(
         .eq("reason", "first_task");
       if ((count || 0) > 0) return;
     }
-    await supabase.from("task_points").insert({ user_id: userId, points, reason, todo_id: todoId || null });
+    await supabase.from("task_points").insert({
+      user_id: userId,
+      points,
+      reason,
+      todo_id: todoId || null,
+      ref_type: ref?.type || null,
+      ref_id: ref?.id || null,
+    });
   } catch {
     /* ignore — includes unique-conflict dedup */
   }

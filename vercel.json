@@ -8,6 +8,7 @@
     { "path": "/api/cron/inactive-nudge", "schedule": "30 2 * * *" },
     { "path": "/api/cron/stuck-tasks", "schedule": "0 4 * * *" },
     { "path": "/api/cron/duplicate-scan", "schedule": "30 3 * * 1" },
-    { "path": "/api/cron/weekly-digest", "schedule": "0 3 * * 1" }
+    { "path": "/api/cron/weekly-digest", "schedule": "0 3 * * 1" },
+    { "path": "/api/cron/field-diary-compliance", "schedule": "30 18 * * *" }
   ]
 }

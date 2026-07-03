@@ -51,6 +51,7 @@ import {
   CalendarDays,
   History as HistoryIcon,
   Lock,
+  NotebookPen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -147,6 +148,7 @@ const MEMBER_NAV_SECTIONS = [
   {
     titleKey: "nav.section.my_activity" as const,
     items: [
+      { href: "/dashboard/field-diary", labelKey: "nav.field_diary" as const, icon: NotebookPen },
       { href: "/dashboard/todos", labelKey: "nav.todos" as const, icon: ListTodo },
       { href: "/dashboard/activity", labelKey: "nav.my_activity" as const, icon: Activity },
       { href: "/dashboard/rewards", labelKey: "nav.rewards" as const, icon: Medal },
@@ -197,7 +199,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showIncomplete, setShowIncomplete] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, proofSubmitted: 0, tasks: 0, volunteerInvites: 0, draftAnnouncements: 0 });
+  const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, proofSubmitted: 0, tasks: 0, volunteerInvites: 0, draftAnnouncements: 0, fieldDiaryMissedToday: false });
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationEnabling, setLocationEnabling] = useState(false);
   const [showTitlePicker, setShowTitlePicker] = useState(false);

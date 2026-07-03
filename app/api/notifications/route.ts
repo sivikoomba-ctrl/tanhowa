@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, SUPER_ADMIN_EMAILS } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { todayIST } from "@/lib/field-diary";
 
 export async function GET() {
   try {
@@ -25,7 +26,7 @@ export async function GET() {
     const since = lastActive.toISOString();
 
     // Count new items since last visit in parallel
-    const [announcementsRes, pendingSubsRes, proofSubmittedSubsRes, assignedTodosRes, volunteerInviteRes] = await Promise.all([
+    const [announcementsRes, pendingSubsRes, proofSubmittedSubsRes, assignedTodosRes, volunteerInviteRes, fieldDiaryRes] = await Promise.all([
       // New announcements since last visit
       supabase
         .from("announcements")
@@ -65,6 +66,13 @@ export async function GET() {
         .select("id", { count: "exact", head: true })
         .eq("user_id", session.userId)
         .eq("status", "pending"),
+
+      // Today's Field Diary entry (IST) — nudge chip if not yet submitted
+      supabase
+        .from("field_diary_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("member_id", session.userId)
+        .eq("entry_date", todayIST()),
     ]);
 
     const newAnnouncements = announcementsRes.count || 0;
@@ -72,6 +80,7 @@ export async function GET() {
     const proofSubmittedSubs = proofSubmittedSubsRes.count || 0;
     const activeTasks = assignedTodosRes.count || 0;
     const volunteerInvites = volunteerInviteRes.count || 0;
+    const fieldDiaryMissedToday = (fieldDiaryRes.count || 0) === 0;
 
     // Draft announcements pending approval (only for super admin emails)
     let draftAnnouncements = 0;
@@ -93,6 +102,7 @@ export async function GET() {
       tasks: activeTasks,
       volunteerInvites,
       draftAnnouncements,
+      fieldDiaryMissedToday,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
