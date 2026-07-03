@@ -1022,6 +1022,7 @@ const translations = {
   "nav.calendar": { en: "Calendar", ta: "நாட்காட்டி" },
   "nav.field_diary": { en: "Field Diary", ta: "கள நாட்குறிப்பு" },
   "nav.field_diary_compliance": { en: "Field Diary Compliance", ta: "கள நாட்குறிப்பு இணக்கம்" },
+  "nav.field_diary_stories": { en: "Field Diary Stories", ta: "கள நாட்குறிப்பு வெற்றிக் கதைகள்" },
 
   // Field Diary
   "fd.title": { en: "Field Diary", ta: "கள நாட்குறிப்பு" },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
+import { maybeQueueStory } from "@/lib/field-diary-ai";
 
 const BUCKET = "field-diary-media";
 
@@ -143,6 +144,8 @@ export async function POST(req: NextRequest) {
       await logError({ type: "api", message: error.message, path: "/api/field-diary/media", method: "POST", status_code: 500 });
       return NextResponse.json({ error: "Failed to save media record" }, { status: 500 });
     }
+
+    if (mediaType === "photo") maybeQueueStory(entryId).catch(() => {});
 
     const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(filePath, 300);
     return NextResponse.json({ media: { ...data, signed_url: signed?.signedUrl || "" } });

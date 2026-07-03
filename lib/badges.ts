@@ -20,6 +20,7 @@ export interface UserStats {
   eventsRsvp: number;
   loginCount: number;
   daysSinceJoined: number;
+  diaryEntriesCount: number;
 }
 
 export const BADGES: BadgeDefinition[] = [
@@ -36,6 +37,7 @@ export const BADGES: BadgeDefinition[] = [
   { id: "pioneer", name: "Pioneer", description: "Active for 1+ year", icon: "\u{1F680}", check: (s) => s.daysSinceJoined >= 365 },
   { id: "regular", name: "Regular", description: "50+ logins", icon: "\u{1F511}", check: (s) => s.loginCount >= 50 },
   { id: "dedicated", name: "Dedicated", description: "200+ contribution minutes", icon: "\u{1F396}\u{FE0F}", check: (s) => s.contributionMinutes >= 200 },
+  { id: "field_reporter", name: "Field Reporter", description: "10+ field diary entries", icon: "\u{1F4D4}", check: (s) => s.diaryEntriesCount >= 10 },
 ];
 
 export function getBadgeById(id: string): BadgeDefinition | undefined {

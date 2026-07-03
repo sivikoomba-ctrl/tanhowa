@@ -52,6 +52,7 @@ import {
   Camera,
   BadgeCheck,
   NotebookPen,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +86,7 @@ const NAV_SECTIONS = [
     titleKey: "nav.section.content" as const,
     items: [
       { href: "/admin/announcements", labelKey: "nav.announcements" as const, icon: Megaphone },
+      { href: "/admin/field-diary-stories", labelKey: "nav.field_diary_stories" as const, icon: Sparkles },
       { href: "/admin/events", labelKey: "nav.events" as const, icon: Calendar },
       { href: "/admin/group-chat", labelKey: "nav.group_chat" as const, icon: MessagesSquare },
       { href: "/admin/meetings", labelKey: "nav.meetings" as const, icon: Calendar },
@@ -248,6 +250,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (href === "/admin/feedback-pulse") return user?.email === "tanhowa19791@gmail.com";
     if (href === "/admin/vouchers") return user?.role === "super_admin" || isFinanceTeam;
     if (href === "/admin/field-diary-compliance") return user?.role === "super_admin" || user?.official_type === "state" || user?.official_type === "district";
+    if (href === "/admin/field-diary-stories") return user?.role === "super_admin" || user?.official_type === "state" || user?.official_type === "district";
     return true;
   }
 

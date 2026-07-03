@@ -45,7 +45,8 @@ export type ContributionAction =
   | "logo_feedback"
   | "poll_voted"
   | "project_h_upload"
-  | "diary_entry_submitted";
+  | "diary_entry_submitted"
+  | "diary_success_story_published";
 
 const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number }> = {
   payment_proof_uploaded:  { label: "Uploaded payment proof", minutes: 5 },
@@ -93,6 +94,7 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   poll_voted:                { label: "Voted in a poll", minutes: 1 },
   project_h_upload:          { label: "Uploaded Project H document", minutes: 5 },
   diary_entry_submitted:     { label: "Submitted field diary entry", minutes: 5 },
+  diary_success_story_published: { label: "Field diary success story published", minutes: 10 },
 };
 
 export function getActionConfig(action: ContributionAction) {

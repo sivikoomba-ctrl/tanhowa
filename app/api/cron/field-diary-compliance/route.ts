@@ -5,6 +5,7 @@ import { logError } from "@/lib/error-logger";
 import { sendFieldDiaryMissedNudge } from "@/lib/mail";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { todayIST, yesterdayIST } from "@/lib/field-diary";
+import { generateSuccessStoryDraft } from "@/lib/field-diary-ai";
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -65,7 +66,25 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ targetDate, totalMembers: members?.length || 0, nonSubmitters: nonSubmitters.length, nudged });
+    // Sweep for success-story drafts stuck in 'queued' (e.g. a killed lambda
+    // never finished generating) for more than 10 minutes, and retry them.
+    const staleCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: stuck } = await supabase
+      .from("field_diary_entries")
+      .select("id")
+      .eq("story_status", "queued")
+      .lt("updated_at", staleCutoff);
+    for (const entry of stuck || []) {
+      await generateSuccessStoryDraft(entry.id).catch(() => {});
+    }
+
+    return NextResponse.json({
+      targetDate,
+      totalMembers: members?.length || 0,
+      nonSubmitters: nonSubmitters.length,
+      nudged,
+      storyDraftsRetried: stuck?.length || 0,
+    });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({

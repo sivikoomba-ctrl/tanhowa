@@ -11,6 +11,7 @@ export const TASK_POINTS = {
   task_completed: 20,    // a top-level task marked completed
   on_time_bonus: 10,     // completed on/before its due date
   diary_entry: 10,       // submitted a daily field diary entry
+  diary_success_story: 15, // a diary entry's AI-drafted success story was published
 } as const;
 
 export type PointReason = keyof typeof TASK_POINTS;
@@ -24,6 +25,7 @@ export const REASON_LABELS: Record<string, string> = {
   task_completed: "Completed a task",
   on_time_bonus: "On-time completion bonus",
   diary_entry: "Submitted a field diary entry",
+  diary_success_story: "Field diary success story published",
 };
 
 export const LEVELS = [

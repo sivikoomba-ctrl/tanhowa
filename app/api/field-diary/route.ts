@@ -7,6 +7,7 @@ import { awardTaskPoints } from "@/lib/task-points";
 import { validate, fieldDiaryEntrySchema, fieldDiaryEntryUpdateSchema } from "@/lib/validation";
 import { writeLimiter } from "@/lib/rate-limit";
 import { todayIST } from "@/lib/field-diary";
+import { maybeQueueStory } from "@/lib/field-diary-ai";
 
 const ENTRY_SELECT = "*, member:member_id(id, name, photo_url)";
 
@@ -107,6 +108,7 @@ export async function POST(req: NextRequest) {
         await logError({ type: "api", message: error.message, path: "/api/field-diary", method: "POST", status_code: 500 });
         return NextResponse.json({ error: "Failed to save diary entry" }, { status: 500 });
       }
+      maybeQueueStory(data.id).catch(() => {});
       return NextResponse.json({ entry: data, updated: true });
     }
 
@@ -128,6 +130,7 @@ export async function POST(req: NextRequest) {
 
     awardTaskPoints(session.userId, "diary_entry", null, undefined, { type: "field_diary_entries", id: data.id });
     logContribution(session.userId, "diary_entry_submitted", "Submitted field diary entry");
+    maybeQueueStory(data.id).catch(() => {});
 
     return NextResponse.json({ entry: data });
   } catch (error) {
@@ -179,6 +182,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Failed to update diary entry" }, { status: 500 });
     }
 
+    maybeQueueStory(v.data.id).catch(() => {});
     return NextResponse.json({ entry: data });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";

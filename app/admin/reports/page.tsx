@@ -2,7 +2,7 @@
 
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, IndianRupee, Receipt, Award, Users, ClipboardCheck, Landmark } from "lucide-react";
+import { BarChart3, IndianRupee, Receipt, Award, Users, ClipboardCheck, Landmark, NotebookPen } from "lucide-react";
 import { OverviewTab } from "./_components/overview-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
 import { SubscriptionsTab } from "./_components/subscriptions-tab";
@@ -11,8 +11,9 @@ import { AuditTab } from "./_components/audit-tab";
 
 const MembersTab = lazy(() => import("./_components/members-tab").then(m => ({ default: m.MembersTab })));
 const PerformanceTab = lazy(() => import("./_components/performance-tab").then(m => ({ default: m.PerformanceTab })));
+const FieldDiaryTab = lazy(() => import("./_components/field-diary-tab").then(m => ({ default: m.FieldDiaryTab })));
 
-const VALID_TABS = ["overview", "subscriptions", "expenses", "audit", "contributions", "members", "performance"];
+const VALID_TABS = ["overview", "subscriptions", "expenses", "audit", "contributions", "members", "performance", "field-diary"];
 
 export default function ReportsPage() {
   const [tab, setTab] = useState("overview");
@@ -35,6 +36,7 @@ export default function ReportsPage() {
           <TabsTrigger value="contributions" className="flex items-center gap-1.5"><Award size={14} /> Contributions</TabsTrigger>
           <TabsTrigger value="members" className="flex items-center gap-1.5"><Users size={14} /> Members</TabsTrigger>
           <TabsTrigger value="performance" className="flex items-center gap-1.5"><ClipboardCheck size={14} /> Performance</TabsTrigger>
+          <TabsTrigger value="field-diary" className="flex items-center gap-1.5"><NotebookPen size={14} /> Field Diary</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -66,6 +68,12 @@ export default function ReportsPage() {
         <TabsContent value="performance" className="mt-4">
           <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
             <PerformanceTab />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="field-diary" className="mt-4">
+          <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
+            <FieldDiaryTab />
           </Suspense>
         </TabsContent>
       </Tabs>

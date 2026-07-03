@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
         ideasRes,
         eventsRes,
         userRes,
+        diaryRes,
       ] = await Promise.all([
         // Contributions: sum minutes, count actions, distinct action types
         supabase
@@ -122,6 +123,11 @@ export async function GET(req: NextRequest) {
           .select("login_count, created_at")
           .eq("id", userId)
           .single(),
+        // Field diary entries submitted
+        supabase
+          .from("field_diary_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("member_id", userId),
       ]);
 
       // Build stats
@@ -143,6 +149,7 @@ export async function GET(req: NextRequest) {
       const loginCount = userRes.data?.login_count || 0;
       const createdAt = userRes.data?.created_at ? new Date(userRes.data.created_at) : new Date();
       const daysSinceJoined = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+      const diaryEntriesCount = diaryRes.count || 0;
 
       const stats: UserStats = {
         contributionMinutes,
@@ -156,6 +163,7 @@ export async function GET(req: NextRequest) {
         eventsRsvp,
         loginCount,
         daysSinceJoined,
+        diaryEntriesCount,
       };
 
       // Check and award new badges
