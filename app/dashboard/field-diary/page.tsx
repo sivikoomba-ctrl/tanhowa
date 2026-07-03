@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
-import { NotebookPen, Camera, Mic, Video, Sparkles, X, Loader2, BookOpen } from "lucide-react";
+import { NotebookPen, Camera, Mic, Video, Sparkles, X, Loader2, BookOpen, Pencil, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
 
@@ -31,19 +31,32 @@ function todayIST(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
+function fmtDate(entryDate: string): string {
+  return new Date(entryDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 const MEDIA_ICON = { photo: Camera, audio: Mic, video: Video } as const;
 
 export default function FieldDiaryPage() {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Today's entry: compose form state + whether the form is open (vs. showing a saved read-only summary)
   const [reportText, setReportText] = useState("");
   const [isSuccessStory, setIsSuccessStory] = useState(false);
   const [saving, setSaving] = useState(false);
   const [todayEntry, setTodayEntry] = useState<DiaryEntry | null>(null);
+  const [todayEditing, setTodayEditing] = useState(true);
   const [todayMedia, setTodayMedia] = useState<DiaryMedia[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
+
+  // History list
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [historyMedia, setHistoryMedia] = useState<Record<string, DiaryMedia[]>>({});
+  const [editingPastId, setEditingPastId] = useState<string | null>(null);
+  const [pastDrafts, setPastDrafts] = useState<Record<string, { report_text: string; is_success_story: boolean }>>({});
+  const [savingPastId, setSavingPastId] = useState<string | null>(null);
+
   const t = useT();
 
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -69,7 +82,13 @@ export default function FieldDiaryPage() {
         if (existing) {
           setReportText(existing.report_text);
           setIsSuccessStory(existing.is_success_story);
+          setTodayEditing(false);
           setTodayMedia(await loadMedia(existing.id));
+        } else {
+          setReportText("");
+          setIsSuccessStory(false);
+          setTodayEditing(true);
+          setTodayMedia([]);
         }
       })
       .catch(() => toast.error("Failed to load your field diary"))
@@ -97,10 +116,18 @@ export default function FieldDiaryPage() {
       }
       toast.success(t("fd.saved"));
       setTodayEntry(d.entry);
+      setTodayEditing(false);
       load();
     } finally {
       setSaving(false);
     }
+  }
+
+  function cancelTodayEdit() {
+    if (!todayEntry) return;
+    setReportText(todayEntry.report_text);
+    setIsSuccessStory(todayEntry.is_success_story);
+    setTodayEditing(false);
   }
 
   async function handleUpload(file: File | null, mediaType: "photo" | "audio" | "video") {
@@ -140,6 +167,37 @@ export default function FieldDiaryPage() {
     }
   }
 
+  function startPastEdit(entry: DiaryEntry) {
+    setEditingPastId(entry.id);
+    setPastDrafts((prev) => ({ ...prev, [entry.id]: { report_text: entry.report_text, is_success_story: entry.is_success_story } }));
+  }
+
+  async function savePastEdit(entryId: string) {
+    const draft = pastDrafts[entryId];
+    if (!draft?.report_text.trim()) {
+      toast.error("Report text is required");
+      return;
+    }
+    setSavingPastId(entryId);
+    try {
+      const res = await fetch("/api/field-diary", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: entryId, report_text: draft.report_text.trim(), is_success_story: draft.is_success_story }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        toast.error(d.error || "Failed to update");
+        return;
+      }
+      toast.success("Entry updated");
+      setEditingPastId(null);
+      setEntries((prev) => prev.map((e) => (e.id === entryId ? d.entry : e)));
+    } finally {
+      setSavingPastId(null);
+    }
+  }
+
   const pastEntries = entries.filter((e) => e.id !== todayEntry?.id);
 
   if (loading) {
@@ -171,30 +229,58 @@ export default function FieldDiaryPage() {
             <h2 className="text-sm font-semibold flex items-center gap-2">
               {t("fd.today_entry")}
               <Badge variant="outline" className="text-[10px]">{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</Badge>
+              {todayEntry && !todayEditing && (
+                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">
+                  <Check size={10} className="mr-0.5" /> Logged
+                </Badge>
+              )}
             </h2>
+            {todayEntry && !todayEditing && (
+              <Button variant="ghost" size="sm" onClick={() => setTodayEditing(true)}>
+                <Pencil size={14} className="mr-1" /> {t("common.edit")}
+              </Button>
+            )}
           </div>
 
-          <Textarea
-            placeholder={t("fd.report_placeholder")}
-            value={reportText}
-            onChange={(e) => setReportText(e.target.value)}
-            rows={5}
-          />
+          {todayEditing ? (
+            <>
+              <Textarea
+                placeholder={t("fd.report_placeholder")}
+                value={reportText}
+                onChange={(e) => setReportText(e.target.value)}
+                rows={5}
+              />
 
-          <div className="flex items-start gap-2">
-            <Checkbox id="success-story" checked={isSuccessStory} onCheckedChange={(v) => setIsSuccessStory(!!v)} className="mt-0.5" />
-            <label htmlFor="success-story" className="cursor-pointer">
-              <span className="text-sm font-medium flex items-center gap-1">
-                <Sparkles size={14} className="text-amber-500" /> {t("fd.success_story")}
-              </span>
-              <span className="text-xs text-muted-foreground">{t("fd.success_story_hint")}</span>
-            </label>
-          </div>
+              <div className="flex items-start gap-2">
+                <Checkbox id="success-story" checked={isSuccessStory} onCheckedChange={(v) => setIsSuccessStory(!!v)} className="mt-0.5" />
+                <label htmlFor="success-story" className="cursor-pointer">
+                  <span className="text-sm font-medium flex items-center gap-1">
+                    <Sparkles size={14} className="text-amber-500" /> {t("fd.success_story")}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{t("fd.success_story_hint")}</span>
+                </label>
+              </div>
 
-          <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90">
-            {saving ? <Loader2 size={16} className="mr-1 animate-spin" /> : null}
-            {t("fd.save")}
-          </Button>
+              <div className="flex gap-2">
+                <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90">
+                  {saving ? <Loader2 size={16} className="mr-1 animate-spin" /> : null}
+                  {t("fd.save")}
+                </Button>
+                {todayEntry && (
+                  <Button variant="outline" onClick={cancelTodayEdit} disabled={saving}>
+                    {t("common.cancel")}
+                  </Button>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm whitespace-pre-wrap">{todayEntry?.report_text}</p>
+              {todayEntry?.is_success_story && (
+                <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]"><Sparkles size={10} className="mr-0.5" /> Success Story</Badge>
+              )}
+            </div>
+          )}
 
           {todayEntry && (
             <div className="pt-3 border-t space-y-3">
@@ -253,43 +339,88 @@ export default function FieldDiaryPage() {
           <EmptyState icon={NotebookPen} title={t("fd.no_entries")} description="" />
         ) : (
           <div className="space-y-2">
-            {pastEntries.map((entry) => (
-              <Card key={entry.id} className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => toggleExpand(entry)}>
-                <CardContent className="pt-3 pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground">
-                          {new Date(entry.entry_date + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                        </span>
-                        {entry.is_success_story && (
-                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]"><Sparkles size={10} className="mr-0.5" /> Success Story</Badge>
-                        )}
-                        {entry.story_status === "published" && (
-                          <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">Published</Badge>
+            {pastEntries.map((entry) => {
+              const isEditingThis = editingPastId === entry.id;
+              const draft = pastDrafts[entry.id];
+              return (
+                <Card key={entry.id} className="hover:shadow-sm transition-shadow">
+                  <CardContent className="pt-3 pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div
+                        className={`flex-1 min-w-0 ${isEditingThis ? "" : "cursor-pointer"}`}
+                        onClick={() => !isEditingThis && toggleExpand(entry)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-muted-foreground">{fmtDate(entry.entry_date)}</span>
+                          {entry.is_success_story && (
+                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]"><Sparkles size={10} className="mr-0.5" /> Success Story</Badge>
+                          )}
+                          {entry.story_status === "published" && (
+                            <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">Published</Badge>
+                          )}
+                        </div>
+                        {!isEditingThis && (
+                          <p className={`text-sm text-foreground mt-1 ${expandedId === entry.id ? "" : "line-clamp-2"}`}>{entry.report_text}</p>
                         )}
                       </div>
-                      <p className={`text-sm text-foreground mt-1 ${expandedId === entry.id ? "" : "line-clamp-2"}`}>{entry.report_text}</p>
+                      {!isEditingThis && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); startPastEdit(entry); }}
+                        >
+                          <Pencil size={14} />
+                        </Button>
+                      )}
                     </div>
-                  </div>
-                  {expandedId === entry.id && historyMedia[entry.id]?.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {historyMedia[entry.id].map((m) => {
-                        const Icon = MEDIA_ICON[m.media_type];
-                        return m.media_type === "photo" ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img key={m.id} src={m.signed_url} alt={m.file_name} className="h-16 w-16 object-cover rounded-lg border" />
-                        ) : (
-                          <a key={m.id} href={m.signed_url} target="_blank" rel="noreferrer" className="h-16 w-16 flex flex-col items-center justify-center rounded-lg border bg-muted gap-1">
-                            <Icon size={18} className="text-muted-foreground" />
-                          </a>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+
+                    {isEditingThis ? (
+                      <div className="space-y-3 mt-3">
+                        <Textarea
+                          value={draft?.report_text || ""}
+                          onChange={(e) => setPastDrafts((prev) => ({ ...prev, [entry.id]: { ...prev[entry.id], report_text: e.target.value } }))}
+                          rows={4}
+                        />
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={`success-${entry.id}`}
+                            checked={draft?.is_success_story || false}
+                            onCheckedChange={(v) => setPastDrafts((prev) => ({ ...prev, [entry.id]: { ...prev[entry.id], is_success_story: !!v } }))}
+                          />
+                          <label htmlFor={`success-${entry.id}`} className="text-xs cursor-pointer flex items-center gap-1">
+                            <Sparkles size={12} className="text-amber-500" /> {t("fd.success_story")}
+                          </label>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => savePastEdit(entry.id)} disabled={savingPastId === entry.id}>
+                            {savingPastId === entry.id ? <Loader2 size={14} className="mr-1 animate-spin" /> : null} {t("common.save")}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditingPastId(null)} disabled={savingPastId === entry.id}>
+                            {t("common.cancel")}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      expandedId === entry.id && historyMedia[entry.id]?.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {historyMedia[entry.id].map((m) => {
+                            const Icon = MEDIA_ICON[m.media_type];
+                            return m.media_type === "photo" ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img key={m.id} src={m.signed_url} alt={m.file_name} className="h-16 w-16 object-cover rounded-lg border" />
+                            ) : (
+                              <a key={m.id} href={m.signed_url} target="_blank" rel="noreferrer" className="h-16 w-16 flex flex-col items-center justify-center rounded-lg border bg-muted gap-1">
+                                <Icon size={18} className="text-muted-foreground" />
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
