@@ -67,7 +67,9 @@ for (const d of TN_DISTRICTS) {
   else gap.push(d);
 }
 
-const today = new Date().toISOString().slice(0, 10);
+// Compute "today" in IST (UTC+5:30) — toISOString() alone returns the UTC date,
+// which lags IST by 5.5h and mis-dates reports run late evening IST.
+const today = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
 
 // --json: emit structured data (consumed by tools/generate_ds_djs_coverage_pdf.py)
 if (process.argv.includes("--json")) {
