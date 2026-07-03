@@ -1026,6 +1026,8 @@ const translations = {
 
   // Field Diary
   "fd.title": { en: "Field Diary", ta: "கள நாட்குறிப்பு" },
+  "fd.today": { en: "Today", ta: "இன்று" },
+  "fd.add_entry": { en: "Add Entry", ta: "பதிவு சேர்" },
   "fd.subtitle": { en: "Log today's field work — visits, demonstrations, and farmer interactions", ta: "இன்றைய கள பணியை பதிவு செய்யவும் — வருகைகள், செயல்விளக்கங்கள், விவசாயி தொடர்புகள்" },
   "fd.today_entry": { en: "Today's Entry", ta: "இன்றைய பதிவு" },
   "fd.report_placeholder": { en: "Describe today's field work — places visited, farmers met, demonstrations given, issues resolved...", ta: "இன்றைய கள பணியை விவரிக்கவும் — சென்ற இடங்கள், சந்தித்த விவசாயிகள், கொடுத்த செயல்விளக்கங்கள்..." },

@@ -19,3 +19,22 @@ export function yesterdayIST(): string {
   const d = String(ist.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+/** How many past days a member may backfill a missed entry for (not including today, which uses the normal flow). */
+export const BACKFILL_WINDOW_DAYS = 7;
+
+/**
+ * True if `dateStr` (YYYY-MM-DD) is a valid backfill target: strictly before
+ * today (IST) and no more than BACKFILL_WINDOW_DAYS days in the past.
+ * Plain string comparison is safe since YYYY-MM-DD sorts lexicographically.
+ */
+export function isValidBackfillDate(dateStr: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const today = todayIST();
+  if (dateStr >= today) return false;
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const earliest = new Date(Date.now() + IST_OFFSET_MS - BACKFILL_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  return dateStr >= earliest;
+}

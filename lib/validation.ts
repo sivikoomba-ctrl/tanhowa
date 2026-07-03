@@ -153,6 +153,9 @@ export const trainingCreateSchema = z.object({
 export const fieldDiaryEntrySchema = z.object({
   report_text: nonEmptyString.max(20000),
   is_success_story: z.boolean().optional(),
+  // Optional backfill target date (YYYY-MM-DD); omit to use today (server-computed IST).
+  // Range/window validated separately in the route via isValidBackfillDate().
+  entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export const fieldDiaryEntryUpdateSchema = z.object({

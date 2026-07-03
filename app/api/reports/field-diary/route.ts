@@ -43,20 +43,25 @@ export async function GET(req: NextRequest) {
       return pd?.regular_district || pd?.special_duty_district || pd?.deputed_district || "Unknown";
     }
 
-    const districtMap = new Map<string, { members: number; actualEntries: number; successStoriesFlagged: number; successStoriesPublished: number }>();
+    // loggedDays tracks distinct member+day combos (a member can log several
+    // entries in one day — that's engagement, not extra compliance credit).
+    const districtMap = new Map<string, { members: number; actualEntries: number; loggedDays: Set<string>; successStoriesFlagged: number; successStoriesPublished: number }>();
     for (const u of users) {
       const district = getDistrict(u.posting_details as Record<string, string> | null);
       if (!districtMap.has(district)) {
-        districtMap.set(district, { members: 0, actualEntries: 0, successStoriesFlagged: 0, successStoriesPublished: 0 });
+        districtMap.set(district, { members: 0, actualEntries: 0, loggedDays: new Set(), successStoriesFlagged: 0, successStoriesPublished: 0 });
       }
       districtMap.get(district)!.members++;
     }
 
+    const allLoggedDays = new Set<string>();
     for (const e of entries) {
       const district = e.district || "Unknown";
       const d = districtMap.get(district);
       if (!d) continue; // entry from a member outside the approved set snapshot (e.g. test account) — skip
       d.actualEntries++;
+      d.loggedDays.add(`${e.member_id}|${e.entry_date}`);
+      allLoggedDays.add(`${e.member_id}|${e.entry_date}`);
       if (e.is_success_story) d.successStoriesFlagged++;
       if (e.story_status === "published") d.successStoriesPublished++;
     }
@@ -72,7 +77,9 @@ export async function GET(req: NextRequest) {
           members: d.members,
           expectedEntries,
           actualEntries: d.actualEntries,
-          complianceRate: expectedEntries > 0 ? Math.round((d.actualEntries / expectedEntries) * 100) : 0,
+          // Compliance = distinct member-days logged, not raw entry count — a
+          // member logging 3 entries in one day still counts as 1 day covered.
+          complianceRate: expectedEntries > 0 ? Math.round((d.loggedDays.size / expectedEntries) * 100) : 0,
           successStoriesFlagged: d.successStoriesFlagged,
           successStoriesPublished: d.successStoriesPublished,
         };
@@ -101,7 +108,7 @@ export async function GET(req: NextRequest) {
       totalMembers,
       totalExpected,
       totalActual,
-      complianceRate: totalExpected > 0 ? Math.round((totalActual / totalExpected) * 100) : 0,
+      complianceRate: totalExpected > 0 ? Math.round((allLoggedDays.size / totalExpected) * 100) : 0,
       totalSuccessFlagged,
       totalSuccessPublished,
       districts,
