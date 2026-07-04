@@ -137,9 +137,6 @@ export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: st
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.text("Field Diary", margin, y + 4);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${memberName} — ${entries.length} entr${entries.length === 1 ? "y" : "ies"}`, margin, y + 11);
 
   if (qrDataUrl) {
     doc.addImage(qrDataUrl, "PNG", pageWidth - margin - qrSize, y - 2, qrSize, qrSize);
@@ -148,7 +145,7 @@ export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: st
     doc.text("Scan to view/download", pageWidth - margin - qrSize, y + qrSize + 1, { maxWidth: qrSize });
     doc.setTextColor(0, 0, 0);
   }
-  y += qrDataUrl ? qrSize + 6 : 15;
+  y += qrDataUrl ? qrSize + 6 : 10;
   doc.setDrawColor(200);
   doc.line(margin, y, pageWidth - margin, y);
   y += 8;
@@ -194,30 +191,29 @@ export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: st
     }
 
     if (photos.length > 0) {
-      const thumbSize = 45;
-      const gap = 4;
-      let x = margin;
-      ensureSpace(thumbSize + 4);
-      const rowStartY = y;
+      // One large photo per row (not a thumbnail grid) — full content width,
+      // capped on height so a single tall photo doesn't eat the whole page.
+      const maxW = pageWidth - margin * 2;
+      const maxH = 130;
+      const gap = 6;
       for (const photo of photos) {
-        if (x + thumbSize > pageWidth - margin) {
-          x = margin;
-          y += thumbSize + gap;
-          ensureSpace(thumbSize + 4);
-        }
         const fetched = photoMap[photo.id];
         try {
           const props = doc.getImageProperties(fetched.dataUrl);
           const ratio = props.width / props.height;
-          const w = ratio >= 1 ? thumbSize : thumbSize * ratio;
-          const h = ratio >= 1 ? thumbSize / ratio : thumbSize;
-          doc.addImage(fetched.dataUrl, pdfFormatFor(fetched.mimeType), x, y, w, h);
+          let w = maxW;
+          let h = w / ratio;
+          if (h > maxH) {
+            h = maxH;
+            w = h * ratio;
+          }
+          ensureSpace(h + gap);
+          doc.addImage(fetched.dataUrl, pdfFormatFor(fetched.mimeType), margin, y, w, h);
+          y += h + gap;
         } catch {
           /* unsupported/corrupt image — skip, don't fail the export */
         }
-        x += thumbSize + gap;
       }
-      y = Math.max(y, rowStartY) + thumbSize + gap;
     }
 
     y += 4;
@@ -250,9 +246,12 @@ export async function exportFieldDiaryDocx(entries: ExportEntry[], memberName: s
     }
   }
 
+  // docx has no built-in way to read an image's real pixel dimensions; jsPDF's
+  // header parser does, and works fine on a throwaway instance never rendered.
+  const dimensionProbe = new jsPDF();
+
   const children: Paragraph[] = [
-    new Paragraph({ children: [new TextRun({ text: "Field Diary", bold: true, size: 32 })], spacing: { after: 60 } }),
-    new Paragraph({ text: `${memberName} — ${entries.length} entr${entries.length === 1 ? "y" : "ies"}`, spacing: { after: 150 } }),
+    new Paragraph({ children: [new TextRun({ text: "Field Diary", bold: true, size: 32 })], spacing: { after: 200 } }),
   ];
   if (qrBuffer) {
     try {
@@ -301,13 +300,24 @@ export async function exportFieldDiaryDocx(entries: ExportEntry[], memberName: s
 
       try {
         const buffer = await (await fetch(fetched.dataUrl)).arrayBuffer();
-        // Fixed display box (docx just scales for display, no real pixel resize needed).
-        const boxWidth = 280;
+        // Full-width photo, not a thumbnail — jsPDF's image-header parser gives us
+        // the real pixel size (docx has no equivalent built in) so it displays at
+        // its true aspect ratio instead of being squished into a fixed square.
+        const maxW = 560;
+        const maxH = 620;
+        const props = dimensionProbe.getImageProperties(fetched.dataUrl);
+        const ratio = props.width / props.height;
+        let w = maxW;
+        let h = w / ratio;
+        if (h > maxH) {
+          h = maxH;
+          w = h * ratio;
+        }
         children.push(
           new Paragraph({
             alignment: AlignmentType.LEFT,
             spacing: { after: 150 },
-            children: [new ImageRun({ type, data: buffer, transformation: { width: boxWidth, height: boxWidth } })],
+            children: [new ImageRun({ type, data: buffer, transformation: { width: Math.round(w), height: Math.round(h) } })],
           })
         );
       } catch {
