@@ -6,24 +6,51 @@ import { maybeQueueStory } from "@/lib/field-diary-ai";
 
 const BUCKET = "field-diary-media";
 
-const MEDIA_RULES: Record<string, { types: string[]; maxSize: number; label: string }> = {
-  photo: { types: ["image/jpeg", "image/png", "image/webp"], maxSize: 10 * 1024 * 1024, label: "Photo" },
-  audio: { types: ["audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav"], maxSize: 20 * 1024 * 1024, label: "Audio" },
+const MEDIA_RULES: Record<string, { types: string[]; extensions: string[]; maxSize: number; label: string }> = {
+  photo: { types: ["image/jpeg", "image/png", "image/webp"], extensions: ["jpg", "jpeg", "png", "webp"], maxSize: 10 * 1024 * 1024, label: "Photo" },
+  // Phone voice recordings/memos report a wide range of mime types (iPhone
+  // Voice Memos use audio/x-m4a, some Android recorders send audio/3gpp or
+  // audio/amr, some WebViews mislabel audio as application/octet-stream) —
+  // accept the common ones and fall back to file extension when the mime
+  // type is missing/generic, instead of rejecting real voice notes.
+  audio: {
+    types: ["audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav", "audio/x-wav", "audio/x-m4a", "audio/aac", "audio/3gpp", "audio/amr", "audio/mp4a-latm"],
+    extensions: ["mp3", "mp4", "m4a", "aac", "webm", "weba", "ogg", "oga", "wav", "3gp", "3gpp", "amr"],
+    maxSize: 20 * 1024 * 1024,
+    label: "Audio",
+  },
   // Capped at the same 50MB ceiling already proven safe through this route
   // pattern in production (see /api/project-h) — well within Vercel Pro's
   // serverless body-size limit.
-  video: { types: ["video/mp4", "video/webm", "video/quicktime"], maxSize: 50 * 1024 * 1024, label: "Video" },
+  video: { types: ["video/mp4", "video/webm", "video/quicktime"], extensions: ["mp4", "webm", "mov"], maxSize: 50 * 1024 * 1024, label: "Video" },
 };
+
+/** Strip a codec parameter (e.g. "audio/webm;codecs=opus" → "audio/webm") before matching. */
+function baseMimeType(mimeType: string): string {
+  return mimeType.split(";")[0].trim().toLowerCase();
+}
+
+function isAllowedMedia(rule: { types: string[]; extensions: string[] }, mimeType: string, fileName: string): boolean {
+  const base = baseMimeType(mimeType);
+  if (rule.types.includes(base)) return true;
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  // Only trust the extension when the mime type is missing or a generic fallback —
+  // a mime type present and wrong (e.g. an actual video mislabeled) should still fail.
+  if ((!base || base === "application/octet-stream") && ext && rule.extensions.includes(ext)) return true;
+  return false;
+}
 
 function getExtension(mimeType: string, originalName: string): string {
   const fromName = originalName.split(".").pop()?.toLowerCase();
   if (fromName) return fromName;
   const map: Record<string, string> = {
     "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
-    "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/webm": "weba", "audio/ogg": "ogg", "audio/wav": "wav",
+    "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac",
+    "audio/webm": "weba", "audio/ogg": "ogg", "audio/wav": "wav", "audio/x-wav": "wav",
+    "audio/3gpp": "3gp", "audio/amr": "amr",
     "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov",
   };
-  return map[mimeType] || "bin";
+  return map[baseMimeType(mimeType)] || "bin";
 }
 
 export async function GET(req: NextRequest) {
@@ -89,8 +116,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    if (!rule.types.includes(file.type)) {
-      return NextResponse.json({ error: `${rule.label} file type not allowed` }, { status: 400 });
+    if (!isAllowedMedia(rule, file.type, file.name)) {
+      return NextResponse.json({ error: `${rule.label} file type not allowed (${file.type || "unknown"})` }, { status: 400 });
     }
     if (file.size > rule.maxSize) {
       return NextResponse.json({ error: `${rule.label} must be under ${Math.round(rule.maxSize / (1024 * 1024))}MB` }, { status: 400 });

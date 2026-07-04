@@ -12,6 +12,33 @@ import { maybeQueueStory } from "@/lib/field-diary-ai";
 const ENTRY_SELECT = "*, member:member_id(id, name, photo_url)";
 const MEDIA_BUCKET = "field-diary-media";
 
+/** Embed each entry's media (with signed URLs) so the list view can show thumbnails without a per-entry round trip. */
+async function attachMedia<T extends { id: string }>(
+  supabase: ReturnType<typeof getServiceClient>,
+  entries: T[]
+): Promise<(T & { media: Record<string, unknown>[] })[]> {
+  if (entries.length === 0) return entries as (T & { media: Record<string, unknown>[] })[];
+
+  const ids = entries.map((e) => e.id);
+  const { data: media } = await supabase
+    .from("field_diary_media")
+    .select("*")
+    .in("entry_id", ids)
+    .order("created_at", { ascending: true });
+
+  const byEntry = new Map<string, Record<string, unknown>[]>();
+  await Promise.all(
+    (media || []).map(async (m) => {
+      const { data } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(m.file_path, 300);
+      const enriched = { ...m, signed_url: data?.signedUrl || "" };
+      if (!byEntry.has(m.entry_id)) byEntry.set(m.entry_id, []);
+      byEntry.get(m.entry_id)!.push(enriched);
+    })
+  );
+
+  return entries.map((e) => ({ ...e, media: byEntry.get(e.id) || [] }));
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
@@ -30,7 +57,8 @@ export async function GET(req: NextRequest) {
       if (entry.member_id !== session.userId && !(await isAdminOrOfficial(session))) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-      return NextResponse.json({ entry });
+      const [withMedia] = await attachMedia(supabase, [entry]);
+      return NextResponse.json({ entry: withMedia });
     }
 
     // A specific member's entries — admin/official drill-down only.
@@ -45,7 +73,7 @@ export async function GET(req: NextRequest) {
         .order("entry_date", { ascending: false })
         .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
-      return NextResponse.json({ entries: entries || [], total: count ?? 0 });
+      return NextResponse.json({ entries: await attachMedia(supabase, entries || []), total: count ?? 0 });
     }
 
     // Default: caller's own entries, newest first (a day can have several entries).
@@ -57,7 +85,7 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
-    return NextResponse.json({ entries: entries || [], total: count ?? 0 });
+    return NextResponse.json({ entries: await attachMedia(supabase, entries || []), total: count ?? 0 });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/field-diary", method: "GET", status_code: 500 });

@@ -11,6 +11,13 @@ import { NotebookPen, Camera, Mic, Video, Sparkles, X, Loader2, BookOpen, Pencil
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
 
+interface DiaryMedia {
+  id: string;
+  media_type: "photo" | "audio" | "video";
+  file_name: string;
+  signed_url: string;
+}
+
 interface DiaryEntry {
   id: string;
   entry_date: string;
@@ -18,13 +25,7 @@ interface DiaryEntry {
   is_success_story: boolean;
   story_status: string;
   created_at: string;
-}
-
-interface DiaryMedia {
-  id: string;
-  media_type: "photo" | "audio" | "video";
-  file_name: string;
-  signed_url: string;
+  media?: DiaryMedia[];
 }
 
 function todayIST(): string {
@@ -86,7 +87,16 @@ export default function FieldDiaryPage() {
     setLoading(true);
     fetch("/api/field-diary?limit=50")
       .then((r) => r.json())
-      .then((d) => setEntries(d.entries || []))
+      .then((d) => {
+        const loaded = (d.entries || []) as DiaryEntry[];
+        setEntries(loaded);
+        // Seed the media map from the embedded data so thumbnails show immediately, no expand needed.
+        setEntryMedia((prev) => {
+          const next = { ...prev };
+          for (const e of loaded) next[e.id] = e.media || [];
+          return next;
+        });
+      })
       .catch(() => toast.error("Failed to load your field diary"))
       .finally(() => setLoading(false));
   }, []);
@@ -403,7 +413,7 @@ export default function FieldDiaryPage() {
                         </div>
                       </div>
                     ) : (
-                      expandedId === entry.id && (entryMedia[entry.id]?.length || 0) > 0 && (
+                      (entryMedia[entry.id]?.length || 0) > 0 && (
                         <div className="flex flex-wrap gap-2 mt-3">
                           {entryMedia[entry.id].map((m) => {
                             const Icon = MEDIA_ICON[m.media_type];
