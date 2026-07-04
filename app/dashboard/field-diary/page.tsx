@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
-import { NotebookPen, Camera, Mic, Video, Sparkles, X, Loader2, BookOpen, Pencil, Trash2, FileText, FileType2, CheckCircle2, ZoomIn } from "lucide-react";
+import { NotebookPen, Camera, Mic, Video, Sparkles, X, Loader2, BookOpen, Pencil, Trash2, FileText, FileType2, CheckCircle2, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
 
@@ -83,6 +83,48 @@ export default function FieldDiaryPage() {
   const [zoomMedia, setZoomMedia] = useState<DiaryMedia | null>(null);
   const [memberName, setMemberName] = useState("My");
   const [exporting, setExporting] = useState<"pdf" | "word" | null>(null);
+
+  // Zoom/pan inside the photo lightbox — same interaction as admin/photo-review
+  // (wheel, double-click, +/- buttons, drag-to-pan), but zoomed further (up to 6x)
+  // since field photos often have small text (boards, geo-tag overlays) to read.
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 6;
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const drag = useRef({ active: false, startX: 0, startY: 0, baseX: 0, baseY: 0 });
+
+  function openZoom(m: DiaryMedia) {
+    setZoomMedia(m);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }
+  function closeZoom() {
+    setZoomMedia(null);
+  }
+  const zoomBy = useCallback((delta: number) => {
+    setZoom((z) => {
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round((z + delta) * 100) / 100));
+      if (next === 1) setPan({ x: 0, y: 0 });
+      return next;
+    });
+  }, []);
+  const onZoomWheel = (e: React.WheelEvent) => zoomBy(e.deltaY < 0 ? 0.4 : -0.4);
+  const onZoomDoubleClick = () =>
+    setZoom((z) => {
+      const next = z > 1 ? 1 : 3;
+      if (next === 1) setPan({ x: 0, y: 0 });
+      return next;
+    });
+  const onZoomPointerDown = (e: React.PointerEvent) => {
+    if (zoom <= 1) return;
+    drag.current = { active: true, startX: e.clientX, startY: e.clientY, baseX: pan.x, baseY: pan.y };
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+  };
+  const onZoomPointerMove = (e: React.PointerEvent) => {
+    if (!drag.current.active) return;
+    setPan({ x: drag.current.baseX + (e.clientX - drag.current.startX), y: drag.current.baseY + (e.clientY - drag.current.startY) });
+  };
+  const onZoomPointerUp = () => { drag.current.active = false; };
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -263,18 +305,27 @@ export default function FieldDiaryPage() {
   async function handleDeleteMedia(entryId: string, mediaId: string) {
     await fetch(`/api/field-diary/media?id=${mediaId}`, { method: "DELETE" });
     setEntryMedia((prev) => ({ ...prev, [entryId]: (prev[entryId] || []).filter((m) => m.id !== mediaId) }));
-    if (zoomMedia?.id === mediaId) setZoomMedia(null);
+    if (zoomMedia?.id === mediaId) closeZoom();
   }
 
-  function currentExportEntries() {
-    return entries.map((e) => ({ ...e, media: entryMedia[e.id] || e.media || [] }));
+  /**
+   * Re-fetch entries right before exporting instead of using whatever is in
+   * state — each photo's signed_url is only valid for 5 minutes, so an export
+   * triggered a while after the page loaded (or after uploading) would embed
+   * dead links and silently produce a report with no photos in it.
+   */
+  async function fetchFreshEntriesForExport(): Promise<DiaryEntry[]> {
+    const res = await fetch("/api/field-diary?limit=50");
+    const d = await res.json();
+    return (d.entries || []) as DiaryEntry[];
   }
 
   async function handleExportPDF() {
     setExporting("pdf");
     try {
-      const { exportFieldDiaryPDF } = await import("@/lib/field-diary-export");
-      await exportFieldDiaryPDF(currentExportEntries(), memberName);
+      const [{ exportFieldDiaryPDF }, fresh] = await Promise.all([import("@/lib/field-diary-export"), fetchFreshEntriesForExport()]);
+      const { shareUrl } = await exportFieldDiaryPDF(fresh, memberName);
+      toast.success(shareUrl ? "PDF downloaded — QR code links to a shareable copy" : "PDF downloaded (share link failed to upload)");
     } catch {
       toast.error("Failed to generate PDF");
     } finally {
@@ -285,8 +336,9 @@ export default function FieldDiaryPage() {
   async function handleExportDocx() {
     setExporting("word");
     try {
-      const { exportFieldDiaryDocx } = await import("@/lib/field-diary-export");
-      await exportFieldDiaryDocx(currentExportEntries(), memberName);
+      const [{ exportFieldDiaryDocx }, fresh] = await Promise.all([import("@/lib/field-diary-export"), fetchFreshEntriesForExport()]);
+      const { shareUrl } = await exportFieldDiaryDocx(fresh, memberName);
+      toast.success(shareUrl ? "Word doc downloaded — QR code links to a shareable copy" : "Word doc downloaded (share link failed to upload)");
     } catch {
       toast.error("Failed to generate Word document");
     } finally {
@@ -500,7 +552,7 @@ export default function FieldDiaryPage() {
                                         src={m.signed_url}
                                         alt={m.file_name}
                                         className="h-16 w-16 object-cover rounded-lg border cursor-zoom-in"
-                                        onClick={() => setZoomMedia(m)}
+                                        onClick={() => openZoom(m)}
                                       />
                                     ) : (
                                       <div className="h-16 w-16 flex flex-col items-center justify-center rounded-lg border bg-muted gap-1">
@@ -536,7 +588,7 @@ export default function FieldDiaryPage() {
                                   src={m.signed_url}
                                   alt={m.file_name}
                                   className="h-16 w-16 object-cover rounded-lg border cursor-zoom-in"
-                                  onClick={(e) => { e.stopPropagation(); setZoomMedia(m); }}
+                                  onClick={(e) => { e.stopPropagation(); openZoom(m); }}
                                 />
                                 <ZoomIn size={12} className="absolute bottom-0.5 right-0.5 text-white drop-shadow" />
                               </div>
@@ -567,12 +619,43 @@ export default function FieldDiaryPage() {
         )}
       </div>
 
-      <Dialog open={!!zoomMedia} onOpenChange={(open) => !open && setZoomMedia(null)}>
-        <DialogContent className="max-w-3xl p-2 bg-black/95 border-none">
+      <Dialog open={!!zoomMedia} onOpenChange={(open) => !open && closeZoom()}>
+        <DialogContent className="max-w-3xl gap-0 overflow-hidden p-0 bg-black border-none">
           <DialogTitle className="sr-only">{zoomMedia?.file_name || "Photo"}</DialogTitle>
           {zoomMedia && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={zoomMedia.signed_url} alt={zoomMedia.file_name} className="w-full max-h-[80vh] object-contain rounded" />
+            <div
+              className="relative select-none touch-none overflow-hidden bg-black"
+              style={{ height: "75vh" }}
+              onWheel={onZoomWheel}
+              onDoubleClick={onZoomDoubleClick}
+              onPointerDown={onZoomPointerDown}
+              onPointerMove={onZoomPointerMove}
+              onPointerUp={onZoomPointerUp}
+              onPointerLeave={onZoomPointerUp}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={zoomMedia.signed_url}
+                alt={zoomMedia.file_name}
+                className="absolute inset-0 h-full w-full object-contain"
+                style={{
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transition: drag.current.active ? "none" : "transform 0.15s ease-out",
+                  cursor: zoom > 1 ? "grab" : "zoom-in",
+                }}
+                draggable={false}
+              />
+
+              <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-lg bg-black/60 p-1 backdrop-blur">
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white/20" onClick={() => zoomBy(-0.5)} disabled={zoom <= MIN_ZOOM} aria-label="Zoom out">
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="w-12 text-center text-xs tabular-nums text-white">{Math.round(zoom * 100)}%</span>
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white/20" onClick={() => zoomBy(0.5)} disabled={zoom >= MAX_ZOOM} aria-label="Zoom in">
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

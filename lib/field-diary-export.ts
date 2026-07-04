@@ -1,10 +1,14 @@
-// Client-side PDF/Word export for a member's Field Diary — pulls the already
-// signed-URL'd entries + media the page has loaded, downscales each photo via
+// Client-side PDF/Word export for a member's Field Diary — takes freshly
+// signed-URL'd entries (the caller must re-fetch right before exporting,
+// since signed URLs are only valid for 5 minutes), downscales each photo via
 // canvas (normalizes webp/png/jpeg to one JPEG so both jsPDF and docx, which
-// only supports jpg/png/gif/bmp, can embed it, and keeps file size sane), and
+// only supports jpg/png/gif/bmp, can embed it, and keeps file size sane),
 // writes a dated report per entry including the report text (voice-note
-// transcripts are already appended into report_text at upload time).
+// transcripts are already appended into report_text at upload time), and
+// uploads the finished file to a public bucket so a QR code on the cover
+// page lets someone else open/download it on their phone.
 import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import { Document, Packer, Paragraph, TextRun, ImageRun, HeadingLevel, AlignmentType } from "docx";
 
 export interface ExportMedia {
@@ -21,6 +25,10 @@ export interface ExportEntry {
   report_text: string;
   is_success_story: boolean;
   media?: ExportMedia[];
+}
+
+export interface ExportResult {
+  shareUrl: string | null; // null when the local file was produced fine but the share upload failed
 }
 
 function fmtDate(dateStr: string): string {
@@ -60,7 +68,7 @@ async function normalizeImage(url: string, maxDim = 900): Promise<NormalizedImag
     const buffer = await (await fetch(dataUrl)).arrayBuffer();
     return { dataUrl, buffer, width, height };
   } catch {
-    return null; // e.g. a tainted canvas or a dead signed URL — skip this photo, don't fail the whole export
+    return null; // e.g. a tainted canvas or an expired signed URL — skip this photo, don't fail the whole export
   }
 }
 
@@ -75,21 +83,65 @@ function attachmentSummary(media: ExportMedia[]): string {
   return parts.join(", ");
 }
 
-export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: string): Promise<void> {
+function randomFilename(ext: "pdf" | "docx"): string {
+  const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${id}.${ext}`;
+}
+
+function publicExportUrl(filename: string): string {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  return `${base}/storage/v1/object/public/field-diary-exports/${filename}`;
+}
+
+/** Best-effort: upload the finished file so the QR code on its cover resolves. Never throws — a failed upload must not lose the local download. */
+async function uploadExportBestEffort(filename: string, blob: Blob): Promise<boolean> {
+  try {
+    const fd = new FormData();
+    fd.append("file", blob, filename);
+    fd.append("filename", filename);
+    const res = await fetch("/api/field-diary/export", { method: "POST", body: fd });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: string): Promise<ExportResult> {
+  const filename = randomFilename("pdf");
+  const shareUrl = publicExportUrl(filename);
+  const qrDataUrl = await QRCode.toDataURL(shareUrl, { width: 240, margin: 1 }).catch(() => null);
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
   let y = margin;
 
+  const qrSize = 22;
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("TANHOWA Field Diary", margin, y);
-  y += 7;
+  doc.text("TANHOWA Field Diary", margin, y + 4);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`${memberName} — ${entries.length} entr${entries.length === 1 ? "y" : "ies"}`, margin, y);
-  y += 4;
+  doc.text(`${memberName} — ${entries.length} entr${entries.length === 1 ? "y" : "ies"}`, margin, y + 11);
+
+  if (qrDataUrl) {
+    doc.addImage(qrDataUrl, "PNG", pageWidth - margin - qrSize, y - 2, qrSize, qrSize);
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text("Scan to view/download", pageWidth - margin - qrSize, y + qrSize + 1, { maxWidth: qrSize });
+    doc.setTextColor(0, 0, 0);
+  }
+  y += qrDataUrl ? qrSize + 6 : 15;
   doc.setDrawColor(200);
   doc.line(margin, y, pageWidth - margin, y);
   y += 8;
@@ -169,14 +221,37 @@ export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: st
     y += 8;
   }
 
-  doc.save(`TANHOWA_Field_Diary_${memberName.replace(/\s+/g, "_")}.pdf`);
+  const blob = doc.output("blob");
+  downloadBlob(blob, `TANHOWA_Field_Diary_${memberName.replace(/\s+/g, "_")}.pdf`);
+  const uploaded = await uploadExportBestEffort(filename, blob);
+  return { shareUrl: uploaded ? shareUrl : null };
 }
 
-export async function exportFieldDiaryDocx(entries: ExportEntry[], memberName: string): Promise<void> {
-  const children: Paragraph[] = [
-    new Paragraph({ text: "TANHOWA Field Diary", heading: HeadingLevel.TITLE }),
-    new Paragraph({ text: `${memberName} — ${entries.length} entr${entries.length === 1 ? "y" : "ies"}`, spacing: { after: 300 } }),
+export async function exportFieldDiaryDocx(entries: ExportEntry[], memberName: string): Promise<ExportResult> {
+  const filename = randomFilename("docx");
+  const shareUrl = publicExportUrl(filename);
+  const qrDataUrl = await QRCode.toDataURL(shareUrl, { width: 240, margin: 1 }).catch(() => null);
+  let qrBuffer: ArrayBuffer | null = null;
+  if (qrDataUrl) qrBuffer = await (await fetch(qrDataUrl)).arrayBuffer();
+
+  const headerChildren: Paragraph[] = [
+    new Paragraph({ children: [new TextRun({ text: "TANHOWA Field Diary", bold: true, size: 32 })], spacing: { after: 60 } }),
+    new Paragraph({ text: `${memberName} — ${entries.length} entr${entries.length === 1 ? "y" : "ies"}`, spacing: { after: 150 } }),
   ];
+  if (qrBuffer) {
+    headerChildren.push(
+      new Paragraph({
+        children: [new ImageRun({ type: "png", data: qrBuffer, transformation: { width: 90, height: 90 } })],
+        spacing: { after: 60 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: "Scan to view/download on your phone", italics: true, size: 18, color: "666666" })],
+        spacing: { after: 300 },
+      })
+    );
+  }
+
+  const children: Paragraph[] = [...headerChildren];
 
   for (const entry of entries) {
     const headingRuns: TextRun[] = [new TextRun({ text: fmtDate(entry.entry_date), bold: true })];
@@ -223,10 +298,7 @@ export async function exportFieldDiaryDocx(entries: ExportEntry[], memberName: s
 
   const doc = new Document({ sections: [{ children }] });
   const blob = await Packer.toBlob(doc);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `TANHOWA_Field_Diary_${memberName.replace(/\s+/g, "_")}.docx`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `TANHOWA_Field_Diary_${memberName.replace(/\s+/g, "_")}.docx`);
+  const uploaded = await uploadExportBestEffort(filename, blob);
+  return { shareUrl: uploaded ? shareUrl : null };
 }
