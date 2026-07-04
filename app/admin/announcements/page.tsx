@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Eye, Pencil, Send, Clock, Mail, Languages } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { renderSimpleMarkdown } from "@/lib/announcement-markdown";
 
 export default function AdminAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<
@@ -227,7 +228,10 @@ export default function AdminAnnouncementsPage() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{a.content}</p>
+                  <p
+                    className="text-sm text-muted-foreground mt-1 line-clamp-2"
+                    dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(a.content) }}
+                  />
                   <div className="flex items-center gap-2 mt-2">
                     <p className="text-xs text-muted-foreground">
                       {formatDate(a.created_at)}
