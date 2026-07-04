@@ -331,7 +331,13 @@ export default function FieldDiaryPage() {
     try {
       const [{ exportFieldDiaryPDF }, fresh] = await Promise.all([import("@/lib/field-diary-export"), fetchFreshEntriesForExport()]);
       const { shareUrl } = await exportFieldDiaryPDF(fresh, memberName, designation);
-      toast.success(shareUrl ? "PDF downloaded — QR code links to a shareable copy" : "PDF downloaded (share link failed to upload)");
+      if (shareUrl) {
+        toast.success("PDF downloaded — link ready to share", {
+          action: { label: "Copy link", onClick: () => navigator.clipboard.writeText(shareUrl) },
+        });
+      } else {
+        toast.success("PDF downloaded (share link failed to upload)");
+      }
     } catch {
       toast.error("Failed to generate PDF");
     } finally {
@@ -344,7 +350,13 @@ export default function FieldDiaryPage() {
     try {
       const [{ exportFieldDiaryDocx }, fresh] = await Promise.all([import("@/lib/field-diary-export"), fetchFreshEntriesForExport()]);
       const { shareUrl } = await exportFieldDiaryDocx(fresh, memberName, designation);
-      toast.success(shareUrl ? "Word doc downloaded — QR code links to a shareable copy" : "Word doc downloaded (share link failed to upload)");
+      if (shareUrl) {
+        toast.success("Word doc downloaded — link ready to share", {
+          action: { label: "Copy link", onClick: () => navigator.clipboard.writeText(shareUrl) },
+        });
+      } else {
+        toast.success("Word doc downloaded (share link failed to upload)");
+      }
     } catch {
       toast.error("Failed to generate Word document");
     } finally {
