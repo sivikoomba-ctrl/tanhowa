@@ -1,12 +1,17 @@
 // Client-side PDF/Word export for a member's Field Diary — takes freshly
 // signed-URL'd entries (the caller must re-fetch right before exporting,
-// since signed URLs are only valid for 5 minutes), downscales each photo via
-// canvas (normalizes webp/png/jpeg to one JPEG so both jsPDF and docx, which
-// only supports jpg/png/gif/bmp, can embed it, and keeps file size sane),
-// writes a dated report per entry including the report text (voice-note
-// transcripts are already appended into report_text at upload time), and
-// uploads the finished file to a public bucket so a QR code on the cover
-// page lets someone else open/download it on their phone.
+// since signed URLs are only valid for 5 minutes), writes a dated report per
+// entry including the report text (voice-note transcripts are already
+// appended into report_text at upload time), and uploads the finished file
+// to a public bucket so a QR code on the cover page lets someone else open
+// or download it on their phone.
+//
+// Photos are fetched through /api/field-diary/export/photos (server-side)
+// rather than loaded client-side via <img crossOrigin="anonymous"> + canvas —
+// that approach silently produced nothing whenever the storage response
+// didn't carry CORS headers the browser would accept for pixel access. A
+// same-origin API call sidesteps CORS entirely; the server fetches the
+// signed URL itself (plain server-to-server fetch, no CORS concept there).
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { Document, Packer, Paragraph, TextRun, ImageRun, HeadingLevel, AlignmentType } from "docx";
@@ -31,45 +36,13 @@ export interface ExportResult {
   shareUrl: string | null; // null when the local file was produced fine but the share upload failed
 }
 
+interface FetchedPhoto {
+  dataUrl: string;
+  mimeType: string;
+}
+
 function fmtDate(dateStr: string): string {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
-}
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("image load failed"));
-    img.src = url;
-  });
-}
-
-interface NormalizedImage {
-  dataUrl: string;
-  buffer: ArrayBuffer;
-  width: number;
-  height: number;
-}
-
-async function normalizeImage(url: string, maxDim = 900): Promise<NormalizedImage | null> {
-  try {
-    const img = await loadImage(url);
-    const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
-    const width = Math.max(1, Math.round(img.naturalWidth * scale));
-    const height = Math.max(1, Math.round(img.naturalHeight * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.drawImage(img, 0, 0, width, height);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    const buffer = await (await fetch(dataUrl)).arrayBuffer();
-    return { dataUrl, buffer, width, height };
-  } catch {
-    return null; // e.g. a tainted canvas or an expired signed URL — skip this photo, don't fail the whole export
-  }
 }
 
 function attachmentSummary(media: ExportMedia[]): string {
@@ -81,6 +54,37 @@ function attachmentSummary(media: ExportMedia[]): string {
   if (audio) parts.push(`${audio} voice note${audio > 1 ? "s" : ""}`);
   if (video) parts.push(`${video} video${video > 1 ? "s" : ""}`);
   return parts.join(", ");
+}
+
+/** One batched call for every photo across every entry, instead of one request per photo. */
+async function fetchPhotoDataUrls(entries: ExportEntry[]): Promise<Record<string, FetchedPhoto>> {
+  const mediaIds = entries.flatMap((e) => (e.media || []).filter((m) => m.media_type === "photo").map((m) => m.id));
+  if (mediaIds.length === 0) return {};
+  try {
+    const res = await fetch("/api/field-diary/export/photos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ media_ids: mediaIds }),
+    });
+    if (!res.ok) return {};
+    const d = await res.json();
+    return (d.photos || {}) as Record<string, FetchedPhoto>;
+  } catch {
+    return {}; // export still proceeds text-only rather than failing outright
+  }
+}
+
+function pdfFormatFor(mimeType: string): "JPEG" | "PNG" | "WEBP" {
+  if (mimeType.includes("png")) return "PNG";
+  if (mimeType.includes("webp")) return "WEBP";
+  return "JPEG";
+}
+
+/** docx only embeds jpg/png/gif/bmp — null means "skip this photo in Word" (still counted in the Attachments summary text). */
+function docxTypeFor(mimeType: string): "jpg" | "png" | null {
+  if (mimeType.includes("png")) return "png";
+  if (mimeType.includes("jpeg") || mimeType.includes("jpg")) return "jpg";
+  return null;
 }
 
 function randomFilename(ext: "pdf" | "docx"): string {
@@ -118,7 +122,10 @@ function downloadBlob(blob: Blob, filename: string) {
 export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: string): Promise<ExportResult> {
   const filename = randomFilename("pdf");
   const shareUrl = publicExportUrl(filename);
-  const qrDataUrl = await QRCode.toDataURL(shareUrl, { width: 240, margin: 1 }).catch(() => null);
+  const [qrDataUrl, photoMap] = await Promise.all([
+    QRCode.toDataURL(shareUrl, { width: 240, margin: 1 }).catch(() => null),
+    fetchPhotoDataUrls(entries),
+  ]);
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -129,7 +136,7 @@ export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: st
   const qrSize = 22;
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("TANHOWA Field Diary", margin, y + 4);
+  doc.text("Field Diary", margin, y + 4);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.text(`${memberName} — ${entries.length} entr${entries.length === 1 ? "y" : "ies"}`, margin, y + 11);
@@ -176,7 +183,7 @@ export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: st
     }
 
     const media = entry.media || [];
-    const photos = media.filter((m) => m.media_type === "photo");
+    const photos = media.filter((m) => m.media_type === "photo" && photoMap[m.id]);
     if (media.length > 0) {
       ensureSpace(5);
       doc.setFontSize(9);
@@ -198,16 +205,15 @@ export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: st
           y += thumbSize + gap;
           ensureSpace(thumbSize + 4);
         }
-        const img = await normalizeImage(photo.signed_url);
-        if (img) {
-          const ratio = img.width / img.height;
+        const fetched = photoMap[photo.id];
+        try {
+          const props = doc.getImageProperties(fetched.dataUrl);
+          const ratio = props.width / props.height;
           const w = ratio >= 1 ? thumbSize : thumbSize * ratio;
           const h = ratio >= 1 ? thumbSize / ratio : thumbSize;
-          try {
-            doc.addImage(img.dataUrl, "JPEG", x, y, w, h);
-          } catch {
-            /* unsupported/corrupt image — skip, don't fail the export */
-          }
+          doc.addImage(fetched.dataUrl, pdfFormatFor(fetched.mimeType), x, y, w, h);
+        } catch {
+          /* unsupported/corrupt image — skip, don't fail the export */
         }
         x += thumbSize + gap;
       }
@@ -230,28 +236,40 @@ export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: st
 export async function exportFieldDiaryDocx(entries: ExportEntry[], memberName: string): Promise<ExportResult> {
   const filename = randomFilename("docx");
   const shareUrl = publicExportUrl(filename);
-  const qrDataUrl = await QRCode.toDataURL(shareUrl, { width: 240, margin: 1 }).catch(() => null);
-  let qrBuffer: ArrayBuffer | null = null;
-  if (qrDataUrl) qrBuffer = await (await fetch(qrDataUrl)).arrayBuffer();
+  const [qrDataUrl, photoMap] = await Promise.all([
+    QRCode.toDataURL(shareUrl, { width: 240, margin: 1 }).catch(() => null),
+    fetchPhotoDataUrls(entries),
+  ]);
 
-  const headerChildren: Paragraph[] = [
-    new Paragraph({ children: [new TextRun({ text: "TANHOWA Field Diary", bold: true, size: 32 })], spacing: { after: 60 } }),
+  let qrBuffer: ArrayBuffer | null = null;
+  if (qrDataUrl) {
+    try {
+      qrBuffer = await (await fetch(qrDataUrl)).arrayBuffer();
+    } catch {
+      qrBuffer = null;
+    }
+  }
+
+  const children: Paragraph[] = [
+    new Paragraph({ children: [new TextRun({ text: "Field Diary", bold: true, size: 32 })], spacing: { after: 60 } }),
     new Paragraph({ text: `${memberName} — ${entries.length} entr${entries.length === 1 ? "y" : "ies"}`, spacing: { after: 150 } }),
   ];
   if (qrBuffer) {
-    headerChildren.push(
-      new Paragraph({
-        children: [new ImageRun({ type: "png", data: qrBuffer, transformation: { width: 90, height: 90 } })],
-        spacing: { after: 60 },
-      }),
-      new Paragraph({
-        children: [new TextRun({ text: "Scan to view/download on your phone", italics: true, size: 18, color: "666666" })],
-        spacing: { after: 300 },
-      })
-    );
+    try {
+      children.push(
+        new Paragraph({
+          children: [new ImageRun({ type: "png", data: qrBuffer, transformation: { width: 90, height: 90 } })],
+          spacing: { after: 60 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: "Scan to view/download on your phone", italics: true, size: 18, color: "666666" })],
+          spacing: { after: 300 },
+        })
+      );
+    } catch {
+      /* QR embed failed — continue without it rather than fail the whole export */
+    }
   }
-
-  const children: Paragraph[] = [...headerChildren];
 
   for (const entry of entries) {
     const headingRuns: TextRun[] = [new TextRun({ text: fmtDate(entry.entry_date), bold: true })];
@@ -276,23 +294,25 @@ export async function exportFieldDiaryDocx(entries: ExportEntry[], memberName: s
 
     const photos = media.filter((m) => m.media_type === "photo");
     for (const photo of photos) {
-      const img = await normalizeImage(photo.signed_url);
-      if (!img) continue;
-      const maxW = 350;
-      const scale = Math.min(1, maxW / img.width);
-      children.push(
-        new Paragraph({
-          alignment: AlignmentType.LEFT,
-          spacing: { after: 150 },
-          children: [
-            new ImageRun({
-              type: "jpg",
-              data: img.buffer,
-              transformation: { width: Math.round(img.width * scale), height: Math.round(img.height * scale) },
-            }),
-          ],
-        })
-      );
+      const fetched = photoMap[photo.id];
+      if (!fetched) continue;
+      const type = docxTypeFor(fetched.mimeType);
+      if (!type) continue; // e.g. webp — docx can't embed it, skip gracefully
+
+      try {
+        const buffer = await (await fetch(fetched.dataUrl)).arrayBuffer();
+        // Fixed display box (docx just scales for display, no real pixel resize needed).
+        const boxWidth = 280;
+        children.push(
+          new Paragraph({
+            alignment: AlignmentType.LEFT,
+            spacing: { after: 150 },
+            children: [new ImageRun({ type, data: buffer, transformation: { width: boxWidth, height: boxWidth } })],
+          })
+        );
+      } catch {
+        /* corrupt/unreadable image — skip, don't fail the whole export */
+      }
     }
   }
 
