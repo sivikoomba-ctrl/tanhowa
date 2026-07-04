@@ -173,6 +173,11 @@ const MEMBER_NAV_SECTIONS = [
 // Generic placeholder names that should be treated as "no real name entered"
 const PLACEHOLDER_NAMES = new Set(["unnamed", "user", "test", "guest", "anonymous", "no name", "n/a", "na"]);
 
+// Blocking gate — kept to identity-critical fields only. Photo / Qualification / Date of
+// Joining used to be mandatory here too, but a live-data check (2026-07-04) found ~47% of
+// approved members (304/643) blocked from basic access like payment-proof upload over these
+// three specifically — real profile gaps, not a save bug. Dropped from the hard block; they're
+// still requested (non-blocking) on the Profile page's own completeness indicator.
 function getMissingFields(u: UserData): string[] {
   const missing: string[] = [];
   const trimmedName = (u.name || "").trim();
@@ -184,11 +189,8 @@ function getMissingFields(u: UserData): string[] {
   if (!u.occupation?.trim()) missing.push("Designation");
   if (!u.posting_details?.regular_district) missing.push("District");
   if (!u.posting_details?.regular_block) missing.push("Posting location");
-  if (!u.photo_url) missing.push("Profile Photo");
   if (!u.dob) missing.push("Date of Birth");
   if (!u.social_links?.gender) missing.push("Gender");
-  if (!u.social_links?.qualification) missing.push("Qualification");
-  if (!u.social_links?.date_of_joining) missing.push("Date of Joining");
   if (!u.address?.trim() && !u.office_address?.trim()) missing.push("Address");
   return missing;
 }
