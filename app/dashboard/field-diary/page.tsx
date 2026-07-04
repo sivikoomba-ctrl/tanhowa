@@ -82,6 +82,8 @@ export default function FieldDiaryPage() {
   const [uploading, setUploading] = useState<string | null>(null);
   const [zoomMedia, setZoomMedia] = useState<DiaryMedia | null>(null);
   const [memberName, setMemberName] = useState("My");
+  const [designation, setDesignation] = useState("");
+  const [isOwner, setIsOwner] = useState(false);
   const [exporting, setExporting] = useState<"pdf" | "word" | null>(null);
 
   // Zoom/pan inside the photo lightbox — same interaction as admin/photo-review
@@ -133,7 +135,11 @@ export default function FieldDiaryPage() {
   useEffect(() => {
     fetch("/api/users/me")
       .then((r) => r.json())
-      .then((d) => { if (d?.user?.name) setMemberName(d.user.name); })
+      .then((d) => {
+        if (d?.user?.name) setMemberName(d.user.name);
+        if (d?.user?.occupation) setDesignation(d.user.occupation);
+        setIsOwner(d?.user?.email === "tanhowa19791@gmail.com");
+      })
       .catch(() => {});
   }, []);
 
@@ -324,7 +330,7 @@ export default function FieldDiaryPage() {
     setExporting("pdf");
     try {
       const [{ exportFieldDiaryPDF }, fresh] = await Promise.all([import("@/lib/field-diary-export"), fetchFreshEntriesForExport()]);
-      const { shareUrl } = await exportFieldDiaryPDF(fresh, memberName);
+      const { shareUrl } = await exportFieldDiaryPDF(fresh, memberName, designation);
       toast.success(shareUrl ? "PDF downloaded — QR code links to a shareable copy" : "PDF downloaded (share link failed to upload)");
     } catch {
       toast.error("Failed to generate PDF");
@@ -337,7 +343,7 @@ export default function FieldDiaryPage() {
     setExporting("word");
     try {
       const [{ exportFieldDiaryDocx }, fresh] = await Promise.all([import("@/lib/field-diary-export"), fetchFreshEntriesForExport()]);
-      const { shareUrl } = await exportFieldDiaryDocx(fresh, memberName);
+      const { shareUrl } = await exportFieldDiaryDocx(fresh, memberName, designation);
       toast.success(shareUrl ? "Word doc downloaded — QR code links to a shareable copy" : "Word doc downloaded (share link failed to upload)");
     } catch {
       toast.error("Failed to generate Word document");
@@ -421,9 +427,12 @@ export default function FieldDiaryPage() {
               <Button variant="outline" size="sm" disabled={exporting !== null} onClick={handleExportPDF}>
                 {exporting === "pdf" ? <Loader2 size={14} className="mr-1 animate-spin" /> : <FileText size={14} className="mr-1" />} PDF
               </Button>
-              <Button variant="outline" size="sm" disabled={exporting !== null} onClick={handleExportDocx}>
-                {exporting === "word" ? <Loader2 size={14} className="mr-1 animate-spin" /> : <FileType2 size={14} className="mr-1" />} Word
-              </Button>
+              {/* Word export is still being polished — keep it owner-only until it's reliable for everyone. */}
+              {isOwner && (
+                <Button variant="outline" size="sm" disabled={exporting !== null} onClick={handleExportDocx}>
+                  {exporting === "word" ? <Loader2 size={14} className="mr-1 animate-spin" /> : <FileType2 size={14} className="mr-1" />} Word
+                </Button>
+              )}
             </div>
           )}
         </div>

@@ -92,6 +92,23 @@ function randomFilename(ext: "pdf" | "docx"): string {
   return `${id}.${ext}`;
 }
 
+/** Today's date (IST) as YYYYMMDD, for the downloaded filename's date stamp. */
+function exportDateStamp(): string {
+  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+  const y = ist.getUTCFullYear();
+  const m = String(ist.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(ist.getUTCDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+}
+
+/** e.g. "20260704 Sivakumar S_ADH_Field_Diary.pdf" — date stamp, then Name_Designation_Field_Diary. */
+function downloadFilename(memberName: string, designation: string, ext: "pdf" | "docx"): string {
+  const parts = [memberName.trim() || "Member"];
+  if (designation.trim()) parts.push(designation.trim());
+  parts.push("Field_Diary");
+  return `${exportDateStamp()} ${parts.join("_")}.${ext}`;
+}
+
 function publicExportUrl(filename: string): string {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   return `${base}/storage/v1/object/public/field-diary-exports/${filename}`;
@@ -119,7 +136,7 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: string): Promise<ExportResult> {
+export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: string, designation = ""): Promise<ExportResult> {
   const filename = randomFilename("pdf");
   const shareUrl = publicExportUrl(filename);
   const [qrDataUrl, photoMap] = await Promise.all([
@@ -224,12 +241,12 @@ export async function exportFieldDiaryPDF(entries: ExportEntry[], memberName: st
   }
 
   const blob = doc.output("blob");
-  downloadBlob(blob, `TANHOWA_Field_Diary_${memberName.replace(/\s+/g, "_")}.pdf`);
+  downloadBlob(blob, downloadFilename(memberName, designation, "pdf"));
   const uploaded = await uploadExportBestEffort(filename, blob);
   return { shareUrl: uploaded ? shareUrl : null };
 }
 
-export async function exportFieldDiaryDocx(entries: ExportEntry[], memberName: string): Promise<ExportResult> {
+export async function exportFieldDiaryDocx(entries: ExportEntry[], memberName: string, designation = ""): Promise<ExportResult> {
   const filename = randomFilename("docx");
   const shareUrl = publicExportUrl(filename);
   const [qrDataUrl, photoMap] = await Promise.all([
@@ -328,7 +345,7 @@ export async function exportFieldDiaryDocx(entries: ExportEntry[], memberName: s
 
   const doc = new Document({ sections: [{ children }] });
   const blob = await Packer.toBlob(doc);
-  downloadBlob(blob, `TANHOWA_Field_Diary_${memberName.replace(/\s+/g, "_")}.docx`);
+  downloadBlob(blob, downloadFilename(memberName, designation, "docx"));
   const uploaded = await uploadExportBestEffort(filename, blob);
   return { shareUrl: uploaded ? shareUrl : null };
 }
