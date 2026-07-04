@@ -38,3 +38,21 @@ export function isValidBackfillDate(dateStr: string): boolean {
     .slice(0, 10);
   return dateStr >= earliest;
 }
+
+/**
+ * True if `dateStr` is a valid target for correcting an existing entry's
+ * date: today or within the backfill window — not in the future, and not
+ * older than BACKFILL_WINDOW_DAYS. Unlike isValidBackfillDate (used only for
+ * creating a new backdated entry), today is allowed here since an edit may
+ * move a misdated entry back onto today.
+ */
+export function isValidEntryEditDate(dateStr: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const today = todayIST();
+  if (dateStr > today) return false;
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const earliest = new Date(Date.now() + IST_OFFSET_MS - BACKFILL_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  return dateStr >= earliest;
+}

@@ -162,6 +162,8 @@ export const fieldDiaryEntryUpdateSchema = z.object({
   id: uuidSchema,
   report_text: nonEmptyString.max(20000).optional(),
   is_success_story: z.boolean().optional(),
+  // Optional date correction (YYYY-MM-DD); range validated in the route via isValidEntryEditDate().
+  entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 // Search

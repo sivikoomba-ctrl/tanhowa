@@ -135,3 +135,45 @@ Write a polished, factual 150-250 word write-up in third person, suitable to pub
     });
   }
 }
+
+/**
+ * Fire-and-forget: transcribes a just-uploaded voice note (Tamil/English/mixed
+ * speech, translated to English) and appends it to the entry's report_text,
+ * so a member's spoken field notes end up in the same written report that
+ * feeds the diary export and the AI success-story pipeline. Also saves the
+ * transcript on the media row itself for direct display. Silently no-ops on
+ * any failure — a failed transcription must never block the upload response
+ * that already succeeded.
+ */
+export async function transcribeAndAppendVoiceNote(entryId: string, mediaId: string, buffer: Buffer, mimeType: string): Promise<void> {
+  const supabase = getServiceClient();
+  try {
+    const genAI = getGemini();
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent([
+      { inlineData: { data: buffer.toString("base64"), mimeType } },
+      {
+        text: `Transcribe this voice note from a Tamil Nadu horticulture field officer describing their day's field work. The speech may be in Tamil, English, or a mix of both — translate any Tamil into English. Return ONLY the clean transcript text, no preamble, no markdown, no quotes. If the audio is silent or unintelligible, return an empty string.`,
+      },
+    ]);
+    const transcript = result.response.text().trim();
+    if (!transcript) return;
+
+    await supabase.from("field_diary_media").update({ transcript }).eq("id", mediaId);
+
+    const { data: entry } = await supabase.from("field_diary_entries").select("report_text").eq("id", entryId).single();
+    if (!entry) return;
+    const appended = `${entry.report_text}\n\n🎤 Voice note: ${transcript}`;
+    await supabase.from("field_diary_entries").update({ report_text: appended }).eq("id", entryId);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await logError({
+      type: "api",
+      message: `transcribeAndAppendVoiceNote failed: ${msg}`,
+      stack: error instanceof Error ? error.stack : "",
+      path: "/lib/field-diary-ai",
+      method: "INTERNAL",
+      status_code: 500,
+    });
+  }
+}

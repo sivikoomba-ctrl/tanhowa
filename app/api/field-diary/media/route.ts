@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, isAdminOrOfficial } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
-import { maybeQueueStory } from "@/lib/field-diary-ai";
+import { maybeQueueStory, transcribeAndAppendVoiceNote } from "@/lib/field-diary-ai";
 
 const BUCKET = "field-diary-media";
 
@@ -173,6 +173,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (mediaType === "photo") maybeQueueStory(entryId).catch(() => {});
+    if (mediaType === "audio") transcribeAndAppendVoiceNote(entryId, data.id, buffer, file.type || "audio/webm").catch(() => {});
 
     const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(filePath, 300);
     return NextResponse.json({ media: { ...data, signed_url: signed?.signedUrl || "" } });

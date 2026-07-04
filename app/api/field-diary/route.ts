@@ -6,7 +6,7 @@ import { logContribution } from "@/lib/contributions";
 import { awardTaskPoints } from "@/lib/task-points";
 import { validate, fieldDiaryEntrySchema, fieldDiaryEntryUpdateSchema } from "@/lib/validation";
 import { writeLimiter } from "@/lib/rate-limit";
-import { todayIST, isValidBackfillDate, BACKFILL_WINDOW_DAYS } from "@/lib/field-diary";
+import { todayIST, isValidBackfillDate, isValidEntryEditDate, BACKFILL_WINDOW_DAYS } from "@/lib/field-diary";
 import { maybeQueueStory } from "@/lib/field-diary-ai";
 
 const ENTRY_SELECT = "*, member:member_id(id, name, photo_url)";
@@ -178,6 +178,12 @@ export async function PUT(req: NextRequest) {
     const updates: Record<string, string | boolean> = {};
     if (v.data.report_text !== undefined) updates.report_text = v.data.report_text;
     if (v.data.is_success_story !== undefined) updates.is_success_story = v.data.is_success_story;
+    if (v.data.entry_date !== undefined) {
+      if (!isValidEntryEditDate(v.data.entry_date)) {
+        return NextResponse.json({ error: `Date must be today or within the last ${BACKFILL_WINDOW_DAYS} days` }, { status: 400 });
+      }
+      updates.entry_date = v.data.entry_date;
+    }
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
