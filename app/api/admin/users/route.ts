@@ -3,7 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdmin, getDbRole, getOfficialInfo } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
-import { logAudit } from "@/lib/audit-log";
+import { logAudit, logPhoneChange } from "@/lib/audit-log";
 import { sendSuspensionEmail, sendReinstatementEmail } from "@/lib/mail";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { approveMember, rejectMember } from "@/lib/member-approval";
@@ -116,8 +116,17 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ error: "No fields to update" }, { status: 400 });
       }
 
+      let previousPhone: string | null | undefined;
+      if (body.phone !== undefined) {
+        const { data: targetBefore } = await supabase.from("users").select("phone").eq("id", userId).single();
+        previousPhone = targetBefore?.phone;
+      }
+
       await supabase.from("users").update(updates).eq("id", userId);
       logContribution(session.userId, "member_profile_edited", "Edited profile for user: " + userId);
+      if (body.phone !== undefined) {
+        logPhoneChange(session.userId, userId, previousPhone, body.phone, "admin");
+      }
     } else if (action === "suspend") {
       // Only tanhowa19791@gmail.com can suspend members
       if (session.email !== "tanhowa19791@gmail.com") {

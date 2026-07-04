@@ -4,6 +4,7 @@ import { getSession, createSession, isFinanceTeamMember, isProjectHMember, type 
 import { logError } from "@/lib/error-logger";
 import { logApiPerf } from "@/lib/api-perf";
 import { logContribution } from "@/lib/contributions";
+import { logPhoneChange } from "@/lib/audit-log";
 import { notifyAdminNewRegistration } from "@/lib/mail";
 
 export async function GET() {
@@ -243,7 +244,7 @@ export async function PUT(req: NextRequest) {
     // Check if this is a first-time onboarding (pending user with no name yet)
     const { data: currentUser } = await supabase
       .from("users")
-      .select("name, status, role")
+      .select("name, status, role, phone")
       .eq("id", session.userId)
       .single();
     const isFirstOnboarding = currentUser && !currentUser.name && currentUser.status === "pending";
@@ -297,6 +298,8 @@ export async function PUT(req: NextRequest) {
       await logError({ type: "api", message: error.message, path: "/api/users/me", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: error.message || "Failed to update profile" }, { status: 500 });
     }
+
+    logPhoneChange(session.userId, session.userId, currentUser?.phone, phone, "self");
 
     // Notify admins when a new member completes onboarding
     if (isFirstOnboarding) {

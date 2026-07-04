@@ -28,6 +28,7 @@ interface User {
   name: string;
   email: string;
   phone: string;
+  phone_changed_at?: string | null;
   address: string;
   office_address: string;
   dob: string;
@@ -376,6 +377,9 @@ export default function UserCard({ user: u, isExpanded, isSelected, tab, onExpan
                 <div>
                   <p className="text-xs text-muted-foreground">Phone</p>
                   <p className="font-medium">{u.phone || "\u2014"}</p>
+                  {u.phone_changed_at && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Changed {formatDate(u.phone_changed_at)}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-start gap-2">

@@ -855,6 +855,8 @@ Use this pattern whenever a child page modifies data that the layout displays.
 
 Fire-and-forget to the `audit_logs` table. Admin page at `/admin/audit-logs` with search, action filter, and target type filter. Color-coded icons per target type.
 
+**Phone-number change tracking (2026-07-05):** `logPhoneChange(actorUserId, targetUserId, oldPhone, newPhone, changedBy)` in `lib/audit-log.ts` — no-ops when the number didn't actually change (skips routine profile saves). Writes an `audit_logs` row (`action: "phone_number_changed"`, `target_type: "user"`, `details: {old_phone, new_phone, changed_by: "self"|"admin"}`) and stamps `users.phone_changed_at` (schema: `supabase/phone_changed_at_schema.sql`, same pattern as `photo_uploaded_at`) for a fast "last changed" glance on the admin member card (`UserCard.tsx`, under the Phone field). Wired into both write paths: `PUT /api/users/me` (self-service — fetches the pre-update phone via the existing `currentUser` lookup) and `PUT /api/admin/users` `action=edit-profile` (admin edit — fetches the target's pre-update phone only when `body.phone` is present). Forward-only: no backfill of changes from before this shipped, since prior values were already overwritten. Full old/new history is only in `audit_logs`, not on the user row — the column is a pointer, not the record.
+
 ## Razorpay Integration
 
 `lib/razorpay.ts` provides: `isRazorpayConfigured()`, `getRazorpayKeyId()`, `createOrder()`, `verifySignature()`. Uses Web Crypto API (`crypto.subtle`) for HMAC SHA-256 signature verification (Edge-compatible, not Node.js `crypto`). API at `/api/payments` (POST: create order, PUT: verify payment). Structurally complete but needs `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` env vars.
