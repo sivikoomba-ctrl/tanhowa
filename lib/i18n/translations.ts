@@ -813,6 +813,7 @@ const translations = {
   "posting.district": { en: "District", ta: "மாவட்டம்" },
   "posting.block": { en: "Posting location", ta: "பணியிடம்" },
   "posting.location": { en: "Posting location", ta: "பணியிடம்" },
+  "posting.date_of_posting": { en: "Date of Posting", ta: "பணியமர்த்தப்பட்ட தேதி" },
   "posting.place": { en: "Place (other than above)", ta: "இடம் (மேற்கூறியது தவிர)" },
   "posting.select_district": { en: "Select district", ta: "மாவட்டம் தேர்வு செய்க" },
   "posting.select_block": { en: "Select posting location", ta: "பணியிடம் தேர்வு செய்க" },

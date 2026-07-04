@@ -53,6 +53,7 @@ interface PostingDetails {
   regular_district: string;
   regular_block: string;
   regular_farm: string;
+  regular_posting_date: string;
   special_duty_district: string;
   special_duty_block: string;
   special_duty_place: string;
@@ -90,7 +91,7 @@ interface Profile {
 }
 
 const emptyPosting: PostingDetails = {
-  regular_district: "", regular_block: "", regular_farm: "",
+  regular_district: "", regular_block: "", regular_farm: "", regular_posting_date: "",
   special_duty_district: "", special_duty_block: "", special_duty_place: "",
   special_designation: "", special_farm: "",
   deputed_district: "", deputed_block: "",
@@ -815,6 +816,10 @@ export default function ProfilePage() {
                         <SelectTrigger className="mt-1"><SelectValue placeholder={t("posting.select_location")} /></SelectTrigger>
                         <SelectContent>{postingLocationGroupsJsx}</SelectContent>
                       </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">{t("posting.date_of_posting")}</Label>
+                      <DateDropdowns value={profile.posting_details.regular_posting_date} onChange={(v) => setProfile({ ...profile, posting_details: { ...profile.posting_details, regular_posting_date: v } })} minYear={1970} maxYear={new Date().getFullYear()} className="mt-1" />
                     </div>
                   </div>
                 </div>
