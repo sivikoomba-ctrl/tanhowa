@@ -43,6 +43,10 @@ interface Row {
   email: string;
 }
 
+// This is an officer report, not the raw user-management page — never show
+// the system/owner test accounts here regardless of the caller's own role.
+const TEST_EMAILS = new Set(["tanhowaadmin@tanhowa.in", "tanhowa19791@gmail.com"]);
+
 function rank(occupation: string): number {
   const o = (occupation || "").toLowerCase();
   if (o.includes("additional director")) return 1;
@@ -85,6 +89,7 @@ export default function AdminRosterPage() {
   const rows: Row[] = useMemo(() => {
     const out: Row[] = [];
     for (const u of approved) {
+      if (u.email && TEST_EMAILS.has(u.email)) continue;
       out.push({
         source: "registered",
         id: u.id,
@@ -275,7 +280,7 @@ export default function AdminRosterPage() {
   };
 
   const blocks = form.district ? getBlocks(form.district) : [];
-  const totalApproved = approved.length;
+  const totalApproved = approved.filter((u) => !u.email || !TEST_EMAILS.has(u.email)).length;
   const totalManual = manual.length;
 
   return (
