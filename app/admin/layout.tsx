@@ -54,6 +54,7 @@ import {
   NotebookPen,
   Sparkles,
   FileSignature,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +63,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useT } from "@/lib/i18n";
 import { SettingsPopover } from "@/components/settings-popover";
 import { GlobalSearch } from "@/components/global-search";
+import { PREVIEW_ROLES, getPreviewRole, setPreviewRole as persistPreviewRole, previewToUserFields, type PreviewRole } from "@/lib/preview-role";
 
 const NAV_SECTIONS = [
   {
@@ -169,8 +171,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isFinanceTeam, setIsFinanceTeam] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState({ total: 0, announcements: 0, subscriptions: 0, tasks: 0, draftAnnouncements: 0 });
+  const [previewRole, setPreviewRoleState] = useState<PreviewRole | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+
+  // Preview mode: super-admin-only sidebar simulation, purely client-side (see lib/preview-role.ts)
+  useEffect(() => { setPreviewRoleState(getPreviewRole()); }, []);
+  const realIsSuperAdmin = user?.role === "super_admin";
+  // "member" preview is a redirect-to-/dashboard action, not something simulated within
+  // the admin panel itself (most nav items have no role gate and would still show).
+  const activePreview = realIsSuperAdmin && previewRole && previewRole !== "super_admin" && previewRole !== "member" ? previewRole : null;
+  const effectiveUser = activePreview ? { ...user, ...previewToUserFields(activePreview) } : user;
+  function choosePreview(role: PreviewRole) {
+    persistPreviewRole(role);
+    setPreviewRoleState(role);
+    if (role === "member") router.push("/dashboard");
+  }
 
   useEffect(() => {
     fetch("/api/users/me")
@@ -227,7 +243,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!isAdmin) return null;
 
   // Grievances: state officials + super admin (all), district admins (own district)
-  const grievanceAccess = user?.role === "super_admin" || user?.official_type === "state" || user?.official_type === "district";
+  const grievanceAccess = effectiveUser?.role === "super_admin" || effectiveUser?.official_type === "state" || effectiveUser?.official_type === "district";
   const feedbackItems = [
     { href: "/admin/suggestions", labelKey: "nav.suggestions" as const, icon: Lightbulb },
     { href: "/admin/service-requests", labelKey: "nav.service_requests" as const, icon: TicketCheck },
@@ -237,22 +253,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   function isNavItemVisible(href: string) {
     const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks", "/admin/logo-vote", "/admin/pest-training"];
-    if (superAdminOnly.includes(href)) return user?.role === "super_admin";
-    if (href === "/admin/elections") return user?.role === "super_admin" || user?.official_type === "state" || user?.email === "sivikoomba@gmail.com";
-    if (href === "/admin/special-documents") return user?.email === "tanhowa19791@gmail.com";
-    if (href === "/admin/analytics") return user?.email === "tanhowa19791@gmail.com" || user?.email === "tanhowaadmin@tanhowa.in";
-    if (href === "/admin/engagement") return user?.email === "tanhowa19791@gmail.com";
-    if (href === "/admin/at-risk-members") return user?.email === "tanhowa19791@gmail.com";
-    if (href === "/admin/digest") return user?.email === "tanhowa19791@gmail.com";
-    if (href === "/admin/meetings") return user?.role === "super_admin" || user?.official_type === "state";
-    if (href === "/admin/photo-review") return user?.role === "super_admin" || user?.official_type === "state";
-    if (href === "/admin/adh-pm") return user?.role === "super_admin" || user?.official_type === "state";
-    if (href === "/admin/why-ministry") return user?.email === "tanhowa19791@gmail.com";
-    if (href === "/admin/history") return user?.role === "admin" || user?.role === "super_admin";
-    if (href === "/admin/feedback-pulse") return user?.email === "tanhowa19791@gmail.com";
-    if (href === "/admin/vouchers") return user?.role === "super_admin" || isFinanceTeam;
-    if (href === "/admin/field-diary-compliance") return user?.role === "super_admin" || user?.official_type === "state" || user?.official_type === "district";
-    if (href === "/admin/field-diary-stories") return user?.role === "super_admin" || user?.official_type === "state" || user?.official_type === "district";
+    if (superAdminOnly.includes(href)) return effectiveUser?.role === "super_admin";
+    if (href === "/admin/elections") return effectiveUser?.role === "super_admin" || effectiveUser?.official_type === "state" || effectiveUser?.email === "sivikoomba@gmail.com";
+    if (href === "/admin/special-documents") return effectiveUser?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/analytics") return effectiveUser?.email === "tanhowa19791@gmail.com" || effectiveUser?.email === "tanhowaadmin@tanhowa.in";
+    if (href === "/admin/engagement") return effectiveUser?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/at-risk-members") return effectiveUser?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/digest") return effectiveUser?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/meetings") return effectiveUser?.role === "super_admin" || effectiveUser?.official_type === "state";
+    if (href === "/admin/photo-review") return effectiveUser?.role === "super_admin" || effectiveUser?.official_type === "state";
+    if (href === "/admin/adh-pm") return effectiveUser?.role === "super_admin" || effectiveUser?.official_type === "state";
+    if (href === "/admin/why-ministry") return effectiveUser?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/history") return effectiveUser?.role === "admin" || effectiveUser?.role === "super_admin";
+    if (href === "/admin/feedback-pulse") return effectiveUser?.email === "tanhowa19791@gmail.com";
+    if (href === "/admin/vouchers") return effectiveUser?.role === "super_admin" || (!activePreview && isFinanceTeam);
+    if (href === "/admin/field-diary-compliance") return effectiveUser?.role === "super_admin" || effectiveUser?.official_type === "state" || effectiveUser?.official_type === "district";
+    if (href === "/admin/field-diary-stories") return effectiveUser?.role === "super_admin" || effectiveUser?.official_type === "state" || effectiveUser?.official_type === "district";
     return true;
   }
 
@@ -389,6 +405,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {user?.status && (
             <p className="text-[10px] text-sidebar-foreground/40 capitalize">{user.status}</p>
           )}
+          {realIsSuperAdmin && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <Eye size={12} className="text-sidebar-foreground/50 shrink-0" />
+              <select
+                value={previewRole || "super_admin"}
+                onChange={(e) => choosePreview(e.target.value as PreviewRole)}
+                className="flex-1 min-w-0 text-[11px] bg-sidebar-accent/40 border border-sidebar-border rounded-md px-1.5 py-1 text-sidebar-foreground"
+              >
+                {PREVIEW_ROLES.map((r) => (
+                  <option key={r.value} value={r.value} className="text-foreground">{r.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="px-3 pt-2">
@@ -483,7 +513,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <main className="flex-1 p-4 sm:p-6 bg-background overflow-x-hidden overflow-y-auto relative">
           <Image src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1920&h=1080&fit=crop" alt="" fill className="object-cover opacity-[0.03] pointer-events-none" />
-          <div className="relative z-10">{children}</div>
+          <div className="relative z-10">
+            {activePreview && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <Eye size={14} className="shrink-0" />
+                <span className="flex-1">
+                  Previewing sidebar as <strong>{PREVIEW_ROLES.find((r) => r.value === activePreview)?.label}</strong> — page data still loads under your real account, this only simulates nav visibility.
+                </span>
+                <button
+                  onClick={() => choosePreview("super_admin")}
+                  className="shrink-0 font-medium underline hover:no-underline"
+                >
+                  Exit preview
+                </button>
+              </div>
+            )}
+            {children}
+          </div>
         </main>
       </div>
 
