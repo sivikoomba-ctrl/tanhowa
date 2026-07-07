@@ -903,7 +903,7 @@ export default function SubscriptionsPage() {
                           value={duesPaid}
                           onChange={(e) => setDuesPaid(e.target.value)}
                           className="h-7 text-xs text-right font-mono border-green-300 focus:border-green-500"
-                          placeholder="₹ 0"
+                          placeholder="0"
                         />
                       </td>
                       <td className="border px-1 py-0.5 text-center">
