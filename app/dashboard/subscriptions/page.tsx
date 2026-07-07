@@ -821,7 +821,7 @@ export default function SubscriptionsPage() {
                 <table className="w-full text-xs border-collapse min-w-[750px]">
                   <thead>
                     <tr className="bg-primary/5">
-                      <th className="border px-2 py-1.5 text-left font-semibold">Description</th>
+                      <th className="border px-2 py-1.5 text-left font-semibold sticky left-0 z-10 bg-primary/5">Description</th>
                       <th className="border px-2 py-1.5 text-right font-semibold w-28">Amount (₹)</th>
                       <th className="border px-2 py-1.5 text-center font-semibold w-24">Proof</th>
                       <th className="border px-2 py-1.5 text-right font-semibold w-28">Extra (₹)</th>
@@ -844,7 +844,7 @@ export default function SubscriptionsPage() {
                       const subForUpload = matchingSubs[0];
                       return (
                         <tr key={row.label}>
-                          <td className="border px-2 py-1.5">{row.label}</td>
+                          <td className="border px-2 py-1.5 sticky left-0 z-10 bg-white">{row.label}</td>
                           <td className="border px-2 py-1.5 text-right font-mono">{row.amount.toLocaleString("en-IN")}</td>
                           <td className="border px-2 py-1.5 text-center">
                             {row.amount > 0 && subForUpload && (
@@ -883,14 +883,14 @@ export default function SubscriptionsPage() {
                       );
                     })}
                     <tr className="bg-primary/5 font-semibold">
-                      <td className="border px-2 py-1.5">Total Dues</td>
+                      <td className="border px-2 py-1.5 sticky left-0 z-10 bg-primary/5">Total Dues</td>
                       <td className="border px-2 py-1.5 text-right font-mono">{duesTotalToPay.toLocaleString("en-IN")}</td>
                       <td className="border px-2 py-1.5"></td>
                       <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                       <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
                     </tr>
                     <tr className="bg-green-50">
-                      <td className="border px-2 py-1.5">
+                      <td className="border px-2 py-1.5 sticky left-0 z-10 bg-green-50">
                         <div className="flex items-center gap-1.5">
                           <Edit2 size={12} className="text-green-600 shrink-0" />
                           <span>Amount Paid (enter your total)</span>
@@ -937,7 +937,7 @@ export default function SubscriptionsPage() {
                       </td>
                     </tr>
                     <tr className={duesPending > 0 ? "bg-red-50" : "bg-green-50"}>
-                      <td className="border px-2 py-1.5 font-semibold">Pending Amount</td>
+                      <td className={`border px-2 py-1.5 font-semibold sticky left-0 z-10 ${duesPending > 0 ? "bg-red-50" : "bg-green-50"}`}>Pending Amount</td>
                       <td className={`border px-2 py-1.5 text-right font-mono font-semibold ${duesPending > 0 ? "text-red-600" : "text-green-600"}`}>
                         {duesPending > 0 ? duesPending.toLocaleString("en-IN") : "0"}
                       </td>
@@ -946,7 +946,7 @@ export default function SubscriptionsPage() {
                       <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
                     </tr>
                     <tr className="bg-amber-50">
-                      <td className="border px-2 py-1.5">
+                      <td className="border px-2 py-1.5 sticky left-0 z-10 bg-amber-50">
                         <div className="flex items-center gap-1.5">
                           <Edit2 size={12} className="text-amber-600 shrink-0" />
                           <span>Additional Amount Paid</span>
