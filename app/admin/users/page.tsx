@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Search, Filter, Calendar, Upload, ExternalLink, ChevronDown, ChevronUp, Sparkles, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
+import { displayPeriod } from "@/lib/subscriptions";
 import { DISTRICT_NAMES, getBlocks, ALL_TN_BLOCK_OPTIONS } from "@/lib/tn-districts";
 import UserCard from "./_components/UserCard";
 import EditUserDialog from "./_components/EditUserDialog";
@@ -781,7 +782,7 @@ export default function AdminUsersPage() {
                     {/* Summary row — click to expand */}
                     <button className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors" onClick={toggle}>
                       <div className="min-w-0">
-                        <p className="font-semibold">{s.period}</p>
+                        <p className="font-semibold">{displayPeriod(s.period)}</p>
                         <p className="text-xs text-muted-foreground">
                           ₹{(s.paid_amount ?? s.amount).toLocaleString("en-IN")}
                           {s.paid_amount && s.paid_amount !== s.amount && (

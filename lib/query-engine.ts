@@ -5,7 +5,7 @@
  */
 
 import { getServiceClient } from "@/lib/supabase";
-import { isFlexibleAmount } from "@/lib/subscriptions";
+import { isFlexibleAmount, displayPeriod } from "@/lib/subscriptions";
 import { sendMemberMessageEmail, sendVoucherStatusEmail, notifyNewAnnouncement, notifyNewEvent, sendSuspensionEmail, sendReinstatementEmail } from "@/lib/mail";
 import { translateContent } from "@/lib/translate-content";
 import { logAudit } from "@/lib/audit-log";
@@ -873,14 +873,14 @@ export async function setPaymentStatus(ctx: QueryContext, args: { name?: string;
       current_status: sub.status,
       action: status,
       has_proof: !!sub.payment_proof_url,
-      message: `Confirm: mark ${member.name}'s "${sub.period}" (Rs.${(sub.amount || 0).toLocaleString("en-IN")}) as ${status}? Ask the user to confirm, then call again with confirm=true.`,
+      message: `Confirm: mark ${member.name}'s "${displayPeriod(sub.period)}" (Rs.${(sub.amount || 0).toLocaleString("en-IN")}) as ${status}? Ask the user to confirm, then call again with confirm=true.`,
     };
   }
 
   // Execute
   const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
   if (status === "paid") {
-    if (!sub.payment_proof_url) return { error: `Cannot approve — no payment proof is uploaded for ${member.name}'s "${sub.period}". Ask them to upload it first.` };
+    if (!sub.payment_proof_url) return { error: `Cannot approve — no payment proof is uploaded for ${member.name}'s "${displayPeriod(sub.period)}". Ask them to upload it first.` };
     const paidAmount = args.amount != null ? Number(args.amount) : (sub.paid_amount ?? sub.amount ?? 0);
     updates.paid_at = new Date().toISOString();
     updates.approved_by = ctx.userId;
@@ -899,7 +899,7 @@ export async function setPaymentStatus(ctx: QueryContext, args: { name?: string;
   if (error) return { error: "Failed to update the payment. Please try again." };
 
   logAudit(ctx.userId, "payment_" + status, "subscription", sub.id, { member: member.name, period: sub.period, via: "assistant", by: actor.name || ctx.email });
-  return { ok: true, member: member.name, period: sub.period, status, message: `Marked ${member.name}'s "${sub.period}" as ${status}.` };
+  return { ok: true, member: member.name, period: sub.period, status, message: `Marked ${member.name}'s "${displayPeriod(sub.period)}" as ${status}.` };
 }
 
 export async function getMyAdhPmStatus(ctx: QueryContext) {

@@ -12,6 +12,7 @@ import {
   Activity, Star,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { displayPeriod } from "@/lib/subscriptions";
 import { MetricCard } from "@/components/metric-card";
 import { AdminContacts } from "@/components/admin-contacts";
 import { StatusBadge } from "@/components/status-badge";
@@ -708,7 +709,7 @@ export default function DashboardHome() {
                   mySubscriptions.map((sub) => (
                     <div key={sub.id} className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{sub.period}</p>
+                        <p className="text-sm font-medium truncate">{displayPeriod(sub.period)}</p>
                         <p className="text-xs text-muted-foreground">
                           {sub.amount > 0 ? `₹${sub.amount.toLocaleString("en-IN")}` : "Amount not set"}
                           {sub.due_date && ` · Due ${formatDate(sub.due_date)}`}

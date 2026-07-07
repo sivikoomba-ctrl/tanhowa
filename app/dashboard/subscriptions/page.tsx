@@ -14,7 +14,7 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
 import { statusStyles } from "@/components/status-badge";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
-import { isFlexibleAmount } from "@/lib/subscriptions";
+import { isFlexibleAmount, displayPeriod } from "@/lib/subscriptions";
 import { PaymentProofPreviewDialog } from "@/components/payment-proof-preview-dialog";
 import { useT } from "@/lib/i18n";
 
@@ -307,7 +307,7 @@ export default function SubscriptionsPage() {
     doc.setFontSize(10);
     doc.setTextColor(0);
     const payRows: [string, string][] = [
-      ["Subscription Period", sub.period],
+      ["Subscription Period", displayPeriod(sub.period)],
       ["Subscription Amount", `Rs. ${(sub.amount || 0).toLocaleString("en-IN")}`],
     ];
     if (sub.paid_amount && sub.paid_amount !== sub.amount) {
@@ -750,11 +750,14 @@ export default function SubscriptionsPage() {
                     {[
                       { label: "Annual Subscription (up to 2025)", amount: duesUpTo2025, filter: (s: Subscription) => /^20(1[0-9]|2[0-5])$/.test(s.period) },
                       { label: "Annual Subscription (2026)", amount: dues2026, filter: (s: Subscription) => s.period === "2026" },
-                      ...specialPeriods.map((p) => ({
-                        label: `Special Fund – ${p.replace(/^For\s+/i, "").replace(/\s+Case\s+(\d{4})$/i, " ($1)")}`,
-                        amount: subscriptions.filter((s) => s.period === p).reduce((sum, s) => sum + (s.amount || 0), 0),
-                        filter: (s: Subscription) => s.period === p,
-                      })),
+                      ...specialPeriods.map((p) => {
+                        const cleaned = p.replace(/^For\s+/i, "").replace(/\s+Case\s+(\d{4})$/i, " ($1)");
+                        return {
+                          label: cleaned.toLowerCase() === "special amount" ? "Special Fund" : `Special Fund – ${cleaned}`,
+                          amount: subscriptions.filter((s) => s.period === p).reduce((sum, s) => sum + (s.amount || 0), 0),
+                          filter: (s: Subscription) => s.period === p,
+                        };
+                      }),
                     ].map((row) => {
                       const matchingSubs = subscriptions.filter(row.filter);
                       const hasProof = matchingSubs.some((s) => s.payment_proof_url);
@@ -980,7 +983,7 @@ export default function SubscriptionsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold">{sub.period}</h3>
+                        <h3 className="font-semibold">{displayPeriod(sub.period)}</h3>
                         <Badge variant="outline" className={config.color}>
                           {config.label}
                         </Badge>
@@ -1446,7 +1449,7 @@ export default function SubscriptionsPage() {
                     }}
                     className="accent-primary"
                   />
-                  <span className="flex-1 text-sm">{s.period}</span>
+                  <span className="flex-1 text-sm">{displayPeriod(s.period)}</span>
                   <span className="text-sm font-mono">&#8377;{(s.amount || 0).toLocaleString("en-IN")}</span>
                 </label>
               ))}

@@ -14,3 +14,13 @@ export function isFlexibleAmount(sub: {
   if (sub?.flexible_amount) return true;
   return (sub?.period || "").toLowerCase().startsWith("volunteer");
 }
+
+/**
+ * Display label for a subscription period. "Special Amount" reads as "Special
+ * Fund" everywhere it's shown to users — the stored `period` value is left
+ * untouched since it's used for dedup/matching (e.g. `.ilike("period", ...)`).
+ */
+export function displayPeriod(period: string | null | undefined): string {
+  if ((period || "").toLowerCase() === "special amount") return "Special Fund";
+  return period || "";
+}

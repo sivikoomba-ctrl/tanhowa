@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
+import { displayPeriod } from "@/lib/subscriptions";
 
 interface CalendarItem {
   type: "event" | "training" | "subscription" | "task";
@@ -135,7 +136,7 @@ export default function CalendarPage() {
         if (s.due_date && (s.status === "pending" || s.status === "overdue")) {
           const d = new Date(s.due_date);
           if (d >= new Date(year, month, 1) && d <= new Date(year, month + 1, 0, 23, 59, 59)) {
-            allItems.push({ type: "subscription", title: `${s.period} - Rs.${s.amount}`, date: s.due_date, id: `sub-${s.id}` });
+            allItems.push({ type: "subscription", title: `${displayPeriod(s.period)} - Rs.${s.amount}`, date: s.due_date, id: `sub-${s.id}` });
           }
         }
       }

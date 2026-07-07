@@ -31,6 +31,7 @@ import {
   FileText,
 } from "lucide-react";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
+import { displayPeriod } from "@/lib/subscriptions";
 
 interface Subscription {
   id: string;
@@ -599,7 +600,7 @@ export default function VerifyPaymentsPage() {
                                   <Phone size={10} /> {sub.member_phone}
                                 </a>
                               )}
-                              <span>{sub.period}</span>
+                              <span>{displayPeriod(sub.period)}</span>
                               <span className="font-semibold text-foreground flex items-center gap-0.5">
                                 <IndianRupee size={10} /> {sub.amount.toLocaleString("en-IN")}
                               </span>

@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import { useT, useLang } from "@/lib/i18n";
 import { usePathname } from "next/navigation";
+import { displayPeriod } from "@/lib/subscriptions";
 
 interface Sub {
   id: string;
@@ -177,7 +178,7 @@ export default function ChatbotWidget() {
     if (pendingSubs.length > 0) {
       text += `You have **${pendingSubs.length} pending payment${pendingSubs.length > 1 ? "s" : ""}**:\n`;
       pendingSubs.forEach((s) => {
-        text += `- **${s.period}** — ₹${s.amount.toLocaleString("en-IN")} (${s.status})\n`;
+        text += `- **${displayPeriod(s.period)}** — ₹${s.amount.toLocaleString("en-IN")} (${s.status})\n`;
       });
       text += `\nTap 📎 below to upload a payment proof, or ask me anything!`;
     } else {
@@ -234,7 +235,7 @@ export default function ChatbotWidget() {
 
   function selectSubForUpload(sub: Sub) {
     setUploadTargetSub(sub);
-    addBotMessage(`Got it — uploading proof for **${sub.period}**. Please select your payment screenshot or receipt.`);
+    addBotMessage(`Got it — uploading proof for **${displayPeriod(sub.period)}**. Please select your payment screenshot or receipt.`);
     setTimeout(() => proofInputRef.current?.click(), 50);
   }
 
@@ -612,7 +613,7 @@ export default function ChatbotWidget() {
                           className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-xs text-left transition-colors"
                         >
                           <CreditCard size={12} className="text-primary shrink-0" />
-                          <span className="font-medium">{s.period}</span>
+                          <span className="font-medium">{displayPeriod(s.period)}</span>
                           <span className="text-muted-foreground ml-auto">₹{s.amount.toLocaleString("en-IN")}</span>
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${s.status === "overdue" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{s.status}</span>
                         </button>

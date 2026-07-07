@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { isFlexibleAmount } from "@/lib/subscriptions";
+import { isFlexibleAmount, displayPeriod } from "@/lib/subscriptions";
 import { toast } from "sonner";
 import {
   Wallet,
@@ -1390,7 +1390,7 @@ export default function AdminSubscriptionsPage() {
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{sub.users?.email} {sub.users?.phone && `| ${sub.users.phone}`}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <Badge variant="secondary" className="text-xs">{sub.period}</Badge>
+                        <Badge variant="secondary" className="text-xs">{displayPeriod(sub.period)}</Badge>
                         {isFlexibleAmount(sub) && (
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px]">Flexible</Badge>
                         )}
@@ -1797,7 +1797,7 @@ export default function AdminSubscriptionsPage() {
                         <div key={s.id} className="flex items-center justify-between text-xs">
                           <span className="font-medium">{s.users?.name || s.users?.email}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">{s.period}</span>
+                            <span className="text-muted-foreground">{displayPeriod(s.period)}</span>
                             <span>&#8377;{(s.amount || 0).toLocaleString("en-IN")}</span>
                             <Badge variant="outline" className="text-[10px] h-5 capitalize">{s.status}</Badge>
                           </div>
@@ -1965,7 +1965,7 @@ export default function AdminSubscriptionsPage() {
                               className="rounded"
                             />
                             <div className="flex-1 flex items-center justify-between">
-                              <span className="font-semibold">{s.period}</span>
+                              <span className="font-semibold">{displayPeriod(s.period)}</span>
                               <div className="flex items-center gap-2">
                                 <span className="text-muted-foreground">&#8377;{(s.amount || 0).toLocaleString("en-IN")}</span>
                                 <Badge variant="outline" className="text-[10px] h-5 capitalize">{s.status}</Badge>
@@ -2249,7 +2249,7 @@ export default function AdminSubscriptionsPage() {
                         <p className="text-xs text-muted-foreground truncate">{sub.users?.email} {sub.users?.phone && `| ${sub.users.phone}`}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <Badge variant="secondary" className="text-[10px]">{sub.period}</Badge>
+                        <Badge variant="secondary" className="text-[10px]">{displayPeriod(sub.period)}</Badge>
                         {isFlexibleAmount(sub) && (
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-[10px] ml-1">Flexible</Badge>
                         )}

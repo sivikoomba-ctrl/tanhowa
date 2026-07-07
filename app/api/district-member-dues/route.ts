@@ -119,12 +119,13 @@ export async function GET(req: NextRequest) {
       const funds: FundRow[] = [
         buildFund("Annual Subscription (up to 2025)", upTo2025),
         buildFund("Annual Subscription (2026)", y2026),
-        ...specialPeriods.map((p) =>
-          buildFund(
-            `Special Fund – ${(p || "").replace(/^For\s+/i, "").replace(/\s+Case\s+(\d{4})$/i, " ($1)")}`,
+        ...specialPeriods.map((p) => {
+          const cleaned = (p || "").replace(/^For\s+/i, "").replace(/\s+Case\s+(\d{4})$/i, " ($1)");
+          return buildFund(
+            cleaned.toLowerCase() === "special amount" ? "Special Fund" : `Special Fund – ${cleaned}`,
             mySubs.filter((s) => s.period === p)
-          )
-        ),
+          );
+        }),
       ];
 
       const totalDue = funds.reduce((sum, f) => sum + f.due, 0);
