@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, Save, Calculator, ScanLine, Trash2, Plus } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, AlertTriangle, PauseCircle, Upload, QrCode, ImageIcon, Eye, Edit2, Users, Info, User, Search, X, IndianRupee, FileDown, Mail, Leaf, Calculator, ScanLine, Trash2, Plus } from "lucide-react";
 import jsPDF from "jspdf";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MetricCard } from "@/components/metric-card";
@@ -34,7 +34,7 @@ interface MemberInfo {
   occupation: string;
   avatar_url: string | null;
   posting_details?: { regular_district?: string; block?: string };
-  social_links?: { dues_summary?: { amount_paid?: number; additional_money?: number; proof_url?: string; proofs?: { url: string; date: string }[] }; [key: string]: unknown };
+  social_links?: { [key: string]: unknown };
 }
 
 interface Subscription {
@@ -87,13 +87,6 @@ export default function SubscriptionsPage() {
   const t = useT();
 
   // Association Due Summary
-  const [duesPaid, setDuesPaid] = useState("");
-  const [duesAdditional, setDuesAdditional] = useState("");
-  const [duesSaving, setDuesSaving] = useState(false);
-  const [duesLoaded, setDuesLoaded] = useState(false);
-  const [duesProofs, setDuesProofs] = useState<{ url: string; date: string }[]>([]);
-  const [duesProofUploading, setDuesProofUploading] = useState(false);
-  const duesFileRef = useRef<HTMLInputElement>(null);
   const [duesProofPreview, setDuesProofPreview] = useState<string | null>(null);
   const [detailsProofSignedUrl, setDetailsProofSignedUrl] = useState<string | null>(null);
 
@@ -449,16 +442,6 @@ export default function SubscriptionsPage() {
       .then((d) => {
         if (d.user) {
           setMember(d.user);
-          // Load saved dues summary from social_links
-          const ds = d.user.social_links?.dues_summary;
-          if (ds) {
-            if (ds.amount_paid != null) setDuesPaid(String(ds.amount_paid));
-            if (ds.additional_money != null) setDuesAdditional(String(ds.additional_money));
-            if (Array.isArray(ds.proofs)) setDuesProofs(ds.proofs);
-            // Migrate old single proof_url
-            else if (ds.proof_url) setDuesProofs([{ url: ds.proof_url, date: new Date().toISOString() }]);
-          }
-          setDuesLoaded(true);
         }
       })
       .catch(() => {});
@@ -517,72 +500,7 @@ export default function SubscriptionsPage() {
   const duesVerifiedPaid = subscriptions
     .filter((s) => s.status === "paid")
     .reduce((sum, s) => sum + (s.paid_amount ?? s.amount ?? 0), 0);
-  const duesPaidNum = Number(duesPaid) || 0;
-  const duesAdditionalNum = Number(duesAdditional) || 0;
-  const duesPending = duesTotalToPay - duesPaidNum;
-
-  async function handleDuesProofUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast.error("Max 10MB"); return; }
-    setDuesProofUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      // Use a dummy subscription_id — proof is stored in general bucket
-      formData.append("subscription_id", "dues-summary");
-      const res = await fetch("/api/upload/payment-proof", { method: "POST", body: formData });
-      const data = await res.json();
-      if (res.ok && data.payment_proof_url) {
-        setDuesProofs((prev) => [...prev, { url: data.payment_proof_url, date: new Date().toISOString() }]);
-        toast.success("Proof uploaded! Click Save to keep it.");
-      } else {
-        toast.error(data.error || "Upload failed");
-      }
-    } catch {
-      toast.error("Upload failed");
-    } finally {
-      setDuesProofUploading(false);
-      if (duesFileRef.current) duesFileRef.current.value = "";
-    }
-  }
-
-  async function saveDuesSummary() {
-    if (!member) return;
-    setDuesSaving(true);
-    try {
-      const updatedSocialLinks = {
-        ...member.social_links || {},
-        dues_summary: {
-          amount_paid: duesPaidNum,
-          additional_money: duesAdditionalNum,
-          proofs: duesProofs,
-        },
-      };
-      const res = await fetch("/api/users/me", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: member.name,
-          phone: member.phone,
-          occupation: member.occupation,
-          social_links: updatedSocialLinks,
-          posting_details: member.posting_details || {},
-        }),
-      });
-      if (res.ok) {
-        toast.success("Due summary saved!");
-        setMember({ ...member, social_links: updatedSocialLinks });
-      } else {
-        const d = await res.json().catch(() => null);
-        toast.error(d?.error || "Failed to save");
-      }
-    } catch {
-      toast.error("Failed to save");
-    } finally {
-      setDuesSaving(false);
-    }
-  }
+  const duesPending = duesTotalToPay - duesVerifiedPaid;
 
   function triggerUpload(subId: string) {
     setUploadTargetId(subId);
@@ -805,7 +723,7 @@ export default function SubscriptionsPage() {
       </Card>
 
       {/* Association Due Summary */}
-      {duesLoaded && subscriptions.length > 0 && (
+      {subscriptions.length > 0 && (
         <Card className="border-primary/15">
           <div className="px-5 py-3">
             <div className="flex items-center gap-2">
@@ -896,45 +814,6 @@ export default function SubscriptionsPage() {
                       <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                       <td className="border px-2 py-1.5"></td>
                     </tr>
-                    <tr className="bg-green-50">
-                      <td className="border px-2 py-1.5 sticky left-0 z-10 bg-green-50">
-                        <div className="flex items-center gap-1.5">
-                          <Edit2 size={12} className="text-green-600 shrink-0" />
-                          <span>Amount Paid (enter your total)</span>
-                        </div>
-                      </td>
-                      <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
-                      <td className="border px-1 py-0.5">
-                        <Input
-                          type="number"
-                          min="0"
-                          value={duesPaid}
-                          onChange={(e) => setDuesPaid(e.target.value)}
-                          className="h-7 text-xs text-right font-mono border-green-300 focus:border-green-500"
-                          placeholder="0"
-                        />
-                      </td>
-                      <td className="border px-2 py-1.5 text-right font-mono text-green-600 font-semibold">
-                        {duesPaidNum > duesTotalToPay ? `+${(duesPaidNum - duesTotalToPay).toLocaleString("en-IN")}` : "—"}
-                      </td>
-                      <td className="border px-1 py-0.5 text-center">
-                        <input
-                          ref={duesFileRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          className="hidden"
-                          onChange={handleDuesProofUpload}
-                        />
-                        <button
-                          onClick={() => duesFileRef.current?.click()}
-                          disabled={duesProofUploading}
-                          className="text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded hover:bg-blue-100 inline-flex items-center gap-1 disabled:opacity-50"
-                        >
-                          <Upload size={10} className={duesProofUploading ? "animate-pulse" : ""} />
-                          {duesProofUploading ? "Uploading..." : "Attach"}
-                        </button>
-                      </td>
-                    </tr>
                     <tr className={duesPending > 0 ? "bg-red-50" : "bg-green-50"}>
                       <td className={`border px-2 py-1.5 font-semibold sticky left-0 z-10 ${duesPending > 0 ? "bg-red-50" : "bg-green-50"}`}>Pending Amount</td>
                       <td className={`border px-2 py-1.5 text-right font-mono font-semibold ${duesPending > 0 ? "text-red-600" : "text-green-600"}`}>
@@ -944,58 +823,9 @@ export default function SubscriptionsPage() {
                       <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                       <td className="border px-2 py-1.5"></td>
                     </tr>
-                    <tr className="bg-amber-50">
-                      <td className="border px-2 py-1.5 sticky left-0 z-10 bg-amber-50">
-                        <div className="flex items-center gap-1.5">
-                          <Edit2 size={12} className="text-amber-600 shrink-0" />
-                          <span>Additional Amount Paid</span>
-                        </div>
-                      </td>
-                      <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
-                      <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
-                      <td className="border px-1 py-0.5">
-                        <Input
-                          type="number"
-                          min="0"
-                          value={duesAdditional}
-                          onChange={(e) => setDuesAdditional(e.target.value)}
-                          className="h-7 text-xs text-right font-mono border-amber-300 focus:border-amber-500"
-                          placeholder="0"
-                        />
-                      </td>
-                      <td className="border px-2 py-1.5"></td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
-
-              {/* Save */}
-              <div className="mt-3 flex items-center gap-3 flex-wrap">
-                <div className="flex-1" />
-                <Button size="sm" onClick={saveDuesSummary} disabled={duesSaving} className="text-xs h-8">
-                  {duesSaving ? "Saving..." : <><Save size={14} className="mr-1.5" /> Save</>}
-                </Button>
-              </div>
-
-              {/* Uploaded proofs list */}
-              {duesProofs.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  <p className="text-[10px] text-muted-foreground font-medium">Uploaded Proofs ({duesProofs.length})</p>
-                  <div className="flex flex-wrap gap-2">
-                    {duesProofs.map((p, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setDuesProofPreview(p.url)}
-                        className="flex items-center gap-1.5 text-[10px] text-green-700 bg-green-50 px-2 py-1 rounded-lg hover:bg-green-100 transition-colors border border-green-200"
-                      >
-                        <Eye size={11} />
-                        <span>Proof {i + 1}</span>
-                        <span className="text-green-500">({new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })})</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </CardContent>
 
           {/* Dues Proof Preview */}
