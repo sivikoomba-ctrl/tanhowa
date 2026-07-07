@@ -34,7 +34,7 @@ interface MemberInfo {
   occupation: string;
   avatar_url: string | null;
   posting_details?: { regular_district?: string; block?: string };
-  social_links?: { dues_summary?: { amount_paid?: number; additional_money?: number; paid_date?: string; proof_url?: string; proofs?: { url: string; date: string }[] }; [key: string]: unknown };
+  social_links?: { dues_summary?: { amount_paid?: number; additional_money?: number; proof_url?: string; proofs?: { url: string; date: string }[] }; [key: string]: unknown };
 }
 
 interface Subscription {
@@ -89,7 +89,6 @@ export default function SubscriptionsPage() {
   // Association Due Summary
   const [duesPaid, setDuesPaid] = useState("");
   const [duesAdditional, setDuesAdditional] = useState("");
-  const [duesPaidDate, setDuesPaidDate] = useState("");
   const [duesSaving, setDuesSaving] = useState(false);
   const [duesLoaded, setDuesLoaded] = useState(false);
   const [duesProofs, setDuesProofs] = useState<{ url: string; date: string }[]>([]);
@@ -455,7 +454,6 @@ export default function SubscriptionsPage() {
           if (ds) {
             if (ds.amount_paid != null) setDuesPaid(String(ds.amount_paid));
             if (ds.additional_money != null) setDuesAdditional(String(ds.additional_money));
-            if (ds.paid_date) setDuesPaidDate(ds.paid_date);
             if (Array.isArray(ds.proofs)) setDuesProofs(ds.proofs);
             // Migrate old single proof_url
             else if (ds.proof_url) setDuesProofs([{ url: ds.proof_url, date: new Date().toISOString() }]);
@@ -555,7 +553,6 @@ export default function SubscriptionsPage() {
         dues_summary: {
           amount_paid: duesPaidNum,
           additional_money: duesAdditionalNum,
-          paid_date: duesPaidDate,
           proofs: duesProofs,
         },
       };
@@ -825,7 +822,6 @@ export default function SubscriptionsPage() {
                       <th className="border px-2 py-1.5 text-right font-semibold w-28">Amount (₹)</th>
                       <th className="border px-2 py-1.5 text-center font-semibold w-24">Proof</th>
                       <th className="border px-2 py-1.5 text-right font-semibold w-28">Extra (₹)</th>
-                      <th className="border px-2 py-1.5 text-center font-semibold w-32">Date Paid</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -878,7 +874,6 @@ export default function SubscriptionsPage() {
                             {row.amount === 0 && <span className="text-muted-foreground">—</span>}
                           </td>
                           <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
-                          <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
                         </tr>
                       );
                     })}
@@ -887,7 +882,6 @@ export default function SubscriptionsPage() {
                       <td className="border px-2 py-1.5 text-right font-mono">{duesTotalToPay.toLocaleString("en-IN")}</td>
                       <td className="border px-2 py-1.5"></td>
                       <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
-                      <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
                     </tr>
                     <tr className="bg-green-50">
                       <td className="border px-2 py-1.5 sticky left-0 z-10 bg-green-50">
@@ -926,15 +920,6 @@ export default function SubscriptionsPage() {
                       <td className="border px-2 py-1.5 text-right font-mono text-green-600 font-semibold">
                         {duesPaidNum > duesTotalToPay ? `+${(duesPaidNum - duesTotalToPay).toLocaleString("en-IN")}` : "—"}
                       </td>
-                      <td className="border px-1 py-0.5">
-                        <Input
-                          type="date"
-                          value={duesPaidDate}
-                          onChange={(e) => setDuesPaidDate(e.target.value)}
-                          max={new Date().toISOString().slice(0, 10)}
-                          className="h-7 text-xs text-center font-mono border-green-300 focus:border-green-500"
-                        />
-                      </td>
                     </tr>
                     <tr className={duesPending > 0 ? "bg-red-50" : "bg-green-50"}>
                       <td className={`border px-2 py-1.5 font-semibold sticky left-0 z-10 ${duesPending > 0 ? "bg-red-50" : "bg-green-50"}`}>Pending Amount</td>
@@ -943,7 +928,6 @@ export default function SubscriptionsPage() {
                       </td>
                       <td className="border px-2 py-1.5"></td>
                       <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
-                      <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
                     </tr>
                     <tr className="bg-amber-50">
                       <td className="border px-2 py-1.5 sticky left-0 z-10 bg-amber-50">
@@ -966,7 +950,6 @@ export default function SubscriptionsPage() {
                       <td className="border px-2 py-1.5 text-right font-mono text-amber-600 font-semibold">
                         {duesAdditionalNum > 0 ? `+${duesAdditionalNum.toLocaleString("en-IN")}` : "—"}
                       </td>
-                      <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
                     </tr>
                   </tbody>
                 </table>
