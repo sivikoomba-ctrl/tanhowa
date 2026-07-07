@@ -22,7 +22,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 
 **Member features:** [Member Dashboard Widgets](#member-dashboard-home-widgets) · [Field Diary](#field-diary) · [Suggestions & Grievances](#suggestions--grievances-split) · [Polls](#polls) · [Wishlist / IDEA BOARD](#wishlist--idea-board) · [Logo Vote](#logo-vote) · [Elections](#elections-posts-nominations--polling) · [Direct Messages](#direct-messages) · [Group Chat](#group-chat) · [Calendar & iCal](#calendar--ical-export) · [Event RSVP](#event-rsvp) · [Announcement Read Tracking](#announcement-read-tracking) · [Achievements / Badges](#achievements--badges) · [Contributions Tracking](#contributions-tracking) · [Member Directory Sorting](#member-directory-sorting) · [Digital Member ID Card](#digital-member-id-card) · [Profile Completeness](#profile-completeness) · [Mandatory Profile Completion](#mandatory-profile-completion) · [Location Sharing](#location-sharing--nearby-members) · [Trainings System](#trainings-system) · [TANHOWA History Timeline](#tanhowa-history-timeline) · [Member Feedback Loop](#member-feedback-loop--ai-pulse-super-admin-only) · [Service Requests](#service-requests) · [Volunteer Invites](#volunteer-invites)
 
-**Subscriptions / Finance / Tasks:** [Subscription Auto-Sync](#subscription-auto-sync) · [Special Subscriptions](#special-subscriptions) · [Payment Group Linking](#payment-group-linking) · [Payment Status Transparency](#payment-status-transparency) · [District Roster](#district-roster-admin) · [Finance (Bank Reconciliation)](#finance-bank-reconciliation) · [Expense Vouchers](#expense-vouchers-officials-only) · [Task Management](#task-management-system) · [Task Gamification](#task-gamification) · [e-Resolutions](#e-resolutions-voting-system) · [Reports & Analytics](#reports--analytics-adminreports) · [District Benchmark](#district-benchmark) · [Engagement Analytics](#engagement-analytics)
+**Subscriptions / Finance / Tasks:** [Subscription Auto-Sync](#subscription-auto-sync) · [Special Subscriptions](#special-subscriptions) · [Payment Group Linking](#payment-group-linking) · [District Dues](#district-dues-admin) · [Association Dues Summary](#association-dues-summary-member-dashboard) · [Payment Status Transparency](#payment-status-transparency) · [District Roster](#district-roster-admin) · [DC Representation](#dc-representation) · [Finance (Bank Reconciliation)](#finance-bank-reconciliation) · [Expense Vouchers](#expense-vouchers-officials-only) · [Task Management](#task-management-system) · [Task Gamification](#task-gamification) · [e-Resolutions](#e-resolutions-voting-system) · [Reports & Analytics](#reports--analytics-adminreports) · [District Benchmark](#district-benchmark) · [Engagement Analytics](#engagement-analytics)
 
 **Roles & private spaces:** [Officials System](#officials-system) · [Team Lead & Legal Advisor](#team-lead-role--legal-advisor) · [Private Teams & Project H](#private-teams--project-h) · [Letters & Forms](#letters--forms-superadminonly) · [Why-Ministry Position Paper](#why-ministry-position-paper-super-admin-only) · [Owner-Only Admin Tools](#owner-only-admin-tools) · [Account Suspension](#account-suspension) · [Content Scheduling](#content-scheduling)
 
@@ -193,6 +193,7 @@ One-line index. For column-level detail, jump to the matching feature section be
 | `admin_documents` | Owner-only private document vault (see Owner-Only Admin Tools) |
 | `task_points` | Task-gamification points ledger (see Task Gamification) |
 | `field_diary_entries` / `field_diary_media` | Daily field-work log — text + photo/audio/video, AI success-story drafts (see Field Diary) |
+| `dc_representation` / `dc_representation_media` | District Collector/DDH/JDA representation-letter tracker per district (see DC Representation) |
 
 **Additional user columns:**
 - `office_address` (TEXT), `last_active_at` (TIMESTAMPTZ, updated on every `/api/users/me` GET), `telegram_chat_id` (TEXT), `telegram_last_cmd_msg_id` (BIGINT — id of the bot's last command-response message; used by `sendTelegramMessageReplace` to delete the prior reply so command replies stack-replace instead of accumulating)
@@ -344,6 +345,10 @@ Uses **ZeptoMail API** (Zoho's transactional email service) via REST — no SMTP
 - `DEFAULT_ADMIN_EMAIL = "tanhowaadmin@tanhowa.in"` is auto-assigned `super_admin` role on login — never goes through onboarding, cannot be demoted or deleted
 - Regular admins can be promoted/demoted by any admin; super_admin role is only auto-assigned to the default admin email
 - Admin user actions: approve, reject, nudge (profile completion), change role
+
+### Preview as role (`lib/preview-role.ts`)
+
+Super-admin-only, **client-side-only** sidebar simulation (a `<select>` in the `app/admin/layout.tsx` sidebar header) letting a super-admin see the admin nav as it would render for Member/District Official/State Official/Super-admin, without changing any real permissions. Stored in `sessionStorage` (`tanhowa-preview-role` key), never sent to the server. `previewToUserFields()` swaps only the `{role, official_type, email}` object that `isNavItemVisible()` checks read — email is blanked during any active preview so per-person allowlist checks (e.g. owner-only gates) don't leak the real account's identity through the simulation. Page data still loads under the real account; this is nav-visibility preview only, not impersonation. An amber banner shows while a non-default preview is active, with an "Exit preview" button.
 
 ## Daily Greetings (`lib/daily-greetings.ts`)
 
@@ -1004,6 +1009,15 @@ Admin-only consolidated roster at `/admin/roster` + `/api/roster` (all handlers 
 - **Add Member** writes a manual `roster_entries` row (name + district required; designation/block/phone/email optional), audit-logged `roster_add` / `roster_delete`.
 - **Export:** "Print" opens a clean grouped print view in a new window (browser dialog → print or Save-as-PDF, Unicode-safe via system fonts); "Save PDF" downloads a landscape jsPDF (`autoTable` per district). Both honor the active search + district filter. Names are Latin-script so jsPDF is safe; the Print path covers any Tamil.
 
+## DC Representation
+
+Tracks whether each of TN's 38 districts has delivered TANHOWA's representation letter to the **District Collector**, **DDH**, and **JDA** — one row per district+office. Self-reported by that district's DS/DJS, rolled up state-wide for the State-Admin.
+
+- **Page:** `/admin/dc-representation` — district officials get a direct 3-office-card edit view for their own district; state/super-admin get a rollup table across all 38 districts with a drill-in dialog to edit any district.
+- **API:** `/api/dc-representation` (GET rollup or single-district detail, PUT upsert status/date/remarks — district forced to the caller's own district for district officials) + `/api/dc-representation/media` (letter/photo uploads to the private `dc-representation-media` bucket, same signed-URL pattern as Field Diary media).
+- **Tables:** `dc_representation` (district, office, status `given`/`not_given`, date_given, remarks, submitted_by — `UNIQUE(district, office)`) + `dc_representation_media` (entry_id FK, media_type `letter`/`photo`, cascade-deleted with the entry). Schema: `supabase/dc_representation_schema.sql`.
+- **Caps:** 1 letter, 6 photos per district+office entry.
+
 ## Payment Status Transparency
 
 All logged-in members can view district-wise subscription payment status at `/dashboard/payment-status`.
@@ -1013,6 +1027,19 @@ All logged-in members can view district-wise subscription payment status at `/da
 - **UI:** 4 summary MetricCards, top 5 districts by payment rate with progress bars, district-wise expandable accordion with member names + StatusBadge, period selector, search filter
 - **Sorting:** Members within each district sorted by designation hierarchy (ADDH → JDH → DDH → ADH → HO)
 - **Excludes:** Test accounts (tanhowa19791@gmail.com, tanhowaadmin@tanhowa.in)
+
+## District Dues (admin)
+
+Two related but distinct district-scoped dues tools, both open to admins, state officials, and district officials (DS/DJS see only their own district — `getOfficialInfo()` district-scoping pattern, not owner-gated):
+
+- **`/admin/district-dues` + `/api/district-dues`** — the older calculator. District-grouped table with **inline-editable** `amount_paid` / `additional_money` per member, written into `users.social_links.dues_summary` — a manual, self-reported figure **not derived from real `subscriptions` rows**. Predates the verified-data approach below; kept for now but consider retiring once the newer tool covers the same ground.
+- **`/admin/district-member-dues` + `/api/district-member-dues`** — the newer, verified-data tool for DS/DJS to see their district's members' dues. Built entirely from real `subscriptions` fields (`amount`, `paid_amount`, `payment_proof_url`) via `fetchAllRows()` — no `social_links` involved, read-only. District-grouped accordion → per-member drill-down showing the same `Description | Due Amount | Amount Paid | Extra Paid | Proof` breakdown as the member's own Association Dues Summary table (below), with a signed-URL proof preview reusing `fetchSignedPaymentProofUrl()` / `<PaymentProofPreviewDialog>`.
+
+## Association Dues Summary (member dashboard)
+
+Card on `/dashboard/subscriptions` (`t("subs.association_dues")`) showing each member their own dues broken down by fund, entirely from real `subscriptions` data (no self-report/Save flow — that was removed in favor of admin-verified figures). Rows: `Annual Subscription (up to 2025)`, `Annual Subscription (2026)`, then one `Special Fund – <label>` row per special period the member has (via `displayPeriod()`/label cleanup — see below). Columns: **Due Amount (₹) | Amount Paid (₹) | Extra Paid (₹) | Proof** — Amount Paid sums `paid_amount` for `status==="paid"` rows, Extra Paid is `max(0, paid − due)`, Proof opens a signed-URL preview of any subscription in that fund with a `payment_proof_url`. Table uses `border-separate` (not `border-collapse` — the latter breaks `position: sticky` on table cells, especially iOS Safari) with a sticky first (`Description`) column so the row label stays visible on mobile horizontal scroll.
+
+**`lib/subscriptions.ts`** also exports `displayPeriod(period)` alongside `isFlexibleAmount()` — renders the stored period `"Special Amount"` as `"Special Fund"` for display everywhere (dashboard, admin pages, chatbot, calendar, receipts, AI assistant messages) while leaving the actual stored `period` value untouched, since it's used for dedup/matching (`.ilike("period", "Special Amount")` in `/api/subscriptions`). Use this helper — not a raw `sub.period` — anywhere a period is rendered as user-facing text.
 
 ## Digital Member ID Card
 
@@ -1232,16 +1259,17 @@ Admins can suspend approved members. Status flow: `pending` → `approved` → `
 
 ## Owner-Only Admin Tools
 
-Four admin pages restricted to the owner (`tanhowa19791@gmail.com`). All four follow the same gating pattern: API route checks `session.email`, sidebar in `app/admin/layout.tsx` filters them out for everyone else. **Add owner-gated tools here, not as one-off pages.**
+Three admin pages restricted to the owner (`tanhowa19791@gmail.com`). All three follow the same gating pattern: API route checks `session.email`, sidebar in `app/admin/layout.tsx` filters them out for everyone else. **Add owner-gated tools here, not as one-off pages.**
 
 | Page | API | Storage | Purpose |
 |------|-----|---------|---------|
 | `/admin/special-tasks` | `/api/admin-tasks` | `admin_tasks` table | Private parallel task tracker (3 types: `internal`, `assigned`, `checklist`). Same priority/status vocabulary as the public `todos` system but lives in its own table so owner work doesn't pollute member-visible lists. |
 | `/admin/special-documents` | `/api/admin-documents` + `/api/admin-documents/folders` | `admin_documents` + `admin_document_folders` tables + private storage bucket | Document vault for confidential files, organized in user-created folders (folder-card landing grid → drill into doc list; "Unfiled" for folder_id NULL; deleting a folder unfiles its docs). The old category dropdown is retired from the UI — `category` is a legacy column, new uploads store NULL. Hidden from regular members and admins. |
-| `/admin/district-dues` | `/api/district-dues` | Reads `subscriptions` + writes `amount_paid` + `additional_money` per member | District-grouped dues calculator: shows pending across 2025, 2026, UATT case for every member, with inline edit of `amount_paid` / `additional_money`. Replaces an external spreadsheet that was previously emailed around. |
 | `/admin/settings` | `/api/settings` | `site_settings` key/value table | Branding, payee bank details, payment QR upload (`/api/upload/qr-code`), contact info, feature toggles. Free-form key/value editor — be careful, no schema validation. |
 
 **Owner check is the source of truth, not the role.** A district admin (`role=admin`) cannot reach these pages; a future second super_admin would need an explicit allowlist update if you ever stop hardcoding the email.
+
+**Note:** `/admin/district-dues` is NOT owner-only despite its similar placement in earlier docs — its API (`/api/district-dues`) gates on `isAdmin || isState || isDistrict` (any admin, state official, or district official with a district set), same as regular admin tools. See District Dues below.
 
 ## Calendar & iCal Export
 
