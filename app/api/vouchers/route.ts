@@ -264,6 +264,38 @@ export async function PUT(req: NextRequest) {
       if (body.payment_transaction_id !== undefined) updates.payment_transaction_id = body.payment_transaction_id;
       if (body.payment_date !== undefined) updates.payment_date = body.payment_date;
       if (body.paid_to !== undefined) updates.paid_to = body.paid_to;
+
+      // Submitters may attach a receipt/payment-proof for the FIRST time —
+      // filling a gap left by the original submission (e.g. only a payment
+      // screenshot was uploaded, no bill) — but can never replace one that
+      // already exists. Checked against the DB, not trusted from the client
+      // (receipt-substitution fix).
+      if (body.receipt_url !== undefined || body.payment_proof_url !== undefined) {
+        const { data: existingRows } = await supabase
+          .from("expense_vouchers")
+          .select("id, receipt_url, payment_proof_url")
+          .in("id", ids)
+          .eq("submitted_by", session.userId)
+          .eq("status", "pending");
+        if (body.receipt_url !== undefined) {
+          if ((existingRows || []).some((r) => r.receipt_url)) {
+            return NextResponse.json(
+              { error: "This voucher already has a receipt attached — it cannot be replaced." },
+              { status: 409 }
+            );
+          }
+          updates.receipt_url = body.receipt_url;
+        }
+        if (body.payment_proof_url !== undefined) {
+          if ((existingRows || []).some((r) => r.payment_proof_url)) {
+            return NextResponse.json(
+              { error: "This voucher already has a payment proof attached — it cannot be replaced." },
+              { status: 409 }
+            );
+          }
+          updates.payment_proof_url = body.payment_proof_url;
+        }
+      }
     }
 
     // Guard: a voucher settled against an issued/cleared cheque must not be
@@ -289,11 +321,23 @@ export async function PUT(req: NextRequest) {
       query = query.eq("submitted_by", session.userId).eq("status", "pending");
     }
 
-    const { error } = await query;
+    // .select() so we can tell "matched 0 rows" apart from "matched N rows" —
+    // Supabase returns error: null in both cases, so checking only `error`
+    // silently reports success for an update that wrote nothing (e.g. the
+    // submitter's own-voucher edit no longer matches because Finance changed
+    // its status between the edit dialog opening and Save being clicked).
+    const { data: updatedRows, error } = await query.select("id");
 
     if (error) {
       await logError({ type: "api", message: error.message, path: "/api/vouchers", method: "PUT", status_code: 500 });
       return NextResponse.json({ error: "Failed to update voucher" }, { status: 500 });
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      return NextResponse.json(
+        { error: "Voucher not found, or it can no longer be edited (its status may have changed)." },
+        { status: 409 }
+      );
     }
 
     // Send email notifications for status changes (fire-and-forget)
@@ -320,7 +364,7 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ message: "Updated", count: ids.length });
+    return NextResponse.json({ message: "Updated", count: updatedRows.length });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/vouchers", method: "PUT", status_code: 500 });

@@ -16,6 +16,100 @@ import { useT } from "@/lib/i18n";
 
 const expenseCategories = ["Travel", "Printing", "Food & Refreshments", "Stationery", "Communication", "Venue & Hall", "Transport", "Miscellaneous"];
 
+type VoucherFormFields = {
+  title: string;
+  amount: string;
+  description: string;
+  invoice_number: string;
+  vendor_name: string;
+  expense_date: string;
+  expense_event: string;
+  category: string;
+  payment_method: string;
+  payment_transaction_id: string;
+  payment_date: string;
+  paid_to: string;
+};
+
+interface BillScanData {
+  vendor_name?: string;
+  total_amount?: number;
+  invoice_number?: string;
+  category?: string;
+  date?: string;
+  items?: { description: string; quantity?: number; amount?: number }[];
+  tax?: number;
+  payment_method?: string;
+  notes?: string;
+}
+
+interface PaymentScanData {
+  payment_method?: string | null;
+  transaction_id?: string | null;
+  date?: string | null;
+  paid_to?: string | null;
+  amount?: number | null;
+}
+
+// Shared by both the create-voucher and edit-voucher scan flows so a fix to
+// the OCR field-mapping only has to be made once. Pure functions — callers
+// apply the returned patch via a functional setState update so concurrent
+// scans (bill + payment, or a manual edit mid-scan) merge instead of clobber.
+function buildBillScanUpdates(data: BillScanData, current: VoucherFormFields, opts: { fillTitle: boolean }): Partial<VoucherFormFields> {
+  const patch: Partial<VoucherFormFields> = {};
+  if (data.vendor_name) {
+    patch.vendor_name = data.vendor_name;
+    if (opts.fillTitle && !current.title) patch.title = `${data.vendor_name} expense`;
+  }
+  if (data.total_amount != null) {
+    patch.amount = String(Math.round(Number(data.total_amount)));
+  }
+  if (data.invoice_number) patch.invoice_number = data.invoice_number;
+  if (data.category) {
+    const matched = expenseCategories.find((c) => c.toLowerCase().includes(data.category!.toLowerCase()));
+    if (matched) patch.category = matched;
+  }
+  if (data.date) {
+    // Parse DD/MM/YYYY to YYYY-MM-DD
+    const parts = data.date.split("/");
+    if (parts.length === 3) {
+      patch.expense_date = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+    }
+  }
+  // Build description from line items — appended (not replaced) when the
+  // current description is non-empty, so re-scanning an existing voucher
+  // never silently discards a hand-written note.
+  const descParts: string[] = [];
+  if (data.items?.length) {
+    descParts.push(data.items.map((item) =>
+      `${item.description}${item.quantity ? ` x${item.quantity}` : ""}${item.amount != null ? ` - ₹${item.amount}` : ""}`
+    ).join("\n"));
+  }
+  if (data.tax != null) descParts.push(`Tax/GST: ₹${data.tax}`);
+  if (data.payment_method) descParts.push(`Payment: ${data.payment_method}`);
+  if (data.notes) descParts.push(data.notes);
+  if (descParts.length) {
+    const scanned = descParts.join("\n");
+    patch.description = current.description ? `${current.description}\n\n--- Scanned bill details ---\n${scanned}` : scanned;
+  }
+  return patch;
+}
+
+function buildPaymentScanUpdates(data: PaymentScanData, current: VoucherFormFields, canFillAmount: boolean): Partial<VoucherFormFields> {
+  const patch: Partial<VoucherFormFields> = {};
+  if (data.payment_method) patch.payment_method = data.payment_method;
+  if (data.transaction_id) patch.payment_transaction_id = data.transaction_id;
+  if (data.date) patch.payment_date = data.date;
+  if (data.paid_to) patch.paid_to = data.paid_to;
+  // If a bill amount has not already been scanned, take the payment amount
+  // as a reasonable default when the amount field is still empty. Never
+  // overwrite a bill-scanned (or otherwise already-known) amount.
+  if (data.amount != null && canFillAmount && !current.amount) {
+    patch.amount = String(Math.round(Number(data.amount)));
+  }
+  return patch;
+}
+
 interface Voucher {
   id: string;
   title: string;
@@ -50,7 +144,7 @@ export default function VouchersPage() {
   const [isOfficial, setIsOfficial] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<VoucherFormFields>({
     title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", expense_event: "", category: "",
     payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
   });
@@ -58,9 +152,13 @@ export default function VouchersPage() {
   // it to the payment amount extracted from Scan Payment Proof to surface a
   // non-blocking mismatch warning. Stored separately because the user may edit
   // form.amount manually afterwards — we still want to compare against the
-  // original scanned values.
+  // original scanned values. The *Ref twins mirror this state synchronously
+  // (state updates only land on the next render) so a concurrent scan can
+  // read the latest "was a bill already scanned" fact without racing.
   const [scannedBillAmount, setScannedBillAmount] = useState<number | null>(null);
   const [scannedPaymentAmount, setScannedPaymentAmount] = useState<number | null>(null);
+  const scannedBillAmountRef = useRef<number | null>(null);
+  const scannedPaymentAmountRef = useRef<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
@@ -68,10 +166,20 @@ export default function VouchersPage() {
   const paymentFileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [editVoucher, setEditVoucher] = useState<Voucher | null>(null);
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<VoucherFormFields>({
     title: "", amount: "", description: "", invoice_number: "", vendor_name: "", expense_date: "", expense_event: "", category: "",
     payment_method: "", payment_transaction_id: "", payment_date: "", paid_to: "",
   });
+  const [editScannedBillAmount, setEditScannedBillAmount] = useState<number | null>(null);
+  const [editScannedPaymentAmount, setEditScannedPaymentAmount] = useState<number | null>(null);
+  const editScannedBillAmountRef = useRef<number | null>(null);
+  const editScannedPaymentAmountRef = useRef<number | null>(null);
+  // Tracks which voucher the Edit dialog is currently open for. Scan handlers
+  // snapshot this at start and re-check it when their async OCR call resolves
+  // — if the user has since closed the dialog or switched to editing a
+  // different voucher, the ref will have changed and the stale scan result is
+  // discarded instead of being written into the wrong voucher's form.
+  const editVoucherIdRef = useRef<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanningPayment, setScanningPayment] = useState(false);
@@ -81,6 +189,15 @@ export default function VouchersPage() {
   const [editScanningPayment, setEditScanningPayment] = useState(false);
   const editScanInputRef = useRef<HTMLInputElement>(null);
   const editScanPaymentInputRef = useRef<HTMLInputElement>(null);
+  // Only used to attach a receipt/payment-proof for the FIRST time on a
+  // voucher that currently has none — the server refuses to replace an
+  // already-attached proof (receipt-substitution guard), and the UI only
+  // shows the upload controls when editVoucher.receipt_url/payment_proof_url
+  // is empty, so this can never be used to swap out an existing file.
+  const [editReceiptFile, setEditReceiptFile] = useState<File | null>(null);
+  const [editPaymentProofFile, setEditPaymentProofFile] = useState<File | null>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const editPaymentFileInputRef = useRef<HTMLInputElement>(null);
   const t = useT();
 
   useEffect(() => {
@@ -176,6 +293,8 @@ export default function VouchersPage() {
       setPaymentProofFile(null);
       setScannedBillAmount(null);
       setScannedPaymentAmount(null);
+      scannedBillAmountRef.current = null;
+      scannedPaymentAmountRef.current = null;
       setDialogOpen(false);
       load();
     } else {
@@ -200,6 +319,13 @@ export default function VouchersPage() {
       payment_date: (v.payment_date || "").slice(0, 10),
       paid_to: v.paid_to || "",
     });
+    editVoucherIdRef.current = v.id;
+    editScannedBillAmountRef.current = null;
+    editScannedPaymentAmountRef.current = null;
+    setEditScannedBillAmount(null);
+    setEditScannedPaymentAmount(null);
+    setEditReceiptFile(null);
+    setEditPaymentProofFile(null);
     setEditVoucher(v);
   }
 
@@ -207,6 +333,29 @@ export default function VouchersPage() {
     e.preventDefault();
     if (!editVoucher) return;
     setSavingEdit(true);
+
+    // Only ever sent when the voucher currently has none — see the
+    // editReceiptFile/editPaymentProofFile declaration for why this can't
+    // be used to replace an existing proof.
+    let receiptUrl: string | null = null;
+    if (editReceiptFile) {
+      receiptUrl = await uploadFile(editReceiptFile);
+      if (!receiptUrl) {
+        toast.error("Failed to upload receipt");
+        setSavingEdit(false);
+        return;
+      }
+    }
+    let paymentProofUrl: string | null = null;
+    if (editPaymentProofFile) {
+      paymentProofUrl = await uploadFile(editPaymentProofFile);
+      if (!paymentProofUrl) {
+        toast.error("Failed to upload payment proof");
+        setSavingEdit(false);
+        return;
+      }
+    }
+
     const res = await fetch("/api/vouchers", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -224,6 +373,8 @@ export default function VouchersPage() {
         payment_transaction_id: editForm.payment_transaction_id,
         payment_date: editForm.payment_date || null,
         paid_to: editForm.paid_to,
+        ...(receiptUrl ? { receipt_url: receiptUrl } : {}),
+        ...(paymentProofUrl ? { payment_proof_url: paymentProofUrl } : {}),
       }),
     });
     if (res.ok) {
@@ -233,6 +384,14 @@ export default function VouchersPage() {
     } else {
       const data = await res.json().catch(() => null);
       toast.error(data?.error || "Failed to update");
+      if (res.status === 409) {
+        // Voucher status changed under us (e.g. Finance acted on it while
+        // this dialog was open) — the edit couldn't apply. Close and refresh
+        // so the user sees its current state instead of re-editing a stale copy.
+        editVoucherIdRef.current = null;
+        setEditVoucher(null);
+        load();
+      }
     }
     setSavingEdit(false);
   }
@@ -256,54 +415,27 @@ export default function VouchersPage() {
       const res = await fetch("/api/ai-tools/expense-ocr", { method: "POST", body: formData });
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error || "Failed to scan bill");
+        toast.error(data.error || t("voucher.scan_bill_failed"));
         return;
       }
       const data = await res.json();
       if (data.vendor_name === "Not a receipt") {
-        toast.error("This image does not appear to be a receipt or invoice.");
+        toast.error(t("voucher.scan_not_receipt"));
         return;
       }
-      // Auto-fill form fields from OCR result
-      const updates: typeof form = { ...form };
-      if (data.vendor_name) {
-        updates.vendor_name = data.vendor_name;
-        if (!form.title) updates.title = `${data.vendor_name} expense`;
-      }
       if (data.total_amount != null) {
-        updates.amount = String(Math.round(Number(data.total_amount)));
-        setScannedBillAmount(Number(data.total_amount));
+        scannedBillAmountRef.current = Number(data.total_amount);
+        setScannedBillAmount(scannedBillAmountRef.current);
       }
-      if (data.invoice_number) updates.invoice_number = data.invoice_number;
-      if (data.category) {
-        const matched = expenseCategories.find((c) => c.toLowerCase().includes(data.category.toLowerCase()));
-        if (matched) updates.category = matched;
-      }
-      if (data.date) {
-        // Parse DD/MM/YYYY to YYYY-MM-DD
-        const parts = data.date.split("/");
-        if (parts.length === 3) {
-          updates.expense_date = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-        }
-      }
-      // Build description from line items
-      const descParts: string[] = [];
-      if (data.items?.length) {
-        descParts.push(data.items.map((item: { description: string; quantity?: number; amount?: number }) =>
-          `${item.description}${item.quantity ? ` x${item.quantity}` : ""}${item.amount != null ? ` - ₹${item.amount}` : ""}`
-        ).join("\n"));
-      }
-      if (data.tax != null) descParts.push(`Tax/GST: ₹${data.tax}`);
-      if (data.payment_method) descParts.push(`Payment: ${data.payment_method}`);
-      if (data.notes) descParts.push(data.notes);
-      if (descParts.length) updates.description = descParts.join("\n");
-
-      setForm(updates);
+      // Functional update: builds the patch from the LATEST form state at
+      // apply time, so a concurrent Scan Payment (or a manual keystroke)
+      // that lands first is merged with, not clobbered by, this scan.
+      setForm((prev) => ({ ...prev, ...buildBillScanUpdates(data, prev, { fillTitle: true }) }));
       // Also set the scanned image as receipt
       setReceiptFile(file);
-      toast.success("Bill scanned! Fields auto-filled.");
+      toast.success(t("voucher.scan_bill_success"));
     } catch {
-      toast.error("Failed to scan bill");
+      toast.error(t("voucher.scan_bill_failed"));
     } finally {
       setScanning(false);
     }
@@ -317,41 +449,36 @@ export default function VouchersPage() {
       const res = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: formData });
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error || "Failed to scan payment proof");
+        toast.error(data.error || t("voucher.scan_payment_failed"));
         return;
       }
       const data = await res.json();
       // The endpoint returns nulls for unrecognised images rather than an
       // explicit error code, so detect "nothing extracted" and bail.
       if (data.date == null && data.transaction_id == null && data.amount == null && data.paid_to == null) {
-        toast.error("Could not read payment details. Upload a clear UPI or bank transfer screenshot.");
+        toast.error(t("voucher.scan_payment_unreadable"));
         return;
       }
-      const updates = { ...form };
-      if (data.payment_method) updates.payment_method = data.payment_method;
-      if (data.transaction_id) updates.payment_transaction_id = data.transaction_id;
-      if (data.date) updates.payment_date = data.date; // already YYYY-MM-DD
-      if (data.paid_to) updates.paid_to = data.paid_to;
-      // If the bill amount has not been set yet, take payment amount as a
-      // reasonable default for form.amount (officials sometimes only upload
-      // a payment screenshot, no bill). Never overwrite a bill-scanned amount.
       if (data.amount != null) {
-        setScannedPaymentAmount(Number(data.amount));
-        if (scannedBillAmount == null && !form.amount) {
-          updates.amount = String(Math.round(Number(data.amount)));
-        }
+        scannedPaymentAmountRef.current = Number(data.amount);
+        setScannedPaymentAmount(scannedPaymentAmountRef.current);
       }
-      setForm(updates);
+      // Read via the ref (not the scannedBillAmount state) so a bill scan
+      // that resolved moments ago — before this render committed — is still
+      // seen, avoiding a race where both scans think no bill amount exists.
+      const canFillAmount = scannedBillAmountRef.current == null;
+      setForm((prev) => ({ ...prev, ...buildPaymentScanUpdates(data, prev, canFillAmount) }));
       setPaymentProofFile(file);
-      toast.success("Payment proof scanned! Fields auto-filled.");
+      toast.success(t("voucher.scan_payment_success"));
     } catch {
-      toast.error("Failed to scan payment proof");
+      toast.error(t("voucher.scan_payment_failed"));
     } finally {
       setScanningPayment(false);
     }
   }
 
   async function handleEditScanBill(file: File) {
+    const voucherIdAtStart = editVoucherIdRef.current;
     setEditScanning(true);
     try {
       const formData = new FormData();
@@ -359,52 +486,41 @@ export default function VouchersPage() {
       const res = await fetch("/api/ai-tools/expense-ocr", { method: "POST", body: formData });
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error || "Failed to scan bill");
+        toast.error(data.error || t("voucher.scan_bill_failed"));
         return;
       }
       const data = await res.json();
       if (data.vendor_name === "Not a receipt") {
-        toast.error("This image does not appear to be a receipt or invoice.");
+        toast.error(t("voucher.scan_not_receipt"));
         return;
       }
-      // Auto-fill edit form fields from OCR result. Only text fields — the
-      // receipt image itself can't be changed here (see receipt-substitution
-      // fix: submitters can never PUT receipt_url/payment_proof_url).
-      const updates: typeof editForm = { ...editForm };
-      if (data.vendor_name) updates.vendor_name = data.vendor_name;
-      if (data.total_amount != null) updates.amount = String(Math.round(Number(data.total_amount)));
-      if (data.invoice_number) updates.invoice_number = data.invoice_number;
-      if (data.category) {
-        const matched = expenseCategories.find((c) => c.toLowerCase().includes(data.category.toLowerCase()));
-        if (matched) updates.category = matched;
+      // If the Edit dialog was closed or switched to a different voucher
+      // while this scan was in flight, discard the result instead of
+      // silently writing it into whatever voucher is now open.
+      if (!editVoucherIdRef.current || editVoucherIdRef.current !== voucherIdAtStart) {
+        toast.error(t("voucher.scan_stale_voucher"));
+        return;
       }
-      if (data.date) {
-        const parts = data.date.split("/");
-        if (parts.length === 3) {
-          updates.expense_date = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-        }
+      // Auto-fill edit form fields from OCR result.
+      if (data.total_amount != null) {
+        editScannedBillAmountRef.current = Number(data.total_amount);
+        setEditScannedBillAmount(editScannedBillAmountRef.current);
       }
-      const descParts: string[] = [];
-      if (data.items?.length) {
-        descParts.push(data.items.map((item: { description: string; quantity?: number; amount?: number }) =>
-          `${item.description}${item.quantity ? ` x${item.quantity}` : ""}${item.amount != null ? ` - ₹${item.amount}` : ""}`
-        ).join("\n"));
-      }
-      if (data.tax != null) descParts.push(`Tax/GST: ₹${data.tax}`);
-      if (data.payment_method) descParts.push(`Payment: ${data.payment_method}`);
-      if (data.notes) descParts.push(data.notes);
-      if (descParts.length) updates.description = descParts.join("\n");
-
-      setEditForm(updates);
-      toast.success("Bill scanned! Fields auto-filled.");
+      setEditForm((prev) => ({ ...prev, ...buildBillScanUpdates(data, prev, { fillTitle: false }) }));
+      // Only attach the scanned image as the voucher's receipt if it doesn't
+      // already have one — never replace an existing receipt (receipt-
+      // substitution fix: the server rejects it anyway).
+      if (!editVoucher?.receipt_url) setEditReceiptFile(file);
+      toast.success(t("voucher.scan_bill_success"));
     } catch {
-      toast.error("Failed to scan bill");
+      toast.error(t("voucher.scan_bill_failed"));
     } finally {
       setEditScanning(false);
     }
   }
 
   async function handleEditScanPayment(file: File) {
+    const voucherIdAtStart = editVoucherIdRef.current;
     setEditScanningPayment(true);
     try {
       const formData = new FormData();
@@ -412,26 +528,29 @@ export default function VouchersPage() {
       const res = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: formData });
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error || "Failed to scan payment proof");
+        toast.error(data.error || t("voucher.scan_payment_failed"));
         return;
       }
       const data = await res.json();
       if (data.date == null && data.transaction_id == null && data.amount == null && data.paid_to == null) {
-        toast.error("Could not read payment details. Upload a clear UPI or bank transfer screenshot.");
+        toast.error(t("voucher.scan_payment_unreadable"));
         return;
       }
-      const updates = { ...editForm };
-      if (data.payment_method) updates.payment_method = data.payment_method;
-      if (data.transaction_id) updates.payment_transaction_id = data.transaction_id;
-      if (data.date) updates.payment_date = data.date;
-      if (data.paid_to) updates.paid_to = data.paid_to;
-      if (data.amount != null && !editForm.amount) {
-        updates.amount = String(Math.round(Number(data.amount)));
+      if (!editVoucherIdRef.current || editVoucherIdRef.current !== voucherIdAtStart) {
+        toast.error(t("voucher.scan_stale_voucher"));
+        return;
       }
-      setEditForm(updates);
-      toast.success("Payment proof scanned! Fields auto-filled.");
+      if (data.amount != null) {
+        editScannedPaymentAmountRef.current = Number(data.amount);
+        setEditScannedPaymentAmount(editScannedPaymentAmountRef.current);
+      }
+      const canFillAmount = editScannedBillAmountRef.current == null;
+      setEditForm((prev) => ({ ...prev, ...buildPaymentScanUpdates(data, prev, canFillAmount) }));
+      // Same rule as the bill scan: only attach if there's no existing proof.
+      if (!editVoucher?.payment_proof_url) setEditPaymentProofFile(file);
+      toast.success(t("voucher.scan_payment_success"));
     } catch {
-      toast.error("Failed to scan payment proof");
+      toast.error(t("voucher.scan_payment_failed"));
     } finally {
       setEditScanningPayment(false);
     }
@@ -471,11 +590,11 @@ export default function VouchersPage() {
             <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
               <ScanLine className="w-5 h-5 text-primary shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Scan a bill to auto-fill</p>
-                <p className="text-xs text-muted-foreground">Upload a receipt/invoice image and AI will extract the details</p>
+                <p className="text-sm font-medium">{t("voucher.scan_bill_title")}</p>
+                <p className="text-xs text-muted-foreground">{t("voucher.scan_bill_desc")}</p>
               </div>
               <Button type="button" size="sm" variant="outline" disabled={scanning} onClick={() => scanInputRef.current?.click()}>
-                {scanning ? <><Loader2 size={14} className="mr-1 animate-spin" /> Scanning...</> : <><ScanLine size={14} className="mr-1" /> Scan Bill</>}
+                {scanning ? <><Loader2 size={14} className="mr-1 animate-spin" /> {t("voucher.scanning")}</> : <><ScanLine size={14} className="mr-1" /> {t("voucher.scan_bill_button")}</>}
               </Button>
               <input ref={scanInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleScanBill(f); e.target.value = ""; }} />
             </div>
@@ -483,11 +602,11 @@ export default function VouchersPage() {
             <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary/10 border border-secondary/30">
               <ScanLine className="w-5 h-5 text-secondary-foreground shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Scan a payment screenshot</p>
-                <p className="text-xs text-muted-foreground">UPI/bank screenshot — extracts txn ID, payment date, payee, method</p>
+                <p className="text-sm font-medium">{t("voucher.scan_payment_title")}</p>
+                <p className="text-xs text-muted-foreground">{t("voucher.scan_payment_desc")}</p>
               </div>
               <Button type="button" size="sm" variant="outline" disabled={scanningPayment} onClick={() => scanPaymentInputRef.current?.click()}>
-                {scanningPayment ? <><Loader2 size={14} className="mr-1 animate-spin" /> Scanning...</> : <><ScanLine size={14} className="mr-1" /> Scan Payment</>}
+                {scanningPayment ? <><Loader2 size={14} className="mr-1 animate-spin" /> {t("voucher.scanning")}</> : <><ScanLine size={14} className="mr-1" /> {t("voucher.scan_payment_button")}</>}
               </Button>
               <input ref={scanPaymentInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleScanPayment(f); e.target.value = ""; }} />
             </div>
@@ -584,7 +703,10 @@ export default function VouchersPage() {
 
               {scannedBillAmount != null && scannedPaymentAmount != null && Math.abs(scannedBillAmount - scannedPaymentAmount) > 0.5 && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-                  <strong>Amount mismatch:</strong> bill shows &#8377;{scannedBillAmount.toLocaleString("en-IN")} but payment shows &#8377;{scannedPaymentAmount.toLocaleString("en-IN")}. Verify before submitting.
+                  {t("voucher.amount_mismatch", {
+                    bill: `₹${scannedBillAmount.toLocaleString("en-IN")}`,
+                    payment: `₹${scannedPaymentAmount.toLocaleString("en-IN")}`,
+                  })}
                 </div>
               )}
 
@@ -711,7 +833,18 @@ export default function VouchersPage() {
       )}
 
       {/* Edit Voucher Dialog (own pending vouchers only) */}
-      <Dialog open={!!editVoucher} onOpenChange={(open) => !open && setEditVoucher(null)}>
+      <Dialog
+        open={!!editVoucher}
+        onOpenChange={(open) => {
+          if (!open) {
+            // Clear synchronously so any scan still in flight sees the
+            // dialog is closed and discards its result instead of writing
+            // into whatever voucher is opened next.
+            editVoucherIdRef.current = null;
+            setEditVoucher(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Voucher</DialogTitle>
@@ -720,11 +853,11 @@ export default function VouchersPage() {
           <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
             <ScanLine className="w-5 h-5 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">Scan a bill to auto-fill</p>
-              <p className="text-xs text-muted-foreground">Upload a receipt/invoice image and AI will extract the details</p>
+              <p className="text-sm font-medium">{t("voucher.scan_bill_title")}</p>
+              <p className="text-xs text-muted-foreground">{t("voucher.scan_bill_desc")}</p>
             </div>
             <Button type="button" size="sm" variant="outline" disabled={editScanning} onClick={() => editScanInputRef.current?.click()}>
-              {editScanning ? <><Loader2 size={14} className="mr-1 animate-spin" /> Scanning...</> : <><ScanLine size={14} className="mr-1" /> Scan Bill</>}
+              {editScanning ? <><Loader2 size={14} className="mr-1 animate-spin" /> {t("voucher.scanning")}</> : <><ScanLine size={14} className="mr-1" /> {t("voucher.scan_bill_button")}</>}
             </Button>
             <input ref={editScanInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleEditScanBill(f); e.target.value = ""; }} />
           </div>
@@ -732,14 +865,22 @@ export default function VouchersPage() {
           <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary/10 border border-secondary/30">
             <ScanLine className="w-5 h-5 text-secondary-foreground shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">Scan a payment screenshot</p>
-              <p className="text-xs text-muted-foreground">UPI/bank screenshot — extracts txn ID, payment date, payee, method</p>
+              <p className="text-sm font-medium">{t("voucher.scan_payment_title")}</p>
+              <p className="text-xs text-muted-foreground">{t("voucher.scan_payment_desc")}</p>
             </div>
             <Button type="button" size="sm" variant="outline" disabled={editScanningPayment} onClick={() => editScanPaymentInputRef.current?.click()}>
-              {editScanningPayment ? <><Loader2 size={14} className="mr-1 animate-spin" /> Scanning...</> : <><ScanLine size={14} className="mr-1" /> Scan Payment</>}
+              {editScanningPayment ? <><Loader2 size={14} className="mr-1 animate-spin" /> {t("voucher.scanning")}</> : <><ScanLine size={14} className="mr-1" /> {t("voucher.scan_payment_button")}</>}
             </Button>
             <input ref={editScanPaymentInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleEditScanPayment(f); e.target.value = ""; }} />
           </div>
+          {editScannedBillAmount != null && editScannedPaymentAmount != null && Math.abs(editScannedBillAmount - editScannedPaymentAmount) > 0.5 && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+              {t("voucher.amount_mismatch", {
+                bill: `₹${editScannedBillAmount.toLocaleString("en-IN")}`,
+                payment: `₹${editScannedPaymentAmount.toLocaleString("en-IN")}`,
+              })}
+            </div>
+          )}
           <form onSubmit={handleEditSubmit} className="space-y-4">
             <div>
               <Label>Expense Title *</Label>
@@ -788,6 +929,21 @@ export default function VouchersPage() {
               <Label>Description</Label>
               <Textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} />
             </div>
+            {/* Only shown when this voucher has no receipt yet — an existing
+                one can never be replaced here (receipt-substitution fix). */}
+            {!editVoucher?.receipt_url && (
+              <div>
+                <Label>Receipt / Invoice (optional)</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Button type="button" variant="outline" size="sm" onClick={() => editFileInputRef.current?.click()}>
+                    <Upload size={14} className="mr-1" />
+                    {editReceiptFile ? editReceiptFile.name : "Upload Receipt"}
+                  </Button>
+                  {editReceiptFile && <Button type="button" variant="ghost" size="sm" onClick={() => setEditReceiptFile(null)}>Remove</Button>}
+                </div>
+                <input ref={editFileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => setEditReceiptFile(e.target.files?.[0] || null)} />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Payment Method</Label>
@@ -808,6 +964,19 @@ export default function VouchersPage() {
                 <Input value={editForm.paid_to} onChange={(e) => setEditForm({ ...editForm, paid_to: e.target.value })} />
               </div>
             </div>
+            {!editVoucher?.payment_proof_url && (
+              <div>
+                <Label>Payment Proof (optional)</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Button type="button" variant="outline" size="sm" onClick={() => editPaymentFileInputRef.current?.click()}>
+                    <Upload size={14} className="mr-1" />
+                    {editPaymentProofFile ? editPaymentProofFile.name : "Upload Payment Proof"}
+                  </Button>
+                  {editPaymentProofFile && <Button type="button" variant="ghost" size="sm" onClick={() => setEditPaymentProofFile(null)}>Remove</Button>}
+                </div>
+                <input ref={editPaymentFileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => setEditPaymentProofFile(e.target.files?.[0] || null)} />
+              </div>
+            )}
             <Button type="submit" disabled={savingEdit} className="w-full bg-primary hover:bg-primary/90">
               {savingEdit ? "Saving..." : "Save Changes"}
             </Button>
