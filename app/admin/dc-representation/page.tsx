@@ -159,9 +159,9 @@ export default function DcRepresentationPage() {
     return (
       <Card key={o.office}>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center justify-between gap-2">
-            <span>{o.office}</span>
-            <Badge className={o.status === "given" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}>
+          <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
+            <span className="min-w-0">{o.office}</span>
+            <Badge className={`shrink-0 whitespace-nowrap ${o.status === "given" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
               {o.status === "given" ? t("dcrep.given") : t("dcrep.not_given")}
             </Badge>
           </CardTitle>
@@ -208,12 +208,13 @@ export default function DcRepresentationPage() {
           )}
 
           <div className="border-t pt-2 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> {t("dcrep.letter")}</span>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1 shrink-0"><FileText className="w-3.5 h-3.5" /> {t("dcrep.letter")}</span>
               {editable && o.id && !letter && (
                 <Button
                   size="sm"
                   variant="ghost"
+                  className="shrink-0"
                   disabled={uploadingKey === `${o.id}-letter`}
                   onClick={() => {
                     if (!letterInputRef.current) return;
@@ -232,12 +233,13 @@ export default function DcRepresentationPage() {
               <a href={letter.signed_url} target="_blank" rel="noreferrer" className="text-sm text-primary underline block truncate">{letter.file_name}</a>
             )}
 
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1"><Camera className="w-3.5 h-3.5" /> {t("dcrep.photos")} ({photos.length}/6)</span>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1 shrink-0"><Camera className="w-3.5 h-3.5" /> {t("dcrep.photos")} ({photos.length}/6)</span>
               {editable && o.id && photos.length < 6 && (
                 <Button
                   size="sm"
                   variant="ghost"
+                  className="shrink-0"
                   disabled={uploadingKey === `${o.id}-photo`}
                   onClick={() => {
                     if (!photoInputRef.current) return;
@@ -358,12 +360,12 @@ export default function DcRepresentationPage() {
       {!loading && !ownData && !rollup && <EmptyState title={t("dcrep.no_district")} />}
 
       <Dialog open={!!dialogDistrict} onOpenChange={(open) => { if (!open) { setDialogDistrict(null); setDialogData(null); setEditingOffice(null); } }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><MapPin className="w-4 h-4" /> {dialogDistrict}</DialogTitle>
           </DialogHeader>
           {dialogData ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {dialogData.offices.map((o) => officeCardJsx(o, dialogData.district, true))}
             </div>
           ) : (
