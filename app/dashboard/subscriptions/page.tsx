@@ -897,14 +897,17 @@ export default function SubscriptionsPage() {
                         </div>
                       </td>
                       <td className="border px-1 py-0.5">
-                        <Input
-                          type="number"
-                          min="0"
-                          value={duesPaid}
-                          onChange={(e) => setDuesPaid(e.target.value)}
-                          className="h-7 text-xs text-right font-mono border-green-300 focus:border-green-500"
-                          placeholder="0"
-                        />
+                        <div className="relative">
+                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">₹</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={duesPaid}
+                            onChange={(e) => setDuesPaid(e.target.value)}
+                            className="h-7 text-xs text-right font-mono border-green-300 focus:border-green-500 pl-4"
+                            placeholder="0"
+                          />
+                        </div>
                       </td>
                       <td className="border px-1 py-0.5 text-center">
                         <input
