@@ -53,6 +53,7 @@ import {
   BadgeCheck,
   NotebookPen,
   Sparkles,
+  FileSignature,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -130,6 +131,7 @@ const NAV_SECTIONS = [
       { href: "/admin/reports", labelKey: "nav.reports" as const, icon: BarChart3 },
       { href: "/admin/district-benchmark", labelKey: "nav.district_benchmark" as const, icon: BarChart3 },
       { href: "/admin/field-diary-compliance", labelKey: "nav.field_diary_compliance" as const, icon: NotebookPen },
+      { href: "/admin/dc-representation", labelKey: "nav.dc_representation" as const, icon: FileSignature },
     ],
   },
   {
