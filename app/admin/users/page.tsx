@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Search, Filter, Calendar, Upload, ExternalLink, ChevronDown, ChevronUp, Sparkles, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
-import { DISTRICT_NAMES } from "@/lib/tn-districts";
+import { DISTRICT_NAMES, getBlocks, ALL_TN_BLOCK_OPTIONS } from "@/lib/tn-districts";
 import UserCard from "./_components/UserCard";
 import EditUserDialog from "./_components/EditUserDialog";
 import NudgeDialog from "./_components/NudgeDialog";
@@ -22,6 +22,7 @@ import NudgeDialog from "./_components/NudgeDialog";
 interface PostingDetails {
   regular_district?: string;
   regular_block?: string;
+  regular_farm?: string;
   special_duty_district?: string;
   special_duty_block?: string;
   special_duty_place?: string;
@@ -62,6 +63,8 @@ export default function AdminUsersPage() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [search, setSearch] = useState("");
   const [districtFilter, setDistrictFilter] = useState("all");
+  const [blockFilter, setBlockFilter] = useState("all");
+  const [farmFilter, setFarmFilter] = useState("all");
   const [designationFilter, setDesignationFilter] = useState("all");
   const [joinedFilter, setJoinedFilter] = useState("all");
   const [nudgeUserId, setNudgeUserId] = useState<string | null>(null);
@@ -113,6 +116,8 @@ export default function AdminUsersPage() {
     setExpandedId(null);
     setSearch("");
     setDistrictFilter("all");
+    setBlockFilter("all");
+    setFarmFilter("all");
     setDesignationFilter("all");
     setJoinedFilter("all");
     setVisibleCount(PAGE_SIZE);
@@ -137,6 +142,16 @@ export default function AdminUsersPage() {
       result = result.filter(
         (u) => u.posting_details?.regular_district === districtFilter
       );
+    }
+    if (blockFilter === "none") {
+      result = result.filter((u) => !u.posting_details?.regular_block?.trim());
+    } else if (blockFilter !== "all") {
+      result = result.filter((u) => u.posting_details?.regular_block === blockFilter);
+    }
+    if (farmFilter === "none") {
+      result = result.filter((u) => !u.posting_details?.regular_farm?.trim());
+    } else if (farmFilter !== "all") {
+      result = result.filter((u) => u.posting_details?.regular_farm === farmFilter);
     }
     if (designationFilter === "none") {
       result = result.filter((u) => !u.occupation?.trim());
@@ -183,7 +198,23 @@ export default function AdminUsersPage() {
       return (a.name || "").localeCompare(b.name || "");
     });
     return result;
-  }, [users, search, districtFilter, designationFilter, joinedFilter]);
+  }, [users, search, districtFilter, blockFilter, farmFilter, designationFilter, joinedFilter]);
+
+  const blockOptions = useMemo(() => {
+    if (districtFilter === "all" || districtFilter === "none") {
+      return ALL_TN_BLOCK_OPTIONS;
+    }
+    return getBlocks(districtFilter).map((b) => ({ value: b, label: b }));
+  }, [districtFilter]);
+
+  const farmOptions = useMemo(() => {
+    const farms = new Set<string>();
+    users.forEach((u) => {
+      const f = u.posting_details?.regular_farm?.trim();
+      if (f) farms.add(f);
+    });
+    return Array.from(farms).sort((a, b) => a.localeCompare(b));
+  }, [users]);
 
   const onlineCount = useMemo(() => {
     const fiveMinAgo = Date.now() - 5 * 60000;
@@ -507,8 +538,8 @@ export default function AdminUsersPage() {
               <span className="text-muted-foreground">{users.length} total</span>
             </div>
           )}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[220px]">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search by name, email, phone, or designation..."
@@ -538,7 +569,13 @@ export default function AdminUsersPage() {
                 <SelectItem value="1y">Joined Last 1 Year</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={districtFilter} onValueChange={setDistrictFilter}>
+            <Select
+              value={districtFilter}
+              onValueChange={(v) => {
+                setDistrictFilter(v);
+                setBlockFilter("all");
+              }}
+            >
               <SelectTrigger className="w-full sm:w-[220px]">
                 <Filter size={14} className="mr-1 text-muted-foreground" />
                 <SelectValue placeholder="All Districts" />
@@ -548,6 +585,32 @@ export default function AdminUsersPage() {
                 <SelectItem value="none">Not Set (Empty)</SelectItem>
                 {DISTRICT_NAMES.map((d) => (
                   <SelectItem key={d} value={d}>{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={blockFilter} onValueChange={setBlockFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <Filter size={14} className="mr-1 text-muted-foreground" />
+                <SelectValue placeholder="All Blocks" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Blocks</SelectItem>
+                <SelectItem value="none">Not Set (Empty)</SelectItem>
+                {blockOptions.map((b) => (
+                  <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={farmFilter} onValueChange={setFarmFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <Filter size={14} className="mr-1 text-muted-foreground" />
+                <SelectValue placeholder="All Farms" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Farms</SelectItem>
+                <SelectItem value="none">Not Set (Empty)</SelectItem>
+                {farmOptions.map((f) => (
+                  <SelectItem key={f} value={f}>{f}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
