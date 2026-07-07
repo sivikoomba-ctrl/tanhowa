@@ -897,14 +897,14 @@ export default function SubscriptionsPage() {
                         </div>
                       </td>
                       <td className="border px-1 py-0.5">
-                        <div className="relative">
-                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">₹</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground shrink-0">₹</span>
                           <Input
                             type="number"
                             min="0"
                             value={duesPaid}
                             onChange={(e) => setDuesPaid(e.target.value)}
-                            className="h-7 text-xs text-right font-mono border-green-300 focus:border-green-500 pl-4"
+                            className="h-7 text-xs text-right font-mono border-green-300 focus:border-green-500"
                             placeholder="0"
                           />
                         </div>
