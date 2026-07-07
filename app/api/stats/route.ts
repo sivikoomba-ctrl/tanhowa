@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     }
     const districtRegistration = Object.entries(districtCounts)
       .map(([district, count]) => ({ district, count }))
-      .sort((a, b) => b.count - a.count);
+      .sort((a, b) => a.count - b.count);
 
     // Admin contacts
     const { data: admins } = await supabase
