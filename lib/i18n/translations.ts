@@ -66,6 +66,7 @@ const translations = {
   "nav.roster": { en: "District Roster", ta: "மாவட்ட பட்டியல்" },
   "nav.verify_payments": { en: "Verify Payments", ta: "பணம் சரிபார்ப்பு" },
   "nav.district_dues": { en: "District Dues", ta: "மாவட்ட நிலுவை" },
+  "nav.district_member_dues": { en: "Member Dues (Verified)", ta: "உறுப்பினர் நிலுவை (சரிபார்க்கப்பட்டது)" },
   "nav.reports": { en: "Reports", ta: "அறிக்கைகள்" },
   "nav.audit_log": { en: "Audit Log", ta: "தணிக்கைப் பதிவு" },
   "nav.error_logs": { en: "Error Logs", ta: "பிழைப் பதிவுகள்" },

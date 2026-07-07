@@ -103,6 +103,7 @@ const NAV_SECTIONS = [
       { href: "/admin/subscriptions", labelKey: "nav.subscriptions" as const, icon: Wallet },
       { href: "/admin/verify-payments", labelKey: "nav.verify_payments" as const, icon: ShieldCheck },
       { href: "/admin/district-dues", labelKey: "nav.district_dues" as const, icon: Calculator },
+      { href: "/admin/district-member-dues", labelKey: "nav.district_member_dues" as const, icon: Calculator },
       { href: "/admin/vouchers", labelKey: "nav.vouchers" as const, icon: Receipt },
       { href: "/admin/finance", labelKey: "nav.finance" as const, icon: Landmark },
     ],
