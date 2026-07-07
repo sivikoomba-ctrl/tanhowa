@@ -818,7 +818,7 @@ export default function SubscriptionsPage() {
                 TAMIL NADU HORTICULTURAL OFFICERS WELFARE ASSOCIATION
               </p>
               <div className="overflow-x-auto -mx-1">
-                <table className="w-full text-xs border-collapse min-w-[750px]">
+                <table className="w-full text-xs border-separate border-spacing-0 min-w-[750px]">
                   <thead>
                     <tr className="bg-primary/5">
                       <th className="border px-2 py-1.5 text-left font-semibold sticky left-0 z-10 bg-primary/5">Description</th>
