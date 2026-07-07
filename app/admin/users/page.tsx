@@ -99,16 +99,26 @@ export default function AdminUsersPage() {
     }).catch(() => {});
   }, []);
 
+  const tabRef = useRef(tab);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
+
   const loadUsers = useCallback(() => {
     // Clear stale rows immediately so a previous tab's users (e.g. approved) never
     // render under the newly-selected tab (e.g. Pending) while the fetch is in flight.
+    const requestedTab = tab;
     setLoading(true);
     setUsers([]);
-    fetch("/api/users?status=" + (tab === "all" ? "" : tab))
+    fetch("/api/users?status=" + (requestedTab === "all" ? "" : requestedTab))
       .then((r) => r.json())
-      .then((d) => setUsers(d.users || []))
+      .then((d) => {
+        // Ignore an out-of-order response from a tab the user has since switched away
+        // from (e.g. a slow "All" fetch resolving after a faster "Pending" fetch) —
+        // otherwise it silently overwrites the correct, already-rendered list.
+        if (tabRef.current !== requestedTab) return;
+        setUsers(d.users || []);
+      })
       .catch(() => toast.error("Failed to load users"))
-      .finally(() => setLoading(false));
+      .finally(() => { if (tabRef.current === requestedTab) setLoading(false); });
   }, [tab]);
 
   useEffect(() => {
