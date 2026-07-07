@@ -617,14 +617,14 @@ export async function PUT(req: NextRequest) {
         logContribution(session.userId, "payment_proof_uploaded", "Uploaded payment proof");
       }
 
-      // Submit for review: reset overdue → pending and notify admins
+      // Submit for review: reset overdue/rejected → pending and notify admins
       if (body.submit_for_review) {
         const { data: fullSub } = await supabase
           .from("subscriptions")
           .select("status, period, amount, users!subscriptions_user_id_fkey(name)")
           .eq("id", body.id)
           .single();
-        if (fullSub?.status === "overdue") {
+        if (fullSub?.status === "overdue" || fullSub?.status === "rejected") {
           await supabase.from("subscriptions").update({ status: "pending" }).eq("id", body.id);
         }
         const memberName = (fullSub?.users as { name?: string } | null)?.name || "Member";

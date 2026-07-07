@@ -1237,6 +1237,21 @@ export default function SubscriptionsPage() {
                             )}
                           </>
                         )}
+                        {sub.status === "rejected" && (
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs bg-primary hover:bg-primary/90"
+                            onClick={() => triggerUpload(sub.id)}
+                            disabled={isUploading}
+                          >
+                            {isUploading ? t("subs.uploading") : (
+                              <>
+                                <Upload size={12} className="mr-1" />
+                                {t("subs.re_upload")}
+                              </>
+                            )}
+                          </Button>
+                        )}
                         {sub.status === "paid" && (
                           <>
                             {hasProof && (
