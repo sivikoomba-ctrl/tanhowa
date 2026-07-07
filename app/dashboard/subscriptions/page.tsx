@@ -514,6 +514,9 @@ export default function SubscriptionsPage() {
     .filter((s) => !/^\d{4}$/.test(s.period))
     .reduce((sum, s) => sum + (s.amount || 0), 0);
   const duesTotalToPay = duesUpTo2025 + dues2026 + duesUatt;
+  const duesVerifiedPaid = subscriptions
+    .filter((s) => s.status === "paid")
+    .reduce((sum, s) => sum + (s.paid_amount ?? s.amount ?? 0), 0);
   const duesPaidNum = Number(duesPaid) || 0;
   const duesAdditionalNum = Number(duesAdditional) || 0;
   const duesPending = duesTotalToPay - duesPaidNum;
@@ -819,9 +822,10 @@ export default function SubscriptionsPage() {
                   <thead>
                     <tr className="bg-primary/5">
                       <th className="border px-2 py-1.5 text-left font-semibold sticky left-0 z-10 bg-primary/5">Description</th>
-                      <th className="border px-2 py-1.5 text-right font-semibold w-28">Amount (₹)</th>
+                      <th className="border px-2 py-1.5 text-right font-semibold w-28">Due Amount (₹)</th>
+                      <th className="border px-2 py-1.5 text-right font-semibold w-28">Amount Paid (₹)</th>
+                      <th className="border px-2 py-1.5 text-right font-semibold w-28">Extra Paid (₹)</th>
                       <th className="border px-2 py-1.5 text-center font-semibold w-24">Proof</th>
-                      <th className="border px-2 py-1.5 text-right font-semibold w-28">Extra (₹)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -838,10 +842,17 @@ export default function SubscriptionsPage() {
                       const hasProof = matchingSubs.some((s) => s.payment_proof_url);
                       const subWithProof = matchingSubs.find((s) => s.payment_proof_url);
                       const subForUpload = matchingSubs[0];
+                      const rowPaidAmt = matchingSubs
+                        .filter((s) => s.status === "paid")
+                        .reduce((sum, s) => sum + (s.paid_amount ?? s.amount ?? 0), 0);
                       return (
                         <tr key={row.label}>
                           <td className="border px-2 py-1.5 sticky left-0 z-10 bg-white">{row.label}</td>
                           <td className="border px-2 py-1.5 text-right font-mono">{row.amount.toLocaleString("en-IN")}</td>
+                          <td className="border px-2 py-1.5 text-right font-mono text-green-700">
+                            {rowPaidAmt > 0 ? rowPaidAmt.toLocaleString("en-IN") : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                           <td className="border px-2 py-1.5 text-center">
                             {row.amount > 0 && subForUpload && (
                               <div className="flex items-center justify-center gap-1">
@@ -873,15 +884,17 @@ export default function SubscriptionsPage() {
                             )}
                             {row.amount === 0 && <span className="text-muted-foreground">—</span>}
                           </td>
-                          <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
                         </tr>
                       );
                     })}
                     <tr className="bg-primary/5 font-semibold">
                       <td className="border px-2 py-1.5 sticky left-0 z-10 bg-primary/5">Total Dues</td>
                       <td className="border px-2 py-1.5 text-right font-mono">{duesTotalToPay.toLocaleString("en-IN")}</td>
-                      <td className="border px-2 py-1.5"></td>
+                      <td className="border px-2 py-1.5 text-right font-mono text-green-700">
+                        {duesVerifiedPaid > 0 ? duesVerifiedPaid.toLocaleString("en-IN") : "—"}
+                      </td>
                       <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
+                      <td className="border px-2 py-1.5"></td>
                     </tr>
                     <tr className="bg-green-50">
                       <td className="border px-2 py-1.5 sticky left-0 z-10 bg-green-50">
@@ -890,6 +903,7 @@ export default function SubscriptionsPage() {
                           <span>Amount Paid (enter your total)</span>
                         </div>
                       </td>
+                      <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
                       <td className="border px-1 py-0.5">
                         <Input
                           type="number"
@@ -899,6 +913,9 @@ export default function SubscriptionsPage() {
                           className="h-7 text-xs text-right font-mono border-green-300 focus:border-green-500"
                           placeholder="0"
                         />
+                      </td>
+                      <td className="border px-2 py-1.5 text-right font-mono text-green-600 font-semibold">
+                        {duesPaidNum > duesTotalToPay ? `+${(duesPaidNum - duesTotalToPay).toLocaleString("en-IN")}` : "—"}
                       </td>
                       <td className="border px-1 py-0.5 text-center">
                         <input
@@ -917,17 +934,15 @@ export default function SubscriptionsPage() {
                           {duesProofUploading ? "Uploading..." : "Attach"}
                         </button>
                       </td>
-                      <td className="border px-2 py-1.5 text-right font-mono text-green-600 font-semibold">
-                        {duesPaidNum > duesTotalToPay ? `+${(duesPaidNum - duesTotalToPay).toLocaleString("en-IN")}` : "—"}
-                      </td>
                     </tr>
                     <tr className={duesPending > 0 ? "bg-red-50" : "bg-green-50"}>
                       <td className={`border px-2 py-1.5 font-semibold sticky left-0 z-10 ${duesPending > 0 ? "bg-red-50" : "bg-green-50"}`}>Pending Amount</td>
                       <td className={`border px-2 py-1.5 text-right font-mono font-semibold ${duesPending > 0 ? "text-red-600" : "text-green-600"}`}>
                         {duesPending > 0 ? duesPending.toLocaleString("en-IN") : "0"}
                       </td>
-                      <td className="border px-2 py-1.5"></td>
+                      <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
                       <td className="border px-2 py-1.5 text-right font-mono text-muted-foreground">—</td>
+                      <td className="border px-2 py-1.5"></td>
                     </tr>
                     <tr className="bg-amber-50">
                       <td className="border px-2 py-1.5 sticky left-0 z-10 bg-amber-50">
@@ -936,6 +951,8 @@ export default function SubscriptionsPage() {
                           <span>Additional Amount Paid</span>
                         </div>
                       </td>
+                      <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
+                      <td className="border px-2 py-1.5 text-center text-muted-foreground">—</td>
                       <td className="border px-1 py-0.5">
                         <Input
                           type="number"
@@ -947,9 +964,6 @@ export default function SubscriptionsPage() {
                         />
                       </td>
                       <td className="border px-2 py-1.5"></td>
-                      <td className="border px-2 py-1.5 text-right font-mono text-amber-600 font-semibold">
-                        {duesAdditionalNum > 0 ? `+${duesAdditionalNum.toLocaleString("en-IN")}` : "—"}
-                      </td>
                     </tr>
                   </tbody>
                 </table>
