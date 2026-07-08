@@ -8,7 +8,7 @@ import { getSession, isSuperAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { createRateLimiter } from "@/lib/rate-limit";
-import { parseKmlPolygon, fetchNdviTimeSeries, fetchRviTimeSeries, findCropCycles } from "@/lib/sentinel-hub";
+import { parseKmlPolygon, fetchNdviTimeSeries, fetchRviTimeSeries, findCropCycles, findDataGaps, fetchRadarGapFills } from "@/lib/sentinel-hub";
 
 const limiter = createRateLimiter(10);
 
@@ -48,7 +48,38 @@ export async function POST(req: NextRequest) {
     }
 
     const isRvi = mode === "rvi";
+    const isCombined = mode === "combined";
     const intervalDays = Math.min(Math.max(parseInt(intervalDaysRaw, 10) || (isRvi ? 6 : 5), 1), 30);
+
+    if (isCombined) {
+      const ndviSeries = await fetchNdviTimeSeries(clientId, clientSecret, geometry, dateFrom, dateTo, intervalDays);
+      if (ndviSeries.length === 0) {
+        return NextResponse.json(
+          { error: "No valid NDVI data returned (field may be too small, or all scenes cloudy for this range)." },
+          { status: 422 }
+        );
+      }
+
+      const peaks = findCropCycles(ndviSeries);
+      const gaps = findDataGaps(ndviSeries);
+      const { fills, skipped } = await fetchRadarGapFills(clientId, clientSecret, geometry, gaps);
+      const radarConfirmedCycles = fills.reduce((n, f) => n + f.peaks.length, 0);
+
+      logContribution(session.userId, "used_ai_satellite_ndvi");
+
+      return NextResponse.json({
+        series: ndviSeries,
+        peaks,
+        gaps,
+        radarGapFills: fills,
+        radarGapsSkipped: skipped,
+        mode: "combined",
+        vertices: geometry.coordinates[0].length,
+        majorCycles: peaks.filter((p) => p.tier === "major").length,
+        minorBumps: peaks.filter((p) => p.tier === "minor").length,
+        radarConfirmedCycles,
+      });
+    }
 
     const series = isRvi
       ? await fetchRviTimeSeries(clientId, clientSecret, geometry, dateFrom, dateTo, intervalDays)

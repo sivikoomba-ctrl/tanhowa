@@ -194,6 +194,87 @@ export async function fetchRviTimeSeries(
   return toTimeSeries(json, "rvi");
 }
 
+export interface DataGap {
+  start: string;
+  end: string;
+  days: number;
+}
+
+export interface RadarGapFill {
+  gapStart: string;
+  gapEnd: string;
+  days: number;
+  series: TimeSeriesPoint[];
+  peaks: { date: string; value: number }[];
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Finds stretches between consecutive data points wider than minGapDays — e.g. monsoon cloud cover. */
+export function findDataGaps(series: TimeSeriesPoint[], minGapDays = 21): DataGap[] {
+  const gaps: DataGap[] = [];
+  for (let i = 1; i < series.length; i++) {
+    const days = Math.round(
+      (new Date(`${series[i].date}T00:00:00Z`).getTime() - new Date(`${series[i - 1].date}T00:00:00Z`).getTime()) / 86400000
+    );
+    if (days >= minGapDays) gaps.push({ start: series[i - 1].date, end: series[i].date, days });
+  }
+  return gaps;
+}
+
+/**
+ * Radar has no established absolute "major/minor" scale like NDVI does, so peaks are found
+ * using a prominence relative to the segment's own value range rather than an absolute cutoff.
+ */
+export function findRadarPeaks(series: TimeSeriesPoint[]): { date: string; value: number }[] {
+  const values = series.map((p) => p.mean);
+  if (values.length < 3) return [];
+  const range = Math.max(...values) - Math.min(...values);
+  if (range <= 0) return [];
+  return findCropCycles(series, range * 0.2, Infinity).map((p) => ({ date: p.date, value: p.value }));
+}
+
+/**
+ * Fills the largest optical NDVI gaps with a Sentinel-1 radar check (cloud-penetrating) to confirm
+ * whether a crop cycle plausibly occurred during the gap, and roughly when. Mirrors the
+ * field-ndvi-analysis skill's step 4 — radar trend shape only confirms whether/when, never a
+ * direct NDVI-comparable value. Small gaps (< minGapDaysToFill) aren't worth a radar round-trip;
+ * only the largest `maxGaps` gaps are checked to bound request cost on long date ranges.
+ */
+export async function fetchRadarGapFills(
+  clientId: string,
+  clientSecret: string,
+  geometry: GeoPolygon,
+  gaps: DataGap[],
+  opts: { minGapDaysToFill?: number; maxGaps?: number; padDays?: number; intervalDays?: number } = {}
+): Promise<{ fills: RadarGapFill[]; skipped: number }> {
+  const minGapDaysToFill = opts.minGapDaysToFill ?? 40;
+  const maxGaps = opts.maxGaps ?? 6;
+  const padDays = opts.padDays ?? 5;
+  const intervalDays = opts.intervalDays ?? 6;
+
+  const candidates = gaps.filter((g) => g.days >= minGapDaysToFill).sort((a, b) => b.days - a.days);
+  const toFill = candidates.slice(0, maxGaps);
+  const skipped = candidates.length - toFill.length;
+
+  const fills: RadarGapFill[] = [];
+  for (const gap of toFill) {
+    const from = addDays(gap.start, -padDays);
+    const to = addDays(gap.end, padDays);
+    try {
+      const series = await fetchRviTimeSeries(clientId, clientSecret, geometry, from, to, intervalDays);
+      fills.push({ gapStart: gap.start, gapEnd: gap.end, days: gap.days, series, peaks: findRadarPeaks(series) });
+    } catch {
+      fills.push({ gapStart: gap.start, gapEnd: gap.end, days: gap.days, series: [], peaks: [] });
+    }
+  }
+  return { fills, skipped };
+}
+
 /**
  * Local-maxima peak detection with a minimum-prominence filter — a JS approximation of
  * scipy.signal.find_peaks(prominence=...). Classifies each surviving peak as major
