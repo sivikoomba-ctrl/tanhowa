@@ -18,7 +18,7 @@ TANHOWA (Tamil Nadu Horticultural Officers Welfare Association) is a member port
 
 **Core architecture:** [Authentication Flow](#authentication-flow) · [Admin Auth Pattern](#admin-auth-pattern) · [Database](#database) · [Email System](#email-system-libmailts) · [Telegram Bot](#telegram-bot-integration) · [i18n](#internationalization-i18n) · [Content Auto-Translation](#content-auto-translation-enta) · [PWA & Service Worker](#pwa--service-worker) · [Cron Jobs](#cron-jobs) · [Activity Tracking](#activity-tracking) · [Audit Log](#audit-log) · [In-App Notifications](#in-app-notifications) · [Push Notifications](#push-notifications) · [Razorpay](#razorpay-integration) · [Global Search](#global-search) · [Notification Preferences](#notification-preferences)
 
-**AI:** [AI Tools](#ai-tools-dashboardai-tools) · [Chatbot / Query Engine](#chatbot--query-engine) · [AI Payment Proof Extraction](#ai-powered-payment-proof-extraction--verification) · [Daily Greetings](#daily-greetings-libdaily-greetingsts) · [Auto Gender Detection](#auto-gender-detection)
+**AI:** [AI Tools](#ai-tools-dashboardai-tools) · [AI Space (super-admin)](#ai-space-super-admin-only) · [Chatbot / Query Engine](#chatbot--query-engine) · [AI Payment Proof Extraction](#ai-powered-payment-proof-extraction--verification) · [Daily Greetings](#daily-greetings-libdaily-greetingsts) · [Auto Gender Detection](#auto-gender-detection)
 
 **Member features:** [Member Dashboard Widgets](#member-dashboard-home-widgets) · [Field Diary](#field-diary) · [Suggestions & Grievances](#suggestions--grievances-split) · [Polls](#polls) · [Wishlist / IDEA BOARD](#wishlist--idea-board) · [Logo Vote](#logo-vote) · [Elections](#elections-posts-nominations--polling) · [Direct Messages](#direct-messages) · [Group Chat](#group-chat) · [Calendar & iCal](#calendar--ical-export) · [Event RSVP](#event-rsvp) · [Announcement Read Tracking](#announcement-read-tracking) · [Achievements / Badges](#achievements--badges) · [Contributions Tracking](#contributions-tracking) · [Member Directory Sorting](#member-directory-sorting) · [Digital Member ID Card](#digital-member-id-card) · [Profile Completeness](#profile-completeness) · [Mandatory Profile Completion](#mandatory-profile-completion) · [Location Sharing](#location-sharing--nearby-members) · [Trainings System](#trainings-system) · [TANHOWA History Timeline](#tanhowa-history-timeline) · [Member Feedback Loop](#member-feedback-loop--ai-pulse-super-admin-only) · [Service Requests](#service-requests) · [Volunteer Invites](#volunteer-invites)
 
@@ -236,6 +236,8 @@ FACEBOOK_APP_SECRET=            # Facebook OAuth app secret (token exchange in c
 CRON_SECRET=                    # Bearer token for Vercel Cron job authorization
 TELEGRAM_WEBHOOK_SECRET=        # Secret token to verify incoming Telegram webhook updates
 TWOFACTOR_API_KEY=              # 2Factor.in API key for SMS OTP (lib/sms.ts)
+SH_CLIENT_ID=                    # Copernicus Data Space Ecosystem OAuth client ID (AI Space -> Satellite Field Analysis)
+SH_CLIENT_SECRET=                # Copernicus Data Space Ecosystem OAuth client secret
 ```
 
 ## UI & Styling Conventions
@@ -400,6 +402,16 @@ Two AI helpers at the start and end of a task lifecycle. Live at `/dashboard/tod
 - **Model:** `gemini-2.5-flash`. Strict JSON output prompt for suggestions; plain prose for draft (no markdown, no fabricated data).
 - **UI:** amber Sparkles "AI Suggest" button in the Sub-Tasks tab; "AI Draft" button inside the completion-review dialog.
 - **Inserts route through standard endpoints** (`/api/todos`, `/api/todos/notes`) so audit + event_id + Telegram notifications flow normally.
+
+## AI Space (super-admin only)
+
+Consolidated hub at `/admin/ai-space` gathering every AI-powered capability in the app in one place, gated to `role === "super_admin"` (same `superAdminOnly` array pattern as `/admin/pest-training` — nav link hidden via `isNavItemVisible` in `app/admin/layout.tsx`; **pages don't re-check role client-side, only the underlying API routes 403 non-super-admins**, matching the rest of the admin panel's convention).
+
+- **`/admin/ai-space`** — card hub linking to everything below (no data of its own).
+- **`/admin/ai-space/tools`** — admin-side view of the same 7 member AI Tools (reuses the exact components from `app/dashboard/ai-tools/_components/` — no duplicated logic; the underlying `/api/ai-tools/*` routes are unchanged and still member-accessible from `/dashboard/ai-tools` too).
+- **`/admin/ai-space/satellite-ndvi`** — new tool: pulls a Sentinel-2 NDVI (or Sentinel-1 RVI, cloud-penetrating radar) time series for an uploaded/pasted field-boundary KML from the Copernicus Data Space Ecosystem, detects rise-peak-fall crop cycles, and charts it. TypeScript port of the `field-ndvi-analysis` skill's Python scripts (`tools/fetch_ndvi.py` / `tools/fetch_s1_rvi.py` at the project root, one level up from `tanhowa/`) — **`lib/sentinel-hub.ts`** (`parseKmlPolygon`, `fetchNdviTimeSeries`, `fetchRviTimeSeries`, `findCropCycles` — a JS approximation of `scipy.signal.find_peaks(prominence=...)`) + **`POST /api/ai-tools/satellite-ndvi`** (super_admin-gated, rate-limited 10/min, `SH_CLIENT_ID`/`SH_CLIENT_SECRET` required in `.env.local`). Contribution action: `used_ai_satellite_ndvi`.
+- Existing pages just linked from the hub, not moved: **Pest AI Training Review** (`/admin/pest-training`), **AI Photo Quality Review** (`/admin/photo-review`), **AI Feedback Pulse** (`/admin/feedback-pulse`), **AI Task Classification** (bulk-classify button lives on `/admin/todos` — no standalone page exists for it).
+- i18n keys under `aispace.*` and `ndvi.*` in `lib/i18n/translations.ts`.
 
 ## Chatbot / Query Engine
 

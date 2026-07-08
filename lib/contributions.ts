@@ -34,6 +34,7 @@ export type ContributionAction =
   | "used_ai_doc_summarizer"
   | "used_ai_weather_advisory"
   | "used_ai_expense_ocr"
+  | "used_ai_satellite_ndvi"
   | "training_created"
   | "training_enrolled"
   | "idea_submitted"
@@ -82,6 +83,7 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   used_ai_doc_summarizer:   { label: "Used AI Document Summarizer", minutes: 2 },
   used_ai_weather_advisory: { label: "Used AI Weather Advisory", minutes: 2 },
   used_ai_expense_ocr:      { label: "Used AI Expense OCR", minutes: 2 },
+  used_ai_satellite_ndvi:   { label: "Used AI Satellite Field Analysis", minutes: 3 },
   training_created:          { label: "Created training session", minutes: 10 },
   training_enrolled:         { label: "Enrolled in training", minutes: 2 },
   idea_submitted:            { label: "Submitted an idea", minutes: 3 },

@@ -55,6 +55,7 @@ import {
   Sparkles,
   FileSignature,
   Eye,
+  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -151,6 +152,12 @@ const NAV_SECTIONS = [
       { href: "/admin/pest-training", labelKey: "nav.pest_training" as const, icon: Bug },
       { href: "/admin/logo-vote", labelKey: "nav.logo_vote" as const, icon: Flower2 },
       { href: "/admin/error-logs", labelKey: "nav.error_logs" as const, icon: AlertCircle },
+    ],
+  },
+  {
+    titleKey: "nav.section.ai_space" as const,
+    items: [
+      { href: "/admin/ai-space", labelKey: "nav.ai_space" as const, icon: Bot },
     ],
   },
   {
@@ -253,7 +260,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isFeedbackActive = feedbackItems.some((i) => pathname === i.href);
 
   function isNavItemVisible(href: string) {
-    const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks", "/admin/logo-vote", "/admin/pest-training"];
+    const superAdminOnly = ["/admin/error-logs", "/admin/special-tasks", "/admin/logo-vote", "/admin/pest-training", "/admin/ai-space"];
     if (superAdminOnly.includes(href)) return effectiveUser?.role === "super_admin";
     if (href === "/admin/elections") return effectiveUser?.role === "super_admin" || effectiveUser?.official_type === "state" || effectiveUser?.email === "sivikoomba@gmail.com";
     if (href === "/admin/special-documents") return effectiveUser?.email === "tanhowa19791@gmail.com";
