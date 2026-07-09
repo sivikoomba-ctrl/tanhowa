@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       });
 
     if (uploadError) {
-      await logError({ type: "api", message: uploadError.message, path: "/api/upload/payment-proof", method: "POST", status_code: 500 });
+      await logError({ type: "api", message: uploadError.message, path: "/api/upload/payment-proof", method: "POST", status_code: 500, user_id: session.userId, metadata: { subscriptionId, fileName, fileType: file.type, fileSize: file.size } });
       return NextResponse.json({ error: "Upload failed: " + uploadError.message }, { status: 500 });
     }
 
@@ -88,7 +88,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ payment_proof_url: fileName });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
-    await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/upload/payment-proof", method: "POST", status_code: 500 });
+    const session = await getSession().catch(() => null);
+    await logError({ type: "api", message: msg, stack: error instanceof Error ? error.stack : "", path: "/api/upload/payment-proof", method: "POST", status_code: 500, user_id: session?.userId });
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
