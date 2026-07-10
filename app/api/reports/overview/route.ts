@@ -5,6 +5,34 @@ import { logError } from "@/lib/error-logger";
 import { isGrievanceCategory, hasGrievanceAccess } from "@/lib/grievances";
 import { fetchAllRows } from "@/lib/supabase-helpers";
 
+// Mirrors the mandatory-profile-completion gate in app/dashboard/layout.tsx (getMissingFields) —
+// keep the two in sync; a member counts as "profile complete" here iff the gate would let them in.
+const PLACEHOLDER_NAMES = new Set(["unnamed", "user", "test", "guest", "anonymous", "no name", "n/a", "na"]);
+interface MemberProfileFields {
+  name: string | null;
+  phone: string | null;
+  occupation: string | null;
+  posting_details: { regular_district?: string; regular_block?: string } | null;
+  dob: string | null;
+  social_links: { gender?: string } | null;
+  address: string | null;
+  office_address: string | null;
+}
+function isProfileComplete(u: MemberProfileFields): boolean {
+  const trimmedName = (u.name || "").trim();
+  const nameParts = trimmedName.split(/\s+/).filter(Boolean);
+  const isPlaceholder = trimmedName.length > 0 && nameParts.every((p) => PLACEHOLDER_NAMES.has(p.toLowerCase()));
+  if (!trimmedName || nameParts.length < 2 || isPlaceholder) return false;
+  if (!u.phone?.trim()) return false;
+  if (!u.occupation?.trim()) return false;
+  if (!u.posting_details?.regular_district) return false;
+  if (!u.posting_details?.regular_block) return false;
+  if (!u.dob) return false;
+  if (!u.social_links?.gender) return false;
+  if (!u.address?.trim() && !u.office_address?.trim()) return false;
+  return true;
+}
+
 export async function GET() {
   try {
     const session = await getSession();
@@ -26,7 +54,7 @@ export async function GET() {
       contributionsRes,
     ] = await Promise.all([
       // Total approved members
-      supabase.from("users").select("id, created_at, last_active_at, role", { count: "exact" }).eq("status", "approved").neq("email", "tanhowa19791@gmail.com"),
+      supabase.from("users").select("id, created_at, last_active_at, role, name, phone, occupation, posting_details, dob, social_links, address, office_address", { count: "exact" }).eq("status", "approved").neq("email", "tanhowa19791@gmail.com"),
       // Pending members
       supabase.from("users").select("id", { count: "exact", head: true }).eq("status", "pending"),
       // Active in last 7 days
@@ -52,6 +80,7 @@ export async function GET() {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const newMembersThisMonth = members.filter(m => new Date(m.created_at) >= monthStart).length;
+    const profileComplete = members.filter(isProfileComplete).length;
 
     // Subscription stats by period
     const periodStats = new Map<string, { paid: number; pending: number; overdue: number; hold: number; rejected: number; collected: number }>();
@@ -109,6 +138,7 @@ export async function GET() {
         activeThisWeek: activeRes.count || 0,
         newThisMonth: newMembersThisMonth,
         inactive,
+        profileComplete,
       },
       subscriptions: {
         totalCollected,

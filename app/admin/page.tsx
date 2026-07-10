@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Users, Megaphone, Calendar, FileText, UserCheck, Bell, Check, X,
   ArrowRight, Wallet, IndianRupee, CalendarDays,
-  ListTodo, Award, TrendingUp, AlertTriangle,
+  ListTodo, Award, TrendingUp, AlertTriangle, BadgeCheck,
 } from "lucide-react";
 import { Cell, Pie, PieChart } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
@@ -48,7 +48,7 @@ interface AdminContact {
 }
 
 interface OverviewData {
-  members: { total: number; pending: number; activeThisWeek: number; newThisMonth: number };
+  members: { total: number; pending: number; activeThisWeek: number; newThisMonth: number; profileComplete: number };
   subscriptions: { totalCollected: number; collectionRate: number; byPeriod: { period: string; paid: number; pending: number; overdue: number; collected: number; total: number }[] };
   tasks: { total: number; completionRate: number; breakdown: Record<string, number> };
   grievances: { total: number; suggestions: number; resolutionRate: number };
@@ -216,8 +216,9 @@ export default function AdminDashboard() {
       {errors.overview ? (
         <SectionError message="Failed to load overview metrics" onRetry={loadData} />
       ) : (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <MetricCard label="Members" value={`${overview?.members.total || 0} / 797`} subtitle={`${Math.round(((overview?.members.total || 0) / 797) * 100)}% registered · ${797 - (overview?.members.total || 0)} yet to join`} icon={UserCheck} loading={!overview} borderColor="border-l-primary" iconColor="text-primary/40" subtitleColor="text-green-600" />
+        <MetricCard label="Profile Updated" value={`${overview?.members.profileComplete || 0} / ${overview?.members.total || 0}`} subtitle={`${overview && overview.members.total > 0 ? Math.round((overview.members.profileComplete / overview.members.total) * 100) : 0}% of registered`} icon={BadgeCheck} loading={!overview} borderColor="border-l-teal-500" iconColor="text-teal-500/40" subtitleColor="text-teal-600" />
         <MetricCard label="Collected" value={`₹${(overview?.subscriptions.totalCollected || 0).toLocaleString("en-IN")}`} subtitle={`${overview?.subscriptions.collectionRate || 0}% rate`} icon={IndianRupee} loading={!overview} borderColor="border-l-green-500" iconColor="text-green-500/40" subtitleColor="text-green-600" />
         <MetricCard label="Tasks" value={overview?.tasks.total || 0} subtitle={`${overview?.tasks.completionRate || 0}% completed`} icon={ListTodo} loading={!overview} borderColor="border-l-blue-500" iconColor="text-blue-500/40" subtitleColor="text-blue-600" />
         <MetricCard label="Total Contributions" value={overview?.contributions.actionsThisMonth || 0} subtitle={`${formatMinutes(overview?.contributions.minutesThisMonth || 0)} this month`} icon={Award} loading={!overview} borderColor="border-l-purple-500" iconColor="text-purple-500/40" subtitleColor="text-purple-600" />
