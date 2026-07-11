@@ -11,11 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Search, Filter, Calendar, Upload, ExternalLink, ChevronDown, ChevronUp, Sparkles, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { Search, Filter, Calendar, Upload, ExternalLink, ChevronDown, ChevronUp, Sparkles, CheckCircle, AlertTriangle, Loader2, FileDown } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { fetchSignedPaymentProofUrl } from "@/lib/subscription-proofs";
 import { displayPeriod } from "@/lib/subscriptions";
 import { DISTRICT_NAMES, getBlocks, ALL_TN_BLOCK_OPTIONS } from "@/lib/tn-districts";
+import { isProfileComplete, getMissingProfileFields } from "@/lib/profile-completion";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import UserCard from "./_components/UserCard";
 import EditUserDialog from "./_components/EditUserDialog";
 import NudgeDialog from "./_components/NudgeDialog";
@@ -45,7 +48,7 @@ interface User {
   role: string;
   status: string;
   posting_details: PostingDetails;
-  social_links: { instagram?: string; twitter?: string; linkedin?: string };
+  social_links: { instagram?: string; twitter?: string; linkedin?: string; gender?: string };
   photo_url: string;
   created_at: string;
   last_active_at: string | null;
@@ -67,6 +70,7 @@ export default function AdminUsersPage() {
   const [blockFilter, setBlockFilter] = useState("all");
   const [farmFilter, setFarmFilter] = useState("all");
   const [designationFilter, setDesignationFilter] = useState("all");
+  const [profileFilter, setProfileFilter] = useState("all");
   const [joinedFilter, setJoinedFilter] = useState("all");
   const [nudgeUserId, setNudgeUserId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -130,6 +134,7 @@ export default function AdminUsersPage() {
     setBlockFilter("all");
     setFarmFilter("all");
     setDesignationFilter("all");
+    setProfileFilter("all");
     setJoinedFilter("all");
     setVisibleCount(PAGE_SIZE);
     setSelectedIds(new Set());
@@ -170,6 +175,11 @@ export default function AdminUsersPage() {
       const r = new RegExp(`\\b${designationFilter}\\b`, "i");
       result = result.filter((u) => r.test(u.occupation || ""));
     }
+    if (profileFilter === "complete") {
+      result = result.filter((u) => isProfileComplete(u));
+    } else if (profileFilter === "incomplete") {
+      result = result.filter((u) => !isProfileComplete(u));
+    }
     if (joinedFilter !== "all") {
       const now = Date.now();
       // Hourly filters: filter by last_active_at (recently active users)
@@ -209,7 +219,7 @@ export default function AdminUsersPage() {
       return (a.name || "").localeCompare(b.name || "");
     });
     return result;
-  }, [users, search, districtFilter, blockFilter, farmFilter, designationFilter, joinedFilter]);
+  }, [users, search, districtFilter, blockFilter, farmFilter, designationFilter, profileFilter, joinedFilter]);
 
   const blockOptions = useMemo(() => {
     if (districtFilter === "all" || districtFilter === "none") {
@@ -296,6 +306,42 @@ export default function AdminUsersPage() {
     } else {
       setSelectedIds(new Set(visible.map((u) => u.id)));
     }
+  }
+
+  function downloadProfilePdf() {
+    if (filteredUsers.length === 0) { toast.error("Nothing to export"); return; }
+    const doc = new jsPDF({ orientation: "landscape" });
+    const today = new Date().toLocaleDateString("en-GB");
+    const label = profileFilter === "complete" ? "100% Profile Complete" : profileFilter === "incomplete" ? "Incomplete Profile" : "All (Current Filter)";
+    doc.setFontSize(14);
+    doc.text(`TANHOWA - Members: ${label}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`${filteredUsers.length} members | Generated: ${today}`, 14, 21);
+    const showMissing = profileFilter !== "complete";
+    autoTable(doc, {
+      startY: 28,
+      head: showMissing
+        ? [["S.No", "Name", "Designation", "District", "Phone", "Email", "Missing Fields"]]
+        : [["S.No", "Name", "Designation", "District / Block", "Phone", "Email"]],
+      body: filteredUsers.map((u, i) => {
+        const base = [
+          String(i + 1),
+          u.name || "Unnamed",
+          u.occupation || "-",
+          showMissing
+            ? (u.posting_details?.regular_district || "-")
+            : `${u.posting_details?.regular_district || "-"}${u.posting_details?.regular_block ? " / " + u.posting_details.regular_block : ""}`,
+          u.phone || "-",
+          u.email || "-",
+        ];
+        return showMissing ? [...base, getMissingProfileFields(u).join(", ") || "-"] : base;
+      }),
+      headStyles: { fillColor: [45, 106, 79], fontSize: 8 },
+      styles: { fontSize: 8 },
+      margin: { left: 14, right: 14 },
+    });
+    const tag = profileFilter === "complete" ? "Profile_Complete" : profileFilter === "incomplete" ? "Profile_Incomplete" : "Members";
+    doc.save(`TANHOWA_${tag}_${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
   async function handleDelete(userId: string) {
@@ -641,9 +687,20 @@ export default function AdminUsersPage() {
                 <SelectItem value="System Admin">System Admin</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={profileFilter} onValueChange={setProfileFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <CheckCircle size={14} className="mr-1 text-muted-foreground" />
+                <SelectValue placeholder="Profile Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Profile Status</SelectItem>
+                <SelectItem value="complete">100% Complete</SelectItem>
+                <SelectItem value="incomplete">Incomplete</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           {users.length > 0 && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground">
                 <input type="checkbox" checked={selectedIds.size > 0 && selectedIds.size === Math.min(visibleCount, filteredUsers.length)} onChange={toggleSelectAll} className="accent-primary" />
                 Select All
@@ -653,6 +710,9 @@ export default function AdminUsersPage() {
                   ? `Showing ${Math.min(visibleCount, filteredUsers.length)} of ${filteredUsers.length} (filtered from ${users.length})`
                   : `Showing ${Math.min(visibleCount, users.length)} of ${users.length} users`}
               </p>
+              <Button size="sm" variant="outline" className="h-7 text-xs ml-auto" onClick={downloadProfilePdf}>
+                <FileDown size={12} className="mr-1" /> Export PDF
+              </Button>
             </div>
           )}
           {selectedIds.size > 0 && (

@@ -64,6 +64,7 @@ import { GlobalSearch } from "@/components/global-search";
 import { PushManager } from "@/components/push-manager";
 import { FeedbackWidget } from "@/components/feedback-widget";
 import { ReEngagementModal } from "@/components/re-engagement-modal";
+import { getMissingProfileFields } from "@/lib/profile-completion";
 
 interface UserData {
   name: string;
@@ -171,29 +172,14 @@ const MEMBER_NAV_SECTIONS = [
 ];
 
 // Generic placeholder names that should be treated as "no real name entered"
-const PLACEHOLDER_NAMES = new Set(["unnamed", "user", "test", "guest", "anonymous", "no name", "n/a", "na"]);
-
 // Blocking gate — kept to identity-critical fields only. Photo / Qualification / Date of
 // Joining used to be mandatory here too, but a live-data check (2026-07-04) found ~47% of
 // approved members (304/643) blocked from basic access like payment-proof upload over these
 // three specifically — real profile gaps, not a save bug. Dropped from the hard block; they're
 // still requested (non-blocking) on the Profile page's own completeness indicator.
-function getMissingFields(u: UserData): string[] {
-  const missing: string[] = [];
-  const trimmedName = (u.name || "").trim();
-  const nameParts = trimmedName.split(/\s+/).filter(Boolean);
-  // Flag missing if no name, fewer than 2 parts, or any placeholder word like "unnamed" / "user"
-  const isPlaceholder = trimmedName.length > 0 && nameParts.every((p) => PLACEHOLDER_NAMES.has(p.toLowerCase()));
-  if (!trimmedName || nameParts.length < 2 || isPlaceholder) missing.push("Full Name (First + Last)");
-  if (!u.phone?.trim()) missing.push("Phone Number");
-  if (!u.occupation?.trim()) missing.push("Designation");
-  if (!u.posting_details?.regular_district) missing.push("District");
-  if (!u.posting_details?.regular_block) missing.push("Posting location");
-  if (!u.dob) missing.push("Date of Birth");
-  if (!u.social_links?.gender) missing.push("Gender");
-  if (!u.address?.trim() && !u.office_address?.trim()) missing.push("Address");
-  return missing;
-}
+// Field list + placeholder-name detection live in lib/profile-completion.ts (shared with the
+// admin overview metric and the Member Approval profile-status filter — keep them in sync).
+const getMissingFields = getMissingProfileFields;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);

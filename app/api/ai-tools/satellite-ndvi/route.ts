@@ -8,7 +8,7 @@ import { getSession, isSuperAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
 import { createRateLimiter } from "@/lib/rate-limit";
-import { parseKmlPolygon, fetchNdviTimeSeries, fetchRviTimeSeries, findCropCycles, findDataGaps, fetchRadarGapFills } from "@/lib/sentinel-hub";
+import { parseKmlPolygon, fetchNdviTimeSeries, fetchRviTimeSeries, findCropCycles, findDataGaps, fetchRadarGapFills, computePolygonAreaHectares, detectCropCycles } from "@/lib/sentinel-hub";
 
 const limiter = createRateLimiter(10);
 
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
     const isRvi = mode === "rvi";
     const isCombined = mode === "combined";
     const intervalDays = Math.min(Math.max(parseInt(intervalDaysRaw, 10) || (isRvi ? 6 : 5), 1), 30);
+    const fieldArea = computePolygonAreaHectares(geometry.coordinates[0]);
 
     if (isCombined) {
       const ndviSeries = await fetchNdviTimeSeries(clientId, clientSecret, geometry, dateFrom, dateTo, intervalDays);
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
       const gaps = findDataGaps(ndviSeries);
       const { fills, skipped } = await fetchRadarGapFills(clientId, clientSecret, geometry, gaps);
       const radarConfirmedCycles = fills.reduce((n, f) => n + f.peaks.length, 0);
+      const cropCycles = detectCropCycles(ndviSeries, peaks);
 
       logContribution(session.userId, "used_ai_satellite_ndvi");
 
@@ -78,6 +80,8 @@ export async function POST(req: NextRequest) {
         majorCycles: peaks.filter((p) => p.tier === "major").length,
         minorBumps: peaks.filter((p) => p.tier === "minor").length,
         radarConfirmedCycles,
+        fieldArea,
+        cropCycles,
       });
     }
 
@@ -93,6 +97,7 @@ export async function POST(req: NextRequest) {
     }
 
     const peaks = findCropCycles(series);
+    const cropCycles = isRvi ? [] : detectCropCycles(series, peaks);
 
     logContribution(session.userId, "used_ai_satellite_ndvi");
 
@@ -103,6 +108,8 @@ export async function POST(req: NextRequest) {
       vertices: geometry.coordinates[0].length,
       majorCycles: peaks.filter((p) => p.tier === "major").length,
       minorBumps: peaks.filter((p) => p.tier === "minor").length,
+      fieldArea,
+      cropCycles,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
