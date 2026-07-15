@@ -56,6 +56,7 @@ import {
   FileSignature,
   Eye,
   Bot,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,6 +80,7 @@ const NAV_SECTIONS = [
     items: [
       { href: "/admin/users", labelKey: "nav.member_approval" as const, icon: Users },
       { href: "/admin/roster", labelKey: "nav.roster" as const, icon: ClipboardList },
+      { href: "/admin/social-media", labelKey: "nav.social_media" as const, icon: Share2 },
       { href: "/admin/officials", labelKey: "nav.officials" as const, icon: Crown },
       { href: "/admin/adh-pm", labelKey: "nav.adh_pm" as const, icon: BadgeCheck },
       { href: "/admin/photo-review", labelKey: "nav.photo_review" as const, icon: Camera },

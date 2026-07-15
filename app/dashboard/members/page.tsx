@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase, ChevronDown, ChevronUp, Calendar, Crown, Building2 } from "lucide-react";
+import { Search, IndianRupee, X, MapPin, Phone, Mail, Users, Briefcase, ChevronDown, ChevronUp, Calendar, Crown, Building2, Copy } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { useT } from "@/lib/i18n";
@@ -37,7 +37,7 @@ interface Member {
   role: string;
   official_type?: "state" | "district" | "volunteer" | null;
   posting_details?: PostingDetails;
-  social_links?: { instagram?: string; twitter?: string; linkedin?: string; title?: string; gender?: string; qualification?: string };
+  social_links?: { instagram?: string; twitter?: string; linkedin?: string; whatsapp?: string; title?: string; gender?: string; qualification?: string };
   address?: string;
   office_address?: string;
   dob?: string;
@@ -77,6 +77,17 @@ function getDesignationRank(occupation: string): number {
 function hasPosting(p?: PostingDetails) {
   if (!p) return false;
   return !!(p.regular_district || p.regular_block || p.special_duty_district || p.special_duty_block || p.special_duty_place || p.deputed_district || p.deputed_block);
+}
+
+function socialHref(platform: "instagram" | "twitter" | "linkedin" | "whatsapp", value: string): string | null {
+  if (value.startsWith("http")) return value;
+  if (platform === "instagram") return `https://instagram.com/${value.replace(/^@/, "")}`;
+  if (platform === "twitter") return `https://twitter.com/${value.replace(/^@/, "")}`;
+  if (platform === "whatsapp") {
+    const digits = value.replace(/[^\d]/g, "");
+    return digits.length >= 7 ? `https://wa.me/${digits}` : null;
+  }
+  return null; // LinkedIn handles without a full URL can't be reliably linked
 }
 
 export default function MembersPage() {
@@ -406,13 +417,38 @@ export default function MembersPage() {
                       )}
 
                       {/* Social Links */}
-                      {(m.social_links?.instagram || m.social_links?.twitter || m.social_links?.linkedin) && (
+                      {(m.social_links?.instagram || m.social_links?.twitter || m.social_links?.linkedin || m.social_links?.whatsapp) && (
                         <div>
                           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("profile.social_links")}</h4>
                           <div className="flex flex-wrap gap-2 text-sm">
-                            {m.social_links.instagram && <Badge variant="outline">Instagram: {m.social_links.instagram}</Badge>}
-                            {m.social_links.twitter && <Badge variant="outline">Twitter: {m.social_links.twitter}</Badge>}
-                            {m.social_links.linkedin && <Badge variant="outline">LinkedIn: {m.social_links.linkedin}</Badge>}
+                            {([
+                              ["instagram", "Instagram", m.social_links.instagram],
+                              ["twitter", "Twitter", m.social_links.twitter],
+                              ["linkedin", "LinkedIn", m.social_links.linkedin],
+                              ["whatsapp", "WhatsApp", m.social_links.whatsapp],
+                            ] as const).map(([platform, label, value]) => {
+                              if (!value) return null;
+                              const href = socialHref(platform, value);
+                              return (
+                                <Badge key={platform} variant="outline" className="gap-1.5 group">
+                                  {label}:{" "}
+                                  {href ? (
+                                    <a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">
+                                      {value}
+                                    </a>
+                                  ) : (
+                                    value
+                                  )}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(value); toast.success("Copied"); }}
+                                    className="text-muted-foreground hover:text-primary"
+                                    title="Copy"
+                                  >
+                                    <Copy size={10} />
+                                  </button>
+                                </Badge>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
