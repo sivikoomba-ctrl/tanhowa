@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Instagram, Twitter, Linkedin, MessageCircle, Copy, FileDown, Search, Share2 } from "lucide-react";
+import { Instagram, Twitter, Linkedin, MessageCircle, Copy, FileDown, Search, Share2, Pencil, Users, Grid3x3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { downloadXlsx } from "@/lib/export-xlsx";
+import { formatDateTime } from "@/lib/utils";
 
 type Platform = "instagram" | "twitter" | "linkedin" | "whatsapp";
 
@@ -21,6 +24,13 @@ interface Member {
   twitter: string | null;
   linkedin: string | null;
   whatsapp: string | null;
+}
+
+interface OfficialMetrics {
+  followers: number;
+  posts: number;
+  updated_at: string;
+  updated_by: string;
 }
 
 const PLATFORM_META: Record<Platform, { label: string; icon: typeof Instagram; color: string; href: (v: string) => string | null }> = {
@@ -84,15 +94,53 @@ export default function AdminSocialMediaPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [platformFilter, setPlatformFilter] = useState<"all" | Platform>("all");
+  const [officialMetrics, setOfficialMetrics] = useState<OfficialMetrics | null>(null);
+  const [metricsEditOpen, setMetricsEditOpen] = useState(false);
+  const [metricsForm, setMetricsForm] = useState({ followers: "", posts: "" });
+  const [savingMetrics, setSavingMetrics] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/social-media")
       .then((r) => r.json())
-      .then((d) => { if (!d.error) { setMembers(d.members || []); setSummary(d.summary || summary); } })
+      .then((d) => { if (!d.error) { setMembers(d.members || []); setSummary(d.summary || summary); setOfficialMetrics(d.official_metrics || null); } })
       .catch(() => toast.error("Failed to load social media data"))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function openMetricsEdit() {
+    setMetricsForm({
+      followers: officialMetrics ? String(officialMetrics.followers) : "",
+      posts: officialMetrics ? String(officialMetrics.posts) : "",
+    });
+    setMetricsEditOpen(true);
+  }
+
+  async function saveMetrics() {
+    const followers = Number(metricsForm.followers);
+    const posts = Number(metricsForm.posts);
+    if (!Number.isFinite(followers) || followers < 0 || !Number.isFinite(posts) || posts < 0) {
+      toast.error("Enter valid follower and post counts");
+      return;
+    }
+    setSavingMetrics(true);
+    try {
+      const res = await fetch("/api/admin/social-media", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ followers, posts }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save");
+      setOfficialMetrics(data.official_metrics);
+      setMetricsEditOpen(false);
+      toast.success("Metrics updated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save metrics");
+    } finally {
+      setSavingMetrics(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -141,8 +189,13 @@ export default function AdminSocialMediaPage() {
 
       <Card className="border-primary/30 bg-primary/[0.03]">
         <CardContent className="pt-4 pb-4">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Official TANHOWA Accounts</h4>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Official TANHOWA Accounts</h4>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={openMetricsEdit}>
+              <Pencil size={11} className="mr-1" /> Update metrics
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
             {OFFICIAL_ACCOUNTS.map((acc) => {
               const meta = PLATFORM_META[acc.platform];
               const Icon = meta.icon;
@@ -162,9 +215,55 @@ export default function AdminSocialMediaPage() {
                 </div>
               );
             })}
+            {officialMetrics ? (
+              <>
+                <div className="flex items-center gap-1.5 text-sm">
+                  <Users size={14} className="text-muted-foreground" />
+                  <span className="font-semibold">{officialMetrics.followers.toLocaleString()}</span>
+                  <span className="text-xs text-muted-foreground">followers</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-sm">
+                  <Grid3x3 size={14} className="text-muted-foreground" />
+                  <span className="font-semibold">{officialMetrics.posts.toLocaleString()}</span>
+                  <span className="text-xs text-muted-foreground">posts</span>
+                </div>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">No metrics recorded yet — click &ldquo;Update metrics&rdquo;.</span>
+            )}
           </div>
+          {officialMetrics && (
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Manually updated {formatDateTime(officialMetrics.updated_at)} by {officialMetrics.updated_by}
+            </p>
+          )}
         </CardContent>
       </Card>
+
+      <Dialog open={metricsEditOpen} onOpenChange={setMetricsEditOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Update Instagram metrics</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-2">
+            No live API is connected — enter the current counts from the @tanhowa1979 Instagram profile.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="sm-followers">Followers</Label>
+              <Input id="sm-followers" type="number" min={0} value={metricsForm.followers} onChange={(e) => setMetricsForm({ ...metricsForm, followers: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="sm-posts">Posts</Label>
+              <Input id="sm-posts" type="number" min={0} value={metricsForm.posts} onChange={(e) => setMetricsForm({ ...metricsForm, posts: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMetricsEditOpen(false)} disabled={savingMetrics}>Cancel</Button>
+            <Button onClick={saveMetrics} disabled={savingMetrics}>{savingMetrics ? "Saving…" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {(Object.keys(PLATFORM_META) as Platform[]).map((p) => {
