@@ -50,6 +50,11 @@ const PLATFORM_META: Record<Platform, { label: string; icon: typeof Instagram; c
   },
 };
 
+// TANHOWA's own official accounts — pinned separately from member-submitted links.
+const OFFICIAL_ACCOUNTS: { platform: Platform; handle: string; url: string }[] = [
+  { platform: "instagram", handle: "@tanhowa1979", url: "https://www.instagram.com/tanhowa1979" },
+];
+
 function CopyCell({ value, platform }: { value: string | null; platform: Platform }) {
   if (!value) return <span className="text-muted-foreground/40 text-xs">—</span>;
   const href = PLATFORM_META[platform].href(value);
@@ -133,6 +138,33 @@ export default function AdminSocialMediaPage() {
           <FileDown size={14} className="mr-1.5" /> Export Excel
         </Button>
       </div>
+
+      <Card className="border-primary/30 bg-primary/[0.03]">
+        <CardContent className="pt-4 pb-4">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Official TANHOWA Accounts</h4>
+          <div className="flex flex-wrap gap-3">
+            {OFFICIAL_ACCOUNTS.map((acc) => {
+              const meta = PLATFORM_META[acc.platform];
+              const Icon = meta.icon;
+              return (
+                <div key={acc.platform + acc.handle} className="flex items-center gap-2 border rounded-xl px-3 py-2 bg-background">
+                  <Icon size={16} className="text-primary shrink-0" />
+                  <a href={acc.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
+                    {acc.handle}
+                  </a>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(acc.url); toast.success("Copied"); }}
+                    className="text-muted-foreground hover:text-primary"
+                    title="Copy link"
+                  >
+                    <Copy size={12} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {(Object.keys(PLATFORM_META) as Platform[]).map((p) => {
