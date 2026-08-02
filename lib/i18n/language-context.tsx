@@ -21,14 +21,32 @@ const FONT_CLASSES: Record<FontSize, string> = {
   lg: "font-size-lg",
 };
 
+// Storage can be null (not just throw) in privacy-hardened browsers (e.g. Firefox
+// with dom.storage.enabled=false) — guard every access instead of assuming it exists.
+function safeGetItem(key: string): string | null {
+  try {
+    return window.localStorage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key: string, value: string) {
+  try {
+    window.localStorage?.setItem(key, value);
+  } catch {
+    // Storage unavailable — setting is best-effort, state still updates in memory
+  }
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("en");
   const [fontSize, setFontSizeState] = useState<FontSize>("md");
 
   // Load from localStorage on mount
   useEffect(() => {
-    const savedLang = localStorage.getItem("tanhowa-lang") as Lang | null;
-    const savedSize = localStorage.getItem("tanhowa-font-size") as FontSize | null;
+    const savedLang = safeGetItem("tanhowa-lang") as Lang | null;
+    const savedSize = safeGetItem("tanhowa-font-size") as FontSize | null;
     if (savedLang === "en" || savedLang === "ta") setLangState(savedLang);
     if (savedSize === "sm" || savedSize === "md" || savedSize === "lg") setFontSizeState(savedSize);
   }, []);
@@ -47,12 +65,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLang = useCallback((newLang: Lang) => {
     setLangState(newLang);
-    localStorage.setItem("tanhowa-lang", newLang);
+    safeSetItem("tanhowa-lang", newLang);
   }, []);
 
   const setFontSize = useCallback((size: FontSize) => {
     setFontSizeState(size);
-    localStorage.setItem("tanhowa-font-size", size);
+    safeSetItem("tanhowa-font-size", size);
   }, []);
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
