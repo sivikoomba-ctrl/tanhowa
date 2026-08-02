@@ -1097,6 +1097,7 @@ const translations = {
   // Navigation — New features
   "nav.achievements": { en: "Achievements", ta: "சாதனைகள்" },
   "nav.rewards": { en: "Rewards & Progress", ta: "வெகுமதிகள் & முன்னேற்றம்" },
+  "nav.rewards_admin": { en: "Rewards Catalog", ta: "வெகுமதிப் பட்டியல்" },
   "nav.calendar": { en: "Calendar", ta: "நாட்காட்டி" },
   "nav.field_diary": { en: "Field Diary", ta: "கள நாட்குறிப்பு" },
   "nav.field_diary_compliance": { en: "Field Diary Compliance", ta: "கள நாட்குறிப்பு இணக்கம்" },
@@ -1161,6 +1162,23 @@ const translations = {
   "letters.ta_desc": { en: "Travelling Allowance bill with journey details", ta: "பயண விவரங்களுடன் பயண படி பில்" },
   "letters.tour_diary": { en: "Tour Diary", ta: "சுற்றுப்பயண நாட்குறிப்பு" },
   "letters.tour_desc": { en: "Daily tour record with distance and purpose", ta: "தூரம் மற்றும் நோக்கத்துடன் தினசரி சுற்றுப்பயண பதிவு" },
+
+  // Rewards Redemption
+  "common.submitting": { en: "Submitting...", ta: "சமர்ப்பிக்கிறது..." },
+  "rewards.catalog_title": { en: "Redeem Your Points", ta: "உங்கள் புள்ளிகளை மாற்றிக்கொள்ளுங்கள்" },
+  "rewards.available_points": { en: "Available points", ta: "கிடைக்கும் புள்ளிகள்" },
+  "rewards.points_unit": { en: "pts", ta: "புள்ளிகள்" },
+  "rewards.redeem": { en: "Redeem", ta: "மாற்றிக்கொள்" },
+  "rewards.not_enough": { en: "Not enough points", ta: "போதிய புள்ளிகள் இல்லை" },
+  "rewards.no_rewards": { en: "No rewards available yet", ta: "இன்னும் வெகுமதிகள் இல்லை" },
+  "rewards.no_rewards_desc": { en: "Check back soon — the association is setting up the rewards catalog.", ta: "விரைவில் மீண்டும் பாருங்கள் — சங்கம் வெகுமதிப் பட்டியலை அமைத்து வருகிறது." },
+  "rewards.my_redemptions": { en: "My Redemption Requests", ta: "எனது மாற்றுதல் கோரிக்கைகள்" },
+  "rewards.confirm_title": { en: "Confirm Redemption", ta: "மாற்றுதலை உறுதிசெய்" },
+  "rewards.confirm_body": { en: "Redeem", ta: "மாற்றிக்கொள்ள விரும்புகிறீர்களா" },
+  "rewards.confirm_for": { en: "for", ta: "இதற்காக" },
+  "rewards.confirm_submit": { en: "Confirm Redemption", ta: "மாற்றுதலை உறுதிசெய்" },
+  "rewards.redeem_requested": { en: "Redemption request submitted — awaiting admin approval.", ta: "மாற்றுதல் கோரிக்கை சமர்ப்பிக்கப்பட்டது — நிர்வாகி ஒப்புதலுக்காக காத்திருக்கிறது." },
+  "rewards.redeem_failed": { en: "Could not submit your redemption request.", ta: "உங்கள் மாற்றுதல் கோரிக்கையை சமர்ப்பிக்க முடியவில்லை." },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

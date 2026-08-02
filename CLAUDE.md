@@ -473,10 +473,13 @@ Member self-service tools act only on the caller's own data, so they use `ctx.us
 
 ### Attach chooser (📎)
 
-The paperclip opens a **chooser** (`attachChoice` message) instead of force-routing to payment proof. Three routes:
+The paperclip opens a **chooser** (`attachChoice` message) instead of force-routing to payment proof. Four routes:
 - **Payment proof** → `startProofUpload()` (also still on the amber "Upload proof" strip).
 - **Expense bill** → navigates to `/dashboard/vouchers` (AI bill scan).
 - **Show the assistant** → pick any image; it's held as `pendingImage` (thumbnail in the user bubble) and sent to the chat backend as an `inlineData` part so Gemini vision can answer (pest ID, read/summarize a document, describe a receipt). Send is enabled with an image even when the text box is empty.
+- **Paste from clipboard** (added 2026-08-02) → `navigator.clipboard.read()` reads an image straight off the OS clipboard (no file to pick, e.g. after a screenshot tool copy) and stages it the same way as a picked file, via the shared `attachImageFile()` helper. Falls back to a "try Ctrl+V instead" message if the Clipboard API isn't available (older Safari) or permission is denied.
+
+**Passive paste is also wired independently of that button:** the message `<Input>`'s `onPaste` handler (`handleInputPaste`) intercepts Ctrl+V / long-press-paste when the clipboard holds an image (`clipboardData.items`), staging it the same way — so a copied screenshot can just be pasted directly into the box without opening the attach menu at all. Plain-text paste is untouched (browser handles it natively); only image MIME types are intercepted, and only when actually present.
 
 `sendMessage` still locally intercepts genuine upload *intent* (`PROOF_INTENT` regex) but **skips questions** (`QUESTION_RX`) and skips when an image is attached, so "how much did X pay?" reaches the assistant instead of the uploader.
 
@@ -1372,7 +1375,7 @@ Points-based gamification layered on the task system to motivate members. Table:
 - **Member page:** `/dashboard/rewards` ("Rewards & Progress", under *My Activity*) — level progress hero, points breakdown, leaderboard with period/scope toggles. The whole UI lives in the shared **`components/gamification-panel.tsx`** (`<GamificationPanel showHeading?>`); `/dashboard/rewards` is a 4-line wrapper.
 - **In the task areas:** both `/dashboard/todos` and `/admin/todos` embed `<GamificationPanel showHeading={false}>` inside a collapsible section toggled by a header **🏆 Rewards** button (open by default). Reuse this component anywhere the leaderboard/level/stats are wanted — don't re-fetch `/api/gamification` ad hoc.
 - **Backfill:** `scripts/backfill-task-points.mjs` (dry-run default, `--execute`) seeds points from historical task activity. Idempotent (skips existing `user|todo|reason` keys).
-- **Rewards redemption is intentionally deferred** (points-only). When building it: add `rewards` (admin catalog) + `reward_redemptions` (request → approve/deduct or reject/refund) tables; the points ledger already exists.
+- **Rewards Redemption (built 2026-08-02):** `rewards` (admin catalog: title, description, points_cost, active) + `reward_redemptions` (request → approve/reject queue, `pending`/`approved`/`rejected`, snapshots `reward_title`/`points_cost` so catalog edits/deletes never corrupt history). No separate balance column — approving a redemption inserts a **negative** `task_points` row (`reason: "reward_redeemed"`, `ref_type: "reward_redemption"`) via the existing `awardTaskPoints()` `ref` path, so `/api/gamification`, the leaderboard, and levels reflect spending automatically. `GET /api/reward-redemptions` computes `available_points` = lifetime `task_points` sum minus the member's own still-`pending` requests (approved ones are already netted into the sum) — this is what gates whether a member can afford a reward, not the raw leaderboard total. **Member UI:** `<RewardsCatalog>` on `/dashboard/rewards`, below `<GamificationPanel>`. **Admin UI:** `/admin/rewards` (Redemption Requests + Catalog tabs), `isAdmin`-gated at the API layer only (page itself unguarded, per the admin-panel convention).
 
 ## Event RSVP
 

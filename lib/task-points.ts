@@ -12,6 +12,7 @@ export const TASK_POINTS = {
   on_time_bonus: 10,     // completed on/before its due date
   diary_entry: 10,       // submitted a daily field diary entry
   diary_success_story: 15, // a diary entry's AI-drafted success story was published
+  reward_redeemed: 0,    // always used with a negative overridePoints — see /api/reward-redemptions
 } as const;
 
 export type PointReason = keyof typeof TASK_POINTS;
@@ -26,6 +27,7 @@ export const REASON_LABELS: Record<string, string> = {
   on_time_bonus: "On-time completion bonus",
   diary_entry: "Submitted a field diary entry",
   diary_success_story: "Field diary success story published",
+  reward_redeemed: "Reward redeemed",
 };
 
 export const LEVELS = [

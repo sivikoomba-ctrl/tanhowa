@@ -7,7 +7,7 @@ import {
   MessageCircle, Send, X, Flower2, User, Database,
   Megaphone, CalendarDays, Users, FileText, Trophy,
   ClipboardList, GraduationCap, BarChart3, CreditCard,
-  Sparkles, RotateCcw, Paperclip, CheckCircle2, AlertCircle, Mic, Volume2, VolumeX, Receipt, ImageUp,
+  Sparkles, RotateCcw, Paperclip, CheckCircle2, AlertCircle, Mic, Volume2, VolumeX, Receipt, ImageUp, Clipboard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useT, useLang } from "@/lib/i18n";
@@ -255,10 +255,9 @@ export default function ChatbotWidget() {
     setTimeout(() => attachInputRef.current?.click(), 50);
   }
 
-  async function handleAttachFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (attachInputRef.current) attachInputRef.current.value = "";
-    if (!file) return;
+  // Shared by the file picker, drag/drop-free paste event, and the explicit
+  // "Paste from Clipboard" button — validates and stages an image as pendingImage.
+  async function attachImageFile(file: File, source: "picked" | "pasted" = "picked") {
     if (!file.type.startsWith("image/")) {
       addBotMessage("Please pick an image — a photo of a pest, plant, document, or receipt.");
       return;
@@ -274,7 +273,56 @@ export default function ChatbotWidget() {
       r.readAsDataURL(file);
     });
     setPendingImage({ dataUrl, base64: dataUrl.split(",")[1] || "", mimeType: file.type });
-    addBotMessage('Got your image 📎 — now type what you\'d like me to do with it (e.g., "what pest is this?", "summarize this document").');
+    const verb = source === "pasted" ? "pasted" : "attached";
+    addBotMessage(`Got your ${verb} image 📎 — now type what you'd like me to do with it (e.g., "what pest is this?", "summarize this document").`);
+  }
+
+  async function handleAttachFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (attachInputRef.current) attachInputRef.current.value = "";
+    if (!file) return;
+    await attachImageFile(file, "picked");
+  }
+
+  // Ctrl+V / long-press-paste into the message box — if the clipboard holds an
+  // image (e.g. a copied screenshot), stage it like a picked attachment instead
+  // of letting the browser try to paste binary data as text. Plain-text paste
+  // is untouched — the browser already handles that natively.
+  async function handleInputPaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) await attachImageFile(file, "pasted");
+        return;
+      }
+    }
+  }
+
+  // Explicit "Paste from Clipboard" button (attach menu) — for when the user
+  // wants a discoverable click instead of remembering Ctrl+V, and for OS
+  // screenshot tools that copy straight to the clipboard with no file to pick.
+  async function pasteFromClipboard() {
+    if (!navigator.clipboard?.read) {
+      addBotMessage("Clipboard paste isn't supported in this browser — try Ctrl+V (or long-press → Paste) in the message box instead.");
+      return;
+    }
+    try {
+      const clipItems = await navigator.clipboard.read();
+      for (const item of clipItems) {
+        const imageType = item.types.find((ty) => ty.startsWith("image/"));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          await attachImageFile(new File([blob], "clipboard-image.png", { type: imageType }), "pasted");
+          return;
+        }
+      }
+      addBotMessage("No image found on your clipboard — copy an image first, then try again.");
+    } catch {
+      addBotMessage("Couldn't read your clipboard — your browser may need permission. Try Ctrl+V in the message box instead.");
+    }
   }
 
   async function handleProofFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -601,6 +649,11 @@ export default function ChatbotWidget() {
                         <span className="font-medium">Show the assistant</span>
                         <span className="text-muted-foreground ml-auto text-[10px]">ask about an image</span>
                       </button>
+                      <button onClick={pasteFromClipboard} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-xs text-left transition-colors">
+                        <Clipboard size={13} className="text-primary shrink-0" />
+                        <span className="font-medium">Paste from clipboard</span>
+                        <span className="text-muted-foreground ml-auto text-[10px]">copied image</span>
+                      </button>
                     </div>
                   )}
                   {/* Sub-selection buttons */}
@@ -700,6 +753,7 @@ export default function ChatbotWidget() {
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onPaste={handleInputPaste}
               placeholder={listening ? "Listening…" : t("chat.type_message")}
               disabled={loading || uploading}
               className="flex-1 border-primary/30 focus-visible:ring-primary"

@@ -57,6 +57,7 @@ import {
   Eye,
   Bot,
   Share2,
+  Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -125,6 +126,7 @@ const NAV_SECTIONS = [
       { href: "/admin/todos", labelKey: "nav.todos" as const, icon: ListTodo },
       { href: "/admin/trainings", labelKey: "nav.trainings" as const, icon: GraduationCap },
       { href: "/admin/wishlist", labelKey: "nav.wishlist" as const, icon: Lightbulb },
+      { href: "/admin/rewards", labelKey: "nav.rewards_admin" as const, icon: Gift },
       { href: "/admin/food-orders", labelKey: "nav.food_orders" as const, icon: UtensilsCrossed },
       { href: "/admin/faq", labelKey: "nav.faq" as const, icon: HelpCircle },
       { feedbackGroup: true as const },
