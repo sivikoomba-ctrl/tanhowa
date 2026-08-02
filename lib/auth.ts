@@ -197,14 +197,18 @@ export async function isFinanceTeamMember(userId: string): Promise<boolean> {
 }
 
 /**
- * Check if a user is a TT Team member — grants access to Project H (policy vault).
+ * Check if a user is a Horti Think Team member — grants access to Project H (policy vault).
+ * Matches team name case-insensitively containing "think" (same resilient pattern as
+ * isFinanceTeamMember above) — an exact-name match previously drifted out of sync twice
+ * as the team was renamed ("TT Team" in code vs "HTT Team" documented vs "Horti Think
+ * Team" actually in the DB), silently locking every member out of Project H each time.
  */
 export async function isProjectHMember(userId: string): Promise<boolean> {
   const supabase = getServiceClient();
   const { data: teams } = await supabase
     .from("teams")
     .select("id")
-    .eq("name", "TT Team");
+    .ilike("name", "%think%");
   if (!teams || teams.length === 0) return false;
   const teamIds = teams.map((t) => t.id);
   const { data: membership } = await supabase
