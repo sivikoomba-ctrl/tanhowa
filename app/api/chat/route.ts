@@ -99,7 +99,43 @@ export async function POST(req: NextRequest) {
       response = result.response;
     }
 
-    const reply = response.text();
+    let reply = "";
+    try {
+      reply = response.text();
+    } catch {
+      reply = "";
+    }
+
+    // Gemini sometimes ends the tool-calling loop without any final text part
+    // (e.g. it still wants another function call after MAX_TOOL_ROUNDS, or an
+    // occasional empty/blocked candidate) — response.text() then silently
+    // returns "" rather than throwing, which used to reach the member as a
+    // blank 200 OK and show the generic "Sorry, something went wrong."
+    // Ask once more for a plain-text summary before giving up.
+    if (!reply) {
+      try {
+        const followUp = await chat.sendMessage(
+          "Please give a plain-text summary of the information you have for the user now, without calling any more functions."
+        );
+        reply = followUp.response.text();
+      } catch {
+        reply = "";
+      }
+    }
+
+    if (!reply) {
+      await logError({
+        type: "api",
+        message: "Gemini returned an empty reply after the tool-calling loop",
+        path: "/api/chat",
+        method: "POST",
+        status_code: 200,
+        user_id: session.userId,
+        metadata: { message: message.trim().slice(0, 200) },
+      });
+      reply = "Sorry, I couldn't put together an answer for that. Could you try rephrasing your question?";
+    }
+
     return NextResponse.json({ reply });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
