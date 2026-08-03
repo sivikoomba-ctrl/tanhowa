@@ -7,6 +7,7 @@ import { validate, subscriptionUpdateSchema } from "@/lib/validation";
 const SUBSCRIPTION_EXEMPT_EMAILS = [DEFAULT_ADMIN_EMAIL, "tanhowa19791@gmail.com"];
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { awardTaskPoints } from "@/lib/task-points";
 import { isFlexibleAmount } from "@/lib/subscriptions";
 import { fetchAllRows } from "@/lib/supabase-helpers";
 import { logAudit } from "@/lib/audit-log";
@@ -746,9 +747,11 @@ export async function PUT(req: NextRequest) {
     if (body.status === "paid") {
       const { data: sub } = await supabase.from("subscriptions").select("period").eq("id", body.id).single();
       logContribution(session.userId, "payment_verified", "Verified payment for " + (sub?.period || "unknown period"));
+      awardTaskPoints(session.userId, "finance_payment_verified", null, undefined, { type: "subscription", id: body.id });
     } else if (body.status === "rejected") {
       const { data: sub } = await supabase.from("subscriptions").select("period").eq("id", body.id).single();
       logContribution(session.userId, "payment_rejected", "Rejected payment for " + (sub?.period || "unknown period"));
+      awardTaskPoints(session.userId, "finance_payment_rejected", null, undefined, { type: "subscription", id: body.id });
     } else if (body.status === "hold") {
       logContribution(session.userId, "payment_hold", "Put payment on hold");
     }

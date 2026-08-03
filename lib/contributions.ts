@@ -24,6 +24,8 @@ export type ContributionAction =
   | "voucher_rejected"
   | "profile_updated"
   | "expense_voucher_submitted"
+  | "expense_voucher_approved"
+  | "expense_voucher_rejected"
   | "member_profile_edited"
   | "document_downloaded"
   | "used_ai_pest_id"
@@ -73,6 +75,8 @@ const ACTION_CONFIG: Record<ContributionAction, { label: string; minutes: number
   voucher_rejected:        { label: "Rejected voucher", minutes: 3 },
   profile_updated:         { label: "Updated profile", minutes: 3 },
   expense_voucher_submitted: { label: "Submitted expense voucher", minutes: 5 },
+  expense_voucher_approved:  { label: "Approved expense voucher", minutes: 3 },
+  expense_voucher_rejected:  { label: "Rejected expense voucher", minutes: 3 },
   member_profile_edited:    { label: "Edited member profile", minutes: 3 },
   document_downloaded:      { label: "Downloaded document", minutes: 1 },
   used_ai_pest_id:          { label: "Used AI Pest Identifier", minutes: 2 },

@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase";
 import { getSession, isAdminOrOfficial, isSuperAdmin } from "@/lib/auth";
 import { logError } from "@/lib/error-logger";
 import { logContribution } from "@/lib/contributions";
+import { awardTaskPoints } from "@/lib/task-points";
 import { logAudit } from "@/lib/audit-log";
 import { sendVoucherStatusEmail } from "@/lib/mail";
 import { validate, voucherCreateSchema } from "@/lib/validation";
@@ -361,6 +362,14 @@ export async function PUT(req: NextRequest) {
     if (financeAccess && body.status) {
       for (const vid of ids) {
         logAudit(session.userId, "voucher_" + body.status, "voucher", vid);
+        if (body.status === "approved" || body.status === "rejected") {
+          logContribution(
+            session.userId,
+            body.status === "approved" ? "expense_voucher_approved" : "expense_voucher_rejected",
+            "Reviewed expense voucher"
+          );
+          awardTaskPoints(session.userId, "finance_voucher_reviewed", null, undefined, { type: "expense_voucher", id: vid });
+        }
       }
     }
 

@@ -282,6 +282,8 @@ export default function DashboardHome() {
     voucher_submitted: "submitted a voucher",
     voucher_approved: "approved a voucher",
     expense_voucher_submitted: "submitted an expense",
+    expense_voucher_approved: "approved an expense voucher",
+    expense_voucher_rejected: "rejected an expense voucher",
     used_ai_pest_id: "used Pest ID tool",
     used_ai_crop_advice: "used Crop Adviser",
     used_ai_translation: "used Translator",

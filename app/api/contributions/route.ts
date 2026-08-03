@@ -67,6 +67,8 @@ export async function GET(req: NextRequest) {
         voucher_rejected: "Rejected voucher",
         profile_updated: "Updated profile",
         expense_voucher_submitted: "Submitted expense voucher",
+        expense_voucher_approved: "Approved expense voucher",
+        expense_voucher_rejected: "Rejected expense voucher",
         member_profile_edited: "Edited member profile",
       };
 

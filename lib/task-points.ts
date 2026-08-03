@@ -13,6 +13,9 @@ export const TASK_POINTS = {
   diary_entry: 10,       // submitted a daily field diary entry
   diary_success_story: 15, // a diary entry's AI-drafted success story was published
   reward_redeemed: 0,    // always used with a negative overridePoints — see /api/reward-redemptions
+  finance_payment_verified: 3, // Finance Team: final approval of a subscription payment
+  finance_payment_rejected: 2, // Finance Team: rejected a subscription payment
+  finance_voucher_reviewed: 3, // Finance Team: approved or rejected an expense voucher
 } as const;
 
 export type PointReason = keyof typeof TASK_POINTS;
@@ -28,6 +31,9 @@ export const REASON_LABELS: Record<string, string> = {
   diary_entry: "Submitted a field diary entry",
   diary_success_story: "Field diary success story published",
   reward_redeemed: "Reward redeemed",
+  finance_payment_verified: "Verified a payment",
+  finance_payment_rejected: "Rejected a payment",
+  finance_voucher_reviewed: "Reviewed an expense voucher",
 };
 
 export const LEVELS = [

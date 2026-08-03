@@ -29,6 +29,7 @@ import {
   Trash2,
   ScanLine,
   Pencil,
+  Users,
 } from "lucide-react";
 import { FinanceOtpGate } from "@/components/finance-otp-gate";
 
@@ -82,6 +83,24 @@ interface ChequeEntry {
   status: string;
   voucher_id: string | null;
   remarks: string | null;
+}
+
+interface FinanceOpsMember {
+  id: string;
+  name: string;
+  role: string;
+  last_active_at: string | null;
+  actions30d: number;
+}
+
+interface FinanceOpsData {
+  team: { id: string; name: string } | null;
+  queue: {
+    pendingSubscriptions: { count: number; oldestAt: string | null };
+    pendingVouchers: { count: number; oldestAt: string | null };
+    unlinkedCheques: { count: number };
+  };
+  members: FinanceOpsMember[];
 }
 
 const CHEQUE_STATUS_STYLES: Record<string, string> = {
@@ -157,6 +176,8 @@ export default function FinancePage() {
   const [unlinkedCheques, setUnlinkedCheques] = useState<ChequeEntry[]>([]);
   const [matches, setMatches] = useState<{ entry: ChequeEntry; voucher: MatchVoucher | null }[]>([]);
   const [loadingMatching, setLoadingMatching] = useState(false);
+  const [opsData, setOpsData] = useState<FinanceOpsData | null>(null);
+  const [loadingOps, setLoadingOps] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -213,6 +234,33 @@ export default function FinancePage() {
   }, []);
 
   useEffect(() => { if (view === "settlement") loadMatching(); }, [view, loadMatching]);
+
+  const loadOps = useCallback(async () => {
+    setLoadingOps(true);
+    try {
+      const res = await fetch("/api/finance?ops=1");
+      const data = await res.json();
+      if (res.ok) {
+        setOpsData(data);
+      } else {
+        toast.error(data.error || "Failed to load team ops data");
+      }
+    } catch {
+      toast.error("Failed to load team ops data");
+    } finally {
+      setLoadingOps(false);
+    }
+  }, []);
+
+  useEffect(() => { if (view === "ops") loadOps(); }, [view, loadOps]);
+
+  function daysAgo(dateStr: string | null): string {
+    if (!dateStr) return "—";
+    const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / (24 * 3600 * 1000));
+    if (days <= 0) return "today";
+    if (days === 1) return "1 day ago";
+    return `${days} days ago`;
+  }
 
   async function linkCheque(chequeId: string, voucherId: string | null) {
     const res = await fetch("/api/finance", {
@@ -737,6 +785,7 @@ export default function FinancePage() {
         <TabsList>
           <TabsTrigger value="ledger">Ledger</TabsTrigger>
           <TabsTrigger value="settlement">Cheque Settlement</TabsTrigger>
+          <TabsTrigger value="ops">Team Ops</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ledger" className="space-y-6 mt-4">
@@ -1094,6 +1143,59 @@ export default function FinancePage() {
                       </span>
                     </div>
                   ))}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="ops" className="space-y-6 mt-4">
+          {loadingOps ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : !opsData ? (
+            <EmptyState icon={Users} title="No data" />
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-4">
+                <MetricCard label="Pending Subscriptions" value={opsData.queue.pendingSubscriptions.count} subtitle={`Oldest: ${daysAgo(opsData.queue.pendingSubscriptions.oldestAt)}`} icon={IndianRupee} borderColor="border-l-amber-500" iconColor="text-amber-500/40" subtitleColor="text-amber-600" />
+                <MetricCard label="Pending Vouchers" value={opsData.queue.pendingVouchers.count} subtitle={`Oldest: ${daysAgo(opsData.queue.pendingVouchers.oldestAt)}`} icon={FileText} borderColor="border-l-amber-500" iconColor="text-amber-500/40" subtitleColor="text-amber-600" />
+                <MetricCard label="Unlinked Cheques" value={opsData.queue.unlinkedCheques.count} subtitle="Not yet settled to a voucher" icon={Banknote} borderColor="border-l-red-500" iconColor="text-red-500/40" subtitleColor="text-red-600" />
+              </div>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Users size={14} /> {opsData.team?.name || "Finance Team"} — 30-day activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {opsData.members.length === 0 ? (
+                    <EmptyState icon={Users} title="No team members found" description="Add members to the Finance Team from Admin -> Teams." />
+                  ) : (
+                    <div className="divide-y">
+                      {opsData.members.map((m) => (
+                        <div key={m.id} className="flex items-center justify-between gap-3 py-2.5">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium truncate">{m.name}</span>
+                              {m.role === "lead" && (
+                                <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/30">Lead</Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Last active {daysAgo(m.last_active_at)}</div>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs shrink-0 ${m.actions30d === 0 ? "bg-red-50 text-red-700 border-red-300" : "bg-green-50 text-green-700 border-green-300"}`}
+                          >
+                            {m.actions30d} action{m.actions30d === 1 ? "" : "s"} / 30d
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </>

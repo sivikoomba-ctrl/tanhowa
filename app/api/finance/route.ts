@@ -64,6 +64,82 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Finance Team ops view: queue depth + per-member 30-day activity.
+    // Lets a Team Lead (or super_admin) see backlog size and who's actually
+    // working it without hand-querying the DB.
+    if (url.searchParams.get("ops") === "1") {
+      if (!(await canManageEntries(session))) {
+        return NextResponse.json({ error: "Finance team access required" }, { status: 403 });
+      }
+      const supabaseO = getServiceClient();
+
+      const { data: teams } = await supabaseO.from("teams").select("id, name").ilike("name", "%finance%");
+      const team = (teams || [])[0] || null;
+
+      let members: { id: string; name: string; role: string; last_active_at: string | null }[] = [];
+      if (team) {
+        const { data: teamMembers } = await supabaseO
+          .from("team_members")
+          .select("role, user:user_id(id, name, last_active_at)")
+          .eq("team_id", team.id);
+        members = (teamMembers || []).map((tm) => {
+          const u = tm.user as unknown as { id: string; name: string; last_active_at: string | null } | null;
+          return { id: u?.id || "", name: u?.name || "", role: tm.role, last_active_at: u?.last_active_at || null };
+        }).filter((m) => m.id);
+      }
+
+      const countAndOldest = async (table: string, statusFilter: string) => {
+        const { count } = await supabaseO
+          .from(table)
+          .select("id", { count: "exact", head: true })
+          .eq("status", statusFilter);
+        const { data: oldest } = await supabaseO
+          .from(table)
+          .select("created_at")
+          .eq("status", statusFilter)
+          .order("created_at", { ascending: true })
+          .limit(1);
+        return { count: count || 0, oldestAt: oldest?.[0]?.created_at || null };
+      };
+
+      const { count: unlinkedChequesCount } = await supabaseO
+        .from("finance_entries")
+        .select("id", { count: "exact", head: true })
+        .is("voucher_id", null);
+
+      const [pendingSubscriptions, pendingVouchers] = await Promise.all([
+        countAndOldest("subscriptions", "pending"),
+        countAndOldest("expense_vouchers", "pending"),
+      ]);
+
+      const FINANCE_ACTIONS = ["payment_verified", "payment_rejected", "expense_voucher_approved", "expense_voucher_rejected"];
+      const actionsByUser = new Map<string, number>();
+      if (members.length) {
+        const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+        const { data: contribRows } = await supabaseO
+          .from("contributions")
+          .select("user_id")
+          .in("user_id", members.map((m) => m.id))
+          .in("action", FINANCE_ACTIONS)
+          .gte("created_at", since);
+        for (const row of contribRows || []) {
+          actionsByUser.set(row.user_id, (actionsByUser.get(row.user_id) || 0) + 1);
+        }
+      }
+
+      return NextResponse.json({
+        team: team ? { id: team.id, name: team.name } : null,
+        queue: {
+          pendingSubscriptions,
+          pendingVouchers,
+          unlinkedCheques: { count: unlinkedChequesCount || 0 },
+        },
+        members: members
+          .map((m) => ({ ...m, actions30d: actionsByUser.get(m.id) || 0 }))
+          .sort((a, b) => b.actions30d - a.actions30d),
+      });
+    }
+
     const year = url.searchParams.get("year") || "2026-27";
 
     // Financial year: April 1 to March 31

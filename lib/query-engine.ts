@@ -815,6 +815,8 @@ export async function setVoucherStatus(ctx: QueryContext, args: { submitter_name
   const { error } = await supabase.from("expense_vouchers").update(updates).eq("id", voucher.id);
   if (error) return { error: "Failed to update the voucher. Please try again." };
 
+  awardTaskPoints(ctx.userId, "finance_voucher_reviewed", null, undefined, { type: "expense_voucher", id: voucher.id });
+
   if (submitter.email) {
     sendVoucherStatusEmail(submitter.email, submitter.name || "Official", voucher.title, voucher.amount || 0, status as "approved" | "rejected", args.remarks || voucher.remarks || "").catch(() => {});
   }
@@ -897,6 +899,12 @@ export async function setPaymentStatus(ctx: QueryContext, args: { name?: string;
 
   const { error } = await supabase.from("subscriptions").update(updates).eq("id", sub.id);
   if (error) return { error: "Failed to update the payment. Please try again." };
+
+  if (status === "paid") {
+    awardTaskPoints(ctx.userId, "finance_payment_verified", null, undefined, { type: "subscription", id: sub.id });
+  } else if (status === "rejected") {
+    awardTaskPoints(ctx.userId, "finance_payment_rejected", null, undefined, { type: "subscription", id: sub.id });
+  }
 
   logAudit(ctx.userId, "payment_" + status, "subscription", sub.id, { member: member.name, period: sub.period, via: "assistant", by: actor.name || ctx.email });
   return { ok: true, member: member.name, period: sub.period, status, message: `Marked ${member.name}'s "${displayPeriod(sub.period)}" as ${status}.` };

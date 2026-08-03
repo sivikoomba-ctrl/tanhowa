@@ -43,6 +43,8 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   voucher_rejected:          { label: "Voucher Rejected", color: "bg-red-100 text-red-700 border-red-300" },
   profile_updated:           { label: "Profile", color: "bg-gray-100 text-gray-700 border-gray-300" },
   expense_voucher_submitted: { label: "Expense Voucher", color: "bg-amber-100 text-amber-700 border-amber-300" },
+  expense_voucher_approved:  { label: "Expense Voucher Approved", color: "bg-green-100 text-green-700 border-green-300" },
+  expense_voucher_rejected:  { label: "Expense Voucher Rejected", color: "bg-red-100 text-red-700 border-red-300" },
 };
 
 function formatMinutes(minutes: number) {
