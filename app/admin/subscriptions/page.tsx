@@ -113,6 +113,10 @@ export default function AdminSubscriptionsPage() {
   const [payeeInfo, setPayeeInfo] = useState<{ paid_to: string | null; paid_account: string | null; is_tanhowa_payment: boolean } | null>(null);
   const [payeeOverride, setPayeeOverride] = useState(false);
 
+  // Sequential review queue — verify/reject/hold one payment, auto-advance to the next
+  const [reviewQueue, setReviewQueue] = useState<Subscription[] | null>(null);
+  const [reviewTotal, setReviewTotal] = useState(0);
+
   // Admin member picker for bulk payments
   const [adminSelectedMembers, setAdminSelectedMembers] = useState<Set<string>>(new Set());
   const [adminMemberSearch, setAdminMemberSearch] = useState("");
@@ -716,17 +720,134 @@ export default function AdminSubscriptionsPage() {
       } else {
         toast.success("Payment verified and marked as paid");
       }
-      setPayDialog(null);
       setPayForm({ remarks: "", payment_date: "", payment_time: "", verified_email: "", transaction_id: "", payment_method: "", amount: "" });
       setAdminSelectedMembers(new Set());
       setAdminMemberSearch("");
       setAdminSelectedPeriods(new Set());
       setPayeeInfo(null);
+      if (reviewQueue) advanceQueue(); else setPayDialog(null);
       load();
     } else {
       toast.error("Failed to update");
     }
     setPayLoading(false);
+  }
+
+  // Opens the Verify & Approve dialog for a subscription — sets the default
+  // remark, resets the form, signs the proof URL, and AI-extracts payment
+  // details from it. Shared by the row's "Verify & Approve" button and the
+  // sequential review queue (startReviewQueue / advanceQueue below).
+  async function openVerifyDialog(sub: Subscription) {
+    setPayDialog(sub);
+    const today = new Date();
+    let defaultRemark = "";
+    // Finance Team members: remarks auto-appended by server, keep textarea empty
+    // Other admins: pre-fill with existing remark or generate provisional/approved remark
+    if (!adminInfo.isFinanceTeam) {
+      defaultRemark = sub.remarks || "";
+      if (!defaultRemark && adminInfo.name) {
+        const parts = [adminInfo.name];
+        if (adminInfo.designation) parts.push(adminInfo.designation);
+        if (!adminInfo.isSuperAdmin && adminInfo.district) parts.push(adminInfo.district);
+        parts.push("TANHOWA");
+        defaultRemark = adminInfo.isSuperAdmin
+          ? `Approved. - ${parts.join(", ")}.`
+          : `Provisionally approved. - ${parts.join(", ")}.`;
+      }
+    }
+    setPayForm({
+      remarks: defaultRemark,
+      payment_date: today.toISOString().split("T")[0],
+      payment_time: today.toTimeString().slice(0, 5),
+      verified_email: sub.users?.email || "",
+      transaction_id: sub.transaction_id || "",
+      payment_method: sub.payment_method || "",
+      amount: sub.amount ? String(sub.amount) : "",
+    });
+    setPayProofUrl(null);
+    setExtractingDate(false);
+    setPayeeInfo(null);
+    setAdminSelectedMembers(new Set());
+    setAdminMemberSearch("");
+    if (sub.payment_proof_url) {
+      try {
+        const signedUrl = await fetchSignedPaymentProofUrl(sub.id, sub.payment_proof_url);
+        setPayProofUrl(signedUrl);
+        // Extract date/time from proof image using AI
+        setExtractingDate(true);
+        setPayeeInfo(null);
+        try {
+          const fd = new FormData();
+          fd.append("image_url", signedUrl);
+          const extRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
+          const extData = await extRes.json();
+          if (extData.date || extData.time || extData.transaction_id || extData.payment_method || extData.amount) {
+            setPayForm((prev) => ({
+              ...prev,
+              ...(extData.date ? { payment_date: extData.date } : {}),
+              ...(extData.time ? { payment_time: extData.time } : {}),
+              ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
+              ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
+              ...(extData.amount ? { amount: String(extData.amount) } : {}),
+            }));
+            setPayDialog((prev) => prev ? {
+              ...prev,
+              ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
+              ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
+            } : prev);
+          }
+          if (extData.paid_to || extData.paid_account) {
+            setPayeeInfo({ paid_to: extData.paid_to, paid_account: extData.paid_account, is_tanhowa_payment: extData.is_tanhowa_payment });
+            if (!extData.is_tanhowa_payment) {
+              toast.error("Warning: Payment may NOT be to TANHOWA account!", { duration: 8000 });
+            }
+          } else {
+            setPayeeInfo(null);
+          }
+        } catch { toast.error("Could not extract payment details — please enter manually"); }
+        setExtractingDate(false);
+      } catch {
+        toast.error("Failed to load proof");
+      }
+    }
+  }
+
+  // Sequential review queue: builds the working set from the currently
+  // filtered view (oldest first) so it naturally scopes to whatever the
+  // admin is looking at — e.g. Finance Team members default to the
+  // "ds-verified" filter, so their queue is exactly their real worklist.
+  function startReviewQueue() {
+    const queue = filtered
+      .filter((s) => s.status === "pending" || s.status === "overdue")
+      .slice()
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    if (queue.length === 0) {
+      toast.info("No pending/overdue payments to review in the current filter.");
+      return;
+    }
+    setReviewQueue(queue);
+    setReviewTotal(queue.length);
+    openVerifyDialog(queue[0]);
+  }
+
+  function advanceQueue() {
+    if (!reviewQueue || reviewQueue.length === 0) return;
+    const rest = reviewQueue.slice(1);
+    if (rest.length === 0) {
+      toast.success(`Review queue complete — ${reviewTotal} reviewed.`);
+      setReviewQueue(null);
+      setReviewTotal(0);
+      setPayDialog(null);
+      return;
+    }
+    setReviewQueue(rest);
+    openVerifyDialog(rest[0]);
+  }
+
+  function exitReviewQueue() {
+    setReviewQueue(null);
+    setReviewTotal(0);
+    setPayDialog(null);
   }
 
   async function viewProof(sub: Subscription) {
@@ -788,8 +909,14 @@ export default function AdminSubscriptionsPage() {
     });
     if (res.ok) {
       toast.success("Payment rejected");
+      const rejectedId = rejectSub.id;
       setRejectSub(null);
       setRejectRemarks("");
+      if (reviewQueue) {
+        advanceQueue();
+      } else if (payDialog?.id === rejectedId) {
+        setPayDialog(null);
+      }
       load();
     } else {
       toast.error("Failed to reject");
@@ -1322,14 +1449,24 @@ export default function AdminSubscriptionsPage() {
 
       {/* Result count */}
       {subscriptions.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Showing {filtered.length} of {filtered.length} subscription{filtered.length !== 1 ? "s" : ""}{filtered.length < subscriptions.length ? ` (${subscriptions.length} loaded)` : ""}
-          {filtered.length !== subscriptions.length && (
-            <button className="ml-2 text-primary hover:underline" onClick={() => { setFilterStatus("all"); setFilterPeriod("all"); setFilterDistrict("all"); setFilterUploadTime("all"); setSearchQuery(""); }}>
-              Clear filters
-            </button>
-          )}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            Showing {filtered.length} of {filtered.length} subscription{filtered.length !== 1 ? "s" : ""}{filtered.length < subscriptions.length ? ` (${subscriptions.length} loaded)` : ""}
+            {filtered.length !== subscriptions.length && (
+              <button className="ml-2 text-primary hover:underline" onClick={() => { setFilterStatus("all"); setFilterPeriod("all"); setFilterDistrict("all"); setFilterUploadTime("all"); setSearchQuery(""); }}>
+                Clear filters
+              </button>
+            )}
+          </p>
+          {(() => {
+            const actionable = filtered.filter((s) => s.status === "pending" || s.status === "overdue").length;
+            return actionable > 0 ? (
+              <Button size="sm" className="h-7 text-xs" onClick={startReviewQueue}>
+                Review Queue ({actionable}) &rarr;
+              </Button>
+            ) : null;
+          })()}
+        </div>
       )}
 
       {/* Subscription List */}
@@ -1488,80 +1625,7 @@ export default function AdminSubscriptionsPage() {
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 h-7 text-xs"
-                            onClick={async () => {
-                              setPayDialog(sub);
-                              const today = new Date();
-                              let defaultRemark = "";
-                              // Finance Team members: remarks auto-appended by server, keep textarea empty
-                              // Other admins: pre-fill with existing remark or generate provisional/approved remark
-                              if (!adminInfo.isFinanceTeam) {
-                                defaultRemark = sub.remarks || "";
-                                if (!defaultRemark && adminInfo.name) {
-                                  const parts = [adminInfo.name];
-                                  if (adminInfo.designation) parts.push(adminInfo.designation);
-                                  if (!adminInfo.isSuperAdmin && adminInfo.district) parts.push(adminInfo.district);
-                                  parts.push("TANHOWA");
-                                  defaultRemark = adminInfo.isSuperAdmin
-                                    ? `Approved. - ${parts.join(", ")}.`
-                                    : `Provisionally approved. - ${parts.join(", ")}.`;
-                                }
-                              }
-                              setPayForm({
-                                remarks: defaultRemark,
-                                payment_date: today.toISOString().split("T")[0],
-                                payment_time: today.toTimeString().slice(0, 5),
-                                verified_email: sub.users?.email || "",
-                                transaction_id: sub.transaction_id || "",
-                                payment_method: sub.payment_method || "",
-                                amount: sub.amount ? String(sub.amount) : "",
-                              });
-                              setPayProofUrl(null);
-                              setExtractingDate(false);
-                              setPayeeInfo(null);
-                              setAdminSelectedMembers(new Set());
-                              setAdminMemberSearch("");
-                              if (sub.payment_proof_url) {
-                                try {
-                                  const signedUrl = await fetchSignedPaymentProofUrl(sub.id, sub.payment_proof_url);
-                                  setPayProofUrl(signedUrl);
-                                  // Extract date/time from proof image using AI
-                                  setExtractingDate(true);
-                                  setPayeeInfo(null);
-                                  try {
-                                    const fd = new FormData();
-                                    fd.append("image_url", signedUrl);
-                                    const extRes = await fetch("/api/upload/payment-proof/extract-date", { method: "POST", body: fd });
-                                    const extData = await extRes.json();
-                                    if (extData.date || extData.time || extData.transaction_id || extData.payment_method || extData.amount) {
-                                      setPayForm((prev) => ({
-                                        ...prev,
-                                        ...(extData.date ? { payment_date: extData.date } : {}),
-                                        ...(extData.time ? { payment_time: extData.time } : {}),
-                                        ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
-                                        ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
-                                        ...(extData.amount ? { amount: String(extData.amount) } : {}),
-                                      }));
-                                      setPayDialog((prev) => prev ? {
-                                        ...prev,
-                                        ...(extData.transaction_id && !prev.transaction_id ? { transaction_id: extData.transaction_id } : {}),
-                                        ...(extData.payment_method && !prev.payment_method ? { payment_method: extData.payment_method } : {}),
-                                      } : prev);
-                                    }
-                                    if (extData.paid_to || extData.paid_account) {
-                                      setPayeeInfo({ paid_to: extData.paid_to, paid_account: extData.paid_account, is_tanhowa_payment: extData.is_tanhowa_payment });
-                                      if (!extData.is_tanhowa_payment) {
-                                        toast.error("Warning: Payment may NOT be to TANHOWA account!", { duration: 8000 });
-                                      }
-                                    } else {
-                                      setPayeeInfo(null);
-                                    }
-                                  } catch { toast.error("Could not extract payment details — please enter manually"); }
-                                  setExtractingDate(false);
-                                } catch {
-                                  toast.error("Failed to load proof");
-                                }
-                              }
-                            }}
+                            onClick={() => openVerifyDialog(sub)}
                           >
                             Verify & Approve
                           </Button>
@@ -1745,11 +1809,26 @@ export default function AdminSubscriptionsPage() {
       </Tabs>
 
       {/* Verify Payment Dialog */}
-      <Dialog open={!!payDialog} onOpenChange={(open) => { if (!open) { setPayDialog(null); setPayeeInfo(null); setPayeeOverride(false); } }}>
+      <Dialog open={!!payDialog} onOpenChange={(open) => { if (!open) { setPayDialog(null); setPayeeInfo(null); setPayeeOverride(false); setReviewQueue(null); setReviewTotal(0); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Verify & Approve Payment</DialogTitle>
           </DialogHeader>
+          {reviewQueue && (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+              <p className="text-xs font-medium text-primary">
+                Sequential Review — {reviewTotal - reviewQueue.length + 1} of {reviewTotal}
+              </p>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button type="button" size="sm" variant="outline" className="h-6 text-[11px] px-2" onClick={advanceQueue}>
+                  Skip &rarr;
+                </Button>
+                <Button type="button" size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-muted-foreground" onClick={exitReviewQueue}>
+                  Exit Queue
+                </Button>
+              </div>
+            </div>
+          )}
           {payDialog && (
             <div className="space-y-4">
               {/* Member + Payment Summary */}
@@ -2186,6 +2265,28 @@ export default function AdminSubscriptionsPage() {
                 {payeeInfo?.is_tanhowa_payment === false && !payeeOverride && (
                   <p className="text-xs text-red-500 text-center">Payee mismatch - check the override box above to approve anyway.</p>
                 )}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 h-9 text-xs text-orange-700 border-orange-300 hover:bg-orange-50"
+                    onClick={async () => {
+                      if (!payDialog) return;
+                      await handleHold(payDialog.id);
+                      if (reviewQueue) advanceQueue(); else setPayDialog(null);
+                    }}
+                  >
+                    Hold
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 h-9 text-xs text-red-700 border-red-300 hover:bg-red-50"
+                    onClick={() => { if (payDialog) { setRejectSub(payDialog); setRejectRemarks(""); } }}
+                  >
+                    Reject
+                  </Button>
+                </div>
               </form>
             </div>
           )}
