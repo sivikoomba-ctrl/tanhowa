@@ -12,6 +12,7 @@ import {
   Activity, Star,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { renderSimpleMarkdown } from "@/lib/announcement-markdown";
 import { displayPeriod } from "@/lib/subscriptions";
 import { MetricCard } from "@/components/metric-card";
 import { AdminContacts } from "@/components/admin-contacts";
@@ -629,7 +630,10 @@ export default function DashboardHome() {
                   announcements.map((a) => (
                     <div key={a.id} className="border-b last:border-0 pb-3 last:pb-0">
                       <h3 className="font-medium text-sm">{a.title}</h3>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{a.content}</p>
+                      <p
+                        className="text-xs text-muted-foreground mt-1 line-clamp-2"
+                        dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(a.content) }}
+                      />
                       <p className="text-xs text-muted-foreground mt-1">{formatDate(a.created_at)}</p>
                     </div>
                   ))
